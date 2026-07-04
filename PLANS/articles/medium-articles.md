@@ -113,7 +113,7 @@ See `PROCESS/00_session_inventory.md` for the full table. In scope: `a70251a5-�
 | E | Current + skipped | ✅ | `PROCESS/76fe578b/summary.md`, `PROCESS/skipped/gmail_sessions.md` |
 | F | Synthesis | ✅ | `PROCESS/{90_themes,91_memorable_quotes,92_timeline,93_use_cases}.md` |
 | G | User review gate | ⬜ | pause |
-| H | Article drafts | 🟡 | **2 of 7 done.** Part 1 v2 (4,290 words, post-Council review). Part 2 v1 draft (4,878 words, 8 screenshot placeholders). Awaiting user review of Part 2 before Part 3. Part 6 (LLM Council) added 2026-05-22 — plan at `PLANS/articles/part6_llm_council_plan.md`. Part 7 (Perf Postmortem) added 2026-05-23 — plan TODO at `PLANS/articles/part7_perf_postmortem_plan.md`. |
+| H | Article drafts | 🟡 | **3 of 7 published.** Parts 1–3 are live on Medium. Part 3 (*The MCP Server*) shipped **2026-06-10**: all three twins (quickstart, user guide, long-form) published + verified against the repo, the LinkedIn announcement deck rebuilt (whole-slide-PNG builder `scripts/build_part3_deck.py`), and the `v1.0.7` release landed on PyPI (wheel) + the GitHub Release (`.mcpb`). **Next up: Part 4** (*Reverse-Engineering the Claude API*) — source already mined in `PROCESS/a70251a5/phase_04_fetcher_and_mitmproxy_capture.md` (+ phases 09/13). Part 6 (LLM Council) plan: `PLANS/articles/part6_llm_council_plan.md`; Part 7 (Perf Postmortem) plan TODO: `PLANS/articles/part7_perf_postmortem_plan.md`. Open decision: Part 6/7 ordering. |
 | I | Series intro | ⬜ | `PLANS/articles/00_series_intro.md` |
 | J | PII sweep | ⬜ | final versions |
 
