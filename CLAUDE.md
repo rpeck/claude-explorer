@@ -90,6 +90,9 @@ claude-explorer fetch
 # Step 3: Start the web server to browse
 claude-explorer serve
 # Then open http://localhost:8765
+
+# Diagnose install + environment health (read-only)
+claude-explorer doctor
 ```
 
 ### Command Reference

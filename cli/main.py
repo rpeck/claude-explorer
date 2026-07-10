@@ -17,7 +17,9 @@ intended layering. The console-script entry point in pyproject.toml
 is ``claude-explorer = "cli.main:main"``.
 """
 
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -525,6 +527,25 @@ def reindex_search(full: bool) -> None:
         click.echo("Drift pass: re-indexing only files whose mtime changed...")
         updated = update_drifted_files(store, index=idx)
         click.echo(f"Done. Re-indexed {updated} file(s).")
+
+
+@main.command()
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable JSON output")
+def doctor(as_json: bool) -> None:
+    """Diagnose install + environment health (read-only).
+
+    Reports pass/warn/fail per check with a fix hint. Exits non-zero if
+    any check fails. Fixing stays in dedicated commands (install-watcher,
+    reindex-search, mcp).
+    """
+    from backend.doctor import ALL_CHECKS, has_failure, render_text, run_checks, to_json
+
+    results = run_checks(ALL_CHECKS)
+    if as_json:
+        click.echo(json.dumps(to_json(results), indent=2))
+    else:
+        click.echo(render_text(results))
+    sys.exit(1 if has_failure(results) else 0)
 
 
 _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."

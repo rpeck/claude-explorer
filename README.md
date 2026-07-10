@@ -445,6 +445,28 @@ cd frontend && npm run dev
 ```
 Then open `http://localhost:5173`.
 
+#### `claude-explorer doctor`
+
+Diagnose install and environment health. **Read-only** — reports
+pass/warn/fail for each check with the exact command to fix it, and exits
+non-zero if any check fails (usable in setup scripts / CI). Fixing stays
+in the dedicated commands it points at.
+
+```bash
+claude-explorer doctor          # human-readable report
+claude-explorer doctor --json   # machine-readable
+```
+
+Checks: credentials, data directory, config validity, CC watcher,
+search/FTS5 index, uv/uvx on PATH, PDF export libraries, and whether
+`claude-explorer mcp` is registered in Claude Code and Claude Desktop.
+
+> **Note on Claude Desktop + `.mcpb`:** the Desktop MCP check only sees
+> servers in `claude_desktop_config.json`. Extensions installed via the
+> Desktop Extensions UI (`.mcpb` bundle) are stored in the app's internal
+> database and are **not detectable from disk**, so a bundle-only install
+> shows a warning, not a failure.
+
 ---
 
 ## MCP Server
