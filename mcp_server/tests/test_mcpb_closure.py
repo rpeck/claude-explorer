@@ -101,14 +101,16 @@ def test_required_external_deps_present(closure: tuple[set[str], set[str]]) -> N
 
 
 def test_forbidden_internal_modules_absent(closure: tuple[set[str], set[str]]) -> None:
-    """No FastAPI-only or watcher-only backend modules in the closure.
+    """No FastAPI-only, watcher-only, or CLI-only backend modules in the closure.
 
-    These modules are part of the HTTP server and the background watcher,
-    NOT the MCP read path. Their presence would either pull in FastAPI
-    (backend.main, backend.routers.*, backend.deps) or watchdog
-    (backend.cc_watcher) — both already covered by the external-dep
-    canary, but this is a tighter assertion that catches the regression
-    one layer earlier.
+    These modules are part of the HTTP server, the background watcher, or the
+    CLI (doctor / MCP-config detection/installation) — NOT the MCP read path. Their presence
+    would either pull in FastAPI (backend.main, backend.routers.*, backend.deps)
+    or watchdog (backend.cc_watcher) — both already covered by the external-dep
+    canary, but this is a tighter assertion that catches the regression one layer
+    earlier. backend.doctor, backend.mcp_config_detect, and backend.mcp_config_install
+    are CLI-only modules that must never appear in the eager-import closure of the
+    MCP server bundle.
     """
 
     internal, _external = closure
@@ -117,11 +119,15 @@ def test_forbidden_internal_modules_absent(closure: tuple[set[str], set[str]]) -
         "backend.routers",
         "backend.cc_watcher",
         "backend.deps",
+        "backend.doctor",          # CLI-only: doctor command
+        "backend.mcp_config_detect",  # CLI-only: MCP config reader
+        "backend.mcp_config_install",  # CLI-only: install/uninstall writer
+        "backend.cli_style",       # CLI-only: terminal color helpers (imports click)
     )
     leaked = {m for m in internal if m.startswith(forbidden_prefixes)}
     assert not leaked, (
         f"MCPB closure pulled forbidden internal modules: {sorted(leaked)}. "
-        f"These are FastAPI-only or watcher-only; the MCP read path must "
+        f"These are FastAPI-only, watcher-only, or CLI-only; the MCP read path must "
         f"not depend on them."
     )
 

@@ -987,6 +987,28 @@ class SearchIndex:
         the first complete walk."""
         self._is_ready = True
 
+    def indexed_file_count(self) -> int:
+        """Number of files currently recorded in the index. 0 on any error.
+
+        Reads the on-disk ``indexed_files`` ledger via a read connection, so
+        it works in a cold one-shot process (e.g. the ``doctor`` CLI) that
+        never ran ``build_full_index``/``mark_ready`` in-process."""
+        try:
+            conn = self._get_read_conn()
+            row = conn.execute("SELECT COUNT(*) FROM indexed_files").fetchone()
+            return int(row[0]) if row else 0
+        except sqlite3.Error:
+            return 0
+
+    def is_built_on_disk(self) -> bool:
+        """On-disk readiness — schema intact AND at least one file indexed.
+
+        Unlike :meth:`is_ready` (which reflects whether THIS process ran the
+        build and is the correct signal for the running server's FTS5-vs-
+        linear dispatch), this reflects the actual on-disk state. Use it for
+        diagnostics in a cold process where ``is_ready`` is always False."""
+        return self._schema_ok and self.indexed_file_count() > 0
+
     # ----- writers ---------------------------------------------------
 
     def upsert_conversation(

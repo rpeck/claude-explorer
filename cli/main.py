@@ -17,7 +17,9 @@ intended layering. The console-script entry point in pyproject.toml
 is ``claude-explorer = "cli.main:main"``.
 """
 
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -527,6 +529,29 @@ def reindex_search(full: bool) -> None:
         click.echo(f"Done. Re-indexed {updated} file(s).")
 
 
+@main.command()
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable JSON output")
+@click.option("--no-color", is_flag=True, help="Disable colored output.")
+def doctor(as_json: bool, no_color: bool) -> None:
+    """Diagnose install + environment health (read-only).
+
+    Reports pass/warn/fail per check with a fix hint. Exits non-zero if
+    any check fails. Fixing stays in dedicated commands (install-watcher,
+    reindex-search, mcp).
+    """
+    from backend.cli_style import should_use_color
+    from backend.doctor import ALL_CHECKS, has_failure, render_text, run_checks, to_json
+
+    results = run_checks(ALL_CHECKS)
+    if as_json:
+        # JSON is machine-readable — never colorized.
+        click.echo(json.dumps(to_json(results), indent=2))
+    else:
+        color = should_use_color(no_color)
+        click.echo(render_text(results, color=color), color=color)
+    sys.exit(1 if has_failure(results) else 0)
+
+
 _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."
 
 
@@ -778,7 +803,121 @@ from cli.watcher import (  # noqa: F401  (re-exported)
 )
 
 
-@main.command("install-watcher")
+def _do_watcher(python_bin: str | None, interval: float, uninstall: bool) -> "InstallResult":
+    """Run the per-OS watcher install/uninstall dispatch, returning an
+    InstallResult instead of raising (so `install all` can aggregate)."""
+    from backend.mcp_config_install import InstallResult
+    import sys as _sys
+
+    try:
+        if uninstall:
+            if _sys.platform == "darwin":
+                _uninstall_macos()
+            elif _sys.platform.startswith("linux"):
+                _uninstall_linux()
+            elif _sys.platform == "win32":
+                _uninstall_windows()
+            else:
+                raise click.ClickException(f"unsupported platform {_sys.platform!r}")
+            return InstallResult("watcher", True, True, "watcher uninstalled")
+
+        bin_ = python_bin or _sys.executable
+        if _sys.platform == "darwin":
+            _install_macos(bin_, interval)
+        elif _sys.platform.startswith("linux"):
+            _install_linux(bin_, interval)
+        elif _sys.platform == "win32":
+            _install_windows(bin_, interval)
+        else:
+            raise click.ClickException(
+                f"unsupported platform {_sys.platform!r}. Supported: darwin, linux, win32."
+            )
+        return InstallResult("watcher", True, True, "watcher installed")
+    except Exception as exc:  # noqa: BLE001 - aggregate, never crash the group
+        return InstallResult("watcher", False, False, f"watcher failed: {exc}")
+
+
+@main.group("install")
+def install() -> None:
+    """Install integrations: the CC watcher and MCP client registration."""
+
+
+def _summarize_install(results: list, *, color: bool = False) -> int:
+    """Print an [ok]/[FAIL] line per InstallResult; return exit code (1 if any failed).
+
+    ASCII markers (not unicode check/cross) to avoid Windows cp1252 console
+    encoding errors — same convention as the `doctor` command. ``color`` adds
+    ANSI color to the marker (green ok / red fail); the text marker always
+    stays, so color is additive and colorblind-/pipe-safe.
+    """
+    from backend.cli_style import style_status
+
+    failed = 0
+    for r in results:
+        mark = style_status(
+            "[ok]" if r.ok else "[FAIL]", "ok" if r.ok else "fail", color
+        )
+        click.echo(f"  {mark} {r.target}: {r.detail}", color=color)
+        if not r.ok:
+            failed += 1
+    return 1 if failed else 0
+
+
+@install.command("mcp")
+@click.option("--client", type=click.Choice(["all", "code", "desktop"]),
+              default="all", help="Which client(s) to register with (default: all).")
+@click.option("--scope", type=click.Choice(["user", "project"]),
+              default="user", help="Claude Code scope (code client only; default: user).")
+@click.option("--uninstall", is_flag=True,
+              help="Remove the registration instead of installing.")
+@click.option("--no-color", is_flag=True, help="Disable colored output.")
+def install_mcp(client: str, scope: str, uninstall: bool, no_color: bool) -> None:
+    """Register (or remove) the `claude-explorer mcp` server with Claude
+    Code and/or Claude Desktop."""
+    import sys as _sys
+    from backend.cli_style import should_use_color
+    from backend.mcp_config_install import (
+        install_mcp_code, install_mcp_desktop,
+        uninstall_mcp_code, uninstall_mcp_desktop,
+    )
+
+    results = []
+    if client in ("all", "code"):
+        results.append(
+            uninstall_mcp_code(scope) if uninstall else install_mcp_code(scope)
+        )
+    if client in ("all", "desktop"):
+        results.append(
+            uninstall_mcp_desktop() if uninstall else install_mcp_desktop()
+        )
+    _sys.exit(_summarize_install(results, color=should_use_color(no_color)))
+
+
+@install.command("all")
+@click.option("--uninstall", is_flag=True,
+              help="Remove everything instead of installing.")
+@click.option("--no-color", is_flag=True, help="Disable colored output.")
+def install_all(uninstall: bool, no_color: bool) -> None:
+    """Install (or uninstall) everything: the CC watcher + MCP
+    registration for Claude Code and Claude Desktop (defaults only)."""
+    import sys as _sys
+    from backend.cli_style import should_use_color
+    from backend.mcp_config_install import (
+        install_mcp_code, install_mcp_desktop,
+        uninstall_mcp_code, uninstall_mcp_desktop,
+    )
+
+    results = [_do_watcher(None, 600.0, uninstall)]
+    if uninstall:
+        results.append(uninstall_mcp_code("user"))
+        results.append(uninstall_mcp_desktop())
+    else:
+        results.append(install_mcp_code("user"))
+        results.append(install_mcp_desktop())
+    _sys.exit(_summarize_install(results, color=should_use_color(no_color)))
+
+
+@install.command("watcher")
 @click.option(
     "--python",
     "python_bin",
@@ -801,7 +940,7 @@ from cli.watcher import (  # noqa: F401  (re-exported)
     is_flag=True,
     help="Remove the platform-specific watcher unit instead of installing.",
 )
-def install_watcher(python_bin: str | None, interval: float, uninstall: bool) -> None:
+def install_watcher_cmd(python_bin: str | None, interval: float, uninstall: bool) -> None:
     """Install (or uninstall) a background job that runs the CC
     image-cache watcher continuously, independent of
     ``claude-explorer serve``.
@@ -832,37 +971,30 @@ def install_watcher(python_bin: str | None, interval: float, uninstall: bool) ->
                  the launcher script manually in a console.
     """
     import sys as _sys
+    r = _do_watcher(python_bin, interval, uninstall)
+    click.echo(r.detail)
+    _sys.exit(0 if r.ok else 1)
 
-    if uninstall:
-        if _sys.platform == "darwin":
-            _uninstall_macos()
-        elif _sys.platform.startswith("linux"):
-            _uninstall_linux()
-        elif _sys.platform == "win32":
-            _uninstall_windows()
-        else:
-            raise click.ClickException(
-                f"install-watcher --uninstall: unsupported platform {_sys.platform!r}"
-            )
-        return
 
-    if python_bin is None:
-        python_bin = _sys.executable
-
-    if _sys.platform == "darwin":
-        _install_macos(python_bin, interval)
-    elif _sys.platform.startswith("linux"):
-        _install_linux(python_bin, interval)
-    elif _sys.platform == "win32":
-        _install_windows(python_bin, interval)
-    else:
-        raise click.ClickException(
-            f"install-watcher: unsupported platform {_sys.platform!r}. "
-            "Supported: darwin (launchd), linux (systemd user), win32 (Task Scheduler)."
-        )
-
-    click.echo("")
-    click.echo(f"Uninstall: {_sys.argv[0]} install-watcher --uninstall")
+@main.command("install-watcher", hidden=True)
+@click.option(
+    "--python",
+    "python_bin",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+)
+@click.option("--interval", type=float, default=600.0)
+@click.option("--uninstall", is_flag=True)
+def install_watcher(python_bin: str | None, interval: float, uninstall: bool) -> None:
+    """Deprecated alias for `claude-explorer install watcher`."""
+    import sys as _sys
+    click.echo(
+        "Note: `install-watcher` is deprecated; use `claude-explorer install watcher`.",
+        err=True,
+    )
+    r = _do_watcher(python_bin, interval, uninstall)
+    click.echo(r.detail)
+    _sys.exit(0 if r.ok else 1)
 
 
 if __name__ == "__main__":

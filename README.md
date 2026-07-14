@@ -445,6 +445,60 @@ cd frontend && npm run dev
 ```
 Then open `http://localhost:5173`.
 
+#### `claude-explorer doctor`
+
+Diagnose install and environment health. **Read-only** — reports
+pass/warn/fail for each check with the exact command to fix it, and exits
+non-zero if any check fails (usable in setup scripts / CI). Fixing stays
+in the dedicated commands it points at.
+
+```bash
+claude-explorer doctor          # human-readable report
+claude-explorer doctor --json   # machine-readable
+```
+
+Checks: credentials, data directory, config validity, CC watcher,
+search/FTS5 index, uv/uvx on PATH, PDF export libraries, and whether
+`claude-explorer mcp` is registered in Claude Code and Claude Desktop.
+
+> **Note on Claude Desktop + `.mcpb`:** the Desktop MCP check only sees
+> servers in `claude_desktop_config.json`. Extensions installed via the
+> Desktop Extensions UI (`.mcpb` bundle) are stored in the app's internal
+> database and are **not detectable from disk**, so a bundle-only install
+> shows a warning, not a failure.
+
+---
+
+#### `claude-explorer install`
+
+Set up integrations. Subcommands:
+
+```bash
+claude-explorer install all                 # watcher + MCP (Code & Desktop)
+claude-explorer install watcher             # supervised CC image-cache watcher
+claude-explorer install mcp --client all    # register `claude-explorer mcp`
+```
+
+`install mcp` registers the MCP server (`claude-sessions`) with Claude Code
+and/or Claude Desktop. `--client {all|code|desktop}` (default `all`),
+`--scope {user|project}` (Claude Code only, default `user`). For Claude Code it
+uses the `claude mcp add` CLI when available, otherwise writes `~/.claude.json`
+directly; for Claude Desktop it merges into `claude_desktop_config.json` (restart
+Desktop afterward). Re-runs are idempotent. Add `--uninstall` to any subcommand
+to remove. `install-watcher` still works as a deprecated alias for
+`install watcher`.
+
+The command it registers **prefers an installed `claude-explorer` entry point
+by absolute path** (e.g. `~/.local/bin/claude-explorer mcp`) when one is on your
+`PATH`, falling back to `uvx claude-explorer mcp` only when it isn't installed.
+The absolute path is important for GUI apps like Claude Desktop, whose launch
+environment often omits `uvx` from `PATH` (you'd otherwise see `spawn uvx
+ENOENT`), and it runs *your* install rather than the published PyPI package. If
+you hand-edit the config instead, use the absolute path to your
+`claude-explorer` for the same reason.
+> Note: `.mcpb` bundle installs (Desktop Extensions UI) are managed by Claude
+> Desktop's own store and are not written or detected by this command.
+
 ---
 
 ## MCP Server
