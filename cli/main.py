@@ -17,7 +17,9 @@ intended layering. The console-script entry point in pyproject.toml
 is ``claude-explorer = "cli.main:main"``.
 """
 
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -106,94 +108,20 @@ def fetch(
             )
         )
 
-    from fetcher.bulk_fetch import ClaudeFetcher, load_credentials
+    from fetcher.run_fetch import run_incremental_fetch
 
-    # Resolve orgs + primary_org_id for the v2 multi-org ClaudeFetcher
-    # constructor. Three input modes are supported:
-    #
-    #   1. ``--session-key`` AND ``--org-id`` overrides (CI / power user):
-    #      synthesize a single-element orgs list with the override org as
-    #      primary; skip credentials.json entirely.
-    #   2. v2 credentials file with ``orgs`` array + ``primary_org_id``:
-    #      forward both straight through (multi-org capture/fetch path).
-    #   3. v1 (legacy) credentials file with flat ``org_id`` scalar:
-    #      treat the v1 org as a single-element orgs list with that org
-    #      as primary, mirroring ``fetcher.credentials._upgrade_v1_in_memory``.
-    #
-    # This logic is a faithful port of the working version in
-    # ``fetcher.bulk_fetch.main`` (deleted by Council A-BUG-2 to remove
-    # the drift hazard that caused the original cli.py crash). The
-    # ``ClaudeFetcher(..., org_id=org_id, ...)`` constructor call this
-    # block replaces was a stale v1 wiring that was never updated when
-    # multi-org shipped, and crashed every ``claude-explorer fetch`` run
-    # with ``TypeError: unexpected keyword argument 'org_id'`` (Council
-    # A-BUG-1; regression pinned by
-    # ``fetcher/tests/test_cli_fetch_wiring.py``).
-    cf_bm: str | None = None
-    cf_clearance: str | None = None
-    if session_key and org_id:
-        # Mode 1 — override path.
-        orgs = [
-            {
-                "uuid": org_id,
-                "name": None,
-                "capabilities": [],
-                "seen_in_response": False,
-            }
-        ]
-        primary = org_id
-    else:
-        creds = load_credentials(credentials)
-        session_key = session_key or creds.get("session_key")
-
-        # Multi-org-aware: prefer the orgs array if present (v2 schema).
-        # Fall back to the legacy scalar org_id (v1 file) so this code
-        # path works during the cowork-multi-org rollout window.
-        if "orgs" in creds and creds.get("orgs"):
-            # Mode 2 — v2.
-            orgs = list(creds["orgs"])
-            primary = creds.get("primary_org_id") or orgs[0]["uuid"]
-        else:
-            # Mode 3 — v1 (or --org-id override on top of v1 creds).
-            legacy_id = org_id or creds.get("org_id")
-            if not legacy_id:
-                raise click.ClickException(
-                    "Missing org_id. Run `claude-explorer capture` to "
-                    "refresh credentials."
-                )
-            orgs = [
-                {
-                    "uuid": legacy_id,
-                    "name": None,
-                    "capabilities": [],
-                    "seen_in_response": False,
-                }
-            ]
-            primary = legacy_id
-
-        cf_bm = creds.get("cf_bm")
-        cf_clearance = creds.get("cf_clearance")
-
-    if not session_key:
-        raise click.ClickException(
-            "Missing session_key. Run `claude-explorer capture` first."
-        )
-
-    fetcher = ClaudeFetcher(
-        session_key=session_key,
-        orgs=orgs,
-        primary_org_id=primary,
+    run_incremental_fetch(
         output_dir=output_dir,
         files_dir=files_dir,
-        delay=delay,
+        credentials=credentials,
+        session_key=session_key,
+        org_id=org_id,
         incremental=incremental,
-        verbose=verbose,
         download_files=download_files,
-        cf_bm=cf_bm,
-        cf_clearance=cf_clearance,
+        delay=delay,
+        limit=limit,
+        verbose=verbose,
     )
-
-    fetcher.run(limit=limit)
 
 
 @main.command()
@@ -527,6 +455,29 @@ def reindex_search(full: bool) -> None:
         click.echo(f"Done. Re-indexed {updated} file(s).")
 
 
+@main.command()
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable JSON output")
+@click.option("--no-color", is_flag=True, help="Disable colored output.")
+def doctor(as_json: bool, no_color: bool) -> None:
+    """Diagnose install + environment health (read-only).
+
+    Reports pass/warn/fail per check with a fix hint. Exits non-zero if
+    any check fails. Fixing stays in dedicated commands (install-watcher,
+    reindex-search, mcp).
+    """
+    from backend.cli_style import should_use_color
+    from backend.doctor import ALL_CHECKS, has_failure, render_text, run_checks, to_json
+
+    results = run_checks(ALL_CHECKS)
+    if as_json:
+        # JSON is machine-readable — never colorized.
+        click.echo(json.dumps(to_json(results), indent=2))
+    else:
+        color = should_use_color(no_color)
+        click.echo(render_text(results, color=color), color=color)
+    sys.exit(1 if has_failure(results) else 0)
+
+
 _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."
 
 
@@ -778,7 +729,155 @@ from cli.watcher import (  # noqa: F401  (re-exported)
 )
 
 
-@main.command("install-watcher")
+def _do_watcher(python_bin: str | None, interval: float, uninstall: bool) -> "InstallResult":
+    """Run the per-OS watcher install/uninstall dispatch, returning an
+    InstallResult instead of raising (so `install all` can aggregate)."""
+    from backend.mcp_config_install import InstallResult
+    import sys as _sys
+
+    try:
+        if uninstall:
+            if _sys.platform == "darwin":
+                _uninstall_macos()
+            elif _sys.platform.startswith("linux"):
+                _uninstall_linux()
+            elif _sys.platform == "win32":
+                _uninstall_windows()
+            else:
+                raise click.ClickException(f"unsupported platform {_sys.platform!r}")
+            return InstallResult("watcher", True, True, "watcher uninstalled")
+
+        bin_ = python_bin or _sys.executable
+        if _sys.platform == "darwin":
+            _install_macos(bin_, interval)
+        elif _sys.platform.startswith("linux"):
+            _install_linux(bin_, interval)
+        elif _sys.platform == "win32":
+            _install_windows(bin_, interval)
+        else:
+            raise click.ClickException(
+                f"unsupported platform {_sys.platform!r}. Supported: darwin, linux, win32."
+            )
+        return InstallResult("watcher", True, True, "watcher installed")
+    except Exception as exc:  # noqa: BLE001 - aggregate, never crash the group
+        return InstallResult("watcher", False, False, f"watcher failed: {exc}")
+
+
+@main.group("install")
+def install() -> None:
+    """Install integrations: the CC watcher and MCP client registration."""
+
+
+def _summarize_install(results: list, *, color: bool = False) -> int:
+    """Print an [ok]/[FAIL] line per InstallResult; return exit code (1 if any failed).
+
+    ASCII markers (not unicode check/cross) to avoid Windows cp1252 console
+    encoding errors — same convention as the `doctor` command. ``color`` adds
+    ANSI color to the marker (green ok / red fail); the text marker always
+    stays, so color is additive and colorblind-/pipe-safe.
+    """
+    from backend.cli_style import style_status
+
+    failed = 0
+    for r in results:
+        mark = style_status(
+            "[ok]" if r.ok else "[FAIL]", "ok" if r.ok else "fail", color
+        )
+        click.echo(f"  {mark} {r.target}: {r.detail}", color=color)
+        if not r.ok:
+            failed += 1
+    return 1 if failed else 0
+
+
+def _do_scheduled_fetch(interval: int, uninstall: bool) -> "InstallResult":
+    """Install or uninstall the scheduled periodic fetch job.
+
+    Returns an InstallResult; catches exceptions and returns a failed
+    result instead of raising.
+    """
+    from backend.mcp_config_install import InstallResult
+    import cli.scheduled_fetch_install as sfi
+    import sys as _sys
+
+    try:
+        if uninstall:
+            sfi.uninstall()
+            return InstallResult("fetch", True, True, "scheduled fetch uninstalled")
+        sfi.install(_sys.executable, interval)
+        return InstallResult("fetch", True, True, f"scheduled fetch installed ({interval}s)")
+    except Exception as exc:  # noqa: BLE001
+        return InstallResult("fetch", False, False, f"scheduled fetch failed: {exc}")
+
+
+@install.command("fetch")
+@click.option("--interval", type=int, default=3600,
+              help="Fetch interval in seconds (default: 3600 = hourly).")
+@click.option("--uninstall", is_flag=True, help="Remove the scheduled fetch job.")
+@click.option("--no-color", is_flag=True, help="Disable colored output.")
+def install_fetch(interval: int, uninstall: bool, no_color: bool) -> None:
+    """Install (or uninstall) a scheduled incremental fetch (hourly by default)."""
+    import sys as _sys
+    from backend.cli_style import should_use_color
+    r = _do_scheduled_fetch(interval, uninstall)
+    _sys.exit(_summarize_install([r], color=should_use_color(no_color)))
+
+
+@install.command("mcp")
+@click.option("--client", type=click.Choice(["all", "code", "desktop"]),
+              default="all", help="Which client(s) to register with (default: all).")
+@click.option("--scope", type=click.Choice(["user", "project"]),
+              default="user", help="Claude Code scope (code client only; default: user).")
+@click.option("--uninstall", is_flag=True,
+              help="Remove the registration instead of installing.")
+@click.option("--no-color", is_flag=True, help="Disable colored output.")
+def install_mcp(client: str, scope: str, uninstall: bool, no_color: bool) -> None:
+    """Register (or remove) the `claude-explorer mcp` server with Claude
+    Code and/or Claude Desktop."""
+    import sys as _sys
+    from backend.cli_style import should_use_color
+    from backend.mcp_config_install import (
+        install_mcp_code, install_mcp_desktop,
+        uninstall_mcp_code, uninstall_mcp_desktop,
+    )
+
+    results = []
+    if client in ("all", "code"):
+        results.append(
+            uninstall_mcp_code(scope) if uninstall else install_mcp_code(scope)
+        )
+    if client in ("all", "desktop"):
+        results.append(
+            uninstall_mcp_desktop() if uninstall else install_mcp_desktop()
+        )
+    _sys.exit(_summarize_install(results, color=should_use_color(no_color)))
+
+
+@install.command("all")
+@click.option("--uninstall", is_flag=True,
+              help="Remove everything instead of installing.")
+@click.option("--no-color", is_flag=True, help="Disable colored output.")
+def install_all(uninstall: bool, no_color: bool) -> None:
+    """Install (or uninstall) everything: the CC watcher + MCP
+    registration for Claude Code and Claude Desktop (defaults only)."""
+    import sys as _sys
+    from backend.cli_style import should_use_color
+    from backend.mcp_config_install import (
+        install_mcp_code, install_mcp_desktop,
+        uninstall_mcp_code, uninstall_mcp_desktop,
+    )
+
+    results = [_do_watcher(None, 600.0, uninstall)]
+    results.append(_do_scheduled_fetch(3600, uninstall))
+    if uninstall:
+        results.append(uninstall_mcp_code("user"))
+        results.append(uninstall_mcp_desktop())
+    else:
+        results.append(install_mcp_code("user"))
+        results.append(install_mcp_desktop())
+    _sys.exit(_summarize_install(results, color=should_use_color(no_color)))
+
+
+@install.command("watcher")
 @click.option(
     "--python",
     "python_bin",
@@ -801,7 +900,7 @@ from cli.watcher import (  # noqa: F401  (re-exported)
     is_flag=True,
     help="Remove the platform-specific watcher unit instead of installing.",
 )
-def install_watcher(python_bin: str | None, interval: float, uninstall: bool) -> None:
+def install_watcher_cmd(python_bin: str | None, interval: float, uninstall: bool) -> None:
     """Install (or uninstall) a background job that runs the CC
     image-cache watcher continuously, independent of
     ``claude-explorer serve``.
@@ -832,37 +931,30 @@ def install_watcher(python_bin: str | None, interval: float, uninstall: bool) ->
                  the launcher script manually in a console.
     """
     import sys as _sys
+    r = _do_watcher(python_bin, interval, uninstall)
+    click.echo(r.detail)
+    _sys.exit(0 if r.ok else 1)
 
-    if uninstall:
-        if _sys.platform == "darwin":
-            _uninstall_macos()
-        elif _sys.platform.startswith("linux"):
-            _uninstall_linux()
-        elif _sys.platform == "win32":
-            _uninstall_windows()
-        else:
-            raise click.ClickException(
-                f"install-watcher --uninstall: unsupported platform {_sys.platform!r}"
-            )
-        return
 
-    if python_bin is None:
-        python_bin = _sys.executable
-
-    if _sys.platform == "darwin":
-        _install_macos(python_bin, interval)
-    elif _sys.platform.startswith("linux"):
-        _install_linux(python_bin, interval)
-    elif _sys.platform == "win32":
-        _install_windows(python_bin, interval)
-    else:
-        raise click.ClickException(
-            f"install-watcher: unsupported platform {_sys.platform!r}. "
-            "Supported: darwin (launchd), linux (systemd user), win32 (Task Scheduler)."
-        )
-
-    click.echo("")
-    click.echo(f"Uninstall: {_sys.argv[0]} install-watcher --uninstall")
+@main.command("install-watcher", hidden=True)
+@click.option(
+    "--python",
+    "python_bin",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+)
+@click.option("--interval", type=float, default=600.0)
+@click.option("--uninstall", is_flag=True)
+def install_watcher(python_bin: str | None, interval: float, uninstall: bool) -> None:
+    """Deprecated alias for `claude-explorer install watcher`."""
+    import sys as _sys
+    click.echo(
+        "Note: `install-watcher` is deprecated; use `claude-explorer install watcher`.",
+        err=True,
+    )
+    r = _do_watcher(python_bin, interval, uninstall)
+    click.echo(r.detail)
+    _sys.exit(0 if r.ok else 1)
 
 
 if __name__ == "__main__":

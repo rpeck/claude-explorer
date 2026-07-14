@@ -84,11 +84,16 @@ def _reset_stub_state() -> None:
 def _patch_fetcher(monkeypatch: pytest.MonkeyPatch) -> None:
     """Replace the real ClaudeFetcher with the capture stub.
 
-    Patched on ``fetcher.bulk_fetch`` because cli.py does a deferred
-    ``from fetcher.bulk_fetch import ClaudeFetcher`` inside the command
-    body. Setattr on the source module so the lazy import sees the stub.
+    Patched on both ``fetcher.bulk_fetch`` (the source module) and
+    ``fetcher.run_fetch`` (the shared helper that does a top-level
+    ``from fetcher.bulk_fetch import ClaudeFetcher``). The source-module
+    patch covers the lazy-import path in cli.py before Task 3 refactor;
+    the run_fetch patch is required after Task 3 moved the block into
+    ``run_incremental_fetch`` which may already have the name bound.
     """
     monkeypatch.setattr("fetcher.bulk_fetch.ClaudeFetcher", _StubFetcher)
+    import fetcher.run_fetch as _rf  # ensure module is loaded before patching
+    monkeypatch.setattr(_rf, "ClaudeFetcher", _StubFetcher)
 
 
 def _write_v2_creds(path: Path, *, session_key: str, orgs: list[dict], primary: str) -> None:
