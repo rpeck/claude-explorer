@@ -105,13 +105,30 @@ def test_server_version_does_not_require_installed_package_metadata(
     monkeypatch.setattr(md, "version", fake_version)
 
     # Drop cached module so module-level code re-runs under the patch.
+    original = sys.modules.get("mcp_server.server")
     sys.modules.pop("mcp_server.server", None)
     try:
         reloaded = importlib.import_module("mcp_server.server")
     finally:
-        # Restore the genuine module so other tests don't run against the
-        # patched-and-reloaded one.
-        sys.modules.pop("mcp_server.server", None)
+        # Put the ORIGINAL module object back. Popping without restoring
+        # left sys.modules empty for this name, so a later import built a
+        # fresh module while callers that had already imported it still held
+        # the old one. The autouse singleton reset in conftest then cleared
+        # the new object while the tests ran against the old, stale one, and
+        # export_session looked up a session in a previous test's data dir.
+        if original is not None:
+            sys.modules["mcp_server.server"] = original
+            # importlib.import_module also rebinds the submodule attribute on
+            # the PACKAGE object, and `from mcp_server import server` reads
+            # that attribute rather than sys.modules. Restoring only
+            # sys.modules therefore left the package pointing at the reloaded
+            # copy, so the autouse singleton reset in conftest cleared one
+            # module while the tests kept calling the other.
+            import mcp_server as _pkg
+
+            _pkg.server = original
+        else:
+            sys.modules.pop("mcp_server.server", None)
 
     assert reloaded.mcp.version == mcp_server.__version__, (
         "In the bundle context (no installed claude-explorer wheel), "
@@ -124,3 +141,30 @@ def test_server_name_is_stable() -> None:
     # Belt-and-suspenders: the human-facing name is part of serverInfo too
     # and should not silently change while we're fixing version reporting.
     assert mcp.name == "Claude Session Explorer"
+
+
+def test_module_identity_survives_the_version_reload() -> None:
+    """The reload above must leave exactly one live ``mcp_server.server``.
+
+    Earned 2026-09-22. ``importlib.import_module`` rebinds the submodule on
+    the package object as well as in ``sys.modules``. Restoring only
+    ``sys.modules`` left ``from mcp_server import server`` resolving to the
+    reloaded copy, while functions imported earlier still closed over the
+    original module's globals.
+
+    The autouse singleton reset in conftest then cleared one module's
+    ``_store`` while the tests called the other's, and export_session looked
+    up a session through a store from an earlier test's data directory.
+    """
+    import mcp_server
+    import mcp_server.server as via_attr
+    from mcp_server.server import export_session
+
+    fn = getattr(export_session, "fn", export_session)
+
+    assert sys.modules["mcp_server.server"] is via_attr
+    assert mcp_server.server is via_attr
+    assert fn.__globals__ is vars(via_attr), (
+        "a function imported from mcp_server.server must share the globals of "
+        "the module the package now exposes"
+    )

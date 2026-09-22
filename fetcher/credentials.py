@@ -55,6 +55,8 @@ import json
 import logging
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -331,13 +333,53 @@ def load_credentials(path: Path = DEFAULT_CREDENTIALS_PATH) -> CredentialsV2:
 # ---------------------------------------------------------------------------
 
 
+def harden_path_permissions(path: Path, *, directory: bool = False) -> None:
+    """Restrict a file or directory to the current user.
+
+    POSIX honours mode bits, so ``chmod`` is enough there.
+
+    Windows ignores mode bits completely. NTFS uses access control lists, so
+    a ``chmod`` leaves a credentials file readable by every account the
+    inherited ACL allows. On Windows this drops inheritance and grants the
+    current user alone.
+
+    Both paths are best effort. A failure logs a warning and the caller
+    continues, because a usable credential beats a hard failure in the
+    middle of a capture.
+    """
+    mode = 0o700 if directory else 0o600
+    try:
+        os.chmod(path, mode)
+    except OSError as e:
+        log.warning("chmod %s on %s failed: %s", oct(mode), path, e)
+
+    if sys.platform != "win32":
+        return
+
+    user = os.environ.get("USERNAME")
+    if not user:
+        log.warning("cannot restrict %s: USERNAME is not set", path)
+        return
+    try:
+        result = subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{user}:F"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if result.returncode != 0:
+            log.warning(
+                "icacls on %s failed: %s", path, (result.stdout or result.stderr).strip()
+            )
+    except (OSError, subprocess.SubprocessError) as e:
+        log.warning("icacls on %s failed: %s", path, e)
+
+
 def _ensure_parent(path: Path) -> None:
     """Create parent dir with 0o700 perms (best-effort; Windows may ignore)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.chmod(path.parent, 0o700)
-    except OSError as e:
-        log.warning("chmod 0o700 on %s failed: %s", path.parent, e)
+    harden_path_permissions(path.parent, directory=True)
 
 
 def _unlocked_save(creds: CredentialsV2, path: Path) -> None:
@@ -376,20 +418,14 @@ def _unlocked_save(creds: CredentialsV2, path: Path) -> None:
         json.dump(creds, f, indent=2)
         f.flush()
         os.fsync(f.fileno())
-    try:
-        os.chmod(tmp, 0o600)
-    except OSError as e:
-        log.warning("chmod 0o600 on %s failed: %s", tmp, e)
+    harden_path_permissions(tmp)
 
     try:
         # Step 3: refresh .bak from the current live file *without* removing it.
         # shutil.copyfile then atomic rename — readers never see live missing.
         if path.exists():
             shutil.copyfile(path, bak_tmp)
-            try:
-                os.chmod(bak_tmp, 0o600)
-            except OSError as e:
-                log.warning("chmod 0o600 on %s failed: %s", bak_tmp, e)
+            harden_path_permissions(bak_tmp)
             os.replace(bak_tmp, bak)
 
         # Step 4: install new live file atomically.

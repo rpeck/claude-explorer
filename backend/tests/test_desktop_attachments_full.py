@@ -177,7 +177,9 @@ def test_fetch_stamps_local_document_path(tmp_path: Path) -> None:
     saved = json.loads(saved_path.read_text())
     file_info = saved["chat_messages"][0]["files"][0]
     assert "local_document" in file_info
-    assert file_info["local_document"].endswith("/document.pdf")
+    # local_document is an absolute local filesystem path, so it uses the
+    # platform separator. Compare the file name, not a POSIX suffix.
+    assert Path(file_info["local_document"]).name == "document.pdf"
 
 
 # ----------------------------------------------------------------------

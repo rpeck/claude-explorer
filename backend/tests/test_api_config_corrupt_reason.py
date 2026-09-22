@@ -26,6 +26,8 @@ import json
 from pathlib import Path
 
 import pytest
+
+from backend.tests._platform_home import patch_home
 from fastapi.testclient import TestClient
 
 from backend import config
@@ -44,7 +46,7 @@ def isolated_home(
     drive Settings.load() through its real on-disk path — otherwise
     the cache_clear → re-read invariant is untested.
     """
-    monkeypatch.setenv("HOME", str(tmp_path))
+    patch_home(monkeypatch, tmp_path)
     monkeypatch.delenv("CLAUDE_EXPLORER_DATA_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_EXPORTER_DATA_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_DIR", raising=False)

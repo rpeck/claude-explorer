@@ -134,10 +134,22 @@ async def test_lifespan_warms_filecache_for_top_n_recent_conversations(
         autospec=True,
         side_effect=_spy,
     ):
+        # The top 5 by updated_at are sess-0005..sess-0009.
+        expected_top5 = {f"sess-{i:04d}" for i in range(5, 10)}
+
         async with app.router.lifespan_context(app):
-            # Wait for the warm task to enqueue all 5 calls.
-            for _ in range(60):
-                if len(seen_uuids) >= 5:
+            # Wait for the SET we care about, not merely five calls of any
+            # kind. Other startup work also calls _find_conversation_data, so
+            # a count can reach five while the prewarm still has entries
+            # outstanding. That raced on the slower ARM runner and dropped
+            # sess-0009, the most recent session of all.
+            # The prewarm first awaits the summary-cache fill, because the
+            # "most recent" order comes from those rows. That whole chain is
+            # slower on the 4 vCPU Windows ARM runner than on x64, so allow
+            # 30s. The bound still fails a real regression; it only stops the
+            # assertion from firing before the work can finish.
+            for _ in range(300):
+                if expected_top5 <= set(seen_uuids):
                     break
                 await asyncio.sleep(0.1)
 
@@ -145,10 +157,8 @@ async def test_lifespan_warms_filecache_for_top_n_recent_conversations(
         f"Expected at least 5 calls to _find_conversation_data from "
         f"the W1 prewarm; saw {len(seen_uuids)}: {seen_uuids}"
     )
-    # The top 5 by updated_at are sess-0005..sess-0009 (highest dates).
     # Allow some slack: the warm task may also call _find_conversation_data
     # later for other reasons; we only assert the recent set is INCLUDED.
-    expected_top5 = {f"sess-{i:04d}" for i in range(5, 10)}
     seen_set = set(seen_uuids)
     missing = expected_top5 - seen_set
     assert not missing, (

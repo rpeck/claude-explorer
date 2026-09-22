@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any
 
 import orjson
+
+from fetcher.credentials import harden_path_permissions
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -71,7 +73,9 @@ def _write_atomic(blob: dict[str, Any]) -> None:
         tmp.write_bytes(
             orjson.dumps(blob, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
         )
-        os.chmod(tmp, 0o600)
+        # Windows ignores mode bits, so route through the shared helper
+        # that also sets an NTFS ACL there.
+        harden_path_permissions(tmp)
         os.replace(tmp, path)
     except BaseException:
         # If anything between write and replace raises, the .tmp file would

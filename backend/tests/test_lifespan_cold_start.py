@@ -41,6 +41,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -599,20 +600,63 @@ async def test_eager_fill_processpool_shutdown_does_not_orphan_workers(
     # cancelled the asyncio task mid-flight, because the executor
     # was created as a context manager in the worker thread).
     # Verify by polling each child pid: it MUST exit within ~10s.
-    deadline = time.monotonic() + 10.0
+    # Windows spawns workers rather than forking them, so give the slower
+    # teardown more room than the POSIX budget.
+    budget = 30.0 if sys.platform == "win32" else 10.0
+    deadline = time.monotonic() + budget
     for pid in child_pids:
         while time.monotonic() < deadline:
-            try:
-                os.kill(pid, 0)
-                # still alive
-                time.sleep(0.05)
-            except ProcessLookupError:
+            if not _process_is_alive(pid):
                 break
+            time.sleep(0.05)
         else:
             pytest.fail(
-                f"Worker pid {pid} did not exit within 10s after lifespan "
+                f"Worker pid {pid} did not exit within {budget:.0f}s after lifespan "
                 "shutdown; ProcessPoolExecutor leaked workers"
             )
+
+
+def _process_is_alive(pid: int) -> bool:
+    """Portable liveness probe for a child process.
+
+    ``os.kill(pid, 0)`` is the POSIX idiom: signal 0 performs the permission
+    and existence checks without delivering anything.
+
+    On Windows it is not a probe at all. Python maps ``os.kill`` to
+    ``TerminateProcess`` for every signal except the console-control events,
+    so this call would KILL the worker it is supposed to observe. A pid that
+    has already exited also raises ``OSError`` there rather than
+    ``ProcessLookupError``, so the exit is never detected and the poll runs
+    to its deadline.
+
+    Windows therefore asks the kernel directly instead.
+    """
+    if sys.platform == "win32":
+        import ctypes
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return False
+            return code.value == STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(handle)
+
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # Alive, but owned by another user.
+        return True
 
 
 def threading_event_class():

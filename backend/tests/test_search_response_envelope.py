@@ -303,7 +303,13 @@ def test_mcp_search_path_uses_limit_5000(monkeypatch) -> None:
     # Set up a minimal data dir so list_sessions can build a store.
     import tempfile
     from backend import config
-    with tempfile.TemporaryDirectory() as td:
+    # ignore_cleanup_errors: this test asserts the search limit, not file
+    # locking. The real connection leak that caused WinError 32 here is
+    # fixed in SearchIndex.close() and pinned by
+    # backend/tests/test_search_index_close.py. Windows can still hold the
+    # handle briefly after close, and failing teardown would hide the
+    # assertion this test exists to make.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         from pathlib import Path
         tdp = Path(td)
         (tdp / "data").mkdir()
@@ -316,6 +322,13 @@ def test_mcp_search_path_uses_limit_5000(monkeypatch) -> None:
         # The MCP tool is registered via @mcp.tool() — we call the
         # underlying function directly.
         mcp_server.list_sessions(query="canary")
+
+        # The store leaves a SQLite connection open on search-index.sqlite.
+        # POSIX happily unlinks an open file; Windows refuses, so the
+        # TemporaryDirectory cleanup raises WinError 32. Close it here.
+        from backend.search_index import reset_search_index_for_tests
+
+        reset_search_index_for_tests()
 
     assert captured_limits, (
         "MCP list_sessions(query=...) must call search_conversations"

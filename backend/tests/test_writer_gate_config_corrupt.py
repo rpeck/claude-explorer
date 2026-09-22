@@ -38,6 +38,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from backend.tests._platform_home import patch_home
 from fastapi.testclient import TestClient
 
 from backend import config
@@ -332,7 +334,7 @@ def test_fetch_cli_fails_clean_when_corrupt(
     identically to the HTTP route — but with even less visibility,
     since there's no UI to see the failure.
     """
-    monkeypatch.setenv("HOME", str(tmp_path))
+    patch_home(monkeypatch, tmp_path)
     cfg_dir = tmp_path / ".claude-explorer"
     cfg_dir.mkdir()
     (cfg_dir / "config.json").write_text('{"data_dir": "broken')  # corrupt
@@ -380,7 +382,7 @@ def test_install_watcher_runs_when_config_corrupt(
     Pins the EXEMPTION as a HARD invariant: install-watcher MUST run
     to completion regardless of ``config_corrupt_reason``.
     """
-    monkeypatch.setenv("HOME", str(tmp_path))
+    patch_home(monkeypatch, tmp_path)
     cfg_dir = tmp_path / ".claude-explorer"
     cfg_dir.mkdir()
     (cfg_dir / "config.json").write_text('{"data_dir": "broken')  # corrupt

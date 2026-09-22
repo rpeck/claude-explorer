@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pytest
 
+from backend.tests._platform_home import patch_home
+
 from backend import config
 
 
@@ -35,7 +37,7 @@ def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     NEVER returns the real home — that protects the developer's actual
     ``~/.claude-exporter/`` data during ``uv run pytest``.
     """
-    monkeypatch.setenv("HOME", str(tmp_path))
+    patch_home(monkeypatch, tmp_path)
     # On some platforms Path.home() also reads pwd.getpwuid; the HOME env
     # var override is the contract Python's Path.home() promises.
     monkeypatch.delenv("CLAUDE_EXPLORER_SKIP_DATA_DIR_MIGRATION", raising=False)

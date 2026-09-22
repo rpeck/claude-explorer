@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import os
 import stat
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -43,6 +45,24 @@ def _mode_octal(p: Path) -> int:
     """Return ``st_mode & 0o777`` (the permission bits only)."""
 
     return stat.S_IMODE(os.stat(p).st_mode)
+
+
+def assert_owner_only(p: Path) -> None:
+    """Assert the path is readable by its owner alone, per platform rules.
+
+    POSIX carries this in the mode bits. Windows ignores mode bits and uses
+    an NTFS access control list, so there the check reads the ACL and
+    requires that no broad principal appears in it.
+    """
+    if sys.platform == "win32":
+        out = subprocess.run(
+            ["icacls", str(p)], capture_output=True, text=True, timeout=30
+        ).stdout
+        for principal in ("Everyone", "BUILTIN\\Users", "AUTHENTICATED USERS"):
+            assert principal not in out, f"{p} still grants {principal}:\n{out}"
+        return
+    mode = _mode_octal(p)
+    assert mode == 0o600, f"expected 0o600, got {oct(mode)} on {p}"
 
 
 def _make_v2_creds() -> dict:
@@ -101,9 +121,7 @@ def test__patch_preferences__on_disk__has_mode_0o600(
     resp = client.patch("/api/preferences", json={"data": {"theme": "dark"}})
     assert resp.status_code == 200, resp.text
     assert prefs_path.exists()
-
-    mode = _mode_octal(prefs_path)
-    assert mode == 0o600, f"expected 0o600, got {oct(mode)} on {prefs_path}"
+    assert_owner_only(prefs_path)
 
 
 def test__put_preferences__on_disk__has_mode_0o600(
@@ -121,9 +139,7 @@ def test__put_preferences__on_disk__has_mode_0o600(
     resp = client.put("/api/preferences", json={"data": {"theme": "light"}})
     assert resp.status_code == 200, resp.text
     assert prefs_path.exists()
-
-    mode = _mode_octal(prefs_path)
-    assert mode == 0o600, f"expected 0o600, got {oct(mode)} on {prefs_path}"
+    assert_owner_only(prefs_path)
 
 
 # ---------------------------------------------------------------------------
@@ -146,8 +162,7 @@ def test__save_credentials__on_disk__has_mode_0o600(tmp_path: Path) -> None:
     save_credentials(_make_v2_creds(), path=creds_path)
 
     assert creds_path.exists()
-    mode = _mode_octal(creds_path)
-    assert mode == 0o600, f"expected 0o600, got {oct(mode)} on {creds_path}"
+    assert_owner_only(creds_path)
 
 
 def test__save_credentials__bak_file__has_mode_0o600(tmp_path: Path) -> None:
@@ -174,6 +189,4 @@ def test__save_credentials__bak_file__has_mode_0o600(tmp_path: Path) -> None:
 
     bak_path = creds_path.with_suffix(".json.bak")
     assert bak_path.exists(), f".bak file not produced at {bak_path}"
-
-    mode = _mode_octal(bak_path)
-    assert mode == 0o600, f"expected 0o600, got {oct(mode)} on {bak_path}"
+    assert_owner_only(bak_path)

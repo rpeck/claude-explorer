@@ -91,6 +91,9 @@ def check_file(path: str, tracked: set[str]) -> list[tuple[int, str, str]]:
             if is_remote(tgt):
                 continue
             rel = os.path.normpath(os.path.join(os.path.dirname(path), tgt.replace("%20", " ")))
+            # `git ls-files` always reports forward slashes. On Windows
+            # normpath yields backslashes, so every image looked untracked.
+            rel = rel.replace(os.sep, "/")
             if rel not in tracked:
                 viol.append((lineno, "referenced image not git-tracked (404 on GitHub)", tgt))
     return viol
@@ -110,6 +113,15 @@ def resolve_targets(paths: list[str]) -> tuple[list[str], list[str]]:
     for p in paths:
         (files if os.path.isfile(p) else missing).append(p)
     return files, missing
+
+
+# Windows consoles default to a legacy code page (cp1252), and the status
+# glyphs below are outside it, so printing them raises UnicodeEncodeError and
+# the check dies before it reports anything. Force UTF-8 on the streams.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
 def main(argv: list[str] | None = None) -> int:
