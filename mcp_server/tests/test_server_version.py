@@ -105,13 +105,21 @@ def test_server_version_does_not_require_installed_package_metadata(
     monkeypatch.setattr(md, "version", fake_version)
 
     # Drop cached module so module-level code re-runs under the patch.
+    original = sys.modules.get("mcp_server.server")
     sys.modules.pop("mcp_server.server", None)
     try:
         reloaded = importlib.import_module("mcp_server.server")
     finally:
-        # Restore the genuine module so other tests don't run against the
-        # patched-and-reloaded one.
-        sys.modules.pop("mcp_server.server", None)
+        # Put the ORIGINAL module object back. Popping without restoring
+        # left sys.modules empty for this name, so a later import built a
+        # fresh module while callers that had already imported it still held
+        # the old one. The autouse singleton reset in conftest then cleared
+        # the new object while the tests ran against the old, stale one, and
+        # export_session looked up a session in a previous test's data dir.
+        if original is not None:
+            sys.modules["mcp_server.server"] = original
+        else:
+            sys.modules.pop("mcp_server.server", None)
 
     assert reloaded.mcp.version == mcp_server.__version__, (
         "In the bundle context (no installed claude-explorer wheel), "
