@@ -227,5 +227,10 @@ jobs:
           # first pass: path handling, platform guards, and launcher shape.
           # Do not pipe this through Select-Object or Tail. A pipeline hides
           # the runner's exit status and turns a failure into a pass.
-          uv run pytest backend/tests fetcher/tests mcp_server/tests -q
+          # -n 0 disables pytest-xdist. Every test passes on Windows, but the
+          # xdist controller then hangs waiting for its workers to exit and is
+          # interrupted at threading shutdown, which fails the step with a
+          # fully green suite. Serial costs a little wall time and removes the
+          # whole class of shutdown races.
+          uv run pytest backend/tests fetcher/tests mcp_server/tests -q -n 0
           if ($LASTEXITCODE -ne 0) { throw "pytest failed with exit code $LASTEXITCODE" }
