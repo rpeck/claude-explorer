@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import re
 import urllib.parse
 from pathlib import Path
@@ -37,6 +38,9 @@ from ._shared import (
 
 
 log = logging.getLogger(__name__)
+
+# Guards the native WeasyPrint render; see create_pdf for the rationale.
+_RENDER_LOCK = threading.Lock()
 
 
 # 1x1 transparent PNG used as a placeholder when an image referenced by
@@ -597,11 +601,27 @@ def create_pdf(
     # base_url is required for WeasyPrint to resolve our root-relative
     # URLs (``/api/cc-image?path=...``) before invoking the fetcher.
     # The scheme/host don't matter — the fetcher matches on path.
-    pdf_bytes = HTML(
-        string=html_content,
-        url_fetcher=fetcher,
-        base_url="http://claude-explorer.local/",
-    ).write_pdf()
+    # Serialize the render. WeasyPrint draws through cairo and pango via
+    # cffi, and those libraries are not reliably thread-safe. Both callers
+    # reach this function on a worker thread (the HTTP route uses
+    # asyncio.to_thread, and the MCP server calls it directly), so two
+    # concurrent exports would otherwise render at the same time.
+    #
+    # This is not theoretical: a pytest-xdist worker HARD CRASHED here on
+    # 2026-09-22, a process-level crash rather than a failed assertion.
+    # In the running server the same collision would take down `serve`
+    # mid-request for every connected user.
+    #
+    # A lock makes a second export wait instead of crash. PDF rendering is
+    # already slow and already has its own timeout, so queueing is the right
+    # trade. The lock is NOT held while building the HTML, only across the
+    # native render.
+    with _RENDER_LOCK:
+        pdf_bytes = HTML(
+            string=html_content,
+            url_fetcher=fetcher,
+            base_url="http://claude-explorer.local/",
+        ).write_pdf()
     return pdf_bytes
 
 
