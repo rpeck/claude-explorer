@@ -143,7 +143,12 @@ async def test_lifespan_warms_filecache_for_top_n_recent_conversations(
             # a count can reach five while the prewarm still has entries
             # outstanding. That raced on the slower ARM runner and dropped
             # sess-0009, the most recent session of all.
-            for _ in range(100):
+            # The prewarm first awaits the summary-cache fill, because the
+            # "most recent" order comes from those rows. That whole chain is
+            # slower on the 4 vCPU Windows ARM runner than on x64, so allow
+            # 30s. The bound still fails a real regression; it only stops the
+            # assertion from firing before the work can finish.
+            for _ in range(300):
                 if expected_top5 <= set(seen_uuids):
                     break
                 await asyncio.sleep(0.1)
