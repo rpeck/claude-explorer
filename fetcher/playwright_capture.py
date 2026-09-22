@@ -36,6 +36,7 @@ from pathlib import Path
 import click
 from playwright.async_api import async_playwright, Page, BrowserContext
 
+from fetcher.install_hints import playwright_install_hint  # noqa: F401  re-export
 from fetcher.credentials import (
     CredentialsCorruptError,
     CredentialsV2,

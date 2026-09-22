@@ -199,6 +199,40 @@ def _rollup_bucket_for(record: dict) -> tuple[RollupBucket, str]:
     return bucket, msg
 
 
+BROWSER_MISSING_MESSAGE = (
+    "Playwright's Chromium build is not installed, so the login window "
+    "cannot open. Install it once with: "
+    "uvx --from claude-explorer playwright install chromium "
+    "(from a source checkout: uv run playwright install chromium). "
+    "Then click Refresh again."
+)
+
+
+def classify_capture_error(error_msg: str) -> str:
+    """Map a raw credential-capture error into a user-actionable message.
+
+    The sidebar Refresh button shows this text directly, so a raw Playwright
+    dump is useless to the reader. The most common first-run failure is a
+    missing Chromium build, because that download is a separate one-time
+    step. Playwright's own hint names a bare ``playwright install`` command
+    that a PyPI user cannot run, so this replaces it with the real command.
+
+    Every other failure keeps its original text, prefixed for context.
+    """
+    if not error_msg:
+        return "Capture failed: unknown error"
+
+    lowered = error_msg.lower()
+    browser_missing_markers = (
+        "executable doesn't exist",
+        "please run the following command to download new browsers",
+        "browsertype.launch: executable",
+    )
+    if any(marker in lowered for marker in browser_missing_markers):
+        return BROWSER_MISSING_MESSAGE
+    return f"Capture failed: {error_msg}"
+
+
 def classify_fetch_error(error_msg: str) -> str:
     """Map a raw fetch error into a user-actionable message.
 
@@ -1059,7 +1093,7 @@ async def _capture_phase_stream() -> AsyncGenerator[tuple[str, str | dict | None
                 continue
             if isinstance(item, dict):
                 if "_error" in item:
-                    yield ("error", item["_error"])
+                    yield ("error", classify_capture_error(str(item["_error"])))
                     return
                 creds = item.get("_result")
                 if not creds:
@@ -1068,7 +1102,7 @@ async def _capture_phase_stream() -> AsyncGenerator[tuple[str, str | dict | None
                 yield ("done", creds)
                 return
     except Exception as exc:
-        yield ("error", str(exc))
+        yield ("error", classify_capture_error(str(exc)))
 
 
 async def refresh_pipeline_stream(

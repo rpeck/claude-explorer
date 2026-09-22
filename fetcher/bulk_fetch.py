@@ -26,7 +26,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterator
+from typing import Callable, Iterable, Iterator
 
 import click
 from curl_cffi import requests as curl_requests
@@ -137,6 +137,36 @@ RATE_LIMIT_MAX_ATTEMPTS = 3
 # ---------------------------------------------------------------------------
 # Retry layer (stays in this module — see header re-export comment).
 # ---------------------------------------------------------------------------
+
+
+def needs_refetch(
+    server_updated_at: str | None, local_updated_at: str | None
+) -> bool:
+    """Decide whether one conversation must be downloaded again.
+
+    Incremental mode used to test only whether the UUID was already on disk,
+    so a conversation the user kept adding to was frozen at its first
+    download. This compares timestamps instead.
+
+    Returns True when the local copy is absent, carries no timestamp, or is
+    older than the server's. A local copy that is newer is left alone, so
+    clock skew cannot start an endless re-fetch loop.
+
+    Timestamps are parsed before comparison, because the same instant can be
+    written as ``...Z`` or ``...+00:00`` and those do not compare equal as
+    strings. Values that will not parse fall back to plain inequality.
+    """
+    if not local_updated_at:
+        return True
+    if not server_updated_at:
+        # Nothing to compare against, so we cannot prove the copy is current.
+        return True
+    try:
+        return datetime.fromisoformat(server_updated_at) > datetime.fromisoformat(
+            local_updated_at
+        )
+    except ValueError:
+        return server_updated_at != local_updated_at
 
 
 class TransientHTTPError(Exception):
@@ -850,6 +880,31 @@ class ClaudeFetcher:
             return set()
         return {p.stem for p in org_dir.glob("*.json")}
 
+    def local_updated_at_for_org(
+        self, org_uuid: str, uuids: Iterable[str]
+    ) -> dict[str, str]:
+        """Map conversation uuid to the ``updated_at`` stored on disk.
+
+        Only the requested uuids are read, so the cost tracks the server list
+        rather than the whole local archive. A file that is missing, corrupt,
+        or has no timestamp is simply absent from the result, which makes the
+        caller download it again.
+        """
+        org_dir = self.output_dir / "by-org" / org_uuid
+        stored: dict[str, str] = {}
+        if not org_dir.is_dir():
+            return stored
+        for uuid in uuids:
+            path = org_dir / f"{uuid}.json"
+            try:
+                with path.open("rb") as fh:
+                    value = json.load(fh).get("updated_at")
+            except (OSError, ValueError):
+                continue
+            if value:
+                stored[uuid] = value
+        return stored
+
     def existing_pairs(self) -> set[tuple[str, str]]:
         """All ``(org_id, uuid)`` pairs currently on disk.
 
@@ -904,8 +959,24 @@ class ClaudeFetcher:
 
         # Filter out existing if incremental
         if self.incremental:
-            to_fetch = [c for c in conversations if c.get("uuid") not in existing_uuids]
-            click.echo(f"Will fetch {len(to_fetch)} new conversations (skipping {len(conversations) - len(to_fetch)} existing)")
+            # Compare timestamps, not mere presence: a conversation the user
+            # kept adding to is on disk already but out of date.
+            stored = self.local_updated_at_for_org(
+                self.current_org["uuid"], [c.get("uuid", "") for c in conversations]
+            )
+            to_fetch = [
+                c
+                for c in conversations
+                if c.get("uuid") not in existing_uuids
+                or needs_refetch(c.get("updated_at"), stored.get(c.get("uuid", "")))
+            ]
+            updated = sum(1 for c in to_fetch if c.get("uuid") in existing_uuids)
+            new_count = len(to_fetch) - updated
+            click.echo(
+                f"Will fetch {len(to_fetch)} conversations "
+                f"({new_count} new, {updated} updated; "
+                f"skipping {len(conversations) - len(to_fetch)} unchanged)"
+            )
         else:
             to_fetch = conversations
             click.echo(f"Will fetch {len(to_fetch)} conversations")
@@ -990,9 +1061,17 @@ class ClaudeFetcher:
                         convs_list = convs_list[:limit]
 
                     if self.incremental:
+                        # Same timestamp rule as the single-org path: presence
+                        # on disk is not proof the copy is current.
+                        stored = self.local_updated_at_for_org(
+                            org_uuid, [c.get("uuid", "") for c in convs_list]
+                        )
                         to_fetch = [
                             c for c in convs_list
                             if (org_uuid, c.get("uuid", "")) not in existing_pairs
+                            or needs_refetch(
+                                c.get("updated_at"), stored.get(c.get("uuid", ""))
+                            )
                         ]
                     else:
                         to_fetch = convs_list

@@ -17,7 +17,9 @@ intended layering. The console-script entry point in pyproject.toml
 is ``claude-explorer = "cli.main:main"``.
 """
 
+import platform
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -248,11 +250,15 @@ def _capture_via_browser(output: Path, timeout: int) -> None:
     try:
         from playwright.async_api import async_playwright  # noqa: F401
     except ImportError:
+        from fetcher.install_hints import playwright_install_hint
+
         raise click.ClickException(
-            "Playwright not installed. Run: uv sync && uv run playwright install chromium"
+            "Playwright is not installed.\n"
+            f"Run: {playwright_install_hint()}"
         )
 
     from fetcher.playwright_capture import capture_credentials
+    from fetcher.install_hints import playwright_install_hint
     from fetcher.credentials import save_credentials
 
     click.echo("=" * 60)
@@ -266,8 +272,8 @@ def _capture_via_browser(output: Path, timeout: int) -> None:
     except Exception as e:
         if "Executable doesn't exist" in str(e) or "browserType.launch" in str(e):
             raise click.ClickException(
-                "Playwright browsers not installed.\n"
-                "Run: uv run playwright install chromium"
+                "Playwright's Chromium build is not installed.\n"
+                f"Run: {playwright_install_hint()}"
             )
         raise
 
@@ -297,6 +303,8 @@ def _capture_via_browser(output: Path, timeout: int) -> None:
 
 def _capture_via_proxy(port: int) -> None:
     """Capture credentials via mitmproxy (for Claude Desktop)."""
+    from fetcher.install_hints import claude_desktop_launch_command
+
     addon_path = Path(__file__).parent / "mitmproxy_addon.py"
 
     click.echo("=" * 60)
@@ -311,8 +319,21 @@ def _capture_via_proxy(port: int) -> None:
     click.echo()
     click.echo("In another terminal, launch Claude Desktop through the proxy:")
     click.echo()
-    click.echo(f'  open -a "Claude" --args --proxy-server="127.0.0.1:{port}" --ignore-certificate-errors')
+    click.echo(f"  {claude_desktop_launch_command(port)}")
     click.echo()
+    if sys.platform == "win32":
+        # A Store-packaged Claude Desktop sits under WindowsApps and may
+        # ignore Chromium flags, so the proxy never sees its traffic.
+        # See PLANS/2026.06.12-V2-cookie-storage-read.md.
+        click.echo("  Windows notes:")
+        click.echo("  - Run that line in PowerShell, not cmd.exe.")
+        click.echo("  - Confirm your own path first: Get-Process Claude | Select-Object Path")
+        click.echo("  - Import the mitmproxy CA before you start, or Claude Desktop")
+        click.echo("    rejects the proxy certificate. See the README.")
+        click.echo("  - A Microsoft Store install may ignore these flags. If no")
+        click.echo("    credentials appear, use the browser capture instead:")
+        click.echo("        claude-explorer capture")
+        click.echo()
     click.echo("Use Claude Desktop normally. Credentials will be captured automatically.")
     click.echo("Press 'q' to quit mitmproxy when done.")
     click.echo()
@@ -328,9 +349,6 @@ def _capture_via_proxy(port: int) -> None:
         # PLANS/2026.06.12-V2-cookie-storage-read.md). When the binary
         # is absent, point users at the default browser-based capture,
         # which doesn't need mitmproxy.
-        import platform
-        import sys
-
         is_win_arm64 = sys.platform == "win32" and platform.machine() == "ARM64"
         if is_win_arm64:
             raise click.ClickException(

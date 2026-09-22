@@ -6,6 +6,8 @@ A local tool to browse, full-text search, and export your entire Claude conversa
 
 ## Quick Start
 
+> **On Windows?** Go to [Windows install](#windows-install) below. The correct commands depend on your processor type.
+
 ```bash
 # install uv if needed: https://docs.astral.sh/uv/getting-started/installation/
 
@@ -32,27 +34,77 @@ brew install pango cairo libffi
 #   Linux (Ubuntu/Debian):
 # apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2
 #
-#   Windows: install MSYS2 (https://www.msys2.org), then in its shell run
-#            `pacman -S mingw-w64-x86_64-pango`. Or grab the standalone
-#            WeasyPrint .exe from the GitHub releases to skip the
-#            system-library dance entirely.
+#   Windows: PDF export needs the GTK3 runtime libraries. Follow
+#            https://doc.courtbouillon.org/weasyprint/stable/first_steps.html
+#            Or install MSYS2 (https://www.msys2.org) and run
+#            `pacman -S mingw-w64-x86_64-pango` in its shell.
+#            NOTE: the standalone WeasyPrint download is a separate
+#            program. This app imports WeasyPrint as a library, so
+#            that download does not enable PDF export here.
 ```
 
-### Windows ARM64 (Copilot+ PCs / Surface Pro X / Snapdragon-X laptops)
+### Windows install
 
-On Windows ARM64, install claude-explorer against an **x86_64 Python** rather than the default ARM64-native Python. The ARM64 Python on Windows lacks prebuilt wheels for several upstream dependencies (`cryptography`, `httptools`, `Brotli`); x86_64 Python runs under Microsoft Prism translation at near-native speed and has full wheel coverage. This matches Microsoft's own recommendation for Python development on Windows-on-ARM.
+The correct commands depend on your processor type. Check the type first.
 
-`uv` handles the cross-architecture install in a single command:
+**Find your processor type.** Open PowerShell and run:
 
 ```powershell
-# Install uv if you don't have it:
-powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# Then install claude-explorer against an x86_64 Python (uv fetches it on demand):
-uv tool install claude-explorer --python cpython-3.13.14-windows-x86_64-none
+$env:PROCESSOR_ARCHITECTURE
 ```
 
-Everything else in this README (`uvx ...` commands, watcher install, MCP setup) works the same on Win ARM64 as on other platforms.
+- `AMD64` means an Intel or AMD processor. Use [Windows on Intel or AMD](#windows-on-intel-or-amd-x64).
+- `ARM64` means an ARM processor. Use [Windows on ARM](#windows-on-arm).
+
+You can also open **Settings > System > About** and read the **System type** line.
+
+Most Windows PCs report `AMD64`. `ARM64` covers Copilot+ PCs, Surface Pro X, and Snapdragon X laptops.
+
+Windows may show a SmartScreen or Defender prompt the first time it runs a freshly downloaded installer. That prompt is normal for this install.
+
+#### Windows on Intel or AMD (x64)
+
+The standard commands work. Run them in PowerShell:
+
+```powershell
+# Install uv if you do not have it:
+powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# One-time: install the Chromium build that credential capture drives.
+# The sidebar Refresh button needs it for the login flow.
+uvx --from claude-explorer playwright install chromium
+
+# Start the web app:
+uvx claude-explorer serve
+
+# In another terminal, install the always-on image-cache watcher:
+uvx claude-explorer install-watcher
+```
+
+#### Windows on ARM
+
+On Windows ARM, install claude-explorer against an **x86_64 Python** rather than the default ARM64-native Python. Several upstream dependencies (`cryptography`, `httptools`, `Brotli`, and `mitmproxy`) still publish no Windows ARM64 wheels. An x86_64 Python runs under Microsoft Prism translation at near-native speed and has full wheel coverage. This matches Microsoft's own recommendation for Python development on Windows on ARM.
+
+**The order of these commands matters.** Install the tool first. Each later command then reuses that same x86_64 environment. A bare `uvx` command as the first step builds a temporary ARM64 environment instead, and the install fails.
+
+```powershell
+# Install uv if you do not have it:
+powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 1. Install against an x86_64 Python (uv downloads it on demand):
+uv tool install claude-explorer --python cpython-3.13-windows-x86_64-none
+
+# 2. One-time: install the Chromium build that credential capture drives:
+uv tool run --from claude-explorer --python cpython-3.13-windows-x86_64-none playwright install chromium
+
+# 3. Start the web app:
+claude-explorer serve
+
+# 4. In another terminal, install the always-on image-cache watcher:
+claude-explorer install-watcher
+```
+
+The MCP setup below works the same on both processor types.
 
 That's it. Open `http://localhost:8765` in your browser and your Claude Code and Claude Cowork sessions are visible immediately. Click **Refresh** in the sidebar to capture credentials and fetch your Claude Desktop history (the UI handles capture via in-process Playwright on first run; no terminal commands needed).
 
@@ -325,16 +377,22 @@ uv run playwright install chromium
 # (skip if you only care about Markdown export).
 #   macOS:   run the brew command below
 #   Linux:   use your distro's pango / cairo / libffi packages
-#   Windows: install MSYS2 (https://www.msys2.org), then in its shell run
-#            `pacman -S mingw-w64-x86_64-pango`. Or grab the standalone
-#            WeasyPrint .exe from the GitHub releases to skip the
-#            system-library dance entirely.
+#   Windows: PDF export needs the GTK3 runtime libraries. Follow
+#            https://doc.courtbouillon.org/weasyprint/stable/first_steps.html
+#            Or install MSYS2 (https://www.msys2.org) and run
+#            `pacman -S mingw-w64-x86_64-pango` in its shell.
+#            NOTE: the standalone WeasyPrint download is a separate
+#            program. This app imports WeasyPrint as a library, so
+#            that download does not enable PDF export here.
 brew install pango cairo libffi
 ```
 
 ### Step 1: Capture Your Session Cookie
 
-There are two methods to capture credentials. Choose the one that fits your situation:
+There are two methods to capture credentials. Choose the one that fits your situation.
+
+> The commands below use the `uv run` prefix, which works inside a source checkout.
+> If you installed from PyPI, drop that prefix and run `claude-explorer ...` directly.
 
 #### Method A: Browser Login (Default)
 
@@ -372,19 +430,41 @@ Click around in Claude Desktop for a few seconds. The addon will print:
 **Options:**
 - `--port N` — Proxy port (default: 8080)
 
-**Platform-specific launch commands:**
+**Platform-specific launch commands.**
+
+macOS:
 ```bash
-# macOS
 open -a "Claude" --args --proxy-server="127.0.0.1:8080" --ignore-certificate-errors
+```
 
-# Windows
-"C:\...\Claude.exe" --proxy-server="127.0.0.1:8080" --ignore-certificate-errors
-
-# Linux
+Linux:
+```bash
 claude --proxy-server="127.0.0.1:8080" --ignore-certificate-errors
 ```
 
-**Note:** mitmproxy requires a proper ANSI terminal (Terminal.app, iTerm2, etc.). It will not work in non-TTY environments.
+Windows (PowerShell, Intel and AMD only):
+```powershell
+# 1. Trust the mitmproxy CA. Do this BEFORE you launch Claude Desktop.
+#    `--ignore-certificate-errors` covers only Chromium's own requests. It does
+#    not cover the Electron main process, so the capture sees nothing without
+#    this step. The certificate file appears after the proxy has run once.
+Import-Certificate -FilePath "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer" -CertStoreLocation "Cert:\CurrentUser\Root"
+
+# 2. Confirm your own install path (launch Claude Desktop first):
+Get-Process Claude | Select-Object Path
+
+# 3. Launch through the proxy. The typical installer path is shown here;
+#    use the path from step 2 if yours differs.
+& "$env:LOCALAPPDATA\AnthropicClaude\Claude.exe" --proxy-server="127.0.0.1:8080" --ignore-certificate-errors
+```
+
+**Windows caveats.**
+
+- **Windows ARM cannot use this method.** mitmproxy publishes no Windows ARM64 wheels, so `--proxy` is not installed there. Use Method A instead. The CLI prints the same advice if you try.
+- **A Microsoft Store install may ignore these flags.** That build lives under `C:\Program Files\WindowsApps\` and runs sandboxed. If no credentials appear after a minute of clicking around in Claude Desktop, use Method A.
+- **Use PowerShell, not `cmd.exe`.** `cmd.exe` does not understand `&` or `$env:`.
+
+**Note:** mitmproxy needs a real terminal: Terminal.app or iTerm2 on macOS, Windows Terminal or PowerShell on Windows, any TTY on Linux. It does not work in non-TTY environments.
 
 ---
 
