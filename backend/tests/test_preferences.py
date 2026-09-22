@@ -255,7 +255,7 @@ def test__patch_preferences__empty_data__no_op_preserves_all(client_with_prefs):
 #
 # Pydantic v2's default is ``extra='ignore'``, which would silently swallow a
 # misnamed top-level field (e.g. a frontend typo writing ``themee`` at the
-# root instead of inside ``data``). That's a silent data-loss footgun: the
+# root instead of inside ``data``). That's a silent data-loss trap: the
 # write looks successful but the value never persists. ``extra='forbid'`` on
 # ``PreferencesWrite`` turns the typo into a 422 so the caller learns at the
 # wire boundary.
