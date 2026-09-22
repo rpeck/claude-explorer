@@ -91,6 +91,9 @@ def check_file(path: str, tracked: set[str]) -> list[tuple[int, str, str]]:
             if is_remote(tgt):
                 continue
             rel = os.path.normpath(os.path.join(os.path.dirname(path), tgt.replace("%20", " ")))
+            # `git ls-files` always reports forward slashes. On Windows
+            # normpath yields backslashes, so every image looked untracked.
+            rel = rel.replace(os.sep, "/")
             if rel not in tracked:
                 viol.append((lineno, "referenced image not git-tracked (404 on GitHub)", tgt))
     return viol

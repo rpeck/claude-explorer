@@ -95,8 +95,10 @@ def test_round_trip_versioned_envelope(client_with_prefs):
 def test_file_mode_0600(client_with_prefs):
     client, prefs_file = client_with_prefs
     client.patch("/api/preferences", json={"data": {"theme": "dark"}})
-    mode = stat.S_IMODE(os.stat(prefs_file).st_mode)
-    assert oct(mode) == "0o600"
+    # Windows ignores mode bits and uses an NTFS ACL instead.
+    from backend.tests.test_credentials_perms import assert_owner_only
+
+    assert_owner_only(prefs_file)
 
 
 def test_concurrent_patches_dont_corrupt(client_with_prefs):

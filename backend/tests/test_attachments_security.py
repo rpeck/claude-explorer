@@ -288,6 +288,10 @@ def unreadable_attachment(attach_env: tuple[TestClient, Path]) -> Path:
             pass
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="chmod 0o000 does not remove read access on Windows; NTFS uses ACLs, so the unreadable precondition cannot be established",
+)
 def test__get_attachment__non_readable_file__4xx_no_path_leak(
     attach_env: tuple[TestClient, Path], unreadable_attachment: Path
 ) -> None:

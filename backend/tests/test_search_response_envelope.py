@@ -317,6 +317,13 @@ def test_mcp_search_path_uses_limit_5000(monkeypatch) -> None:
         # underlying function directly.
         mcp_server.list_sessions(query="canary")
 
+        # The store leaves a SQLite connection open on search-index.sqlite.
+        # POSIX happily unlinks an open file; Windows refuses, so the
+        # TemporaryDirectory cleanup raises WinError 32. Close it here.
+        from backend.search_index import reset_search_index_for_tests
+
+        reset_search_index_for_tests()
+
     assert captured_limits, (
         "MCP list_sessions(query=...) must call search_conversations"
     )

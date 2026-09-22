@@ -42,6 +42,7 @@ Spec-driven discipline (CLAUDE-TESTING.md §1):
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -248,6 +249,10 @@ def unreadable_cc_image(
             pass
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="chmod 0o000 does not remove read access on Windows; NTFS uses ACLs, so the unreadable precondition cannot be established",
+)
 def test__get_cc_image__non_readable_file__4xx_no_path_leak(
     cc_image_env: tuple[TestClient, Path, Path],
     unreadable_cc_image: Path,
