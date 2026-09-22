@@ -1,3 +1,12 @@
 {
-   "signedContributors": []
+  "signedContributors": [
+    {
+      "name": "lokkju",
+      "id": 235371,
+      "comment_id": 4874475043,
+      "created_at": "2026-07-03T08:51:11Z",
+      "repoId": 1221943838,
+      "pullRequestNo": 2
+    }
+  ]
 }
