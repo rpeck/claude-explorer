@@ -303,7 +303,13 @@ def test_mcp_search_path_uses_limit_5000(monkeypatch) -> None:
     # Set up a minimal data dir so list_sessions can build a store.
     import tempfile
     from backend import config
-    with tempfile.TemporaryDirectory() as td:
+    # ignore_cleanup_errors: this test asserts the search limit, not file
+    # locking. The real connection leak that caused WinError 32 here is
+    # fixed in SearchIndex.close() and pinned by
+    # backend/tests/test_search_index_close.py. Windows can still hold the
+    # handle briefly after close, and failing teardown would hide the
+    # assertion this test exists to make.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         from pathlib import Path
         tdp = Path(td)
         (tdp / "data").mkdir()
