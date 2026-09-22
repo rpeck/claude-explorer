@@ -18,9 +18,19 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+# The script under test is macOS-only: it drives `tmutil`, reads Time
+# Machine snapshots, and calls os.geteuid, which does not exist on
+# Windows. On Windows the subprocess call reaches WSL instead and the
+# assertions compare against WSL's error text.
+pytestmark = pytest.mark.skipif(
+    sys.platform != "darwin",
+    reason="macOS Time Machine restore script (needs tmutil + os.geteuid)",
+)
 
 
 SCRIPT = (

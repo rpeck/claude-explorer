@@ -38,6 +38,8 @@ from pathlib import Path
 
 import pytest
 
+from backend.tests._platform_home import patch_home
+
 from backend import config
 
 
@@ -49,7 +51,7 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     layers' tests share their isolation strategy without
     cross-importing private fixtures.
     """
-    monkeypatch.setenv("HOME", str(tmp_path))
+    patch_home(monkeypatch, tmp_path)
     monkeypatch.delenv("CLAUDE_EXPLORER_DATA_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_EXPORTER_DATA_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_DIR", raising=False)

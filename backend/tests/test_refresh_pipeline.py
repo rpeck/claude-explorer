@@ -358,5 +358,8 @@ def test_credentials_saved_with_0o600_perms(
     assert response.status_code == 200
     assert isolated_creds.exists()
 
-    mode = isolated_creds.stat().st_mode & 0o777
-    assert mode == 0o600, f"credentials must be 0o600, got {oct(mode)}"
+    # Windows ignores mode bits and uses an NTFS ACL instead, so assert the
+    # platform's own notion of owner-only access.
+    from backend.tests.test_credentials_perms import assert_owner_only
+
+    assert_owner_only(isolated_creds)

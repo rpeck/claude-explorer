@@ -31,6 +31,8 @@ from pathlib import Path
 
 import pytest
 
+from backend.tests._platform_home import patch_home
+
 from backend import config
 
 
@@ -42,7 +44,7 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (and the legacy ``.claude-exporter`` sibling), so monkeypatching HOME
     isolates the test from the developer's real config file.
     """
-    monkeypatch.setenv("HOME", str(tmp_path))
+    patch_home(monkeypatch, tmp_path)
     # Strip env overrides so the load path actually consults config.json.
     monkeypatch.delenv("CLAUDE_EXPLORER_DATA_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_EXPORTER_DATA_DIR", raising=False)

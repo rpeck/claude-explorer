@@ -112,6 +112,15 @@ def resolve_targets(paths: list[str]) -> tuple[list[str], list[str]]:
     return files, missing
 
 
+# Windows consoles default to a legacy code page (cp1252), and the status
+# glyphs below are outside it, so printing them raises UnicodeEncodeError and
+# the check dies before it reports anything. Force UTF-8 on the streams.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__.splitlines()[0] if __doc__ else None,

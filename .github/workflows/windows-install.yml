@@ -177,6 +177,10 @@ jobs:
           schtasks /Query /TN ClaudeExplorerCCWatcher 2>$null
           if ($LASTEXITCODE -eq 0) { throw "scheduled task still present after uninstall" }
           Write-Host "watcher lifecycle verified"
+          # That query is EXPECTED to fail, which leaves $LASTEXITCODE at 1.
+          # The pwsh wrapper uses the last exit code as the step result, so
+          # clear it explicitly or a passing step reports failure.
+          exit 0
 
       - name: Upload server logs on failure
         if: failure()
