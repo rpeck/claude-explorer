@@ -371,6 +371,11 @@ def _try_start_observer():
 
     handler = _build_event_handler()
     observer = Observer()
+    # Do not inherit the library default. watchdog picks a different
+    # backend per platform (FSEvents, inotify, ReadDirectoryChangesW),
+    # and a non-daemon observer keeps the interpreter alive at exit.
+    # Windows CI hung at shutdown on exactly this.
+    observer.daemon = True
     observer.schedule(handler, str(root), recursive=True)
     try:
         observer.start()
@@ -584,6 +589,11 @@ def _try_start_projects_observer():
 
     handler = _build_projects_event_handler()
     observer = Observer()
+    # Do not inherit the library default. watchdog picks a different
+    # backend per platform (FSEvents, inotify, ReadDirectoryChangesW),
+    # and a non-daemon observer keeps the interpreter alive at exit.
+    # Windows CI hung at shutdown on exactly this.
+    observer.daemon = True
     observer.schedule(handler, str(root), recursive=True)
     try:
         observer.start()
@@ -674,6 +684,11 @@ def _try_start_cowork_observer():
 
     handler = _build_cowork_event_handler()
     observer = Observer()
+    # Do not inherit the library default. watchdog picks a different
+    # backend per platform (FSEvents, inotify, ReadDirectoryChangesW),
+    # and a non-daemon observer keeps the interpreter alive at exit.
+    # Windows CI hung at shutdown on exactly this.
+    observer.daemon = True
     observer.schedule(handler, str(root), recursive=True)
     try:
         observer.start()
@@ -829,9 +844,10 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
         #     reload path: callers want crisp lifecycle ordering.
         #
         #   * Cancellation path (``task.cancel()``): call
-        #     ``observer.stop()`` but DO NOT join. The watchdog
-        #     threads are daemons (verified: ``Observer().daemon ==
-        #     True``), so they die with the process. We don't need
+        #     ``observer.stop()`` but DO NOT join. We set
+        #     ``observer.daemon = True`` explicitly at every start
+        #     site, so the threads die with the process on every
+        #     platform. We don't need
         #     to wait for them, and waiting would block the
         #     lifespan-shutdown ``asyncio.gather`` for up to
         #     ``join_timeout`` per observer. Skipping the join
