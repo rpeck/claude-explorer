@@ -1,0 +1,318 @@
+# Install verification on every platform a user can have.
+#
+# Why this exists: the install path is the first thing every user meets, and
+# a failure there loses them before they see the app. This workflow runs the
+# README's own install commands on real hosted machines, so the documentation
+# is tested, not just the code. See TESTING.md §7.
+#
+# Platforms (all free for public repositories):
+#   macos-latest     macOS, Apple Silicon (arm64)
+#   macos-15-intel   macOS, Intel (x86_64); GitHub retires it in August 2027
+#   ubuntu-latest    Linux, x86_64
+#   ubuntu-24.04-arm Linux, arm64
+#   windows-latest   Windows, x86_64 (Intel and AMD)
+#   windows-11-arm   Windows, ARM64 (Copilot+ PCs, Surface Pro X, Snapdragon X)
+#
+# Security note: no untrusted value reaches a `run:` block. Every value a
+# script uses arrives through `env:`: one validated `choice` input and static
+# matrix text from this file. No `github.event.*` field is read anywhere.
+#
+# What this cannot cover, and why, is in TESTING.md §10: the MCPB drag-drop
+# into Claude Desktop, proxy capture, and a real interactive login.
+
+name: Install matrix
+
+on:
+  push:
+    branches: [main, "ci/**"]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "cli/**"
+      - "fetcher/**"
+      - "backend/**"
+      - "mcp_server/**"
+      - "README.md"
+      - ".github/workflows/install-matrix.yml"
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "cli/**"
+      - "fetcher/**"
+      - "backend/**"
+      - "mcp_server/**"
+      - "README.md"
+      - ".github/workflows/install-matrix.yml"
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Install from this checkout or from the published PyPI package"
+        type: choice
+        options: [checkout, pypi]
+        default: checkout
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macOS arm64,    runner: macos-latest,     family: macos,   python: "3.13" }
+          - { name: macOS x86_64,   runner: macos-15-intel,   family: macos,   python: "3.13" }
+          - { name: Linux x86_64,   runner: ubuntu-latest,    family: linux,   python: "3.13" }
+          - { name: Linux arm64,    runner: ubuntu-24.04-arm, family: linux,   python: "3.13" }
+          - { name: Windows x86_64, runner: windows-latest,   family: windows, python: "3.13" }
+          # Windows ARM64 has no wheels for cryptography, httptools, Brotli or
+          # mitmproxy, so install against an x86_64 interpreter under Prism.
+          # This is the exact string the README gives an ARM user.
+          - { name: Windows ARM64,  runner: windows-11-arm,   family: windows, python: "cpython-3.13-windows-x86_64-none" }
+
+    env:
+      SOURCE: ${{ inputs.source }}
+      PYSPEC: ${{ matrix.python }}
+      FAMILY: ${{ matrix.family }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # ---------------------------------------------------------- macOS + Linux
+      - name: Install claude-explorer (macOS, Linux)
+        if: matrix.family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          src=$([ "${SOURCE:-}" = "pypi" ] && echo claude-explorer || echo .)
+          echo "Installing from: $src (python $PYSPEC)"
+          uv tool install "$src" --python "$PYSPEC"
+
+      - name: CLI responds (macOS, Linux)
+        if: matrix.family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          claude-explorer --version
+          help=$(claude-explorer --help)
+          for cmd in capture fetch serve install-watcher reindex-search; do
+            grep -q "$cmd" <<<"$help" || { echo "missing subcommand: $cmd"; exit 1; }
+          done
+          echo "all five subcommands present"
+
+      - name: Chromium installs and launches (macOS, Linux)
+        if: matrix.family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Linux needs the browser's system libraries as well. The README
+          # tells Linux users to pass --with-deps, so test exactly that.
+          deps=""
+          if [ "$FAMILY" = "linux" ]; then deps="--with-deps"; fi
+          if [ "${SOURCE:-}" = "pypi" ]; then
+            uvx --from claude-explorer --python "$PYSPEC" playwright install $deps chromium
+            runner=(uvx --from claude-explorer --python "$PYSPEC" python)
+          else
+            uv sync --python "$PYSPEC"
+            uv run playwright install $deps chromium
+            runner=(uv run python)
+          fi
+          # Launch it, not just find it. A binary that exists but cannot start
+          # (a missing system library) is the failure a real user meets.
+          "${runner[@]}" -c "from playwright.sync_api import sync_playwright
+          p = sync_playwright().start(); b = p.chromium.launch(); b.close(); p.stop()
+          print('chromium launched')"
+
+      - name: Server starts and answers (macOS, Linux)
+        if: matrix.family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CLAUDE_EXPLORER_DATA_DIR="$RUNNER_TEMP/ce-data"
+          mkdir -p "$CLAUDE_EXPLORER_DATA_DIR"
+          claude-explorer serve --port 8765 >serve.out.log 2>serve.err.log &
+          pid=$!
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8765/api/config -o config.json; then
+              echo "/api/config 200 after $i polls"; cat config.json; echo
+              ready=1; break
+            fi
+            sleep 2
+          done
+          kill "$pid" 2>/dev/null || true
+          if [ "$ready" != 1 ]; then
+            echo "--- stdout ---"; cat serve.out.log
+            echo "--- stderr ---"; cat serve.err.log
+            exit 1
+          fi
+
+      - name: Watcher lifecycle (macOS)
+        if: matrix.family == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          claude-explorer install-watcher
+          launchctl list | grep -q claude-explorer || { echo "launchd job not registered"; exit 1; }
+          claude-explorer install-watcher --uninstall
+          if launchctl list | grep -q claude-explorer; then echo "still registered after uninstall"; exit 1; fi
+          echo "watcher lifecycle verified"
+
+      - name: Watcher lifecycle (Linux)
+        if: matrix.family == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The README tells Linux users to enable lingering so the watcher
+          # survives logout. It also starts the per-user systemd manager,
+          # which a CI job (not a login session) otherwise lacks.
+          sudo loginctl enable-linger "$USER"
+          export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          for i in $(seq 1 30); do [ -S "$XDG_RUNTIME_DIR/bus" ] && break; sleep 1; done
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+          unit=claude-explorer-cc-watcher.service
+          claude-explorer install-watcher
+          state=""
+          for i in $(seq 1 20); do
+            state=$(systemctl --user is-active "$unit" || true)
+            [ "$state" = active ] && break; sleep 1
+          done
+          echo "state after install: $state"
+          [ "$state" = active ] || { systemctl --user status "$unit" || true; exit 1; }
+          claude-explorer install-watcher --uninstall
+          if systemctl --user is-active --quiet "$unit"; then echo "still active after uninstall"; exit 1; fi
+          echo "watcher lifecycle verified"
+
+      # ---------------------------------------------------------------- Windows
+      - name: Install claude-explorer (Windows)
+        if: matrix.family == 'windows'
+        shell: pwsh
+        run: |
+          "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $src = if ($env:SOURCE -eq "pypi") { "claude-explorer" } else { "." }
+          Write-Host "Installing from: $src (python $env:PYSPEC)"
+          uv tool install $src --python "$env:PYSPEC"
+          if ($LASTEXITCODE -ne 0) { throw "uv tool install failed" }
+          # On ARM this must report AMD64: proof that the Prism path works.
+          $py = uv python find "$env:PYSPEC"
+          & $py -c "import platform,sys; print('machine:', platform.machine()); print('version:', sys.version)"
+
+      - name: CLI responds (Windows)
+        if: matrix.family == 'windows'
+        shell: pwsh
+        run: |
+          claude-explorer --version
+          if ($LASTEXITCODE -ne 0) { throw "claude-explorer --version failed" }
+          $help = claude-explorer --help | Out-String
+          foreach ($cmd in @("capture", "fetch", "serve", "install-watcher", "reindex-search")) {
+            if ($help -notmatch $cmd) { throw "missing subcommand: $cmd" }
+          }
+          Write-Host "all five subcommands present"
+
+      - name: Chromium installs and launches (Windows)
+        if: matrix.family == 'windows'
+        shell: pwsh
+        run: |
+          $launch = "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(); b.close(); p.stop(); print('chromium launched')"
+          if ($env:SOURCE -eq "pypi") {
+            uvx --from claude-explorer --python "$env:PYSPEC" playwright install chromium
+            if ($LASTEXITCODE -ne 0) { throw "playwright install chromium failed" }
+            uvx --from claude-explorer --python "$env:PYSPEC" python -c $launch
+          } else {
+            uv sync --python "$env:PYSPEC"
+            uv run playwright install chromium
+            if ($LASTEXITCODE -ne 0) { throw "playwright install chromium failed" }
+            uv run python -c $launch
+          }
+          if ($LASTEXITCODE -ne 0) { throw "chromium did not launch" }
+
+      - name: Server starts and answers (Windows)
+        if: matrix.family == 'windows'
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP "ce-data"
+          New-Item -ItemType Directory -Force -Path $data | Out-Null
+          $env:CLAUDE_EXPLORER_DATA_DIR = $data
+          $proc = Start-Process -FilePath "claude-explorer" -ArgumentList "serve", "--port", "8765" `
+            -PassThru -NoNewWindow -RedirectStandardOutput "serve.out.log" -RedirectStandardError "serve.err.log"
+          $ready = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            try {
+              $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri "http://127.0.0.1:8765/api/config"
+              if ($r.StatusCode -eq 200) { Write-Host "/api/config 200 after $i polls"; Write-Host $r.Content; $ready = $true; break }
+            } catch { Start-Sleep -Seconds 2 }
+          }
+          if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          if (-not $ready) {
+            Get-Content serve.out.log -ErrorAction SilentlyContinue
+            Get-Content serve.err.log -ErrorAction SilentlyContinue
+            throw "server never answered on port 8765"
+          }
+
+      - name: Watcher lifecycle (Windows)
+        if: matrix.family == 'windows'
+        shell: pwsh
+        run: |
+          claude-explorer install-watcher
+          if ($LASTEXITCODE -ne 0) { throw "install-watcher failed" }
+          schtasks /Query /TN ClaudeExplorerCCWatcher
+          if ($LASTEXITCODE -ne 0) { throw "scheduled task was not registered" }
+          claude-explorer install-watcher --uninstall
+          if ($LASTEXITCODE -ne 0) { throw "install-watcher --uninstall failed" }
+          schtasks /Query /TN ClaudeExplorerCCWatcher 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "scheduled task still present after uninstall" }
+          Write-Host "watcher lifecycle verified"
+          # That last query is EXPECTED to fail and leaves $LASTEXITCODE at 1.
+          # The pwsh wrapper would report it as the step result, so clear it.
+          exit 0
+
+      - name: Upload server logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serve-logs-${{ matrix.runner }}
+          path: serve.*.log
+          if-no-files-found: ignore
+
+  pytest:
+    name: pytest (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macOS arm64,    runner: macos-latest,     python: "3.13", xdist: "auto" }
+          - { name: macOS x86_64,   runner: macos-15-intel,   python: "3.13", xdist: "auto" }
+          - { name: Linux x86_64,   runner: ubuntu-latest,    python: "3.13", xdist: "auto" }
+          - { name: Linux arm64,    runner: ubuntu-24.04-arm, python: "3.13", xdist: "auto" }
+          # Windows runs serially: the xdist controller hung at shutdown there.
+          - { name: Windows x86_64, runner: windows-latest,   python: "3.13", xdist: "0" }
+          - { name: Windows ARM64,  runner: windows-11-arm,   python: "cpython-3.13-windows-x86_64-none", xdist: "0" }
+
+    env:
+      PYSPEC: ${{ matrix.python }}
+      XDIST: ${{ matrix.xdist }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Sync dependencies
+        run: uv sync --extra dev --python "$PYSPEC"
+      - name: Run the Python suite
+        # Never pipe this through tail: a pipeline reports the last stage's
+        # status and turns a failure into a pass. TESTING.md §0.
+        run: uv run pytest backend/tests fetcher/tests mcp_server/tests -q -n "$XDIST"
