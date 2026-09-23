@@ -65,6 +65,7 @@ logger = logging.getLogger(__name__)
 # Default paths — canonically defined in fetcher.paths and re-exported here
 # so old imports + test patches at fetcher.bulk_fetch.DEFAULT_* keep working.
 # See backend/tests/conftest.py for the multi-site patch fixture.
+from fetcher.atomic import atomic_replace  # noqa: E402
 from fetcher.paths import (  # noqa: E402  (after logger configure is fine here)
     DEFAULT_CREDENTIALS_PATH,
     DEFAULT_DATA_DIR as DEFAULT_OUTPUT_DIR,  # legacy local alias
@@ -863,7 +864,7 @@ class ClaudeFetcher:
             json.dump(index, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, index_path)
+        atomic_replace(tmp, index_path)
 
         self._log(f"Saved index to {index_path}")
 

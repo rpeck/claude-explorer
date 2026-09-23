@@ -77,6 +77,7 @@ log = logging.getLogger(__name__)
 # Canonically defined in fetcher.paths (Council A5-PATHS); re-export
 # preserves backward-compat for any external caller.
 from fetcher.paths import DEFAULT_DATA_DIR  # noqa: E402
+from fetcher.atomic import atomic_replace
 
 MIGRATION_SENTINEL = "by-org/.migrated_v2"
 MIGRATION_LOG = "by-org/.migration_log.json"
@@ -306,7 +307,7 @@ def _do_migrate(
                     json.dump(data, f, indent=2)
                     f.flush()
                     os.fsync(f.fileno())
-                os.replace(tmp, target_path)
+                atomic_replace(tmp, target_path)
                 path.unlink()
             else:
                 # Pure relocation. shutil.move handles cross-fs fallback.

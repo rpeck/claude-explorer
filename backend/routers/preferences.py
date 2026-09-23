@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..config import get_settings
 from ..deps import refuse_if_config_corrupt
+from fetcher.atomic import atomic_replace
 
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
@@ -76,7 +77,7 @@ def _write_atomic(blob: dict[str, Any]) -> None:
         # Windows ignores mode bits, so route through the shared helper
         # that also sets an NTFS ACL there.
         harden_path_permissions(tmp)
-        os.replace(tmp, path)
+        atomic_replace(tmp, path)
     except BaseException:
         # If anything between write and replace raises, the .tmp file would
         # otherwise leak in the user's data dir. Best-effort cleanup; we

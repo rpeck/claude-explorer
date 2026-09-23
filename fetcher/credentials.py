@@ -70,6 +70,7 @@ log = logging.getLogger(__name__)
 # tests patching `fetcher.credentials.DEFAULT_CREDENTIALS_PATH` continue
 # to work. See backend/tests/conftest.py for the multi-site patch fixture.
 from fetcher.paths import DEFAULT_CREDENTIALS_PATH  # noqa: E402
+from fetcher.atomic import atomic_replace
 
 # Public API surface. Kept explicit so that Pyright/Mypy treat the
 # re-exported ``DEFAULT_CREDENTIALS_PATH`` as intentional public API,
@@ -411,7 +412,7 @@ def _unlocked_save(creds: CredentialsV2, path: Path) -> None:
 
     # Step 1: rotate any existing .bak -> .bak.prev so we can restore on crash.
     if bak.exists():
-        os.replace(bak, prev_bak)
+        atomic_replace(bak, prev_bak)
 
     # Step 2: write new payload to .tmp + fsync, restrict perms.
     with open(tmp, "w") as f:
@@ -426,10 +427,10 @@ def _unlocked_save(creds: CredentialsV2, path: Path) -> None:
         if path.exists():
             shutil.copyfile(path, bak_tmp)
             harden_path_permissions(bak_tmp)
-            os.replace(bak_tmp, bak)
+            atomic_replace(bak_tmp, bak)
 
         # Step 4: install new live file atomically.
-        os.replace(tmp, path)
+        atomic_replace(tmp, path)
     finally:
         # Defensive: clean up any bak_tmp residue from a partial Step 3.
         if bak_tmp.exists():

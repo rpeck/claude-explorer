@@ -130,6 +130,13 @@ class SummaryCache:
         # Per-thread read connections. SQLite forbids sharing connections
         # across threads by default; one-per-thread is the robust pattern.
         self._read_local = threading.local()
+        # threading.local hides a thread's connection from every other
+        # thread, so close() could never reach them. Keep a registry too.
+        # POSIX unlinks an open file happily, which hid this; Windows
+        # keeps the database locked while any connection is open.
+        # Same defect as SearchIndex.close(), fixed 2026-09-22.
+        self._read_conns: list[sqlite3.Connection] = []
+        self._read_conns_lock = threading.Lock()
 
         # Single dedicated write connection guarded by a lock. WAL mode
         # ensures readers don't block on the writer.
@@ -226,6 +233,8 @@ class SummaryCache:
             # synchronize on the file (e.g. checkpoint or VACUUM).
             conn.execute("PRAGMA busy_timeout = 30000")
             self._read_local.conn = conn
+            with self._read_conns_lock:
+                self._read_conns.append(conn)
         return conn
 
     # ----- logic-version invalidation --------------------------------
@@ -460,12 +469,28 @@ class SummaryCache:
             return {"rows": -1}
 
     def close(self) -> None:
-        """Close all connections. Idempotent."""
+        """Close every connection this cache opened. Idempotent.
+
+        Closes the read connections too, including ones other threads made.
+        Waiting for thread death is not good enough: Windows keeps the
+        database file locked while any connection is open, so a leftover
+        reader blocks deletion of the file and of its directory.
+        """
         try:
             self._write_conn.close()
         except sqlite3.Error:
             pass
-        # threading.local cleanup happens when the thread dies.
+
+        with self._read_conns_lock:
+            conns, self._read_conns = self._read_conns, []
+        for conn in conns:
+            try:
+                conn.close()
+            except sqlite3.Error:
+                pass
+        # Drop the per-thread handles so a later call builds fresh ones
+        # rather than handing back a closed connection.
+        self._read_local = threading.local()
 
 
 # ----- module-level singleton --------------------------------------
