@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
 
-import { queryClient } from '../../lib/queryClient'
+import { invalidateAfterFetch, queryClient, queryKeys } from '../../lib/queryClient'
 
 // 2026-05-18 (Task A6): React Query staleTime/gcTime tuning.
 //
@@ -80,5 +81,29 @@ describe('queryClient retry behavior (type-assertion-lies audit)', () => {
   it('stops retrying after 5 attempts on retriable errors', () => {
     const err = new Error('network')
     expect(retryFn()(5, err)).toBe(false)
+  })
+})
+
+// 2026-09-23: after the sidebar Refresh fetched a new Desktop conversation,
+// the Conversation List showed it but the Search Pane kept its old results.
+// A repeat of the same search also showed the old results, because the
+// search query stays fresh for 60 s. Every fetch completion must mark the
+// search cache stale together with the conversations cache.
+describe('invalidateAfterFetch', () => {
+  it('marks the conversations and the search queries stale', async () => {
+    const qc = new QueryClient()
+    const searchKey = queryKeys.search('hermes', 'all', 'snippet')
+    const listKey = queryKeys.conversations.list({})
+    const configKey = queryKeys.config
+    qc.setQueryData(searchKey, { results: [] })
+    qc.setQueryData(listKey, [])
+    qc.setQueryData(configKey, {})
+
+    await invalidateAfterFetch(qc)
+
+    expect(qc.getQueryState(searchKey)?.isInvalidated).toBe(true)
+    expect(qc.getQueryState(listKey)?.isInvalidated).toBe(true)
+    // Unrelated queries keep their cache.
+    expect(qc.getQueryState(configKey)?.isInvalidated).toBe(false)
   })
 })

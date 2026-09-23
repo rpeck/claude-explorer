@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { errorToast } from '@/lib/errorToast'
 import { useQueryClient } from '@tanstack/react-query'
-import { queryKeys } from '@/lib/queryClient'
+import { invalidateAfterFetch, queryKeys } from '@/lib/queryClient'
 import { useConversation } from '@/hooks/useConversations'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useKeyboardNavigation } from '@/contexts/KeyboardNavigationContext'
@@ -655,7 +655,7 @@ export function ConversationPage() {
     try {
       await api.forceRefetchConversation(conversation.uuid)
       await queryClient.invalidateQueries({ queryKey: queryKeys.conversations.detail(conversation.uuid) })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.conversations.all })
+      await invalidateAfterFetch(queryClient)
       toast.success('Conversation re-downloaded.')
     } catch (e) {
       // Build-9 Bug 3: the backend returns FRIENDLY user copy in `detail`

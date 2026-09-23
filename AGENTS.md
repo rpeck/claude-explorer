@@ -249,11 +249,16 @@ uv run claude-explorer reindex-search --drift
   code runs on the matched conversations only (warm via FileCache).
   Result: byte-for-byte identical `SearchResult` shape to the linear
   path for whole-word queries.
-- The CC watcher (`backend/cc_watcher.py:scan_once`) runs
-  the search-index drift pass once per backstop scan (600s default).
-  Image-cache events fire instantly via `watchdog` but do NOT trigger
-  a drift pass — search picks up new sessions on the next backstop
-  poll. Failures in either pass are isolated.
+- Three triggers keep the index current. Failures in each are isolated.
+  - **Claude Code and Cowork sessions:** `watchdog` events on
+    `~/.claude/projects` and the Cowork root start a debounced drift pass.
+  - **Desktop conversations:** every fetch route runs the drift pass
+    before it reports success (`_reindex_search_after_fetch` in
+    `backend/routers/fetch.py`). The watcher does not observe the Desktop
+    conversations directory.
+  - **Backstop:** `backend/cc_watcher.py:scan_once` runs the drift pass
+    once per backstop scan (600s default). It catches anything the other
+    two missed.
 
 If you change the schema, bump `backend/search_index.SCHEMA_VERSION`
 and the next process startup will drop+rebuild on its own.
@@ -268,6 +273,7 @@ The sidebar **Refresh** button owns the full pipeline — capture + fetch — so
 - **Concurrency:** module-level `_refresh_in_progress` flag plus `asyncio.Lock`. A second concurrent request returns `409 Conflict`. Frontend disables the button while running, so 409 is defense-in-depth.
 - **SSE event types:** `capture_start`, `capture_waiting_login` (heartbeat every 25s during the 5-min login wait), `capture_done`, `capture_error`, plus the existing `start`, `progress`, `complete`, `error`.
 - **Manual override:** the Details modal's "Full Refresh" and "Fetch New" buttons still hit `/fetch/start` directly with no auto-capture.
+- **Search is current at `complete`.** The backend re-indexes search before it emits `complete`. The frontend then calls `invalidateAfterFetch` (`frontend/src/lib/queryClient.ts`), which marks both the conversations and the search caches stale. A new fetch site must do both, or the Search Pane shows pre-fetch results.
 
 If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_capture_phase_stream`, `_fetch_phase_stream`, and `refresh_pipeline_stream` async generators) and `frontend/src/components/fetch/FetchToast.tsx` (the `useRefreshPipeline` hook) together — the SSE event schema is shared.
 

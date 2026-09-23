@@ -90,3 +90,13 @@ export const queryKeys = {
   ) => ['search', query, source, contextSize, sort, sortOrder, scope, includeToolCalls, includeCompactions] as const,
   config: ['config'] as const,
 }
+// Call after any fetch writes conversations to disk. The backend re-indexes
+// search before it reports success, so both caches can refresh at once.
+// Without the search invalidation, the Search Pane kept pre-fetch results
+// for up to its 60 s staleTime, even when the user repeated the search.
+export function invalidateAfterFetch(qc: QueryClient): Promise<void> {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: queryKeys.conversations.all }),
+    qc.invalidateQueries({ queryKey: ['search'] }),
+  ]).then(() => undefined)
+}

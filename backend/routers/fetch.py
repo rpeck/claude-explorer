@@ -291,6 +291,41 @@ async def get_fetch_status() -> FetchStatus:
     )
 
 
+async def _reindex_search_after_fetch() -> None:
+    """Make freshly fetched conversations searchable before we report success.
+
+    The CC watcher observes the Claude Code and Cowork directories, but
+    not the Desktop conversations directory. Without this call a new
+    Desktop conversation appears in the Conversation List at once, but
+    search finds it only after the watcher's next backstop poll (up to
+    10 minutes), or never if the watcher is down.
+
+    The drift pass costs one ``stat`` per indexed file (about 50 ms on a
+    large corpus) plus a read of each changed file. It runs in a worker
+    thread so the event loop keeps serving requests.
+
+    Skipped while the lifespan build still owns the index. Failures are
+    logged and swallowed: the conversations are already on disk, so the
+    fetch itself succeeded, and the next drift pass retries the index.
+    """
+    from .. import search_index
+    from ..store import ConversationStore
+
+    def _run() -> int:
+        idx = search_index.get_search_index()
+        if idx is None or not idx.is_ready():
+            return 0
+        return search_index.update_drifted_files(ConversationStore(), index=idx)
+
+    try:
+        updated = await asyncio.to_thread(_run)
+    except Exception:  # noqa: BLE001
+        logger.exception("search re-index after fetch failed")
+        return
+    if updated:
+        logger.info("search index: re-indexed %d file(s) after fetch", updated)
+
+
 async def fetch_conversations_stream(
     incremental: bool = True,
     limit: int | None = None,
@@ -394,6 +429,7 @@ async def fetch_conversations_stream(
         })
 
         if total == 0:
+            await _reindex_search_after_fetch()
             yield send_event({
                 "type": "complete",
                 "message": "No new conversations to fetch.",
@@ -454,6 +490,7 @@ async def fetch_conversations_stream(
         await loop.run_in_executor(
             None, fetcher.save_index, conversations
         )
+        await _reindex_search_after_fetch()
 
         yield send_event({
             "type": "complete",
@@ -569,6 +606,7 @@ async def force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
         raise HTTPException(status_code=404, detail=detail)
 
     fetcher.save_conversation(full_conv)
+    await _reindex_search_after_fetch()
     return ForceRefetchResponse(
         uuid=uuid,
         status="refetched",
@@ -1051,6 +1089,7 @@ async def _fetch_phase_stream(
         yield (bucket, msg)
         return
 
+    await _reindex_search_after_fetch()
     yield (
         "event",
         _send_event({

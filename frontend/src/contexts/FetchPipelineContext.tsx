@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
+import { invalidateAfterFetch } from '@/lib/queryClient'
 import { api } from '@/lib/api'
 import { errorToast } from '@/lib/errorToast'
 import { formatProgressText, type FetchProgress } from '@/components/fetch/FetchToast'
@@ -178,7 +179,7 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
               id: toastId,
               duration: 5000,
             })
-            queryClient.invalidateQueries({ queryKey: ['conversations'] })
+            void invalidateAfterFetch(queryClient)
             setState('complete')
             close()
             break

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
+import { invalidateAfterFetch } from '@/lib/queryClient'
 import { api } from '@/lib/api'
 import { errorToast } from '@/lib/errorToast'
 
@@ -103,7 +104,7 @@ export function useFetchToast({ onOpenDetails }: UseFetchToastOptions) {
             id: toastId,
             duration: 5000,
           })
-          queryClient.invalidateQueries({ queryKey: ['conversations'] })
+          void invalidateAfterFetch(queryClient)
           eventSource.close()
           sourceRef.current = null
         } else if (data.type === 'error') {
@@ -289,7 +290,7 @@ export function useRefreshPipeline({ onOpenDetails }: UseRefreshPipelineOptions)
               id: toastId,
               duration: 5000,
             })
-            queryClient.invalidateQueries({ queryKey: ['conversations'] })
+            void invalidateAfterFetch(queryClient)
             close()
             break
           case 'error':

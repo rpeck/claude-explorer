@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
-import { queryClient } from '@/lib/queryClient'
+import { invalidateAfterFetch, queryClient } from '@/lib/queryClient'
 import { useFetchPipeline } from '@/contexts/FetchPipelineContext'
 
 interface FetchDialogProps {
@@ -103,8 +103,8 @@ export function FetchDialog({ isOpen, onClose }: FetchDialogProps) {
         if (data.type === 'complete') {
           setState('complete')
           eventSource.close()
-          // Invalidate conversation list cache
-          queryClient.invalidateQueries({ queryKey: ['conversations'] })
+          // Invalidate the conversation list and search caches
+          void invalidateAfterFetch(queryClient)
         } else if (data.type === 'error') {
           setState('error')
           setErrorMessage(data.message)
