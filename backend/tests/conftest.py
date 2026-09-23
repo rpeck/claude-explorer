@@ -133,7 +133,7 @@ def _skip_pdf_tests_when_weasyprint_unavailable(request):
     etc.) aren't loadable.
 
     Trigger condition: test file or test name contains ``pdf``. Skip message
-    points at CLAUDE.md "PDF Export Dependencies" so the dev knows what to
+    points at AGENTS.md "PDF Export Dependencies" so the dev knows what to
     install.
     """
     if "pdf" not in request.node.nodeid.lower():
@@ -141,7 +141,7 @@ def _skip_pdf_tests_when_weasyprint_unavailable(request):
     if not _weasyprint_available():
         pytest.skip(
             "WeasyPrint native libs not loadable. "
-            "On macOS: brew install pango cairo libffi (see CLAUDE.md PDF Export Dependencies)."
+            "On macOS: brew install pango cairo libffi (see AGENTS.md PDF Export Dependencies)."
         )
 
 

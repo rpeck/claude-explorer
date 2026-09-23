@@ -6,7 +6,7 @@ imports ``backend.main`` directly, which transitively imports the
 ``export`` router, which transitively imports WeasyPrint at module-load
 time. macOS SIP strips ``DYLD_*`` env vars from ``uv run`` subprocess
 invocations, so the standard ``DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run
-uvicorn ...`` recipe documented in ``CLAUDE.md`` silently no-ops — the
+uvicorn ...`` recipe documented in ``AGENTS.md`` silently no-ops — the
 shell prefix never reaches the python interpreter. Result: the PDF
 export route returned ``500`` on a fresh-start dev server, with a
 ``OSError: cannot load library 'libgobject-2.0-0'`` in the traceback.

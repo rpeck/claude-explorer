@@ -133,11 +133,11 @@ exclude = [
     "frontend/dist/**",
     "frontend/playwright-report/**",
     "frontend/test-results/**",
-    # CLAUDE.md / TESTING.md are agent-coordination docs (kept in
-    # git for contributors who use Claude Code), not user-facing project
+    # AGENTS.md / TESTING.md are contributor and agent docs (kept in
+    # git for contributors), not user-facing project
     # docs. They reference internal LLM-council workflow and would just
     # clutter the sdist on PyPI. Excluded from sdist only — still in repo.
-    "CLAUDE.md",
+    "AGENTS.md",
     "TESTING.md",
 ]
 

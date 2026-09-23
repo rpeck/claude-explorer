@@ -183,7 +183,7 @@ def conversation_to_markdown(
 #   2. A README inside the zip is self-documenting: it explains the
 #      "fresh install" state (no fetches run yet) and points the user
 #      at the next step. The "Refresh" button in the sidebar is the V1
-#      flow that owns capture + fetch (see CLAUDE.md "Web UI Refresh
+#      flow that owns capture + fetch (see AGENTS.md "Web UI Refresh
 #      button"), so we name it explicitly.
 _EMPTY_CORPUS_README = (
     "# Claude Explorer — Empty export\n"
