@@ -79,3 +79,7 @@ LinkedIn/
 # Bumblebee security scanner output (large NDJSON inventory of system packages)
 inventory.ndjson
 medium-build/
+
+# Personal convenience symlink to AGENTS.md for Claude Code users.
+# AGENTS.md is the canonical, vendor-neutral file.
+CLAUDE.md

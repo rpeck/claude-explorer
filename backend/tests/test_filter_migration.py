@@ -5,18 +5,18 @@ lock in the contract that the backend is a **passthrough** for the
 preferences blob, NOT a migrator. The frontend orchestrates the v1->v2
 filter migration (see ``frontend/src/contexts/FilterContext.tsx``).
 
-Allowlist for spec-driven authoring (per CLAUDE-TESTING.md section 1):
+Allowlist for spec-driven authoring (per TESTING.md section 1):
 
 * ``PLANS/2026.05.07-frontend-api-contract.md`` (clause IDs cited below).
 * ``PLANS/2026.05.08 BACKEND TEST PLAN.md`` (the parent plan).
-* ``CLAUDE-TESTING.md`` sections 5.4 (negative-space) and 5.5 (legacy
+* ``TESTING.md`` sections 5.4 (negative-space) and 5.5 (legacy
   seeds).
 * ``backend/tests/conftest.py`` for the ``isolated_data_dir`` and
   ``legacy_v1_prefs`` fixtures.
 * ``backend/routers/preferences.py`` lines 50-62 (GET passthrough) and
   108-110 (PATCH per-key overwrite) -- these are the TARGETS.
 
-Bidirectional verification canary (CLAUDE-TESTING.md section 2): the
+Bidirectional verification canary (TESTING.md section 2): the
 PATCH negative-space test
 (:func:`test__patch_preferences__null_legacy_keys__clears_keys_preserves_siblings`)
 is the canary. To verify it falsifies, replace the merge loop in
@@ -84,7 +84,7 @@ def test__patch_preferences__null_legacy_keys__clears_keys_preserves_siblings(
     The frontend treats null-valued keys as semantically absent
     (``PREF-PATCH-NULL``); we assert the backend-observable state.
 
-    Bidirectional verification (CLAUDE-TESTING.md section 2): replace
+    Bidirectional verification (TESTING.md section 2): replace
     the merge loop with ``merged = payload.data``; the sibling
     assertions below fail.
     """

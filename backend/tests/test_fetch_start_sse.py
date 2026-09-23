@@ -4,7 +4,7 @@ Targets ``backend/routers/fetch.py:188-360`` (the ``fetch_conversations_stream``
 generator) and ``:442-462`` (the route handler that wraps it in
 ``StreamingResponse``).
 
-Wire-format reality (see ``CLAUDE-TESTING.md`` 5.6 + the P2 plan in
+Wire-format reality (see ``TESTING.md`` 5.6 + the P2 plan in
 ``PLANS/2026.05.08 BACKEND TEST PLAN.md``): the server emits ONLY
 ``data: {json}\\n\\n`` frames. There are no ``event:`` headers; the
 discriminator is ``payload["type"]``. Tests parse via
@@ -20,7 +20,7 @@ contract here, including the negative-space absence of ``kind`` and
 loudly rather than silently changing the wire shape under in-flight
 clients.
 
-Allowlist while authoring (per ``CLAUDE-TESTING.md`` 1):
+Allowlist while authoring (per ``TESTING.md`` 1):
 ``backend/routers/fetch.py``, ``backend/tests/conftest.py``,
 ``backend/tests/test_refresh_pipeline.py`` (existing patterns),
 ``PLANS/2026.05.08 BACKEND TEST PLAN.md``,
@@ -136,7 +136,7 @@ def fake_fetcher_class(monkeypatch: pytest.MonkeyPatch) -> type[_FakeFetcher]:
     """Patch ``backend.routers.fetch.ClaudeFetcher`` with :class:`_FakeFetcher`.
 
     The router does ``from fetcher.bulk_fetch import ClaudeFetcher`` (a
-    value-import; see ``CLAUDE-TESTING.md`` 5.1), so the patch site is the
+    value-import; see ``TESTING.md`` 5.1), so the patch site is the
     importer's local binding -- not ``fetcher.bulk_fetch.ClaudeFetcher``.
 
     Resets the class hooks BEFORE each test (defense-in-depth on top of

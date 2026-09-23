@@ -18,7 +18,7 @@ import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from
  *     "Session prelude: N earlier /exit runs (show)". Clicking the
  *     button toggles the markers back into view.
  *
- * Bidirectional verification (per CLAUDE-TESTING.md):
+ * Bidirectional verification (per TESTING.md):
  *   - NEW behavior assertion: first visible bubble is the real user
  *     message (NOT a marker); affordance is visible with count=2.
  *   - OLD-behavior catch: in the regression, two marker bubbles + two

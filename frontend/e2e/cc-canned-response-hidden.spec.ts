@@ -42,7 +42,7 @@ import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from
  *   - Step 3: assert on the absence of phantom assistant bubbles via
  *     `toHaveCount(0)` on selectors that would catch the regression.
  *
- * Bidirectional verification per CLAUDE-TESTING.md §2:
+ * Bidirectional verification per TESTING.md §2:
  *   - "X NOT rendered when condition": no assistant bubble after marker
  *     in the post-fold fixture (Test A).
  *   - "X rendered without condition": assistant bubble DOES render

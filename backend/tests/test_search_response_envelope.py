@@ -9,7 +9,7 @@ consumers) when the bm25 LIMIT clipped the result set so they can show
 Plan reference:
 ``PLANS/SEARCH_TOOL_AWARENESS_AND_LIMIT_DISCLOSURE.md`` §B.
 
-Bidirectional verification per CLAUDE-TESTING.md §2: every
+Bidirectional verification per TESTING.md §2: every
 ``truncated=True`` assertion is paired with a ``truncated=False`` case so
 a bug that flipped the predicate is caught either way.
 """

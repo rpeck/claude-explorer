@@ -34,7 +34,7 @@ Contract pinned by these tests:
      stay populated even when ``fragments`` is set, so clients that
      don't consume the new field keep working.
 
-Bidirectional verification per CLAUDE-TESTING.md §2:
+Bidirectional verification per TESTING.md §2:
   These tests FAIL today because:
     * MessageSnippet has no ``fragments`` field (Pydantic strict).
     * Even if we added the field as None default, the FTS5 path

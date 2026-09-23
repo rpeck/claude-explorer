@@ -11,7 +11,7 @@ import { test, expect, Route, withNetRetry, installLocalPrefsMock } from './fixt
  * the missing user-observable test that exercises the full chain:
  * type query → results land → CompactMarker panel becomes visible.
  *
- * Per CLAUDE-TESTING.md §5.13: the unit tests pin the resolution
+ * Per TESTING.md §5.13: the unit tests pin the resolution
  * RULES (the `forceOpen` prop honors transitions; the navigateToMatch
  * fast path clicks the pill if data-compact-marker is present). This
  * file pins the user-observable CONTRACT: the user types and the

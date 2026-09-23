@@ -33,7 +33,7 @@ that changes the routing behavior surfaces as a regression):
 So the contract is defense-in-depth: the FastAPI route is the first
 line; the glob is the second. We test BOTH.
 
-Spec-driven discipline (CLAUDE-TESTING.md §1):
+Spec-driven discipline (TESTING.md §1):
     Allowlist of files consulted while authoring this test:
       * PLANS/2026.05.18-test-hardening.md (Task C1)
       * backend/routers/files.py:83-154 (under test)

@@ -8,7 +8,7 @@ reason on the loaded ``Settings`` so writers can refuse and the UI can
 banner. The two test files cover orthogonal contracts; keeping them
 separate makes the failure-mode docstrings tight.
 
-Discipline (per PLANS/.../CLAUDE-TESTING.md):
+Discipline (per PLANS/.../TESTING.md):
 
 * **Bidirectional pairs**: every "reason set" test has a "reason None"
   sibling. A trivially-broken impl that *always* set the reason would

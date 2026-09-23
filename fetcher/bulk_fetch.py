@@ -38,7 +38,7 @@ from curl_cffi.requests.errors import RequestsError
 # that test patches at `fetcher.bulk_fetch._retry_sleep` continue to
 # take effect (Python resolves _retry_sleep in with_retry's defining
 # module's namespace; moving with_retry away would silently no-op the
-# patch). See fetcher/http_retry.py module docstring + CLAUDE-TESTING.md
+# patch). See fetcher/http_retry.py module docstring + TESTING.md
 # §5.12. Re-exported below so existing imports keep working — backend
 # imports `PersistedErrorKind` and others as `from fetcher.bulk_fetch import ...`.
 # DO NOT REMOVE these re-exports without a coordinated update of all
@@ -77,7 +77,7 @@ from fetcher.paths import (  # noqa: E402  (after logger configure is fine here)
 # AND owns the retry layer locally (with_retry, _retry_sleep, etc.) so
 # `monkeypatch.setattr("fetcher.bulk_fetch._retry_sleep", ...)` patches
 # in fetcher/tests/test_retry.py keep landing. See A2-SPLIT in
-# PLANS/CODE-REVIEW-FETCHER.md and CLAUDE-TESTING.md §5.12.
+# PLANS/CODE-REVIEW-FETCHER.md and TESTING.md §5.12.
 #
 # Names prefixed with `_` (e.g., `_retry_sleep`, `_classify_http_error`,
 # `_jittered_backoff`) are intentionally excluded from __all__ but
@@ -663,7 +663,7 @@ class ClaudeFetcher:
         sustained 429s cannot grow the call stack (previously this method
         recursed into itself after a raw ``time.sleep(60)``, which would
         ``RecursionError`` after ~1000 frames and bypassed the test patch
-        convention from CLAUDE-TESTING.md §5.12).
+        convention from TESTING.md §5.12).
 
         On exhaustion we raise ``FetchTransientError`` so the per-org
         catch block in :py:meth:`run_all_orgs` classifies the run as

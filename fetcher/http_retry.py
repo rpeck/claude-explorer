@@ -25,7 +25,7 @@ that ``with_retry`` looks up ``_retry_sleep`` in its DEFINING module's
 namespace, so moving ``with_retry`` here would silently turn the
 patches into no-ops (jittered backoff still firing, real-time sleeps).
 This was caught empirically during Council A2-SPLIT implementation
-and the retry layer was kept in place. CLAUDE-TESTING.md §5.12 applies.
+and the retry layer was kept in place. TESTING.md §5.12 applies.
 
 ``fetcher/bulk_fetch.py`` re-exports every public name in this module
 verbatim so existing imports keep working (backend imports of

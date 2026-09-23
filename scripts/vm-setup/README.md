@@ -1,6 +1,6 @@
 # VM setup scripts
 
-Companion artifacts to [`PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md`](../../PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md). These run **inside** the fresh VMs after OS install + first boot, to walk through Phase B (Ubuntu) or Phase A (Windows) system prep without retyping. They're checked into the repo so future debug-fleet rebuilds can replay them.
+The current procedure is [`TESTING.md` §8](../../TESTING.md). These scripts were written for the original June plan, now archived at [`PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md`](../../PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md), whose section numbers they cite. These run **inside** the fresh VMs after OS install + first boot, to walk through Phase B (Ubuntu) or Phase A (Windows) system prep without retyping. They're checked into the repo so future debug-fleet rebuilds can replay them.
 
 ## Files
 

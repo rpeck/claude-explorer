@@ -76,7 +76,7 @@ def test_export_all_markdown_empty_corpus_returns_valid_zip(
     body = r.content
     assert body, "response body is empty; expected a zip"
 
-    # Bidirectional verification (CLAUDE-TESTING.md §5): use stdlib's
+    # Bidirectional verification (TESTING.md §5): use stdlib's
     # zipfile to parse the bytes — if the route returns 44-byte EOCD-
     # only output, this fails with BadZipFile (or namelist is empty).
     # We assert namelist is non-empty AND that the README content is

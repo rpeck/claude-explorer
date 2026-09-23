@@ -5,7 +5,7 @@ These helpers exist to keep the security tests
 contract under test rather than re-deriving fs layout and negative-space
 assertions on every call site.
 
-Per CLAUDE-TESTING.md §5.9, security-adjacent tests assert REJECTION
+Per TESTING.md §5.9, security-adjacent tests assert REJECTION
 plus NO LEAK — never "200 with sanitized content". The helpers below
 encode that discipline:
 
@@ -24,7 +24,7 @@ encode that discipline:
   tree so the attachments handler's ``file_dir.is_dir()`` and ``glob``
   paths execute against real disk.
 
-Per CLAUDE-TESTING.md §1, these helpers do NOT consult the handler
+Per TESTING.md §1, these helpers do NOT consult the handler
 implementation while writing the tests; they encode the *spec* surface
 (allowlists, fs layout, response shape).
 """
@@ -46,7 +46,7 @@ LEAK_MAGIC = b"SUPER_SECRET_LEAK_TEST_BYTES_X7Q9"
 def assert_no_leak_bytes(resp: Any, magic: bytes = LEAK_MAGIC, *, msg: str = "") -> None:
     """Assert that ``magic`` does NOT appear in ``resp.content``.
 
-    Negative-space assertion per CLAUDE-TESTING.md §5.9: a path-traversal
+    Negative-space assertion per TESTING.md §5.9: a path-traversal
     attempt MUST be rejected with no body leak — not merely "200 with
     sanitized content".
 

@@ -11,7 +11,7 @@ shell prefix never reaches the python interpreter. Result: the PDF
 export route returned ``500`` on a fresh-start dev server, with a
 ``OSError: cannot load library 'libgobject-2.0-0'`` in the traceback.
 
-This file pins the user-observable contract (CLAUDE-TESTING.md §5.13):
+This file pins the user-observable contract (TESTING.md §5.13):
 a FRESH process invoking ``python -c 'import backend.main; import weasyprint'``
 must succeed on macOS. We spawn an actual subprocess so the conftest.py
 bootstrap (which fires only inside this pytest process) cannot mask a

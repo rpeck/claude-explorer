@@ -23,7 +23,7 @@ rather than waits-and-fails.
 
 This test pins the user-observable invariant ("the backend doesn't 500
 on concurrent requests during a fetch + reindex") via the
-implementation-level pragma the invariant requires. CLAUDE-TESTING.md
+implementation-level pragma the invariant requires. TESTING.md
 §5.14 user-observable layer is covered by a separate concurrent-
 request test (out of scope for this pin — would need a real corpus
 fixture and minutes of runtime).

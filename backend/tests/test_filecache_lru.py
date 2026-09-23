@@ -21,7 +21,7 @@ Contract pinned by these tests:
      "unbounded" behavior so existing tests that mass-load fixtures
      don't regress. Tests that need a cap pass it explicitly.
 
-Bidirectional verification per CLAUDE-TESTING.md §2: these tests
+Bidirectional verification per TESTING.md §2: these tests
 FAIL today because ``FileCache.__init__`` doesn't accept
 ``max_entries`` and the cache never evicts.
 """

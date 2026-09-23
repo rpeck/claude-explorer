@@ -242,7 +242,7 @@ Include the council's miss: it proposed `mcp.server.fastmcp` (Anthropic's bundle
 
 A testing-discipline rule that came out of the process. During the A2 `export.py` refactor (also this session), the Engineer caught that a proposed function-move would silently break 23 tests because they used the `import module; setattr(module, "X", ...)` (attribute-patch) idiom rather than the value-binding form. The council downsized the refactor mid-implementation.
 
-The rule got codified in `CLAUDE-TESTING.md §5.12`:
+The rule got codified in `TESTING.md §5.12`:
 
 > Prefer `monkeypatch.setattr(module, "name", fake)` over `from module import name`. The former is refactor-safe; the latter binds at test-import time and silently no-ops when the helper is moved.
 
@@ -331,7 +331,7 @@ Required reads before drafting:
 - `PLANS/future_articles/llm_council.md` — original seed doc; Phase 19/20 material to reuse
 - `PROCESS/a70251a5/phase_19_keyboard_and_search_navigation.md` — Phase 19 deep dive
 - `PROCESS/a70251a5/phase_20_mcp_server_design_and_build.md` — Phase 20 deep dive
-- `CLAUDE-TESTING.md §5.12` — the testing rule that came out of the process
+- `TESTING.md §5.12` — the testing rule that came out of the process
 - `PLANS/2026.05.30-STRICT-CODE-QUALITY-REVIEW.md` — the strict code-quality review findings (receipt 4.11): the A–F principle rubric, the `REQUEST CHANGES` verdict, and the four P1 maintainability questions
 - `PLANS/2026.05.31-conversationpage-decomposition.md` — the follow-up decomposition plan the strict review's file-size finding (P1 #1) spawned
 - The user's existing LinkedIn LLM-Council post — paste into this plan doc before drafting so the article can extend, not duplicate

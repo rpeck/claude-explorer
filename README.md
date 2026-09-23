@@ -808,9 +808,13 @@ For vulnerability reporting and the running log of supply-chain audits against t
 
 ---
 
+## Testing
+
+All testing guidance lives in [TESTING.md](./TESTING.md): how to run the suites and trust the result, how to write tests, what CI proves on each platform, and how to verify macOS, Linux, and Windows by hand before a release. CI runs the Windows install path on both x86_64 and ARM64 on every push to the verification branch.
+
 ## Contributing
 
-PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for prerequisites, dev workflow, code style, and the CLA process.
+PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for prerequisites, dev workflow, code style, and the CLA process. Coding agents (Claude Code, Codex, Cursor, and others) should read [AGENTS.md](./AGENTS.md) first.
 
 ## License
 

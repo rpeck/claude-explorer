@@ -47,7 +47,7 @@ function makeWrapper() {
   // second search from the same client should cancel the prior
   // one before starting." Mirroring production TTLs in the test
   // wrapper is the bidirectional-verification pattern from
-  // CLAUDE-TESTING.md §5.13.
+  // TESTING.md §5.13.
   const qc = new QueryClient({
     defaultOptions: {
       queries: { retry: false, staleTime: 60 * 1000, gcTime: 5 * 60 * 1000 },

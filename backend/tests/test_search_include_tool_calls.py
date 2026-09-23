@@ -12,7 +12,7 @@ linear-scan fallback. The FTS5 index itself still stores the full text
 (no schema bump, no rebuild for existing installs) — the filter is
 applied at scatter/snippet time.
 
-Bidirectional verification per CLAUDE-TESTING.md §2: every assertion
+Bidirectional verification per TESTING.md §2: every assertion
 that a result is *excluded* under ``include_tool_calls=False`` also
 asserts the same result *appears* when the flag is flipped to True.
 Without the inversion check, a buggy implementation that always returns

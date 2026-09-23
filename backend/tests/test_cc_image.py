@@ -5,7 +5,7 @@ Code's local image-cache; the security contract is "serve only files
 under ``<claude_dir>/image-cache``, only with allow-listed image
 extensions, never leak bytes from elsewhere on disk".
 
-Spec-driven discipline (CLAUDE-TESTING.md §1):
+Spec-driven discipline (TESTING.md §1):
     Allowlist of files consulted while authoring this test:
       * ``PLANS/2026.05.07-frontend-api-contract.md`` (CCIMG clauses)
       * ``PLANS/2026.05.08 BACKEND TEST PLAN.md`` (P2.5)

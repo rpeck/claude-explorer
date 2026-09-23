@@ -15,7 +15,7 @@ Bug 2 — Compact truncation via leaf-walk cycle.
     leaf-walk for CC sessions and render `chat_messages` in original
     order.
 
-Black-box discipline (per CLAUDE-TESTING.md):
+Black-box discipline (per TESTING.md):
 - Bidirectional verification: each test asserts the NEW behavior AND
   proves the test would catch a regression to the OLD behavior.
 - No knowledge of internal helper names is required to read what the

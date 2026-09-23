@@ -12,7 +12,7 @@
  * pinning, and the data-* attributes are the contract the rest of the
  * app (and ConversationPage's smooth-scroll orchestration) reads.
  *
- * Bidirectional methodology (CLAUDE-TESTING.md):
+ * Bidirectional methodology (TESTING.md):
  *   POSITIVE: data attrs present + lightbox opens + tool blocks visible
  *   NEGATIVE: data-cc-image-broken absent on healthy; tool block hidden
  *             when showToolCalls=false; forceExpanded ignores collapse

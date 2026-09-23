@@ -22,7 +22,7 @@ These tests pin the falsifiable WWCMM:
   2. The post-init STILL derives ``project_name`` from
      ``project_path`` after the rename — semantic preservation.
 
-Per CLAUDE-TESTING.md §5.12 (attribute-patch idiom): models.py is
+Per TESTING.md §5.12 (attribute-patch idiom): models.py is
 NOT a heavily-patched module; the only existing test that touches
 ``model_post_init`` is the project_name derivation in
 ``test_conversation_list_item_split.py``. Safe to refactor.

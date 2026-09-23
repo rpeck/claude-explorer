@@ -34,7 +34,7 @@ import type { ConversationSummary, ConversationDetail } from '../src/lib/types'
  *   7. Starred conversations are pinned to the top of the flat view
  *      under a "Starred" header.
  *
- * Why spec-driven (per CLAUDE-TESTING.md §1): the implementation uses
+ * Why spec-driven (per TESTING.md §1): the implementation uses
  * react-virtual which has quirks around variable heights, StrictMode
  * double-mount, and React 18 concurrent rendering. A test that asserts
  * on the implementation (e.g. "calls scrollToIndex with align center")
@@ -216,7 +216,7 @@ test.describe('Conversation list (virtualized flat view)', () => {
 
     // Visibility-inside-viewport check. `toBeVisible()` alone passes
     // when the row exists with a non-empty bounding box, even if a
-    // Radix ScrollArea ancestor clips it (see CLAUDE-TESTING.md
+    // Radix ScrollArea ancestor clips it (see TESTING.md
     // §3 "toBeVisible does NOT detect ancestor clipping"). Verify
     // the row's rect intersects the viewport's rect.
     const insideViewport = await needleRow.evaluate((el) => {

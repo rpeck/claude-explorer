@@ -20,10 +20,10 @@ Targets:
     * ``backend/routers/fetch.py:1081-1082`` — the streamer's
       ``finally`` block that resets the flag once the stream ends.
 
-Per CLAUDE-TESTING.md §5.7 (concurrency tests) + §5.8 (lock-under-
+Per TESTING.md §5.7 (concurrency tests) + §5.8 (lock-under-
 contention template).
 
-Allowlist for spec-driven authoring (CLAUDE-TESTING.md §1):
+Allowlist for spec-driven authoring (TESTING.md §1):
     * ``backend/routers/fetch.py``
     * ``backend/main.py`` (verify ``/api`` prefix)
     * ``backend/tests/conftest.py`` (the P0 fixtures)

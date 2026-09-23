@@ -3,7 +3,7 @@
 # test-c1-ubuntu.sh — Phase C step 1: install claude-explorer via uv tool
 # and smoke-test the CLI + dev server endpoint.
 #
-# Plan reference: PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md §C1-U.
+# Plan reference: PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md §C1-U.
 # Run AFTER setup-ubuntu.sh has completed (uv + Python 3.13 must be installed).
 #
 # Idempotent: safe to re-run. Uses `uv tool install --reinstall` so a re-run

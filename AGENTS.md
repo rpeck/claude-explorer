@@ -2,27 +2,26 @@
 
 ## UX Rules
 
-All UX flows and rules are documented in [UX.md](./UX.md). Code changes that affect UI behavior MUST keep that document accurate; failing-test-first applies (see CLAUDE.md "Code Style" rule on TDD).
+All UX flows and rules are documented in [UX.md](./UX.md). Code changes that affect UI behavior MUST keep that document accurate; failing-test-first applies (see the "Code Style" section below).
 
 ## Testing Rules
 
-When writing or reviewing tests (Playwright, pytest, vitest), read [CLAUDE-TESTING.md](./CLAUDE-TESTING.md). It codifies black-box / spec-driven discipline, bidirectional verification, Playwright-specific gotchas (overflow-clipping, shadcn `<Select>`, Radix `<ScrollArea>`, Radix `<RadioGroup>` `.check()` race), fixture-design rules, and a pre-flight checklist. Other agents (pure feature work, refactors, deployments) can skip it.
+All testing guidance lives in [TESTING.md](./TESTING.md): how to run the suites and trust
+the result, how to write tests, what CI proves, and how to verify each platform by hand.
+Read it before you write, review, or report on tests.
 
-**Test-execution integrity (HARD invariant — earned 2026-06-01, when a confident "the suite passes" was reported while 13 spec files weren't even running).** A run is not "green" until you have verified it actually executed, using the runner's *real* exit code:
-
-1. **Never pipe a test / type-check / lint command through `tail` / `head` / `grep` when pass/fail matters.** A shell pipeline's exit status is the LAST stage's, so `pytest … | tail` (or a backgrounded `playwright test … | tail`) returns `tail`'s `0` even when the runner failed. Run it bare and read the output, redirect full output to a file and read the file, or force the status to survive (`set -o pipefail`, `${PIPESTATUS[0]}` in bash, `$pipestatus[1]` in zsh).
-2. **"0 failed" is not "green" — verify the COUNT.** A parse/import/collection error or an empty filter makes a suite "succeed" while testing nothing (on 2026-06-01, 13 Playwright specs threw `SyntaxError` at parse time and the run still "completed"). Confirm the runner's pass count is at/above the known baseline — backend pytest **1139 passed / 1 skipped**, vitest **538 passed / 67 files**, Playwright **~441 tests** — and grep the output for `SyntaxError` / `Error:` / `no tests ran` / `collected 0` before reporting green. A count that *dropped* is a failure signal, not "tests were removed." **Then run the baseline-free file-count check: independently count the test files on disk and confirm the runner collected exactly that many.** A parse/collection error drops a whole file silently, so disk-file-count > collected is the direct tell. Examples (numbers current 2026-06-01) — vitest: `find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l` (= 67) must equal the `Test Files N passed (N)` count; Playwright: `find frontend/e2e -name '*.spec.ts' | wc -l` (= 113) must equal the `M` in `npx playwright test --list`'s `Total: N tests in M files` footer (`--list` errors outright on a parse-broken file); pytest: `find backend fetcher -name 'test_*.py' | wc -l` (= 142) vs the unique files from `uv run pytest --collect-only -q` (= 141), where the **expected** delta is the deliberately-deselected serial benchmark (`-m 'not serial'` drops `backend/tests/test_search_index_benchmark.py`). Investigate every mismatch and confirm each excluded file is intentional; an unexplained drop means files never ran — not green.
-3. **Report only verified results.** Never tell the user the suite passes from a background "exit 0" or a truncated tail; read the summary line and the real exit code first. A green claim that turns out false is a falsification event — correct it loudly and immediately. Full detail: [CLAUDE-TESTING.md §5.16](./CLAUDE-TESTING.md).
+The test-execution integrity rule is a hard invariant. It now lives in
+[TESTING.md §0](./TESTING.md). Never report a suite as passing without it.
 
 ## Performance Work
 
-Three project-specific invariants the 2026-05-22 → 2026-05-23 search-perf hunt earned. Full walk: [PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md](./PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md). Testing protocol: [CLAUDE-TESTING.md §5.14](./CLAUDE-TESTING.md). Council-driven perf workflow: `~/.claude/agents/llm-council-coding.md` Rules P0–P11.
+Three project-specific invariants the 2026-05-22 → 2026-05-23 search-perf hunt earned. Full walk: [PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md](./PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md). Testing protocol: [TESTING.md §5.14](./TESTING.md). The maintainer also runs a private, council-driven perf workflow that is not in this repo; the three invariants below stand on their own.
 
 1. **No `useContext()` of a churning provider in any list-rendered component (N ≥ 100 rows).** Known churning providers in this codebase: `SettingsContext`, `SearchPanelContext`, `BookmarksContext` — their value identity changes on every keystroke, toggle, or navigation. `useContext` bypasses `React.memo` (Fiber resolves context deps in `beginWork` before the bailout check), so subscribing from a row component re-renders every row on every context flip. The list-owning parent (`ConversationPage`) calls `useContext` once and threads relevant fields as props. Carve-outs: dispatch-only contexts with stable function identity, and `useMemo([])`-stabilized config contexts.
 
 2. **Memoize every `<Provider value={{...}}>` with `useMemo` + explicit deps list.** Inline object literals rebuild value identity every render and fire the entire subscriber graph. Pattern lives in `SearchPanelContext.tsx` and `SettingsContext.tsx`.
 
-3. **For any user-reported "feels slow", the first commit on the branch is a measurement commit.** Output: one number from `PerformanceObserver` Long Task total OR cProfile wall time on the real corpus (not a 3-row synthetic). Every subsequent commit must move that number, or revert. A user re-reporting the same symptom after a fix shipped is a falsification event for the diagnosis — re-instrument, don't stack a second fix in the same suspected layer. Instrumentation snippet in `CLAUDE-TESTING.md §5.14`.
+3. **For any user-reported "feels slow", the first commit on the branch is a measurement commit.** Output: one number from `PerformanceObserver` Long Task total OR cProfile wall time on the real corpus (not a 3-row synthetic). Every subsequent commit must move that number, or revert. A user re-reporting the same symptom after a fix shipped is a falsification event for the diagnosis — re-instrument, don't stack a second fix in the same suspected layer. Instrumentation snippet in `TESTING.md §5.14`.
 
 ## Project Structure
 
@@ -400,15 +399,15 @@ npm run lint:react:diff   # pre-push gate: scan files changed vs main, fail on e
 
 Known gap: React Doctor does NOT catch [[Performance Work]] invariant #1 (`useContext` of churning provider in list-rendered components). No public linter does — that one stays a human-review / postmortem rule.
 
-### `security-guidance` plugin (Anthropic, user-scope)
+### `security-guidance` plugin (Anthropic, user-scope; Claude Code only, optional)
 
 Real-time `PreToolUse` hook that intercepts `Write`/`Edit`/`MultiEdit` and warns about `eval`, `pickle`, `dangerouslySetInnerHTML`, `child_process.exec`, GHA injection, command injection patterns. Free; runs at the harness level (~0 token cost). Installed via `claude plugin install security-guidance@claude-plugins-official`. Verify with `claude plugin list`.
 
 If a hook fires during normal editing, READ the warning — don't paper over it with a config override. The hook fires on a curated list of known-bad patterns, not on style preferences.
 
-### `/security-review` slash command (built-in)
+### `/security-review` slash command (Claude Code only, optional)
 
-Diff-based LLM security review of pending changes on the current branch. Same engine as the `anthropics/claude-code-security-review` GitHub Action. Covers SQLi, XSS, authn/authz, IDOR, SSRF, weak crypto, RCE/deserialization, hardcoded secrets, supply-chain. Manual invocation only — see the pre-push checklist.
+Diff-based LLM security review of pending changes on the current branch. If you use another agent, any LLM security review of the diff serves the same purpose; the pre-push gate cares that one ran, not which. Same engine as the `anthropics/claude-code-security-review` GitHub Action. Covers SQLi, XSS, authn/authz, IDOR, SSRF, weak crypto, RCE/deserialization, hardcoded secrets, supply-chain. Manual invocation only — see the pre-push checklist.
 
 ## Pre-push checklist (runs before every push that affects the public repo)
 
@@ -453,7 +452,7 @@ git grep -nE 'TODO|FIXME|XXX' -- 'frontend/src/' 'backend/' ':!**/tests/**'
 # 11. React Doctor diff-gate — fails on NEW errors in files changed vs main
 (cd frontend && npm run lint:react:diff)
 
-# 12. LLM security review of the diff (built-in slash command; run inside Claude Code)
+# 12. LLM security review of the diff (e.g. /security-review in Claude Code, or your agent's equivalent)
 #     /security-review
 
 # 13. Article image/link formats must render on GitHub (co-equal surface with Medium)

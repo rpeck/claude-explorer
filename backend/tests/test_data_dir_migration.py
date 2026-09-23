@@ -13,7 +13,7 @@ the user can be in:
    left untouched so the user can inspect / merge / delete manually.
 
 These tests use a monkeypatched ``HOME`` so they NEVER touch the
-developer's real home directory. CLAUDE-TESTING.md \u00a75.1 isolation rule.
+developer's real home directory. TESTING.md \u00a75.1 isolation rule.
 """
 
 from __future__ import annotations

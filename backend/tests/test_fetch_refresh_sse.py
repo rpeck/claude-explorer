@@ -7,7 +7,7 @@ called out in P2.2 of the backend test enhancement plan:
 
 * Per-type payload SHAPE assertions (negative-space: extra envelope
   fields are absent).
-* Wire-format reality (per CLAUDE-TESTING.md 5.6): the server emits
+* Wire-format reality (per TESTING.md 5.6): the server emits
   ``data: {json}\\n\\n`` only — no ``event:`` headers; ``: ping``
   keep-alives are SSE comments and must be skipped by the parser.
 * Envelope asymmetry: ``/api/fetch/refresh`` capture-error events use

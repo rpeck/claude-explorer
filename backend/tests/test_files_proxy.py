@@ -210,7 +210,7 @@ def test_cc_image_404_for_missing_path(tmp_path, monkeypatch):
 # serve the local copy. Bonus: this also fixes Markdown/PDF exports
 # (same proxy URL).
 #
-# Spec-driven discipline (CLAUDE-TESTING.md §1):
+# Spec-driven discipline (TESTING.md §1):
 #   Allowlist of files consulted while authoring this section:
 #     * PLANS/2026.05.09-v1-readiness-sweep.md (Phase A)
 #     * backend/routers/files.py:79-121 (the function under fix)

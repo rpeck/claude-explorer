@@ -16,7 +16,7 @@ import type { Message } from '../src/lib/types'
  * navigated to a different match. Yellow marks persist for the entire
  * time the user is reading the result.
  *
- * Per CLAUDE-TESTING.md §5.13: the user-observable contract is
+ * Per TESTING.md §5.13: the user-observable contract is
  * "matching tokens appear yellow in the bubble I'm looking at, and
  * stay yellow until I navigate elsewhere." Previous tests pinned
  * `<mark>` presence IMMEDIATELY after typing — they passed because the

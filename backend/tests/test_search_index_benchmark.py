@@ -16,14 +16,14 @@ Why synthetic and not the real corpus:
   * The real corpus is ~1.5 GB; copying it into a fixture would slow
     every CI run.
   * The synthetic corpus is realistic enough — see
-    `make_realistic_conversation` in CLAUDE-TESTING.md §5.7 — to
+    `make_realistic_conversation` in TESTING.md §5.7 — to
     surface the same per-query cost shape.
 
 CI gate:
   Skipped on CI (CI=true env var present). Set
   RUN_SEARCH_BENCHMARK=1 to force-run locally.
 
-Bidirectional verification per CLAUDE-TESTING.md §2:
+Bidirectional verification per TESTING.md §2:
   This benchmark would FAIL if a future regression made the FTS5
   path slower than ~5x faster than linear scan. The contract isn't
   "must be sub-50 ms" (the synthetic corpus is too small to amortize

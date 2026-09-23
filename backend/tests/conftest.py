@@ -7,7 +7,7 @@ below.
 P0 fixtures (added 2026-05-08 per ``PLANS/2026.05.08 BACKEND TEST PLAN.md``):
 
 * :func:`isolated_data_dir` — env-var-driven, ``lru_cache``-aware data-dir
-  isolation that satisfies CLAUDE-TESTING.md \u00a75.1.
+  isolation that satisfies TESTING.md \u00a75.1.
 * :func:`fastapi_app` / :func:`real_async_client` — raw ASGI client for
   SSE / concurrency tests where ``TestClient`` would block on streaming.
 * :func:`collect_sse_data_events` — module-level async helper (NOT a
@@ -15,7 +15,7 @@ P0 fixtures (added 2026-05-08 per ``PLANS/2026.05.08 BACKEND TEST PLAN.md``):
   comments, and bounds the entire stream by a wall-clock deadline.
 * :func:`legacy_v1_prefs` — seeds an on-disk v1 preferences blob with the
   legacy markers (``polarity``, ``pinned``, ``activeFilterIds``) for
-  migration tests per CLAUDE-TESTING.md \u00a75.5.
+  migration tests per TESTING.md \u00a75.5.
 * :func:`_isolated_credentials_path` — patches the three module-level
   ``DEFAULT_CREDENTIALS_PATH`` bindings for fetch tests.
 * :func:`reset_refresh_flag` — autouse, resets the
@@ -191,7 +191,7 @@ def isolated_data_dir(
     Also pins ``CLAUDE_DIR`` to ``<tmp_path>/claude`` so the test never
     accidentally crawls a developer's real ``~/.claude/projects``.
 
-    Per CLAUDE-TESTING.md \u00a75.1, ``backend.config.get_settings`` is
+    Per TESTING.md \u00a75.1, ``backend.config.get_settings`` is
     ``@lru_cache``d; we MUST clear the cache both before yielding (in case
     a prior test left a cached ``Settings`` behind) and on teardown (so
     we don't leak this test's settings into the next).
@@ -330,7 +330,7 @@ async def collect_sse_data_events(
 def legacy_v1_prefs(isolated_data_dir: Path) -> Path:
     """Seed a v1-shaped ``preferences.json`` for migration tests.
 
-    The on-disk shape is what users currently have (per CLAUDE-TESTING.md
+    The on-disk shape is what users currently have (per TESTING.md
     \u00a75.5: migration tests MUST seed the legacy shape, not the new shape).
     The presence of ``polarity`` (no ``behavior``), ``pinned``,
     ``activeFilterIds``, and the ABSENCE of ``_migratedV2`` is what makes

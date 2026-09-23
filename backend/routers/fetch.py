@@ -46,7 +46,7 @@ from ..fetch_pipeline import (
 # backend/models.py as the single source of truth for shapes mirrored
 # by frontend/src/lib/types.ts. Re-export the names this router used
 # to own so existing test imports (``from backend.routers.fetch import
-# FetchProgress``) keep working — see CLAUDE-TESTING.md §5.12 on the
+# FetchProgress``) keep working — see TESTING.md §5.12 on the
 # attribute-patch idiom.
 from ..models import FetchProgress, FetchStatus, ForceRefetchResponse  # noqa: F401  re-export
 

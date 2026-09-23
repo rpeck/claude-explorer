@@ -6,7 +6,7 @@
 # the GNOME desktop.
 #
 # Covers plan steps B4 (apt update + ssh), B5 (uv + Python 3.13), B6
-# (WeasyPrint deps). See PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md.
+# (WeasyPrint deps). See PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md.
 #
 # Run as the regular user (NOT root); will prompt once for sudo password.
 # Idempotent: safe to re-run.

@@ -10,7 +10,7 @@ Fix: a background task in the FastAPI lifespan calls
 startup. The CLI remains as a manual override but is no longer
 required for normal operation.
 
-Spec-driven discipline (CLAUDE-TESTING.md §1):
+Spec-driven discipline (TESTING.md §1):
     Files consulted while authoring this test:
       * ``backend/cc_image_cache.py`` (warm_all_sessions / _async)
       * ``backend/main.py`` (lifespan startup hook)

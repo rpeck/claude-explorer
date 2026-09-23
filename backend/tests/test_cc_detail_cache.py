@@ -26,7 +26,7 @@ Contract pinned by this test:
      ``self._load_conversation`` which routes through FileCache, so
      CC just needs to follow suit.
 
-Bidirectional verification per CLAUDE-TESTING.md §2:
+Bidirectional verification per TESTING.md §2:
   These tests FAIL against the current (buggy) implementation because
   the patched parser raises on the second call, surfacing the cache
   miss. They PASS against the fix that routes through
@@ -162,7 +162,7 @@ def test_cc_detail_reuses_cache_across_calls(cc_store):
 def test_cc_detail_invalidates_cache_on_mtime_change(cc_store):
     """When the JSONL mtime changes the cache MUST invalidate.
 
-    Negative-space assertion per CLAUDE-TESTING.md §5.4: not only must
+    Negative-space assertion per TESTING.md §5.4: not only must
     the cache short-circuit unchanged reads (above test), it MUST
     also re-read when the file is mutated. A cache that never
     invalidates is just a memory leak with extra steps.

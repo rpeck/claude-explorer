@@ -14,7 +14,7 @@ Frontend contract clauses asserted (see
 * ``TREE-200-BRANCHED`` — for branched conversations, ≥1 node has
   ``len(children) > 1``.
 
-Strong assertions per ``CLAUDE-TESTING.md`` §5.3 — exact node IDs, exact
+Strong assertions per ``TESTING.md`` §5.3 — exact node IDs, exact
 path ordering, exact match counts. Negative-space per §5.4 — inactive
 branch UUIDs MUST NOT appear in ``active_path``.
 
@@ -30,7 +30,7 @@ implementation contracts:
   entirely).
 * Empty-``chat_messages`` early-return (``store.py:146``).
 
-Spec-driven discipline (``CLAUDE-TESTING.md`` §1): while authoring this
+Spec-driven discipline (``TESTING.md`` §1): while authoring this
 file the only allowed reference docs are ``UX.md`` (none relevant here),
 ``PLANS/2026.05.07-frontend-api-contract.md`` (TREE clauses),
 ``PLANS/2026.05.08 BACKEND TEST PLAN.md`` (P4.1 task spec), and the
@@ -68,7 +68,7 @@ def _msg(
     text: str = "",
 ) -> dict[str, Any]:
     """Build a single chat-message dict with explicit values for every field
-    the store reads. Per CLAUDE-TESTING.md §5.7, no implicit fallbacks.
+    the store reads. Per TESTING.md §5.7, no implicit fallbacks.
     """
     return {
         "uuid": uuid,
@@ -201,7 +201,7 @@ def test__get_conversations_tree__known_uuid__returns_200_with_tree_envelope(
     Every node in the tree carries ``message`` and ``children`` fields.
     Also pins ``message.text`` echo for the root node so this test catches
     Pydantic serialization regressions on nested fields (per
-    ``CLAUDE-TESTING.md`` §5.3 — "field exists" is a weak assertion;
+    ``TESTING.md`` §5.3 — "field exists" is a weak assertion;
     assert on a known fixture value).
     """
     conv, uuids = _branched_conversation()
@@ -278,7 +278,7 @@ def test__get_conversations_tree__branched_conversation__resolves_parent_links_r
     }
     assert _extract_tree_shape(body["root_messages"]) == expected_shape
 
-    # Negative-space (CLAUDE-TESTING.md §5.4): leaf nodes carry strict
+    # Negative-space (TESTING.md §5.4): leaf nodes carry strict
     # empty lists, not ``None`` and not ``[<self>]``.
     leaf_c1 = body["root_messages"][0]["children"][0]["children"][0]["children"][0]
     leaf_c2 = body["root_messages"][0]["children"][0]["children"][1]["children"][0]
@@ -419,7 +419,7 @@ def test__get_conversations_tree__circular_reference__breaks_cycle_gracefully(
 
     Not a frontend-derived clause but the impl explicitly documents
     "Handles circular references safely" — that's a contract worth
-    locking in per CLAUDE-TESTING.md §5.7.
+    locking in per TESTING.md §5.7.
     """
     conv_uuid = str(uuid_lib.uuid4())
     m_self = str(uuid_lib.uuid4())  # self-loop
@@ -575,7 +575,7 @@ def test__get_conversations_tree__cc_session_returns_empty_tree_envelope(
             "active_path": [],
         }
 
-        # Bidirectional sanity (CLAUDE-TESTING.md §5.4):
+        # Bidirectional sanity (TESTING.md §5.4):
         # The same session, hit via the *non*-tree endpoint, MUST still
         # return all 7 chronological messages — proves we only neutered
         # the tree endpoint, not the underlying data.

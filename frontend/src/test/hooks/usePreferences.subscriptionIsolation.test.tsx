@@ -26,7 +26,7 @@
  * envelopeWithAChanged)` MUST NOT cause a re-render in a `usePreferences`
  * instance that selected key B.**
  *
- * This is the user-observable contract from CLAUDE-TESTING.md §5.13:
+ * This is the user-observable contract from TESTING.md §5.13:
  * the user cannot tolerate a 9.4-second main-thread freeze when toggling
  * an unrelated preference. We test the contract at the hook level (fast,
  * deterministic, JSDOM-safe) rather than measuring wall-clock latency

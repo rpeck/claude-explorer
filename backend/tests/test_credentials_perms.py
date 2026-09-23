@@ -7,7 +7,7 @@ that contract so a future refactor of the atomic-write path can't
 silently drop the chmod (the kind of slip that doesn't break any
 functional test but exposes secrets to a co-tenant on disk).
 
-Spec-driven discipline (CLAUDE-TESTING.md §1):
+Spec-driven discipline (TESTING.md §1):
     Allowlist of files consulted while authoring this test:
       * ``PLANS/2026.05.07-frontend-api-contract.md``
         (``PREF-PATCH-PERMS``, ``PREF-PUT-PERMS``, ``RFR-CRED-PERMS``)

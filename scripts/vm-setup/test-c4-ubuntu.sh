@@ -3,7 +3,7 @@
 # test-c4-ubuntu.sh - Phase C step 4: seed a sample conversation and
 # smoke-test PDF export end-to-end.
 #
-# Plan reference: PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md section C4-U.
+# Plan reference: PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md section C4-U.
 # Run after setup-ubuntu.sh and test-c1-ubuntu.sh have completed.
 #
 # Idempotent: re-running re-copies the same fixture; existing PDF is overwritten.

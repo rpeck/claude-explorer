@@ -28,7 +28,7 @@ This file pins the contracts that still apply post-Option-4:
    compressed on any route — gzip overhead for sub-1KB payloads would
    make them LARGER.
 
-Per CLAUDE-TESTING.md §5.13, these are user-observable contracts ("the
+Per TESTING.md §5.13, these are user-observable contracts ("the
 wire bytes the client receives have header X and body size Y") rather
 than implementation rules ("GZipMiddleware is registered on the FastAPI
 app"). If a future refactor moves compression to a reverse proxy or

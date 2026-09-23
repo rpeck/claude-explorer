@@ -160,7 +160,7 @@ def test_429_uses_retry_sleep_indirection(tmp_path: Path) -> None:
 
     Tests that monkeypatch the stdlib ``time.sleep`` instead of the
     module-level ``_retry_sleep`` symbol would silently no-op (per
-    CLAUDE-TESTING.md §5.12). Pinning the indirection here prevents
+    TESTING.md §5.12). Pinning the indirection here prevents
     a future refactor from regressing to raw ``time.sleep``.
     """
     fetcher = _make_fetcher(tmp_path)
@@ -197,6 +197,6 @@ def test_429_uses_retry_sleep_indirection(tmp_path: Path) -> None:
         f"429 backoff must call _retry_sleep, got {retry_sleep_calls}"
     )
     assert 60.0 not in raw_sleep_calls, (
-        f"429 backoff must NOT use raw time.sleep (CLAUDE-TESTING.md §5.12); "
+        f"429 backoff must NOT use raw time.sleep (TESTING.md §5.12); "
         f"raw sleeps observed: {raw_sleep_calls}"
     )

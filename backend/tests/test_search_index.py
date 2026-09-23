@@ -10,7 +10,7 @@ What this file pins:
   * Singleton lifecycle and per-test reset.
   * Build-full-index reports correct file/message counts.
 
-Bidirectional verification per CLAUDE-TESTING.md §2:
+Bidirectional verification per TESTING.md §2:
   Every test in this file was first run against a deliberately-broken
   implementation (e.g., omitting the transaction, skipping the prefix
   wildcard, hardcoding source filter) to confirm it fails for the right
@@ -523,7 +523,7 @@ def test_upsert_rollback_on_executemany_failure(fresh_index):
     """If executemany raises mid-INSERT, the prior DELETE must be rolled
     back so the OLD rows remain.
 
-    CLAUDE-TESTING.md §5.8: atomic-write under crash. The contract is
+    TESTING.md §5.8: atomic-write under crash. The contract is
     "either the old state or the new state, never half-updated."
 
     Bug it would surface: skipping ``with self._write_conn`` would leave

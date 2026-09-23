@@ -242,7 +242,7 @@ Test suite: 857 passed before, 857 passed after each chunk.
 
 - The Architect's reflex to "P2: accept mechanical test churn" on routers/fetch.py would have produced a broken commit if shipped without the structural pre-check. The agent spec's heuristic "if Architect proposes mass test churn, the Engineer must explicitly cite the patch failure mode" is **load-bearing**, not optional. Worth promoting from "watch for it" to a hard prompt-level instruction in the Architect persona.
 - The convergence-CONFIRM vs convergence-DISSENT distinction is more useful than I'd weighted it. When the council CONVERGES on a CONFIRM (export.py), shipping is low-risk. When they CONVERGE on a DISSENT (the search.py lazy-import preservation in the HIGH fix), shipping is also low-risk. When they SPLIT (routers/fetch.py), the abbreviated council should have an explicit "show me code evidence" round — which is what happened here organically.
-- The facade pattern (`backend/export.py` re-exports everything) was a clean win precisely because the tests already used the value-binding import idiom. Worth documenting in CLAUDE-TESTING.md as a convention: prefer `from module import X` (value-binding) over `import module; module.X` (attribute lookup) for tests, because it makes refactoring the underlying module non-breaking.
+- The facade pattern (`backend/export.py` re-exports everything) was a clean win precisely because the tests already used the value-binding import idiom. Worth documenting in TESTING.md as a convention: prefer `from module import X` (value-binding) over `import module; module.X` (attribute lookup) for tests, because it makes refactoring the underlying module non-breaking.
 
 ## A1 hunt (2026-05-21, tiers:HM — module-boundary violations)
 

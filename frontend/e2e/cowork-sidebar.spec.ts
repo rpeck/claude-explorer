@@ -17,7 +17,7 @@ import { test, expect, makeSummary, withNetRetry } from './fixtures'
  *   - sidebar list visible -> click filter -> assert new filter list
  *     content -> assert toggle absence as a NEGATIVE check.
  *
- * Bidirectional verification per CLAUDE-TESTING.md §2:
+ * Bidirectional verification per TESTING.md §2:
  *   - Toggle HIDDEN under CLAUDE_COWORK filter; SHOWN under
  *     'all'/'CLAUDE_CODE' (pinned by an inverse assertion).
  */

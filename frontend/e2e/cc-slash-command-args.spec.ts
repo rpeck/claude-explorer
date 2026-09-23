@@ -17,7 +17,7 @@ import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from
  *   - Frontend `MessageBubble` renders `<SlashCommandBadge command="/coding" />`
  *     above the markdown body whenever `message.slash_command` is set.
  *
- * Bidirectional verification (per CLAUDE-TESTING.md):
+ * Bidirectional verification (per TESTING.md):
  *   - NEW behavior assertion: argful marker bubble shows the args body
  *     AND a slash-command badge with `data-command="/coding"`.
  *   - OLD-behavior catch: argless markers (legacy /exit) STILL show the

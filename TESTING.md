@@ -1,9 +1,46 @@
-# Testing Rules — Claude Explorer
+# Testing — Claude Explorer
 
-**Read this when writing or reviewing tests.** Other agents can skip.
-The rules below are the result of bugs we shipped and bugs we caught
-late; each section names the incident in case the principle drifts and
-someone wants to bisect why.
+This is the single home for testing in this project. Every agent and every
+contributor starts here, whatever tool they use.
+
+## Contents
+
+- §0 Running the tests, and trusting the result
+- §1 to §6 Writing tests: rules earned from real bugs
+- §7 What CI proves
+- §8 Verifying each platform by hand
+- §9 Protecting credentials on every platform
+- §10 What cannot be automated, and why
+- Reference incidents
+
+Sections §1 to §6 keep their numbers. Test docstrings across the codebase
+cite them as `TESTING.md §5.14` and similar.
+
+---
+
+## 0 · Running the tests, and trusting the result
+
+Run each suite from the repository root:
+
+```bash
+uv run pytest                        # backend, fetcher, MCP server; parallel
+uv run pytest -n 0                   # the same suite, serially
+cd frontend && npx vitest run        # frontend unit tests
+cd frontend && npx playwright test   # end-to-end tests
+```
+
+**Run the Python suite serially from time to time.** Parallel execution hides
+order-dependent failures. Two such bugs passed under pytest-xdist and failed
+only serially before they were fixed. On 2026-09-23 the suite passed in three
+orders: parallel, serial, and reversed.
+
+### Test-execution integrity (hard invariant)
+
+**Test-execution integrity (HARD invariant — earned 2026-06-01, when a confident "the suite passes" was reported while 13 spec files weren't even running).** A run is not "green" until you have verified it actually executed, using the runner's *real* exit code:
+
+1. **Never pipe a test / type-check / lint command through `tail` / `head` / `grep` when pass/fail matters.** A shell pipeline's exit status is the LAST stage's, so `pytest … | tail` (or a backgrounded `playwright test … | tail`) returns `tail`'s `0` even when the runner failed. Run it bare and read the output, redirect full output to a file and read the file, or force the status to survive (`set -o pipefail`, `${PIPESTATUS[0]}` in bash, `$pipestatus[1]` in zsh).
+2. **"0 failed" is not "green" — verify the COUNT.** A parse/import/collection error or an empty filter makes a suite "succeed" while testing nothing (on 2026-06-01, 13 Playwright specs threw `SyntaxError` at parse time and the run still "completed"). Confirm the runner's pass count is at/above the known baseline — Python pytest **1299 passed / 2 skipped** (re-measured 2026-09-23), vitest **538 passed / 67 files**, Playwright **~441 tests** — and grep the output for `SyntaxError` / `Error:` / `no tests ran` / `collected 0` before reporting green. A count that *dropped* is a failure signal, not "tests were removed." **Then run the baseline-free file-count check: independently count the test files on disk and confirm the runner collected exactly that many.** A parse/collection error drops a whole file silently, so disk-file-count > collected is the direct tell. Examples (numbers current 2026-06-01) — vitest: `find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l` (= 67) must equal the `Test Files N passed (N)` count; Playwright: `find frontend/e2e -name '*.spec.ts' | wc -l` (= 113) must equal the `M` in `npx playwright test --list`'s `Total: N tests in M files` footer (`--list` errors outright on a parse-broken file); pytest: `find backend fetcher mcp_server -name 'test_*.py' | wc -l` (= 173, 2026-09-23) vs the unique files from `uv run pytest --collect-only -q -n 0` (= 172), where the **expected** delta is the deliberately-deselected serial benchmark (`-m 'not serial'` drops `backend/tests/test_search_index_benchmark.py`). Investigate every mismatch and confirm each excluded file is intentional; an unexplained drop means files never ran — not green.
+3. **Report only verified results.** Never tell the user the suite passes from a background "exit 0" or a truncated tail; read the summary line and the real exit code first. A green claim that turns out false is a falsification event — correct it loudly and immediately. Full detail: [TESTING.md §5.16](./TESTING.md).
 
 ---
 
@@ -1442,6 +1479,243 @@ Before declaring a new test sufficient, confirm:
       error path tested explicitly.
 
 ---
+
+## 7 · What CI proves
+
+Two workflows run automatically.
+
+| Workflow | Runner | What it proves |
+|---|---|---|
+| `test.yml` | `ubuntu-latest` | The Python suite, and Playwright in fixture mode |
+| `windows-install.yml` | `windows-latest` (x86_64) | Install, CLI, Chromium, `serve`, the watcher, and the Python suite |
+| `windows-install.yml` | `windows-11-arm` (ARM64) | The same checks, through an x86_64 interpreter |
+
+`windows-install.yml` runs on a push to `ci/windows-install`, or by manual
+dispatch. Its `install` job runs the README commands themselves, so the
+documentation is under test and not only the code:
+
+- Install through the documented command. On ARM this includes the
+  x86_64-Python pin. The step prints the interpreter, which must report
+  `AMD64` on an `ARM64` machine. That proves the Prism translation path.
+- All five subcommands appear in `--help`.
+- The Chromium build installs, and its executable resolves on disk.
+- `serve` answers `/api/config` with HTTP 200.
+- The watcher installs, `schtasks` finds it, the uninstall removes it, and a
+  second query confirms it is gone.
+
+Its `pytest` job runs the suite serially with `-n 0`. On Windows the xdist
+controller hung at shutdown, and parallel runs hid order-dependent failures.
+
+### Coverage gap: the install path on macOS and Linux
+
+The install path is now tested more thoroughly on Windows than on macOS or
+Linux. `test.yml` runs the test suite on Linux, but no workflow installs the
+package the way a user does on macOS or Linux and then starts `serve`.
+
+To close the gap, extend `windows-install.yml` into one install matrix that
+covers `macos-latest`, `ubuntu-latest`, `windows-latest`, and
+`windows-11-arm`. All four runners are free for public repositories.
+
+## 8 · Verifying each platform by hand
+
+CI cannot reach three things: the native Claude Desktop app, operating-system
+certificate trust, and an interactive login. Section 10 explains why. Verify
+those by hand before a release, on every platform that supports them.
+
+### What each platform supports
+
+| Check | macOS | Linux | Windows x64 | Windows ARM64 |
+|---|---|---|---|---|
+| Web UI | Yes | Yes | Yes | Yes |
+| MCP server (stdio) | Yes | Yes | Yes | Yes |
+| MCPB bundle in Claude Desktop | Yes | No: no Claude Desktop | Yes | Yes |
+| Browser capture (default) | Yes | Yes | Yes | Yes |
+| Proxy capture (`--proxy`) | Yes | No: no Claude Desktop | Yes | **No:** no mitmproxy wheels |
+| PDF export | Needs Pango | Needs Pango | Needs GTK3 runtime | Needs GTK3 runtime |
+
+Claude Desktop is not available for Linux, so the two checks that depend on
+it do not apply there.
+
+### Test machines
+
+- **macOS:** the development machine.
+- **Linux:** the `claude-explorer-ubuntu` UTM VM (Ubuntu 24.04, ARM64).
+- **Windows ARM64:** the `claude-explorer-windows` UTM VM (Windows 11,
+  QEMU with HVF, 8 GB RAM).
+- **Windows x64:** CI only. On Apple Silicon an x86_64 guest runs under full
+  emulation, which is too slow for interactive work. For hands-on x86_64
+  testing, use a cloud Windows VM.
+
+The host runs UTM 4.7.5. It offers no snapshots for hardware-accelerated
+guests, so restore a VM by deleting it and cloning its `.clean` baseline.
+Maintainer notes live in `~/.claude-explorer/vm-fleet.md`.
+
+**Free disk space before you boot a VM.** A 37 GB image needs room for its
+write overlay, and a full disk can corrupt a `qcow2` image.
+
+### Step 1. Install the build under test
+
+On every platform, install from the current `main`:
+
+- macOS and Linux: `uv tool install --force claude-explorer`
+- Windows x64: the same command.
+- Windows ARM64:
+  `uv tool install --force claude-explorer --python cpython-3.13-windows-x86_64-none`
+
+A VM that you set up earlier carries whatever build was current then.
+
+### Step 2. The web UI (every platform)
+
+1. Run `claude-explorer serve`.
+2. Open `http://localhost:8765` in the platform's default browser: Safari
+   on macOS, Firefox on Linux, Edge on Windows.
+3. Confirm that the conversation list renders.
+4. Open one conversation. Confirm that its messages render.
+5. Run a search. Confirm that results appear.
+6. Confirm that the source filter offers All, Desktop, Code, and Cowork.
+
+**Pass:** all six render, with no error in the browser console.
+
+### Step 3. The MCPB bundle (macOS and Windows)
+
+1. Download the `.mcpb` from the latest GitHub Release.
+2. On Windows, **record the exact SmartScreen text** and the path you took.
+   On macOS, record any Gatekeeper prompt the same way.
+3. Drag the file into Claude Desktop, then Settings, then Extensions.
+4. Accept the install dialog.
+5. Confirm that the five tools appear.
+
+**Pass:** the five tools are listed, and one call returns data.
+
+### Step 4. PDF export (every platform)
+
+1. Install the graphics libraries WeasyPrint needs:
+   - macOS: `brew install pango cairo libffi`
+   - Linux: the distribution's `pango`, `cairo`, and `libffi` packages.
+   - Windows: the GTK3 runtime. Follow the WeasyPrint Windows instructions.
+2. Export any conversation as PDF from the web UI.
+
+**Pass:** the file opens, and it starts with the `%PDF` magic bytes.
+
+A user who needs only Markdown can skip this. Markdown export needs no extra
+libraries, and `serve` starts normally without them.
+
+### Step 5. Credential capture and fetch
+
+**Browser capture works on every platform.** Run it first:
+
+1. Run `claude-explorer capture`.
+2. Log in to Claude in the window that opens.
+3. Run `claude-explorer fetch`.
+
+**Pass:** `captured_at` in `~/.claude-explorer/credentials.json` carries
+today's date, and `fetch` reports conversations.
+
+**Proxy capture** applies only on macOS and Windows x64. It serves users who
+cannot log in on the web but still have a working Claude Desktop session.
+Do it last, because it carries the most risk:
+
+1. Start the proxy: `claude-explorer capture --proxy`.
+2. Stop it once. The certificate file appears only after the first run.
+3. Trust the mitmproxy certificate authority. The CLI prints the command for
+   your platform. Do this **before** you launch Claude Desktop:
+   `--ignore-certificate-errors` covers only Chromium's own requests, not
+   the Electron main process.
+4. On Windows, confirm the install path:
+   `Get-Process Claude | Select-Object Path`.
+5. Launch Claude Desktop through the proxy. The CLI prints the command.
+6. Click around in Claude Desktop for a minute.
+
+**Pass:** the addon reports that it captured the credentials.
+
+#### If proxy capture captures nothing on Windows
+
+A Claude Desktop installed from the **Microsoft Store** runs sandboxed from a
+protected `C:\Program Files\WindowsApps\` folder. It may ignore the proxy
+flags, so its traffic never reaches mitmproxy and nothing is captured. This
+is a prediction from the June test run; it is not yet confirmed.
+
+**What the user sees:** `capture --proxy` starts, the user clicks around in
+Claude Desktop, and no credentials ever appear. Nothing fails loudly.
+
+**Who it affects:** only users who need proxy capture, meaning people who
+cannot log in on the web but are still logged in to Claude Desktop.
+Everyone else uses browser capture and never touches the proxy.
+
+**Why it matters for that group:** proxy capture is their only route back
+to their archive. A Store-installed Claude Desktop may therefore leave them
+with no working recovery path in this tool today.
+
+**What to record:** whether the flags were honoured, and the install path
+from step 4. A path under `WindowsApps` identifies a Store install.
+
+## 9 · Protecting credentials on every platform
+
+`~/.claude-explorer/credentials.json` holds the session key. Anyone who can
+read it can act as the user on claude.ai. The app therefore restricts the
+file, and its `.bak` copy, to the current user on every platform.
+
+Each platform needs a different mechanism, because each stores permissions
+differently. `harden_path_permissions` in `fetcher/credentials.py` applies
+the right one.
+
+| Platform | Mechanism | What the app does |
+|---|---|---|
+| macOS | POSIX mode bits | Sets mode `0600` (owner read and write only) |
+| Linux | POSIX mode bits | Sets mode `0600` (owner read and write only) |
+| Windows | NTFS access control list | Removes inherited entries, then grants the current user alone |
+
+Windows ignores POSIX mode bits entirely. Before 2026-09-22 the app set
+`0600` on Windows too, which did nothing, and the file stayed readable by
+every account the inherited access list allowed. The fix gives Windows the
+same protection as macOS and Linux, through the mechanism Windows actually
+uses.
+
+### Verify it
+
+- **macOS:** `stat -f '%Sp' ~/.claude-explorer/credentials.json`.
+  Expect `-rw-------`.
+- **Linux:** `stat -c '%A' ~/.claude-explorer/credentials.json`.
+  Expect `-rw-------`.
+- **Windows:** in PowerShell,
+  `icacls "$env:USERPROFILE\.claude-explorer\credentials.json"`.
+  Expect only your own account. `Everyone`, `BUILTIN\Users`, and
+  `Authenticated Users` must not appear.
+
+The protection is best effort on every platform. If the operating system
+refuses, the app logs a warning and keeps the credential rather than fail
+the capture. A user who reports a permission problem should run the check
+for their platform.
+
+## 10 · What cannot be automated, and why
+
+**Browser automation drives web pages.** That covers Playwright, and Claude
+in Chrome. Of the manual checks, only the web UI in step 2 is a web page:
+
+- The web UI **can** be automated. CI already proves `serve` answers with
+  HTTP 200. A Playwright screenshot pass would add the visual check.
+
+The rest is not browser work, so browser automation cannot reach it:
+
+- **The MCPB drag-drop** is a native Claude Desktop dialog. A browser tool
+  cannot see another application's windows.
+- **Certificate trust** for proxy capture is an operating-system security
+  decision, made outside any browser.
+- **The real login** is interactive by design. Scripting a login through a
+  proxy is exactly the flow the security design makes hard.
+
+**Desktop automation** is a separate technology. It controls the whole
+screen, mouse, and keyboard, and it could in principle drive the MCPB
+drag-drop. Three things argue against it here:
+
+- It runs against a VM's display, so it is slow and breaks when a dialog
+  moves or changes its wording.
+- Proxy capture needs the maintainer's real account. That login must not be
+  handed to an automated tool.
+- Each check runs once per release, so the manual cost is small.
+
+Keep steps 3 and 5 manual. Automate the visual half of step 2 when a
+screenshot pass is added to CI.
 
 ## Reference incidents
 

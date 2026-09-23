@@ -11,13 +11,13 @@
 
 ## Headline result (the honest one)
 
-The loop **validated a proactive habit more than it discovered new failures.** Roughly **7 of ~10** recurring mistake-classes were already codified in `CLAUDE.md` / `CLAUDE-TESTING.md` / the memory files, often verbatim, because rules here get written **in the moment a mistake bites**. The git log shows them landing in the same commits as the work (`953fbdd8 codify test-execution-integrity checks after a false-green report`, `3528d221 e2e console-error assertions + testing rules`, etc.), and the ~24 memory files carry inline `originSessionId` provenance, not retrospective-mining provenance. So the loop did not meet these failures for the first time; it audited whether the in-the-moment codification had kept pace (it mostly had) and surfaced the genuine gaps.
+The loop **validated a proactive habit more than it discovered new failures.** Roughly **7 of ~10** recurring mistake-classes were already codified in `CLAUDE.md` / `TESTING.md` / the memory files, often verbatim, because rules here get written **in the moment a mistake bites**. The git log shows them landing in the same commits as the work (`953fbdd8 codify test-execution-integrity checks after a false-green report`, `3528d221 e2e console-error assertions + testing rules`, etc.), and the ~24 memory files carry inline `originSessionId` provenance, not retrospective-mining provenance. So the loop did not meet these failures for the first time; it audited whether the in-the-moment codification had kept pace (it mostly had) and surfaced the genuine gaps.
 
 **Reconciliation (which proposed diffs are already substantially handled):** several "strengthen" items below were already caught proactively, which is the point, not a knock on the loop:
-- **R-reproduce** (re-report = falsification): already in `CLAUDE.md:25` (perf) + `CLAUDE.md:15` (test-green) and the search-correctness reference incident `CLAUDE-TESTING.md:1080`/`§5.13`. Open part = the *universal* phrasing only.
-- **R-sqlite** (concurrent-writer): the fix already shipped (task #247) and the rule already exists at `CLAUDE-TESTING.md:789`, just phrased conditionally ("if we ever use SQLite"). Open part = un-stale the conditional.
+- **R-reproduce** (re-report = falsification): already in `CLAUDE.md:25` (perf) + `CLAUDE.md:15` (test-green) and the search-correctness reference incident `TESTING.md:1080`/`§5.13`. Open part = the *universal* phrasing only.
+- **R-sqlite** (concurrent-writer): the fix already shipped (task #247) and the rule already exists at `TESTING.md:789`, just phrased conditionally ("if we ever use SQLite"). Open part = un-stale the conditional.
 - **R4** (cross-check counts): the test-collection version already exists at `CLAUDE.md:14`. Open part = the general statement.
-- A test-side cousin of **R2** already exists (`CLAUDE-TESTING.md:516`, "could be hardcoded to 0").
+- A test-side cousin of **R2** already exists (`TESTING.md:516`, "could be hardcoded to 0").
 
 **Genuinely net-new** (confirmed absent in the targets): **R1** (read-the-data-shape, global), the **coding side of R2** (don't-stub-a-value-for-speed, global), **R-reread** and **R-bio** (two un-written article-drafting memory rules), and **R-toc** (a tooling gap).
 
@@ -95,12 +95,12 @@ Listed for honesty and as the article's "the system works" evidence. Recurrence 
 **Evidence:** "Open in Claude Desktop" `claude://` deep links wired into two surfaces before testing — the scheme only launches the app `[a70251a5 msg=02ad1e52 / msg=416a55ac]`. Project grouping declared done but invisible `[msg=3b8c22cb]` "Look for yourself." Branch-switcher UI built against mock data; the corpus had 0/68 branches `[msg=55d11b76]`.
 **Status:** PARTIAL. `feedback_e2e_console_assertions.md` and the Test Evidence Ladder cover *tests*; no rule covers verifying integration-with-external-systems empirically before building on top.
 
-### R-reproduce — "Re-report = falsification" applies to ANY functional bug, not just perf  *(→ `CLAUDE-TESTING.md` §2 / new §5.18)*
+### R-reproduce — "Re-report = falsification" applies to ANY functional bug, not just perf  *(→ `TESTING.md` §2 / new §5.18)*
 **Rule:** For any user-reported functional bug, reproduce on the user's real corpus before AND after the fix; a green synthetic test plus a still-broken real corpus means the test pins the wrong contract. A second re-report is a falsification event — re-instrument, do not stack a second fix.
 **Evidence:** multi-word/FTS search re-reported 3× `[a70251a5 msg=a4f67aaf]`, `[msg=674b6382]` "still…broken! Partial matches…shown as hits!", `[msg=ad740c11]` "the test suite should have found this extremely basic bug"; same shape later `[msg=11e7d59d]`.
 **Status:** STRENGTHEN (generalize). `CLAUDE.md` "Performance Work #3" and `CLAUDE-TESTING §5.14` make this a *perf-only* rule; the class is broader (search correctness, snippet rendering).
 
-### R-sqlite — Un-stale the SQLite concurrency note; add a concurrent-writer test  *(→ `CLAUDE-TESTING.md` §5.8)*
+### R-sqlite — Un-stale the SQLite concurrency note; add a concurrent-writer test  *(→ `TESTING.md` §5.8)*
 **Rule:** `summary_cache.py` and `search_index.py` DO use SQLite now; each writer needs a test firing concurrent writers and asserting no `database is locked` reaches the client (verify WAL + `busy_timeout`).
 **Evidence:** `[a70251a5 msg=aa7d3255]` "We need to be able to handle concurrent clients! summary_cache: upsert_many failed…database is locked"; `[msg=faddce5d]` "search_index: drift-upsert failed."
 **Status:** STRENGTHEN. `§5.8` still says "Currently no SQLite — but…flag if so," which is now stale.
@@ -124,6 +124,6 @@ Apply none of these without checking the box. Recommended split: land the two gl
 - [x] R-toc TOC-anchor gap → memory `project_check_article_formats_toc_gap.md` (captured as a known-gap note, not a script change)
 
 **NOT landed** (already substantially handled proactively — see Reconciliation above):
-- [ ] R-reproduce — already at `CLAUDE.md:25` + `CLAUDE-TESTING.md:1080`/`§5.13`; only the universal phrasing is open
-- [ ] R-sqlite — fix already shipped (task #247); rule exists conditionally at `CLAUDE-TESTING.md:789`
+- [ ] R-reproduce — already at `CLAUDE.md:25` + `TESTING.md:1080`/`§5.13`; only the universal phrasing is open
+- [ ] R-sqlite — fix already shipped (task #247); rule exists conditionally at `TESTING.md:789`
 - [ ] R-referent / R-commit — minor, not landed

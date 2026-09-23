@@ -93,7 +93,7 @@ interface Fixtures {
 /**
  * Project-wide console-noise allowlist. Each pattern needs a comment naming
  * its source and reason for tolerance. Adding to this list is a code-review
- * checkpoint per CLAUDE-TESTING.md §5.15.
+ * checkpoint per TESTING.md §5.15.
  *
  * Tests can extend per-test by pushing into `consoleAssertions.allowlist`
  * inside the test body (the auto-fixture is invoked AFTER the test, so
@@ -785,7 +785,7 @@ export const test = base.extend<Fixtures>({
    * empty at teardown (modulo PROJECT_CONSOLE_ALLOWLIST + any per-test
    * additions to `consoleAssertions.allowlist`).
    *
-   * Codified in CLAUDE-TESTING.md §5.15. Caught by the 2026-05-24 settings
+   * Codified in TESTING.md §5.15. Caught by the 2026-05-24 settings
    * flash-and-disappear regression — that bug shipped past my e2e because
    * I asserted DOM state but never console state. The user found it on
    * first manual test.
@@ -834,13 +834,13 @@ export const test = base.extend<Fixtures>({
       // §5.15.
       if (capture.errors.length > 0) {
         throw new Error(
-          `Console errors during test (see CLAUDE-TESTING.md §5.15):\n  ` +
+          `Console errors during test (see TESTING.md §5.15):\n  ` +
             capture.errors.join('\n  '),
         )
       }
       if (capture.warnings.length > 0) {
         throw new Error(
-          `Console warnings during test (see CLAUDE-TESTING.md §5.15):\n  ` +
+          `Console warnings during test (see TESTING.md §5.15):\n  ` +
             capture.warnings.join('\n  '),
         )
       }

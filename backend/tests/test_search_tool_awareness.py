@@ -11,7 +11,7 @@ scan path's behavior.
 Plan reference:
 ``PLANS/SEARCH_TOOL_AWARENESS_AND_LIMIT_DISCLOSURE.md`` §A.
 
-Bidirectional verification per CLAUDE-TESTING.md §2: every "absent" or
+Bidirectional verification per TESTING.md §2: every "absent" or
 "present" assertion is paired with its opposite under the flipped toggle.
 """
 

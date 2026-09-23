@@ -283,7 +283,7 @@ test.describe('Message bookmarks (Build-4)', () => {
     // its React re-render cascade — the global keydown handler reads
     // a half-mounted SearchPanelContext and the toggle silently no-ops,
     // leaving the tablist never visible (2026-06-01 baseline regression
-    // for `Export to Markdown button` — see CLAUDE-TESTING.md on
+    // for `Export to Markdown button` — see TESTING.md on
     // playwright settle signals).
     await expect(bubble.locator('[data-bookmarked]')).toHaveCount(1);
 

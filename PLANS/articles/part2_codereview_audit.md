@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-05-22
 **Audited against commits:** `82f9d8f..a82edba` (60 source commits, consolidated to 4 via `git reset --soft` rebuild)
-**Final 4 commits:** `5245298` (CLAUDE-TESTING.md), `0ca4131` (backend+fetcher), `3b8c910` (frontend), `a82edba` (PLANS docs)
+**Final 4 commits:** `5245298` (TESTING.md), `0ca4131` (backend+fetcher), `3b8c910` (frontend), `a82edba` (PLANS docs)
 
 ## TL;DR
 
@@ -23,7 +23,7 @@ For each change in the consolidated commits, ask: does this change anything a re
 
 ### Commit `5245298` — `docs(testing): codify §5.12 attribute-patch rule`
 
-Single file: `CLAUDE-TESTING.md`. Pure project-discipline doc. **No UI surface touched.** Part 2 doesn't reference testing rules.
+Single file: `TESTING.md`. Pure project-discipline doc. **No UI surface touched.** Part 2 doesn't reference testing rules.
 
 **Verdict:** no impact.
 

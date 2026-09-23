@@ -159,7 +159,7 @@ def test__patch_preferences__os_replace_fails__original_byte_identical_no_tmp_le
 ):
     """PREF-ATOMIC-RECOVERY (P2.4). os.replace OSError → original preserved, no tmp leak.
 
-    Per CLAUDE-TESTING.md section 5.8: simulate kernel-level rename failure at the
+    Per TESTING.md section 5.8: simulate kernel-level rename failure at the
     Python boundary (monkeypatch os.replace), not by holding a lock or pulling
     the disk. We don't claim the test models a real kernel reorder; we claim
     the route handler doesn't corrupt user data when its own atomic-write
@@ -186,7 +186,7 @@ def test__patch_preferences__os_replace_fails__original_byte_identical_no_tmp_le
     # filesystem invariant: original blob preserved, no .tmp leak. FastAPI
     # converts to 500 in production; in tests we just assert it raises and
     # then verify the on-disk state — verified-then-asserted per
-    # CLAUDE-TESTING.md section 5.8.
+    # TESTING.md section 5.8.
     with pytest.raises(OSError, match="simulated kernel-level rename failure"):
         client.patch("/api/preferences", json={"data": {"theme": "light"}})
 

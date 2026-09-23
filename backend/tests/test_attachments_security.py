@@ -1,6 +1,6 @@
 """Path-traversal security tests for ``GET /api/attachments/{conv}/{file}/{variant}``.
 
-Targets ``backend/routers/files.py:304-357``. Per CLAUDE-TESTING.md
+Targets ``backend/routers/files.py:304-357``. Per TESTING.md
 §5.9, every route that takes a path / URL / pattern / external input
 MUST have explicit malicious-input tests. The contract is "the route
 *refuses* the input (4xx with no leakage), not serves something".
@@ -20,10 +20,10 @@ variant allowlist). THIS file pins the full V1 attack-vector matrix:
   * Negative-space: response body must not leak the absolute on-disk
     path the server tried to access (CWE-200 / Information Exposure).
 
-Spec-driven discipline (CLAUDE-TESTING.md §1):
+Spec-driven discipline (TESTING.md §1):
     Allowlist of files consulted while authoring this test:
       * PLANS/2026.05.18-test-hardening.md (Task C1)
-      * CLAUDE-TESTING.md §5.9
+      * TESTING.md §5.9
       * backend/routers/files.py:304-357 (under test)
       * backend/tests/_security_helpers.py (LEAK_MAGIC, helpers)
       * backend/tests/conftest.py (isolated_data_dir)

@@ -156,7 +156,7 @@ def test__post_bookmark__duplicate_conv_msg__creates_second_row_no_409(client_wi
 def test__post_bookmark__os_replace_fails__no_tmp_leak(client_with_bookmarks, monkeypatch):
     """BKM-ATOMIC-RECOVERY (P2.4). Failed atomic-write swap leaves no .tmp leak.
 
-    Per CLAUDE-TESTING.md section 5.8: monkeypatch the rename at the Python
+    Per TESTING.md section 5.8: monkeypatch the rename at the Python
     boundary, assert (a) the inner exception propagates and (b) no tmp file
     survives in the bookmarks dir. Bookmarks have no pre-existing file
     invariant to compare against (this can be the FIRST write), so byte-

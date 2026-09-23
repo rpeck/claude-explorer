@@ -81,7 +81,7 @@ actual corpus, is the only number that maps to the user's reported
 feeling. If you fix something and that number doesn't move, you fixed
 something else.
 
-This is the failure mode `CLAUDE-TESTING.md §5.13` warns about. The
+This is the failure mode `TESTING.md §5.13` warns about. The
 test we wrote ("handler is sync def, runs on threadpool, three
 concurrent searches finish in parallel") asserts an *implementation
 rule*. It does not assert the *user-observable contract* ("typing the
@@ -263,7 +263,7 @@ changed for an unrelated reason, every leaf component that subscribed
 to that provider re-rendered, even the ones whose `React.memo`
 comparator was airtight.
 
-**Concrete rule (`CLAUDE-TESTING.md §5.14` proposal below)**: any
+**Concrete rule (`TESTING.md §5.14` proposal below)**: any
 component that is rendered N times in a list (N ≥ 100) must NOT call
 `useContext` on a *churning* provider — that is, a provider whose
 value identity changes in response to user interaction (toggles,
@@ -288,7 +288,7 @@ because those providers' values are known to churn on user input.
 
 ### Lesson 3: "Implementation rule" tests protected the bug
 
-`CLAUDE-TESTING.md §5.13` codifies this: a test that pins HOW the
+`TESTING.md §5.13` codifies this: a test that pins HOW the
 system works ("handler is sync def", "context value is memoized")
 protects the rule. A test that pins WHAT the user observes ("typing
 the test query on the test corpus emits ≤ N ms of Long Task time")
@@ -304,9 +304,9 @@ exposed all four false starts in minutes.
 
 ---
 
-## Proposed `CLAUDE-TESTING.md §5.14` patch
+## Proposed `TESTING.md §5.14` patch
 
-A patch for `CLAUDE-TESTING.md`, slotted between §5.13 and §6.
+A patch for `TESTING.md`, slotted between §5.13 and §6.
 
 ```markdown
 ### 5.14 · Performance regressions need a user-observable budget test

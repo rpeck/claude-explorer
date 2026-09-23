@@ -26,7 +26,7 @@ Both were mined this session via the MCP server (dogfooding) plus three research
 
 1. **Restructured long-form** — edit `articles/part_3_mcp_server.md` into the 7-section story-led shape below.
 2. **New userdoc twin** — `articles/part_3_mcp_server_userdoc.md` ("how a normal human connects the server and mines their own sessions," cross-platform, no internals), cross-linked to the long-form like the Part 2 twins.
-3. **Tuning-loop run artifact** — `PLANS/articles/part3-tuning-loop-run.md`: the run method, the honest "mostly re-validated" result, and the **proposed diffs** (with citations) for `CLAUDE.md` / `CLAUDE-TESTING.md` / memory / `~/.claude/agents/llm-council-coding.md`. **Proposals only; nothing applied without the author's per-diff approval.**
+3. **Tuning-loop run artifact** — `PLANS/articles/part3-tuning-loop-run.md`: the run method, the honest "mostly re-validated" result, and the **proposed diffs** (with citations) for `CLAUDE.md` / `TESTING.md` / memory / `~/.claude/agents/llm-council-coding.md`. **Proposals only; nothing applied without the author's per-diff approval.**
 
 ## Long-form outline (7 sections + short intro/wrap)
 
@@ -53,7 +53,7 @@ Method (bottom-up over all `claude-desktop-message-exporter` sessions via the MC
 
 - NET-NEW → `llm-council-coding.md` (GLOBAL): **R1** read-the-data-shape Step-1 precondition.
 - STRENGTHEN → `llm-council-coding.md` (GLOBAL): **R2** new rule P12 (no correctness sacrifice for a perf number).
-- STRENGTHEN → `CLAUDE-TESTING.md`: broaden "re-report = falsification / reproduce on real corpus" beyond perf; un-stale the "no SQLite" note in §5.8.
+- STRENGTHEN → `TESTING.md`: broaden "re-report = falsification / reproduce on real corpus" beyond perf; un-stale the "no SQLite" note in §5.8.
 - NET-NEW → `CLAUDE.md`: independent-count cross-check; pre-push step 13 / `check-article-formats.py` should fail on dead TOC `#anchor` links.
 - NET-NEW → memory: `feedback_reread_user_edited_files.md`; `feedback_no_fabricated_user_facts.md`; (minor) ambiguous-referent restatement.
 
@@ -64,7 +64,7 @@ Method (bottom-up over all `claude-desktop-message-exporter` sessions via the MC
 - **Edit:** `articles/part_3_mcp_server.md` (restructure).
 - **New:** `articles/part_3_mcp_server_userdoc.md` (twin); `PLANS/articles/part3-tuning-loop-run.md`.
 - **Read-only ground truth:** `PROCESS/a70251a5/phase_20_*.md`, `phase_21_*.md`, `outline_digest.md`, `90_themes.md`, `93_use_cases.md`; `mcp_server/server.py`; `PLANS/articles/medium-articles.md`; `PROCESS/99_styleguide.md` (voice).
-- **Proposed edits, gated:** `CLAUDE.md`, `CLAUDE-TESTING.md`, `~/.claude/agents/llm-council-coding.md`, new memory files.
+- **Proposed edits, gated:** `CLAUDE.md`, `TESTING.md`, `~/.claude/agents/llm-council-coding.md`, new memory files.
 
 ## Voice & honesty rules
 

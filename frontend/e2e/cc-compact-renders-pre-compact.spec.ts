@@ -16,7 +16,7 @@ import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from
  *   - The compact marker is preserved at its original chronological
  *     index (between pre- and post-compact messages).
  *
- * Bidirectional verification (per CLAUDE-TESTING.md):
+ * Bidirectional verification (per TESTING.md):
  * - NEW behavior assertion: pre-compact message renders first.
  * - OLD-behavior catch: explicitly asserts the compact marker is NOT
  *   the first child of the message stream, which is exactly what the

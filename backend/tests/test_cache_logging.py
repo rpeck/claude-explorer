@@ -19,7 +19,7 @@ Contract pinned by these tests:
   4. Caller contract preserved: on non-MemoryError failure, ``None`` is
      still returned (no behavior change for normal callers).
 
-Bidirectional verification per CLAUDE-TESTING.md \u00a72: these tests
+Bidirectional verification per TESTING.md \u00a72: these tests
 FAIL today because the current bare excepts neither log nor re-raise
 ``MemoryError`` — they just return ``None``.
 """

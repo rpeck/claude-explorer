@@ -1,7 +1,7 @@
 # test-c1-windows.ps1 - Phase C step 1: install claude-explorer via pipx
 # and smoke-test the CLI + dev server endpoint on Windows.
 #
-# Plan reference: PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md section C1-W.
+# Plan reference: PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md section C1-W.
 # Run AFTER setup-windows.ps1 has completed (Python 3.13 + pipx must be installed).
 #
 # Idempotent: uses `pipx install --force` so a re-run always fetches the latest

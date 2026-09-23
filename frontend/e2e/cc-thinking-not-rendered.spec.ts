@@ -35,7 +35,7 @@ import type { Message, ContentBlock } from '../src/lib/types'
  *     absent. By construction (steps 1-3 satisfied), this is no longer
  *     a race.
  *
- * Bidirectional verification (per CLAUDE-TESTING.md §2):
+ * Bidirectional verification (per TESTING.md §2):
  *   - "X renders WITH condition": regular text DOES render → asserted
  *     in test A via `toContainText`.
  *   - "X does NOT render WITHOUT condition": thinking DOES NOT render

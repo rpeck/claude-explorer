@@ -30,7 +30,7 @@ import type { Message } from '../src/lib/types'
  *      USER-initiated nav (Cmd+G, Enter, card click) always wins —
  *      gate applies only to source='auto'.
  *
- * Why this test wasn't caught earlier (CLAUDE-TESTING.md §5.15): until
+ * Why this test wasn't caught earlier (TESTING.md §5.15): until
  * 2026-05-24 my Playwright specs asserted only on DOM state. The new
  * hardwired auto-fixture (`fixtures.ts:consoleAssertions`) catches
  * `pageerror` events globally — this test pins the user-observable

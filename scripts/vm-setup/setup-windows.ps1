@@ -3,7 +3,7 @@
 # Windows Update + reboot completes.
 #
 # Covers plan steps A5 (Python 3.13) and A6 (pipx + ensurepath).
-# Plan reference: PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md sections A5-A6.
+# Plan reference: PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md sections A5-A6.
 #
 # Run in PowerShell (no admin needed for user-scope installs):
 #   .\setup-windows.ps1

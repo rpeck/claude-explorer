@@ -25,7 +25,7 @@ import type { Message } from '../src/lib/types'
  *      initial page load. Pre-fix this WAS in the DOM (the whole list
  *      was rendered eagerly).
  *
- * Why spec-driven (per CLAUDE-TESTING.md §1): the implementation uses
+ * Why spec-driven (per TESTING.md §1): the implementation uses
  * `@tanstack/react-virtual` (same lib as the sidebar; see
  * `frontend/e2e/spec-conversation-list-virtualized.spec.ts` for the
  * sibling sidebar spec). If a future swap goes to react-virtuoso or

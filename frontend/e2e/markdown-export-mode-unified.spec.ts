@@ -86,7 +86,7 @@ test.describe('Markdown export mode unification', () => {
     // aria-checked="true" before returning, which races our Radix +
     // usePreferences controlled-component pipeline (onValueChange →
     // setMarkdownExportMode → useMutation → next render flips
-    // aria-checked). See CLAUDE-TESTING.md §3 "Radix RadioGroup .check()
+    // aria-checked). See TESTING.md §3 "Radix RadioGroup .check()
     // races controlled-component re-renders". We verify the post-click
     // state via the PATCH log below.
     const settingsExport = page.locator('[data-section="markdown-export"]')

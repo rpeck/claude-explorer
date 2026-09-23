@@ -16,7 +16,7 @@ import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from
  *   - Conversation header badge: text "Cowork" present, text "Desktop"
  *     absent within the header region.
  *
- * Auto console-error assertion (per CLAUDE-TESTING.md §5.15 and the
+ * Auto console-error assertion (per TESTING.md §5.15 and the
  * project-wide [[feedback_e2e_console_assertions]] rule) fires
  * automatically via the `consoleAssertions` auto-fixture — no extra
  * assertion call needed in the test body, just don't allowlist any new

@@ -3,7 +3,7 @@
 # test-c2-ubuntu.sh — Phase C step 2: install + verify the supervised
 # CC image-cache watcher on Ubuntu.
 #
-# Plan reference: PLANS/TEST_WINDOWS_LINUX_INSTALLATION.md §C2-U.
+# Plan reference: PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md §C2-U.
 # Order matters per Council review: enable-linger FIRST, then install,
 # then verify (so the test reflects post-logout behavior, not the
 # current GNOME session).

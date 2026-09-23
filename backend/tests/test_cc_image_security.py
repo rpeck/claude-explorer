@@ -1,6 +1,6 @@
 """Path-traversal security tests for ``GET /api/cc-image?path=...``.
 
-Targets ``backend/routers/files.py:193-264``. Per CLAUDE-TESTING.md
+Targets ``backend/routers/files.py:193-264``. Per TESTING.md
 §5.9 + the V1 test-hardening plan (PLANS/2026.05.18-test-hardening.md
 Task C1), every path-taking route MUST have explicit malicious-input
 tests covering the full attack matrix.
@@ -28,10 +28,10 @@ routing (which strips ``%2F``). Query-string decoding is more permissive
 — ``\\x00``, ``\\``, ``~`` all pass through unchanged. That makes
 cc-image the more interesting attack surface.
 
-Spec-driven discipline (CLAUDE-TESTING.md §1):
+Spec-driven discipline (TESTING.md §1):
     Allowlist of files consulted while authoring this test:
       * PLANS/2026.05.18-test-hardening.md (Task C1)
-      * CLAUDE-TESTING.md §5.9
+      * TESTING.md §5.9
       * backend/routers/files.py:193-264 (under test)
       * backend/tests/_security_helpers.py
       * backend/tests/conftest.py (isolated_data_dir)
