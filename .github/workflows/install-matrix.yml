@@ -312,6 +312,14 @@ jobs:
         uses: astral-sh/setup-uv@v6
       - name: Sync dependencies
         run: uv sync --extra dev --python "$PYSPEC"
+      - name: Install the PDF libraries (macOS)
+        # The README's PDF prerequisite, so the PDF tests run instead of
+        # skip. Without it, WeasyPrint's dlopen finds the runner's partial
+        # Homebrew and segfaults, which kills the xdist worker.
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install pango cairo libffi
       - name: Run the Python suite
         # Never pipe this through tail: a pipeline reports the last stage's
         # status and turns a failure into a pass. TESTING.md §0.

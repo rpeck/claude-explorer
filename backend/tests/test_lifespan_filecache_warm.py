@@ -30,6 +30,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -85,12 +87,22 @@ def warm_corpus(
     proj.mkdir(parents=True)
 
     # 10 sessions, increasing updated_at — sess-0009 is the most recent.
+    # The fast summary reader takes updated_at from the file MTIME, not
+    # from the message timestamps (backend/cc_jsonl_io.py). Ten quick
+    # writes can share one mtime: the Windows clock ticks about every
+    # 15.6 ms. Then "top 5" was an arbitrary tie order, and the test
+    # failed on the Windows ARM runner. Set each mtime explicitly, one
+    # day apart, to match the timestamps.
+    base = datetime(2026, 5, 1, 12, tzinfo=timezone.utc).timestamp()
     for i in range(10):
+        path = proj / f"sess-{i:04d}.jsonl"
         _write_jsonl(
-            proj / f"sess-{i:04d}.jsonl",
+            path,
             f"sess-{i:04d}",
             f"2026-05-{(i % 28) + 1:02d}T12:00:00Z",
         )
+        mtime = base + i * 86400
+        os.utime(path, (mtime, mtime))
 
     data_dir = tmp_path / "data"
     data_dir.mkdir()
