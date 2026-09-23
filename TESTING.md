@@ -496,6 +496,22 @@ AND touches preferences/credentials must use `real_async_client` PLUS
 Don't fold them; an SSE test for a read-only endpoint shouldn't pay the
 disk-isolation cost it doesn't need.
 
+**Do not compute a home-relative path at import time.** A module
+constant such as `Path.home() / "Library" / ...` freezes the developer's
+real home before any test runs. `patch_home` (in
+`backend/tests/_platform_home.py`) changes `HOME` later, so it cannot
+redirect that constant.
+
+- **What happened:** on 2026-09-23 a corrupt-config test ran
+  `install-watcher --uninstall` under a patched home. The plist path
+  was a module constant, so every local test run deleted the
+  maintainer's real launchd watcher.
+- **The rule:** make the path a function that reads `Path.home()` when
+  it is called. `cli/watcher.py` now does this.
+- **The guard:** `test_watcher_paths_follow_home.py`. It asserts that
+  each path follows the patched home, and that no subprocess argument
+  leaves it.
+
 **Lifecycle tests must be order-independent.** Don't rely on file
 collection order (`test_zz_step1_set_flag`, `test_zz_step2_observe_flag`);
 pytest-randomly and pytest-xdist will reorder or split them across workers
@@ -1484,37 +1500,57 @@ Before declaring a new test sufficient, confirm:
 
 Two workflows run automatically.
 
-| Workflow | Runner | What it proves |
+| Workflow | Runners | What it proves |
 |---|---|---|
 | `test.yml` | `ubuntu-latest` | The Python suite, and Playwright in fixture mode |
-| `windows-install.yml` | `windows-latest` (x86_64) | Install, CLI, Chromium, `serve`, the watcher, and the Python suite |
-| `windows-install.yml` | `windows-11-arm` (ARM64) | The same checks, through an x86_64 interpreter |
+| `install-matrix.yml` | Six runners, listed below | The documented install, the CLI, Chromium, `serve`, the watcher, and the Python suite |
 
-`windows-install.yml` runs on a push to `ci/windows-install`, or by manual
-dispatch. Its `install` job runs the README commands themselves, so the
-documentation is under test and not only the code:
+### The install matrix
 
-- Install through the documented command. On ARM this includes the
+`install-matrix.yml` covers every platform that the README supports. All six
+runners are free for public repositories.
+
+| Platform | Runner | Watcher supervisor |
+|---|---|---|
+| macOS arm64 | `macos-latest` | launchd |
+| macOS x86_64 | `macos-15-intel` | launchd |
+| Linux x86_64 | `ubuntu-latest` | systemd user unit |
+| Linux arm64 | `ubuntu-24.04-arm` | systemd user unit |
+| Windows x86_64 | `windows-latest` | Task Scheduler |
+| Windows ARM64 | `windows-11-arm` | Task Scheduler |
+
+**When it runs:**
+
+- On a push to `main` or to any `ci/**` branch.
+- On a pull request.
+- By manual dispatch. The `source` input selects the checkout or the
+  published PyPI package.
+
+The push and pull-request triggers apply only when a change touches the
+Python code, `pyproject.toml`, `uv.lock`, `README.md`, or the workflow file.
+
+**The `install` job runs the README commands themselves.** So the
+documentation is under test, not only the code. On each runner it checks
+these items:
+
+- The documented install command works. On Windows ARM64 this includes the
   x86_64-Python pin. The step prints the interpreter, which must report
   `AMD64` on an `ARM64` machine. That proves the Prism translation path.
 - All five subcommands appear in `--help`.
-- The Chromium build installs, and its executable resolves on disk.
+- The Chromium build installs and launches. On Linux the install uses
+  `--with-deps`, which adds the system libraries.
 - `serve` answers `/api/config` with HTTP 200.
-- The watcher installs, `schtasks` finds it, the uninstall removes it, and a
-  second query confirms it is gone.
+- The watcher installs, and its supervisor reports it:
+  - macOS: `launchctl list` shows the job.
+  - Linux: `systemctl --user is-active` reports the unit active. The job
+    first enables lingering, so the runner has a user session bus.
+  - Windows: `schtasks` finds the task.
+- The uninstall removes the watcher, and a second query confirms it is gone.
 
-Its `pytest` job runs the suite serially with `-n 0`. On Windows the xdist
-controller hung at shutdown, and parallel runs hid order-dependent failures.
-
-### Coverage gap: the install path on macOS and Linux
-
-The install path is now tested more thoroughly on Windows than on macOS or
-Linux. `test.yml` runs the test suite on Linux, but no workflow installs the
-package the way a user does on macOS or Linux and then starts `serve`.
-
-To close the gap, extend `windows-install.yml` into one install matrix that
-covers `macos-latest`, `ubuntu-latest`, `windows-latest`, and
-`windows-11-arm`. All four runners are free for public repositories.
+**The `pytest` job runs the full suite on the same six runners.** It uses
+xdist on macOS and Linux. On Windows it runs serially with `-n 0`. There the
+xdist controller hung at shutdown, and parallel runs hid order-dependent
+failures.
 
 ## 8 · Verifying each platform by hand
 
