@@ -51,10 +51,21 @@ import click
 # Cross-platform unit/job identifiers. Same logical name ("claude-explorer
 # CC image-cache watcher"), spelled in each OS's idiomatic style:
 _LAUNCHD_LABEL = "com.claude-explorer.cc-watcher"
-_LAUNCHD_PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{_LAUNCHD_LABEL}.plist"
 _SYSTEMD_UNIT_NAME = "claude-explorer-cc-watcher.service"
-_SYSTEMD_UNIT_PATH = Path.home() / ".config" / "systemd" / "user" / _SYSTEMD_UNIT_NAME
 _WIN_TASK_NAME = "ClaudeExplorerCCWatcher"
+
+
+# The unit-file paths are functions, not module constants, so they read
+# ``Path.home()`` at call time. A constant froze the developer's real
+# home at import, and a test that patched HOME and ran
+# ``install-watcher --uninstall`` then deleted the real launchd job.
+# See backend/tests/test_watcher_paths_follow_home.py.
+def _launchd_plist_path() -> Path:
+    return Path.home() / "Library" / "LaunchAgents" / f"{_LAUNCHD_LABEL}.plist"
+
+
+def _systemd_unit_path() -> Path:
+    return Path.home() / ".config" / "systemd" / "user" / _SYSTEMD_UNIT_NAME
 
 
 # Single source of truth for the watcher loop body. Each platform's
@@ -152,7 +163,8 @@ def _build_launchd_plist(python_bin: str, scan_interval: float) -> str:
 # instead of an inline ``-c`` script — systemd's ExecStart can't carry
 # embedded newlines and Windows ``schtasks /TR`` can't carry embedded
 # quotes, so a launcher file dodges both.
-_WATCHER_LAUNCHER_PATH = Path.home() / ".claude-explorer" / "cc-watcher.py"
+def _watcher_launcher_path() -> Path:
+    return Path.home() / ".claude-explorer" / "cc-watcher.py"
 
 
 def _write_watcher_launcher(scan_interval: float) -> Path:
@@ -165,9 +177,10 @@ def _write_watcher_launcher(scan_interval: float) -> Path:
         'Do not edit by hand — re-run install-watcher to regenerate."""\n'
         + _build_watcher_inline_script(scan_interval)
     )
-    _WATCHER_LAUNCHER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _WATCHER_LAUNCHER_PATH.write_text(body)
-    return _WATCHER_LAUNCHER_PATH
+    launcher = _watcher_launcher_path()
+    launcher.parent.mkdir(parents=True, exist_ok=True)
+    launcher.write_text(body)
+    return launcher
 
 
 def _build_systemd_unit(python_bin: str, launcher_path: Path, working_dir: str) -> str:
@@ -212,17 +225,18 @@ def _build_systemd_unit(python_bin: str, launcher_path: Path, working_dir: str) 
 
 def _install_macos(python_bin: str, interval: float) -> None:
     """macOS launchd path."""
+    plist = _launchd_plist_path()
     plist_body = _build_launchd_plist(python_bin, interval)
-    _LAUNCHD_PLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _LAUNCHD_PLIST_PATH.write_text(plist_body)
-    click.echo(f"Wrote {_LAUNCHD_PLIST_PATH}")
+    plist.parent.mkdir(parents=True, exist_ok=True)
+    plist.write_text(plist_body)
+    click.echo(f"Wrote {plist}")
     # Reload to pick up changes if already loaded.
     subprocess.run(
-        ["launchctl", "unload", str(_LAUNCHD_PLIST_PATH)],
+        ["launchctl", "unload", str(plist)],
         check=False, capture_output=True,
     )
     result = subprocess.run(
-        ["launchctl", "load", str(_LAUNCHD_PLIST_PATH)],
+        ["launchctl", "load", str(plist)],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
@@ -242,15 +256,16 @@ def _install_macos(python_bin: str, interval: float) -> None:
 
 def _uninstall_macos() -> None:
     """macOS launchd path."""
-    if _LAUNCHD_PLIST_PATH.exists():
+    plist = _launchd_plist_path()
+    if plist.exists():
         subprocess.run(
-            ["launchctl", "unload", str(_LAUNCHD_PLIST_PATH)],
+            ["launchctl", "unload", str(plist)],
             check=False, capture_output=True,
         )
-        _LAUNCHD_PLIST_PATH.unlink()
-        click.echo(f"Removed {_LAUNCHD_PLIST_PATH}")
+        plist.unlink()
+        click.echo(f"Removed {plist}")
     else:
-        click.echo(f"Not installed: {_LAUNCHD_PLIST_PATH} does not exist")
+        click.echo(f"Not installed: {plist} does not exist")
 
 
 def _install_linux(python_bin: str, interval: float) -> None:
@@ -261,12 +276,13 @@ def _install_linux(python_bin: str, interval: float) -> None:
     when no GUI session is active (the V1 default that "just works"
     on a typical interactive desktop will NOT survive logout otherwise).
     """
+    unit = _systemd_unit_path()
     launcher = _write_watcher_launcher(interval)
     click.echo(f"Wrote {launcher}")
     unit_body = _build_systemd_unit(python_bin, launcher, str(Path.cwd()))
-    _SYSTEMD_UNIT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _SYSTEMD_UNIT_PATH.write_text(unit_body)
-    click.echo(f"Wrote {_SYSTEMD_UNIT_PATH}")
+    unit.parent.mkdir(parents=True, exist_ok=True)
+    unit.write_text(unit_body)
+    click.echo(f"Wrote {unit}")
 
     # Reload + enable + start.
     for cmd in (
@@ -297,22 +313,24 @@ def _install_linux(python_bin: str, interval: float) -> None:
 
 def _uninstall_linux() -> None:
     """Linux systemd user-unit path."""
-    if _SYSTEMD_UNIT_PATH.exists():
+    launcher = _watcher_launcher_path()
+    unit = _systemd_unit_path()
+    if unit.exists():
         subprocess.run(
             ["systemctl", "--user", "disable", "--now", _SYSTEMD_UNIT_NAME],
             check=False, capture_output=True,
         )
-        _SYSTEMD_UNIT_PATH.unlink()
+        unit.unlink()
         subprocess.run(
             ["systemctl", "--user", "daemon-reload"],
             check=False, capture_output=True,
         )
-        click.echo(f"Removed {_SYSTEMD_UNIT_PATH}")
+        click.echo(f"Removed {unit}")
     else:
-        click.echo(f"Not installed: {_SYSTEMD_UNIT_PATH} does not exist")
-    if _WATCHER_LAUNCHER_PATH.exists():
-        _WATCHER_LAUNCHER_PATH.unlink()
-        click.echo(f"Removed {_WATCHER_LAUNCHER_PATH}")
+        click.echo(f"Not installed: {unit} does not exist")
+    if launcher.exists():
+        launcher.unlink()
+        click.echo(f"Removed {launcher}")
 
 
 def _install_windows(python_bin: str, interval: float) -> None:
@@ -376,6 +394,7 @@ def _install_windows(python_bin: str, interval: float) -> None:
 
 def _uninstall_windows() -> None:
     """Windows Task Scheduler path."""
+    launcher = _watcher_launcher_path()
     result = subprocess.run(
         ["schtasks", "/Delete", "/TN", _WIN_TASK_NAME, "/F"],
         capture_output=True, text=True,
@@ -390,6 +409,6 @@ def _uninstall_windows() -> None:
             f"({result.stderr.strip() or result.stdout.strip()})"
         )
 
-    if _WATCHER_LAUNCHER_PATH.exists():
-        _WATCHER_LAUNCHER_PATH.unlink()
-        click.echo(f"Removed {_WATCHER_LAUNCHER_PATH}")
+    if launcher.exists():
+        launcher.unlink()
+        click.echo(f"Removed {launcher}")
