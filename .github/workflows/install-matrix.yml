@@ -103,10 +103,13 @@ jobs:
           set -euo pipefail
           claude-explorer --version
           help=$(claude-explorer --help)
-          for cmd in capture fetch serve install-watcher install-app reindex-search; do
+          cmds="capture fetch serve install-watcher reindex-search"
+          # install-app is not on PyPI until the next release.
+          [ "${SOURCE:-}" = "pypi" ] || cmds="$cmds install-app"
+          for cmd in $cmds; do
             grep -q "$cmd" <<<"$help" || { echo "missing subcommand: $cmd"; exit 1; }
           done
-          echo "all six subcommands present"
+          echo "subcommands present: $cmds"
 
       - name: Chromium installs and launches (macOS, Linux)
         if: matrix.family != 'windows'
@@ -167,7 +170,8 @@ jobs:
           echo "watcher lifecycle verified"
 
       - name: Launcher app starts and stops the server (macOS)
-        if: matrix.family == 'macos'
+        # install-app is not on PyPI until the next release.
+        if: matrix.family == 'macos' && env.SOURCE != 'pypi'
         shell: bash
         run: |
           set -euo pipefail
@@ -229,6 +233,42 @@ jobs:
           if systemctl --user is-active --quiet "$unit"; then echo "still active after uninstall"; exit 1; fi
           echo "watcher lifecycle verified"
 
+      - name: Launcher entry starts and stops the server (Linux)
+        # install-app is not on PyPI until the next release.
+        if: matrix.family == 'linux' && env.SOURCE != 'pypi'
+        shell: bash
+        env:
+          CLAUDE_EXPLORER_NO_BROWSER: "1"
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq desktop-file-utils > /dev/null
+          apps="$RUNNER_TEMP/applications"
+          claude-explorer install-app --dest "$apps"
+          entry="$apps/claude-explorer.desktop"
+          desktop-file-validate "$entry"
+          cat "$entry"
+          # The port must be free first, so only the launcher can pass this.
+          for i in $(seq 1 15); do
+            curl -fsS -o /dev/null http://127.0.0.1:8765/api/config || break
+            sleep 1
+          done
+          if curl -fsS -o /dev/null http://127.0.0.1:8765/api/config; then echo "port 8765 still busy"; exit 1; fi
+          # Run the entry's own Exec lines, as the app menu would. The file
+          # is the one install-app just wrote, from paths on this runner.
+          open_cmd=$(sed -n 's/^Exec=//p' "$entry" | sed -n 1p)
+          stop_cmd=$(sed -n 's/^Exec=//p' "$entry" | sed -n 2p)
+          sh -c "$open_cmd"
+          curl -fsS -o /dev/null http://127.0.0.1:8765/api/config || { echo "open did not start the server"; exit 1; }
+          echo "menu entry started the server"
+          sh -c "$stop_cmd"
+          for i in $(seq 1 15); do
+            curl -fsS -o /dev/null http://127.0.0.1:8765/api/config || { echo "stop action stopped the server"; break; }
+            sleep 1
+          done
+          if curl -fsS -o /dev/null http://127.0.0.1:8765/api/config; then echo "server still up after stop"; exit 1; fi
+          claude-explorer install-app --uninstall --dest "$apps"
+          [ ! -e "$entry" ] || { echo "entry still present after uninstall"; exit 1; }
+
       # ---------------------------------------------------------------- Windows
       - name: Install claude-explorer (Windows)
         if: matrix.family == 'windows'
@@ -250,10 +290,13 @@ jobs:
           claude-explorer --version
           if ($LASTEXITCODE -ne 0) { throw "claude-explorer --version failed" }
           $help = claude-explorer --help | Out-String
-          foreach ($cmd in @("capture", "fetch", "serve", "install-watcher", "install-app", "reindex-search")) {
+          $cmds = @("capture", "fetch", "serve", "install-watcher", "reindex-search")
+          # install-app is not on PyPI until the next release.
+          if ($env:SOURCE -ne "pypi") { $cmds += "install-app" }
+          foreach ($cmd in $cmds) {
             if ($help -notmatch $cmd) { throw "missing subcommand: $cmd" }
           }
-          Write-Host "all six subcommands present"
+          Write-Host "subcommands present: $cmds"
 
       - name: Chromium installs and launches (Windows)
         if: matrix.family == 'windows'
@@ -310,6 +353,43 @@ jobs:
           Write-Host "watcher lifecycle verified"
           # That last query is EXPECTED to fail and leaves $LASTEXITCODE at 1.
           # The pwsh wrapper would report it as the step result, so clear it.
+          exit 0
+
+      - name: Launcher shortcut starts and stops the server (Windows)
+        # install-app is not on PyPI until the next release.
+        if: matrix.family == 'windows' && env.SOURCE != 'pypi'
+        shell: pwsh
+        env:
+          CLAUDE_EXPLORER_NO_BROWSER: "1"
+        run: |
+          $menu = Join-Path $env:RUNNER_TEMP "Programs"
+          claude-explorer install-app --dest $menu
+          if ($LASTEXITCODE -ne 0) { throw "install-app failed" }
+          $lnk = Join-Path $menu "Claude Explorer.lnk"
+          $s = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+          Write-Host "Shortcut: $($s.TargetPath) $($s.Arguments)"
+          if ((Split-Path $s.TargetPath -Leaf) -ne "pythonw.exe") { throw "shortcut does not target pythonw.exe" }
+          if ($s.Arguments -ne "-m cli.desktop_launcher tray") { throw "unexpected shortcut arguments" }
+          # The console twin of the shortcut's interpreter, so output shows.
+          $python = Join-Path (Split-Path $s.TargetPath) "python.exe"
+          & $python -c "import pystray, PIL; print('pystray imports')"
+          if ($LASTEXITCODE -ne 0) { throw "pystray is missing" }
+          function Test-Up {
+            try { (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 -Uri "http://127.0.0.1:8765/api/config").StatusCode -eq 200 } catch { $false }
+          }
+          # The port must be free first, so only the launcher can pass this.
+          for ($i = 0; $i -lt 15 -and (Test-Up); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Up) { throw "port 8765 still busy" }
+          & $python -m cli.desktop_launcher open
+          if ($LASTEXITCODE -ne 0) { throw "launcher open failed" }
+          if (-not (Test-Up)) { throw "open did not start the server" }
+          Write-Host "launcher started the server"
+          & $python -m cli.desktop_launcher stop
+          for ($i = 0; $i -lt 15 -and (Test-Up); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Up) { throw "server still up after stop" }
+          Write-Host "launcher stopped the server"
+          claude-explorer install-app --uninstall --dest $menu
+          if (Test-Path $lnk) { throw "shortcut still present after uninstall" }
           exit 0
 
       - name: Upload server logs on failure

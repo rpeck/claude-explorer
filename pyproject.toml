@@ -59,6 +59,9 @@ dependencies = [
     "portalocker>=2.8",
     "watchdog>=4.0",
     "platformdirs>=4.0",
+    # The Windows launcher's notification-area (tray) icon. Pure Python; on
+    # Windows it needs only Pillow (already here through WeasyPrint) and six.
+    "pystray>=0.19.5; sys_platform == 'win32'",
 ]
 
 [project.urls]

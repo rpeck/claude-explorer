@@ -904,43 +904,59 @@ def install_watcher(python_bin: str | None, interval: float, uninstall: bool) ->
     "--dest",
     type=click.Path(file_okay=False, path_type=Path),
     default=None,
-    help="Folder for the app (default: ~/Applications).",
+    help="Folder for the launcher. Defaults: ~/Applications (macOS), the "
+    "Start menu Programs folder (Windows), ~/.local/share/applications (Linux).",
 )
 @click.option(
     "--uninstall",
     is_flag=True,
-    help="Remove the launcher app instead of installing it.",
+    help="Remove the launcher instead of installing it.",
 )
 def install_app(dest: Path | None, uninstall: bool) -> None:
-    """Install a macOS app that starts Claude Explorer from the Dock.
+    """Add Claude Explorer to the Dock, the Start menu, or the app menu.
 
-    Opening "Claude Explorer" starts the server if needed and opens the
-    browser. Quitting it stops the server that it started. See
-    ``cli/app_launcher.py`` for the details.
+    \b
+    macOS:   an app. Open it to start; quit it to stop.
+    Windows: a Start menu shortcut with a tray icon (Open, Quit).
+    Linux:   an app-menu entry; right-click it for "Stop Claude Explorer".
+
+    Each launcher starts the server if needed and opens the browser. It
+    stops only a server that it started. See cli/app_launcher.py.
     """
     import sys as _sys
 
     from cli import app_launcher
 
-    if _sys.platform != "darwin":
+    os_name = _sys.platform
+    if os_name == "darwin":
+        target_dir = dest or app_launcher.default_dest()
+        name = app_launcher.APP_NAME
+        remove = app_launcher.uninstall_app
+    elif os_name == "win32":
+        target_dir = dest or app_launcher.default_start_menu_dir()
+        name = app_launcher.SHORTCUT_NAME
+        remove = app_launcher.uninstall_windows_shortcut
+    elif os_name.startswith("linux"):
+        target_dir = dest or app_launcher.default_applications_dir()
+        name = app_launcher.DESKTOP_FILE
+        remove = app_launcher.uninstall_linux_entry
+    else:
         raise click.ClickException(
-            "install-app is for macOS. On Windows and Linux, run "
+            f"install-app does not support {os_name!r}. Run "
             "'claude-explorer serve' and open http://localhost:8765."
         )
-    if dest is None:
-        dest = app_launcher.default_dest()
 
     if uninstall:
-        if app_launcher.uninstall_app(dest):
-            click.echo(f"Removed {dest / app_launcher.APP_NAME}")
+        if remove(target_dir):
+            click.echo(f"Removed {target_dir / name}")
         else:
-            click.echo(f"Not installed: {dest / app_launcher.APP_NAME} does not exist")
+            click.echo(f"Not installed: {target_dir / name} does not exist")
         return
 
     from fetcher.install_hints import is_ephemeral_interpreter
 
-    # Same rule as install-watcher: the app runs this environment's
-    # entry point, and a uvx environment can vanish from uv's cache.
+    # Same rule as install-watcher: the launcher runs this environment's
+    # interpreter, and a uvx environment can vanish from uv's cache.
     if is_ephemeral_interpreter(_sys.executable):
         raise click.ClickException(
             "install-app needs a lasting install, but this is a temporary "
@@ -950,15 +966,30 @@ def install_app(dest: Path | None, uninstall: bool) -> None:
             "  claude-explorer install-app"
         )
 
-    app = app_launcher.build_app(
-        dest=dest,
-        executable=app_launcher.launcher_executable(),
-        port=app_launcher.DEFAULT_PORT,
-        log_path=app_launcher.default_log_path(),
-    )
-    click.echo(f"Installed {app}")
-    click.echo("Open it from Launchpad or Spotlight, or drag it to the Dock.")
-    click.echo(f"Server log: {app_launcher.default_log_path()}")
+    if os_name == "darwin":
+        installed = app_launcher.build_app(
+            dest=target_dir,
+            executable=app_launcher.launcher_executable(),
+            port=app_launcher.DEFAULT_PORT,
+            log_path=app_launcher.default_log_path(),
+        )
+        click.echo(f"Installed {installed}")
+        click.echo("Open it from Launchpad or Spotlight, or drag it to the Dock.")
+        click.echo(f"Server log: {app_launcher.default_log_path()}")
+    elif os_name == "win32":
+        installed = app_launcher.install_windows_shortcut(
+            dest=target_dir, executable=_sys.executable
+        )
+        click.echo(f"Installed {installed}")
+        click.echo("Open 'Claude Explorer' from the Start menu. Right-click it to pin it.")
+        click.echo("To stop it, right-click its icon in the notification area and choose Quit.")
+    else:
+        installed = app_launcher.install_linux_entry(
+            dest=target_dir, executable=_sys.executable
+        )
+        click.echo(f"Installed {installed}")
+        click.echo("Open 'Claude Explorer' from your app menu.")
+        click.echo("To stop it, right-click it and choose 'Stop Claude Explorer'.")
 
 
 if __name__ == "__main__":

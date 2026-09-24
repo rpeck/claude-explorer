@@ -1,9 +1,20 @@
-"""Build the macOS launcher app: ``~/Applications/Claude Explorer.app``.
+"""Install the launcher for ``claude-explorer install-app``, per platform.
 
 Why: many users never open a terminal. The launcher lets them start Claude
-Explorer from the Dock, Launchpad, or Spotlight, like any other app.
+Explorer from the Dock, the Start menu, or the app menu, like any other app.
 
-What it is: an AppleScript "stay-open" applet, compiled with ``osacompile``
+* macOS: ``~/Applications/Claude Explorer.app``, described below.
+* Windows: a Start menu shortcut, ``Claude Explorer.lnk``. It runs
+  ``pythonw.exe -m cli.desktop_launcher tray``: no console window, and a
+  tray icon with Open and Quit.
+* Linux: an app-menu entry, ``claude-explorer.desktop``. It runs
+  ``cli.desktop_launcher open``, and its right-click action runs ``stop``.
+
+Windows and Linux share their runtime in ``cli/desktop_launcher.py``. Each
+entry is created on the user's own machine, so Windows attaches no
+downloaded-file mark and SmartScreen does not prompt.
+
+The macOS app is an AppleScript "stay-open" applet, compiled with ``osacompile``
 on the user's own Mac. A file made locally carries no quarantine flag, so
 macOS opens it without Gatekeeper, a paid Developer ID, or notarization.
 
@@ -229,3 +240,151 @@ def uninstall_app(dest: Path) -> bool:
 def launcher_executable() -> str:
     """The ``claude-explorer`` entry point of the running environment."""
     return str(Path(sys.executable).with_name("claude-explorer"))
+
+
+# ---------------------------------------------------------------- Windows
+
+
+SHORTCUT_NAME = "Claude Explorer.lnk"
+
+# Values reach PowerShell through environment variables, never through
+# the script text, so no path can break out of a string.
+_SHORTCUT_PS = (
+    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CE_LNK); "
+    "$s.TargetPath = $env:CE_TARGET; "
+    "$s.Arguments = $env:CE_ARGS; "
+    "$s.WorkingDirectory = $env:CE_WORKDIR; "
+    "$s.IconLocation = $env:CE_ICON; "
+    "$s.Description = 'Browse, search, and export your Claude conversations'; "
+    "$s.Save()"
+)
+
+
+def default_start_menu_dir() -> Path:
+    """The user's own Start menu Programs folder. No admin rights needed."""
+    import os
+
+    return Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+
+
+def windowless_python(executable: str) -> str:
+    """``pythonw.exe`` next to ``executable``, so no console window opens."""
+    candidate = Path(executable).with_name("pythonw.exe")
+    return str(candidate) if candidate.exists() else executable
+
+
+def shortcut_fields(*, executable: str, icon: Path) -> dict[str, str]:
+    """The shortcut's target, arguments, working folder and icon."""
+    return {
+        "CE_TARGET": windowless_python(executable),
+        "CE_ARGS": "-m cli.desktop_launcher tray",
+        "CE_WORKDIR": str(Path.home()),
+        "CE_ICON": str(icon),
+    }
+
+
+def _write_ico(dest: Path) -> Path:
+    from PIL import Image
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    Image.open(_ICON_PNG).save(
+        dest, sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+    )
+    return dest
+
+
+def install_windows_shortcut(*, dest: Path, executable: str) -> Path:
+    """Create the Start menu shortcut, and return its path."""
+    import os
+
+    from cli.desktop_launcher import state_dir
+
+    icon = _write_ico(state_dir() / "claude-explorer.ico")
+    dest.mkdir(parents=True, exist_ok=True)
+    lnk = dest / SHORTCUT_NAME
+    env = dict(os.environ, CE_LNK=str(lnk), **shortcut_fields(executable=executable, icon=icon))
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", _SHORTCUT_PS],
+        env=env, capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not lnk.exists():
+        raise click.ClickException(
+            f"Could not create the shortcut: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return lnk
+
+
+def uninstall_windows_shortcut(dest: Path) -> bool:
+    lnk = dest / SHORTCUT_NAME
+    if not lnk.exists():
+        return False
+    lnk.unlink()
+    return True
+
+
+# ------------------------------------------------------------------ Linux
+
+
+DESKTOP_FILE = "claude-explorer.desktop"
+
+
+def default_applications_dir() -> Path:
+    """``$XDG_DATA_HOME/applications``, where app menus look for user entries."""
+    import os
+
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / "applications"
+
+
+def _exec_arg(value: str) -> str:
+    """Quote one argument for a desktop entry's Exec key.
+
+    The Desktop Entry Specification quotes with double quotes and escapes
+    ", `, $ and \\ inside them. The string-value rule then doubles every
+    backslash again. A literal % becomes %%.
+    """
+    inner = "".join("\\" + ch if ch in '"`$\\' else ch for ch in value)
+    return ('"' + inner + '"').replace("\\", "\\\\").replace("%", "%%")
+
+
+def build_desktop_entry(*, executable: str, icon: Path) -> str:
+    python = _exec_arg(executable)
+    return (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Version=1.5\n"
+        "Name=Claude Explorer\n"
+        "Comment=Browse, search, and export your Claude conversations\n"
+        f"Exec={python} -m cli.desktop_launcher open\n"
+        f"Icon={icon}\n"
+        "Terminal=false\n"
+        "Categories=Utility;\n"
+        "Actions=stop;\n"
+        "\n"
+        "[Desktop Action stop]\n"
+        "Name=Stop Claude Explorer\n"
+        f"Exec={python} -m cli.desktop_launcher stop\n"
+    )
+
+
+def install_linux_entry(*, dest: Path, executable: str) -> Path:
+    """Write the app-menu entry, and return its path."""
+    from cli.desktop_launcher import state_dir
+
+    icon = state_dir() / "claude-explorer.png"
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(_ICON_PNG, icon)
+    dest.mkdir(parents=True, exist_ok=True)
+    entry = dest / DESKTOP_FILE
+    entry.write_text(build_desktop_entry(executable=executable, icon=icon), encoding="utf-8")
+    if shutil.which("update-desktop-database"):
+        subprocess.run(["update-desktop-database", str(dest)], check=False, capture_output=True)
+    return entry
+
+
+def uninstall_linux_entry(dest: Path) -> bool:
+    entry = dest / DESKTOP_FILE
+    if not entry.exists():
+        return False
+    entry.unlink()
+    return True

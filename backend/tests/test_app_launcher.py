@@ -78,13 +78,15 @@ def test_paths_are_escaped_for_applescript() -> None:
     assert '"/Users/o\\"brien\\\\x/bin/claude-explorer"' in s
 
 
-def test_install_app_refuses_other_platforms(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_install_app_refuses_an_unsupported_platform(monkeypatch: pytest.MonkeyPatch) -> None:
+    """macOS, Windows and Linux each get a launcher; anything else is told
+    to run serve."""
     from cli.main import main as cli_main
 
-    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(sys, "platform", "freebsd14")
     result = CliRunner().invoke(cli_main, ["install-app"])
     assert result.exit_code != 0
-    assert "macOS" in result.output
+    assert "claude-explorer serve" in result.output
 
 
 def test_install_app_refuses_a_uvx_interpreter(
