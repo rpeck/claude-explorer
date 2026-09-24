@@ -75,8 +75,13 @@ claude-explorer install-watcher
 #    Keep the watcher running when you log out:
 sudo loginctl enable-linger "$USER"
 
-# 5. Start the app:
-claude-explorer serve
+# 5. Add Claude Explorer to your app menu:
+claude-explorer install-app
+
+# 6. Start Claude Explorer: open it from your app menu.
+#    It starts the server and opens your browser. To stop the server,
+#    right-click it in the menu or dock, and choose "Stop Claude Explorer".
+#    Or, in a terminal, run: claude-explorer serve
 ```
 
 `--with-deps` supports only distributions that use `apt`. On Fedora, Arch, and other distributions, remove `--with-deps` from step 3. Then install Chromium's libraries with your package manager.
@@ -110,8 +115,13 @@ uvx --from claude-explorer playwright install chromium
 # 4. Install the image-cache watcher (one time; it then starts at each logon):
 claude-explorer install-watcher
 
-# 5. Start the app:
-claude-explorer serve
+# 5. Add Claude Explorer to the Start menu:
+claude-explorer install-app
+
+# 6. Start Claude Explorer: open it from the Start menu.
+#    It starts the server and opens your browser. Its icon appears in the
+#    notification area. To stop the server, right-click that icon, and
+#    choose Quit. Or, in PowerShell, run: claude-explorer serve
 ```
 
 #### Windows on ARM
@@ -134,15 +144,20 @@ uvx --from claude-explorer --python cpython-3.13-windows-x86_64-none playwright 
 # 4. Install the image-cache watcher (one time; it then starts at each logon):
 claude-explorer install-watcher
 
-# 5. Start the app:
-claude-explorer serve
+# 5. Add Claude Explorer to the Start menu:
+claude-explorer install-app
+
+# 6. Start Claude Explorer: open it from the Start menu.
+#    It starts the server and opens your browser. Its icon appears in the
+#    notification area. To stop the server, right-click that icon, and
+#    choose Quit. Or, in PowerShell, run: claude-explorer serve
 ```
 
 On Windows ARM, the proxy method of credential capture is not available. The default browser login works. See [Method B](#method-b-proxy-interception---proxy).
 
 ### After you install
 
-1. Open `http://localhost:8765` in your browser. On macOS, the Claude Explorer app opens it for you. Your Claude Code and Claude Cowork sessions show immediately.
+1. Open `http://localhost:8765` in your browser. If you started Claude Explorer from its menu entry or app, it opens this page for you. Your Claude Code and Claude Cowork sessions show immediately.
 2. Click **Refresh** in the sidebar to download your Claude Desktop conversations. The first time, a browser window opens. Log in to Claude in that window. The app then saves your login and downloads your conversations.
 
 **Why the watcher matters.** Claude Code deletes old screenshots and pasted images from your disk. The watcher copies each image as soon as it appears. It runs in the background under your operating system's service manager (launchd, systemd, or Task Scheduler). Without it, images are protected only while `claude-explorer serve` runs.
@@ -194,8 +209,8 @@ Claude Explorer includes an MCP server, so Claude can search and read your histo
 
 | To | Run |
 |---|---|
-| Start the app | macOS: open **Claude Explorer** from Launchpad or Spotlight. Every platform: `claude-explorer serve`, then open `http://localhost:8765` |
-| Stop the app | macOS: quit **Claude Explorer**. In a terminal: press **Ctrl+C** where `serve` runs |
+| Start the app | Open **Claude Explorer** from Launchpad, the Start menu, or your app menu. Or run `claude-explorer serve`, then open `http://localhost:8765` |
+| Stop the app | macOS: quit **Claude Explorer**. Windows: right-click its notification-area icon, and choose **Quit**. Linux: right-click it in the menu, and choose **Stop Claude Explorer**. In a terminal: press **Ctrl+C** where `serve` runs |
 | Check the watcher | See [Verify it's running](#image-cache-watcher--technical-details) |
 | Upgrade | The four steps below |
 | Uninstall | The steps below |
@@ -214,7 +229,7 @@ If the **Refresh** login later reports a missing browser, run step 3 of your ins
 **To uninstall:**
 
 1. Remove the watcher: `claude-explorer install-watcher --uninstall`
-2. On macOS, remove the launcher app: `claude-explorer install-app --uninstall`
+2. Remove the launcher from the Dock, Start menu, or app menu: `claude-explorer install-app --uninstall`
 3. Remove the app: `uv tool uninstall claude-explorer`
 
 Your downloaded conversations stay in the `.claude-explorer` folder in your home folder.

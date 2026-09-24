@@ -1546,10 +1546,16 @@ these items:
     first enables lingering, so the runner has a user session bus.
   - Windows: `schtasks` finds the task.
 - The uninstall removes the watcher, and a second query confirms it is gone.
-- macOS only: the launcher app installs and passes `codesign --verify`.
-  Opening it starts the server, and quitting it stops that server. The
+- The launcher from `install-app` starts and stops the server. Each
   step first waits for port 8765 to be free, so a server from an earlier
   step cannot make it pass.
+  - macOS: the app passes `codesign --verify`. Opening it starts the
+    server, and quitting it stops that server.
+  - Linux: the menu entry passes `desktop-file-validate`. Its own `Exec`
+    lines start and stop the server.
+  - Windows: the shortcut targets `pythonw.exe` with the tray arguments,
+    and `pystray` imports. The launcher's `open` and `stop` start and
+    stop the server. CI cannot click the tray icon; section 8 covers it.
 
 **The `pytest` job runs the full suite on the same six runners.** It uses
 xdist on macOS and Linux. On Windows it runs serially with `-n 0`. There the
@@ -1688,6 +1694,40 @@ with no working recovery path in this tool today.
 
 **What to record:** whether the flags were honoured, and the install path
 from step 4. A path under `WindowsApps` identifies a Store install.
+
+### Step 6. The launcher (every platform)
+
+CI proves that each launcher starts and stops the server. It cannot click
+the icons, so check those by hand.
+
+1. Stop any `claude-explorer serve` that runs in a terminal.
+2. Run `claude-explorer install-app`.
+3. Start Claude Explorer from the platform's own menu:
+   - **macOS:** open **Claude Explorer** from Launchpad or Spotlight.
+   - **Windows:** open **Claude Explorer** from the Start menu.
+   - **Linux:** open **Claude Explorer** from the app menu.
+4. Confirm that the browser opens the app, and that no console window
+   appears (Windows).
+5. Windows: confirm that the Claude Explorer icon appears in the
+   notification area. Click it once. Confirm that the browser opens again.
+6. Stop it from the platform's own control:
+   - **macOS:** quit the app from the Dock.
+   - **Windows:** right-click the notification-area icon, and choose
+     **Quit**.
+   - **Linux:** right-click the menu entry, and choose **Stop Claude
+     Explorer**. Some desktops show this only in the dock or the app grid.
+7. Confirm that `http://localhost:8765` no longer answers.
+8. Start `claude-explorer serve` in a terminal. Open the launcher, and
+   confirm that the browser opens.
+   - **Windows:** confirm that no notification-area icon appears. The
+     launcher does not manage a server that it did not start.
+   - **macOS and Linux:** stop the launcher as in step 6.
+
+   Confirm that the terminal's server still runs.
+
+**Pass:** each step behaves as described. On Windows, record the exact
+text of any SmartScreen or Defender prompt. None is expected, because
+the shortcut is created on the machine.
 
 ## 9 · Protecting credentials on every platform
 

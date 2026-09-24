@@ -214,10 +214,27 @@ uv run claude-explorer install-watcher --interval 60
 uv run claude-explorer install-watcher --uninstall
 ```
 
-#### `claude-explorer install-app` (macOS only)
+#### `claude-explorer install-app` (every platform)
 
-Builds `~/Applications/Claude Explorer.app`, so a user can start the app
-from Launchpad, Spotlight, or the Dock. Code: `cli/app_launcher.py`.
+Adds a launcher, so a user can start Claude Explorer without a terminal.
+Every launcher starts the server if port 8765 does not answer, opens the
+browser, and stops only a server that it started. Install code:
+`cli/app_launcher.py`.
+
+| Platform | Launcher | Stop |
+|---|---|---|
+| macOS | `~/Applications/Claude Explorer.app` | Quit the app |
+| Windows | Start menu shortcut, runs `pythonw.exe -m cli.desktop_launcher tray` | Tray icon, **Quit** |
+| Linux | `~/.local/share/applications/claude-explorer.desktop`, runs `... open` | Right-click action, runs `... stop` |
+
+Windows and Linux share `cli/desktop_launcher.py`. It records the PID and
+port of each server that it starts in `~/.claude-explorer/launcher-server.pid`.
+Linux has no tray icon: GNOME shows none without an extension, and
+pystray's Linux backends need GTK bindings that a `uv tool` install lacks.
+Never probe a PID with `os.kill(pid, 0)` on Windows: it calls
+`TerminateProcess`. The launcher watches the port there instead.
+
+**macOS details:**
 
 - **What it is:** an AppleScript stay-open applet, compiled on the user's
   Mac with `osacompile`. A locally made file has no quarantine flag, so it
