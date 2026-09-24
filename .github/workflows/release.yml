@@ -25,6 +25,13 @@ name: Release
 # The `pypi` GitHub environment (configured in repo Settings →
 # Environments) adds a required reviewer gate so an accidental tag
 # push doesn't auto-publish. Approve in the Actions UI to release.
+# The environment accepts only `v*` tags, and a tag ruleset lets only
+# the maintainer create them. Nothing leaves the repo before approval:
+# the PyPI upload and the GitHub Release asset both wait for it.
+#
+# Before you tag: run every manual check in TESTING.md §8 on every
+# platform. CI cannot reach Claude Desktop, certificate trust, or a
+# real login.
 
 on:
   push:
@@ -111,8 +118,6 @@ jobs:
     # dependency but don't depend on each other.
     needs: test
     runs-on: ubuntu-latest
-    permissions:
-      contents: write  # required for action-gh-release to upload assets
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -155,6 +160,30 @@ jobs:
             exit 1
           fi
           echo "MCPB artifact OK: $MCPB ($(du -h "$MCPB" | cut -f1))"
+
+      - name: Upload MCPB artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: mcpb
+          path: dist/claude-explorer-*.mcpb
+          retention-days: 7
+
+  github-release:
+    name: Attach MCPB to GitHub Release
+    # Waits for `publish`, and so for the maintainer's approval in the
+    # `pypi` environment. Before 2026-09-23 this step ran inside
+    # build-mcpb, so a tag push published the .mcpb before anyone
+    # approved the release.
+    needs: [build-mcpb, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required for action-gh-release to upload assets
+    steps:
+      - name: Download MCPB artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: mcpb
+          path: dist
 
       - name: Attach MCPB to GitHub Release
         # action-gh-release auto-detects the tag from $GITHUB_REF.

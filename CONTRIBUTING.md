@@ -4,28 +4,19 @@ Thanks for the interest. This is a solo-maintained project; PRs are welcome but 
 
 ## Prerequisites
 
-- Python 3.11+ (uv will bootstrap if missing)
-- Node.js 20+ + npm (for the React frontend build)
-- System libraries for PDF export (skip if you only care about Markdown export):
-    - macOS: `brew install pango cairo libffi`
-    - Linux (Debian/Ubuntu): `apt install libpango-1.0-0 libcairo2 libffi-dev`
-    - Windows: install [MSYS2](https://www.msys2.org), then in its shell run `pacman -S mingw-w64-x86_64-pango`. Or grab the standalone WeasyPrint .exe from the [WeasyPrint GitHub releases](https://github.com/Kozea/WeasyPrint/releases) to skip the system-library dance entirely.
+- [uv](https://docs.astral.sh/uv/). It installs Python 3.11+ for you if needed.
+- Node.js 20.19 or later, and npm, for the React frontend build.
+- The system libraries for PDF export, if you work on PDF export. The README lists them per platform in [PDF export (optional)](./README.md#pdf-export-optional).
 
 ## Repo setup
 
-```bash
-git clone https://github.com/rpeck/claude-explorer
-cd claude-explorer
-uv sync --extra dev
-cd frontend && npm install && cd ..
-uv run playwright install chromium
-```
+Follow [From source](./README.md#prerequisites) in the README. It covers every platform, including the extra steps for Linux and Windows on ARM.
 
 ## Running locally (dev mode)
 
 - Back end (with auto-reload):
   `DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run uvicorn backend.main:app --reload --port 8765`
-  (On macOS the `DYLD_LIBRARY_PATH` prefix is needed for WeasyPrint; see [CLAUDE.md](./CLAUDE.md) for details.)
+  (On macOS the `DYLD_LIBRARY_PATH` prefix is needed for WeasyPrint; see [AGENTS.md](./AGENTS.md) for details.)
 - Frontend (separate dev server): `cd frontend && npm run dev`
 - Tests:
   - Backend: `uv run pytest backend/tests -q`
@@ -37,7 +28,7 @@ uv run playwright install chromium
 - Python: PEP 8 with type hints; run `ruff check` and `pyflakes` locally before pushing (CI runs the test suites but does not yet enforce lint; please don't regress).
 - TypeScript: strict mode, `tsc --noEmit` clean, eslint via vite-plugin; prefer functional components.
 - Testing discipline: see [TESTING.md](./TESTING.md) for the black-box / spec-driven rules, Playwright "deterministic settle barrier" pattern, and the pre-flight checklist.
-- General coding practices and project structure are documented in [CLAUDE.md](./CLAUDE.md).
+- General coding practices and project structure are documented in [AGENTS.md](./AGENTS.md).
 - Commit messages: conventional commits, no AI attribution lines.
 
 ## Bumping GitHub Action versions
@@ -57,11 +48,32 @@ Actions in `.github/workflows/` are SHA-pinned for supply-chain integrity — a 
 
 ## Pull request process
 
+Every change reaches `main` through a pull request. Direct pushes to `main` are blocked.
+
 1. Open an issue describing the change (skip for typos / docs).
 2. Fork, branch, commit.
-3. Run all three test suites locally before pushing.
-4. On PR open, the [CLA Assistant](https://cla-assistant.io) bot will ask you to sign the [Contributor License Agreement](./CLA.md) (one-time, takes 30 seconds via GitHub OAuth).
-5. PR review focuses on: test coverage, voice consistency for any article/doc changes, no silent regressions.
+3. Run all three test suites locally before pushing. Read the counts, as [TESTING.md §0](./TESTING.md#0--running-the-tests-and-trusting-the-result) describes.
+4. Open the pull request, and fill in the template.
+5. On PR open, the [CLA Assistant](https://cla-assistant.io) bot will ask you to sign the [Contributor License Agreement](./CLA.md) (one-time, takes 30 seconds via GitHub OAuth).
+6. PR review focuses on: test coverage, voice consistency for any article/doc changes, no silent regressions.
+
+**What a pull request needs before it can merge:**
+
+- The maintainer's approval. `.github/CODEOWNERS` makes the maintainer the reviewer for every file.
+- A new approval after any later push. A push after approval cancels the approval.
+- Both jobs of the `Tests` workflow pass: the Python suite and Playwright.
+
+**Your first pull request waits for the maintainer.** The CI workflows of an outside contributor run only after the maintainer approves them.
+
+### Manual checks
+
+CI cannot test Claude Desktop, certificate trust, or a real login. [TESTING.md §8](./TESTING.md#8--verifying-each-platform-by-hand) lists the checks that a person must run.
+
+If your change touches install or upgrade, credential capture, fetch, the watcher, PDF export, the MCP server, or the `.mcpb` bundle, run the matching §8 steps on each platform that you can reach. Record them in the table in the pull-request template. The maintainer runs the other platforms before the next release.
+
+### Releases
+
+Only the maintainer releases. Tags that start with `v` start the release workflow. The upload to PyPI and the GitHub Release wait for the maintainer's approval in the `pypi` environment. Before the maintainer tags, they run every §8 check on every platform.
 
 ## What we don't accept
 
