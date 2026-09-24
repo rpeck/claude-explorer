@@ -241,55 +241,58 @@ async def test_concurrent_conversation_fetches_do_not_serialize_behind_gzip(
     encoding etc.), which is the SAME for the single-request baseline
     so the ratio normalizes back near 1.
 
-    NB: this test specifically isolates the gzip-on-loop bug. Other
-    per-request CPU costs (Pydantic encoding before commit 2's W3+W4
-    fix) ARE still on the event loop. Until W3+W4 lands the
-    Pydantic-encoding cost dominates and the ratio measurement is
-    noisy. To keep this test stable across the V1 work, we ALSO
-    measure the GZIP DELTA: time the same route WITH gzip's CPU cost
-    (mimic by hitting a non-bypassed control route at similar payload
-    size). If the bypass is working, the conv route should NEVER carry
-    the gzip cost.
+    Discriminating signal: the SAME route, timed on the SAME machine,
+    once with ``Accept-Encoding: gzip`` and once with ``identity``. If
+    the bypass works, gzip is never applied, so the two walls match. If
+    the bypass breaks, every gzip request pays the compression CPU.
 
-    Discriminating signal we actually use: compare the conv route's
-    3-concurrent wall against the control (gzipping) route's
-    3-concurrent wall, on payloads of the same size. After Option 4 the
-    conv route should be FASTER concurrently than the gzipping route,
-    proving the bypass is doing useful work.
+    2026-09-23: this replaced an absolute 500 ms budget, which was wrong
+    in both directions:
+
+    * Blind on fast machines. With the bypass deliberately broken, the
+      3-request wall on an M-series Mac was ~57 ms, far under 500 ms,
+      so the test could not catch the regression it exists for.
+    * Flaky on slow machines. The GitHub macOS Intel runner took 0.61 s
+      and 0.71 s with the bypass intact, and the test failed.
+
+    Measured on an M-series Mac, median of five interleaved rounds:
+    bypass intact, gzip/identity = 0.62-1.01; bypass broken, 1.62-1.84.
+    The 1.3 threshold sits between them. A ratio cancels the machine's
+    speed, and the median absorbs a single noisy round.
     """
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        # Warm up
-        await client.get(_stub_conv_store, headers={"Accept-Encoding": "gzip"})
+    rounds = 5
+    ratios: list[float] = []
 
-        # Measure 3-concurrent wall for the bypassed conv route.
+    async def _three_wall(client: httpx.AsyncClient, encoding: str) -> float:
         t0 = time.perf_counter()
         await asyncio.gather(
-            client.get(_stub_conv_store, headers={"Accept-Encoding": "gzip"}),
-            client.get(_stub_conv_store, headers={"Accept-Encoding": "gzip"}),
-            client.get(_stub_conv_store, headers={"Accept-Encoding": "gzip"}),
+            *(
+                client.get(_stub_conv_store, headers={"Accept-Encoding": encoding})
+                for _ in range(3)
+            )
         )
-        conv_three_wall = time.perf_counter() - t0
+        return time.perf_counter() - t0
 
-    # The gzip-bypass invariant is already pinned by
-    # ``test_conversation_detail_does_not_gzip_response``. Here we just
-    # require that the 3-concurrent wall on the conv route stays under
-    # a generous absolute budget that the OLD (pre-Option-4) code
-    # could not have hit because gzip-on-loop alone burned >150 ms on
-    # this payload size × 3 requests.
-    #
-    # Budget: 500 ms is comfortably above the post-fix observed wall
-    # (~25 ms on a Mac M-series) and comfortably below the pre-fix
-    # gzip-serialized wall (~150 ms minimum). Any future regression
-    # that re-enables gzip on this route would inflate this past the
-    # budget.
-    assert conv_three_wall < 0.5, (
-        f"3 concurrent /api/conversations/<uuid> requests took "
-        f"{conv_three_wall:.3f}s — over the 500 ms budget. "
-        f"Either SelectiveGZipMiddleware is no longer bypassing this "
-        f"route, or the handler itself has grown a synchronous "
-        f"CPU-bound operation on the event loop. Check the bypass "
-        f"regex (_CONV_DETAIL_PATH_RE) in backend/main.py."
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        # Warm up both paths.
+        await client.get(_stub_conv_store, headers={"Accept-Encoding": "gzip"})
+        await client.get(_stub_conv_store, headers={"Accept-Encoding": "identity"})
+
+        # Interleave, so a burst of runner noise hits both sides alike.
+        for _ in range(rounds):
+            gzip_wall = await _three_wall(client, "gzip")
+            identity_wall = await _three_wall(client, "identity")
+            ratios.append(gzip_wall / identity_wall)
+
+    median_ratio = sorted(ratios)[rounds // 2]
+    assert median_ratio < 1.3, (
+        f"3 concurrent /api/conversations/<uuid> requests with "
+        f"Accept-Encoding: gzip took {median_ratio:.2f}x as long as the same "
+        f"requests with identity (median of {rounds}; all: "
+        f"{', '.join(f'{r:.2f}' for r in ratios)}). The route is paying "
+        f"gzip CPU on the event loop: SelectiveGZipMiddleware is no longer "
+        f"bypassing it. Check _CONV_DETAIL_PATH_RE in backend/main.py."
     )
 
 
