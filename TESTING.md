@@ -1536,7 +1536,7 @@ these items:
 - The documented install command works. On Windows ARM64 this includes the
   x86_64-Python pin. The step prints the interpreter, which must report
   `AMD64` on an `ARM64` machine. That proves the Prism translation path.
-- All five subcommands appear in `--help`.
+- All six subcommands appear in `--help`.
 - The Chromium build installs and launches. On Linux the install uses
   `--with-deps`, which adds the system libraries.
 - `serve` answers `/api/config` with HTTP 200.
@@ -1546,6 +1546,10 @@ these items:
     first enables lingering, so the runner has a user session bus.
   - Windows: `schtasks` finds the task.
 - The uninstall removes the watcher, and a second query confirms it is gone.
+- macOS only: the launcher app installs and passes `codesign --verify`.
+  Opening it starts the server, and quitting it stops that server. The
+  step first waits for port 8765 to be free, so a server from an earlier
+  step cannot make it pass.
 
 **The `pytest` job runs the full suite on the same six runners.** It uses
 xdist on macOS and Linux. On Windows it runs serially with `-n 0`. There the

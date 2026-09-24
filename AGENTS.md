@@ -214,6 +214,36 @@ uv run claude-explorer install-watcher --interval 60
 uv run claude-explorer install-watcher --uninstall
 ```
 
+#### `claude-explorer install-app` (macOS only)
+
+Builds `~/Applications/Claude Explorer.app`, so a user can start the app
+from Launchpad, Spotlight, or the Dock. Code: `cli/app_launcher.py`.
+
+- **What it is:** an AppleScript stay-open applet, compiled on the user's
+  Mac with `osacompile`. A locally made file has no quarantine flag, so it
+  needs no notarization.
+- **Open:** starts `claude-explorer serve` if port 8765 does not answer,
+  then opens the browser. Server output goes to
+  `~/Library/Logs/claude-explorer-serve.log`.
+- **Quit:** stops the server, but only a server that the app started.
+- **Refuses a `uvx` interpreter**, like `install-watcher`.
+
+Three traps, each hit while building it:
+
+1. The start command must redirect stdin, stdout, and stderr, and
+   background only the server. `cd /tmp && nohup cmd & echo $!` kept the
+   output pipe of `do shell script` open, and the app could not receive
+   Quit.
+2. Keep applet state in globals, not properties. An applet writes changed
+   properties back into its bundle, which breaks the signature.
+3. Changing the icon or `Info.plist` breaks the ad-hoc signature, so
+   `build_app` re-signs the bundle with `codesign --force -s -`.
+
+```bash
+claude-explorer install-app              # install or rebuild
+claude-explorer install-app --uninstall  # remove
+```
+
 #### `claude-explorer reindex-search` (manual override only)
 
 Force a rebuild of the SQLite FTS5 search index at
