@@ -114,7 +114,7 @@ claude-explorer serve
 
 Several libraries that Claude Explorer uses publish no Windows ARM builds. So on ARM, Claude Explorer runs on an x86_64 (Intel-type) Python. Windows translates it automatically, at close to native speed. Microsoft recommends the same approach for Python on Windows on ARM.
 
-**Keep the `--python` option in steps 2 and 3.** Without it, uv picks an ARM Python, and the install fails.
+**Keep the `--python` option exactly as shown.** Without it in step 2, uv picks an ARM Python, and the install fails.
 
 ```powershell
 # 1. Install uv, the tool that installs and updates Claude Explorer:
@@ -224,8 +224,10 @@ If you only want to query your archive from Claude (no web UI), grab the
 `.mcpb` bundle from the latest [GitHub Release](https://github.com/rpeck/claude-explorer/releases/latest)
 and drag it into Claude Desktop → **Settings** → **Extensions**. Five
 tools — `list_sessions`, `list_projects`, `get_session_outline`,
-`get_messages`, `export_session` — light up inside Claude Desktop and
-Claude Code without you ever touching `claude_desktop_config.json`.
+`get_messages`, `export_session` — light up inside Claude Desktop
+without you ever touching `claude_desktop_config.json`. The extension
+does not configure Claude Code. For Claude Code, run the one command in
+[Use it from Claude](#use-it-from-claude).
 
 Two non-obvious things to know up front:
 
@@ -726,7 +728,6 @@ The easiest option is the [one-click extension](#install-in-claude-desktop-one-c
 {
   "mcpServers": {
     "claude-sessions": {
-      "type": "stdio",
       "command": "/Users/YOU/.local/bin/claude-explorer",
       "args": ["mcp"]
     }
