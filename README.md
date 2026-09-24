@@ -4,113 +4,219 @@ A local tool to browse, full-text search, and export your entire Claude conversa
 
 > **Disclaimer**: This is an independent, community-built project. It is not affiliated with, endorsed by, sponsored by, or supported by Anthropic, PBC. "Claude" and "Claude Code" are trademarks of Anthropic, PBC. This project consumes Anthropic's products as a user would — via the same APIs and on-disk file formats the official clients use — but nothing here represents an Anthropic-sanctioned interface, and the formats this project depends on may change without notice.
 
+## Install
+
+Pick the row that matches what you want to do.
+
+| You want to | Go to |
+|---|---|
+| Browse, search, and export your history in a web app. **Most people start here.** | [Quick Start](#quick-start) |
+| Ask Claude about your history, from Claude Code or Claude Desktop | [Quick Start](#quick-start), then [Use it from Claude](#use-it-from-claude) |
+| Change the code, or run from a git checkout | [From source](#from-source-for-contributors) |
+
+The app runs on macOS, Linux, and Windows (Intel, AMD, and ARM). It keeps everything on your computer.
+
 ## Quick Start
 
-> **On Windows?** Go to [Windows install](#windows-install) below. The correct commands depend on your processor type.
+Find the block for your computer below. Run its steps in order, one command at a time. After step 1, close the terminal, open a new one, and come back to this page for step 2.
+
+Step 3 downloads a browser, so it takes the longest.
+
+**Before you start:**
+
+- **macOS and Linux:** use the Terminal app.
+- **Windows:** use PowerShell. Do not use Command Prompt (`cmd.exe`).
+
+### macOS
 
 ```bash
-# install uv if needed: https://docs.astral.sh/uv/getting-started/installation/
+# 1. Install uv, the tool that installs and updates Claude Explorer:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+#    Then close this Terminal window and open a new one.
 
-# One-time: install the Chromium build Playwright drives during credential capture.
-# The sidebar Refresh button uses this to log you into Claude; without it the
-# in-app login flow fails on first run.
+# 2. Install Claude Explorer:
+uv tool install claude-explorer
+
+# 3. Install the browser that Claude Explorer uses to log you in to Claude:
 uvx --from claude-explorer playwright install chromium
 
-# Start the web app:
-uvx claude-explorer serve
+# 4. Install the image-cache watcher (one time; it then starts by itself):
+claude-explorer install-watcher
 
-# In another terminal, install the always-on image-cache watcher
-# (strongly recommended — see "Continuous Image-Cache Watcher" below):
-uvx claude-explorer install-watcher
+# 5. Start the app:
+claude-explorer serve
 ```
+
+### Linux
+
+These commands suit Ubuntu and Debian. On other distributions, see the note after the block.
+
+If step 1 reports `curl: command not found`, run `sudo apt-get install curl` first. Some Ubuntu and Debian installs do not include curl.
 
 ```bash
-# Optional: install the system libraries WeasyPrint needs for PDF export
-# (skip if you only care about Markdown export). Pick ONE block:
-#
-#   macOS:
-brew install pango cairo libffi
-#
-#   Linux (Ubuntu/Debian):
-# apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2
-#
-#   Windows: PDF export needs the GTK3 runtime libraries. Follow
-#            https://doc.courtbouillon.org/weasyprint/stable/first_steps.html
-#            Or install MSYS2 (https://www.msys2.org) and run
-#            `pacman -S mingw-w64-x86_64-pango` in its shell.
-#            NOTE: the standalone WeasyPrint download is a separate
-#            program. This app imports WeasyPrint as a library, so
-#            that download does not enable PDF export here.
+# 1. Install uv, the tool that installs and updates Claude Explorer:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+#    Then close this terminal and open a new one.
+
+# 2. Install Claude Explorer:
+uv tool install claude-explorer
+
+# 3. Install the browser that Claude Explorer uses to log you in to Claude.
+#    --with-deps also installs the browser's system libraries, so this step
+#    asks for your password:
+uvx --from claude-explorer playwright install --with-deps chromium
+
+# 4. Install the image-cache watcher (one time; it then starts by itself):
+claude-explorer install-watcher
+#    Keep the watcher running when you log out:
+sudo loginctl enable-linger "$USER"
+
+# 5. Start the app:
+claude-explorer serve
 ```
 
-### Windows install
+`--with-deps` supports only distributions that use `apt`. On Fedora, Arch, and other distributions, remove `--with-deps` from step 3. Then install Chromium's libraries with your package manager.
 
-The correct commands depend on your processor type. Check the type first.
+### Windows
 
-**Find your processor type.** Open PowerShell and run:
+The commands depend on your processor type. To find it, run this in PowerShell:
 
 ```powershell
 $env:PROCESSOR_ARCHITECTURE
 ```
 
-- `AMD64` means an Intel or AMD processor. Use [Windows on Intel or AMD](#windows-on-intel-or-amd-x64).
-- `ARM64` means an ARM processor. Use [Windows on ARM](#windows-on-arm).
+- `AMD64` means an Intel or AMD processor. Use [Windows on Intel or AMD](#windows-on-intel-or-amd). Most Windows PCs are this type.
+- `ARM64` means an ARM processor. Use [Windows on ARM](#windows-on-arm). Copilot+ PCs, Surface Pro X, and Snapdragon X laptops are this type.
 
-You can also open **Settings > System > About** and read the **System type** line.
+Windows can show a SmartScreen or Defender prompt the first time it runs a newly downloaded installer. That prompt is normal for this install.
 
-Most Windows PCs report `AMD64`. `ARM64` covers Copilot+ PCs, Surface Pro X, and Snapdragon X laptops.
-
-Windows may show a SmartScreen or Defender prompt the first time it runs a freshly downloaded installer. That prompt is normal for this install.
-
-#### Windows on Intel or AMD (x64)
-
-The standard commands work. Run them in PowerShell:
+#### Windows on Intel or AMD
 
 ```powershell
-# Install uv if you do not have it:
-powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# 1. Install uv, the tool that installs and updates Claude Explorer:
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+#    Then close this PowerShell window and open a new one.
 
-# One-time: install the Chromium build that credential capture drives.
-# The sidebar Refresh button needs it for the login flow.
+# 2. Install Claude Explorer:
+uv tool install claude-explorer
+
+# 3. Install the browser that Claude Explorer uses to log you in to Claude:
 uvx --from claude-explorer playwright install chromium
 
-# Start the web app:
-uvx claude-explorer serve
+# 4. Install the image-cache watcher (one time; it then starts at each logon):
+claude-explorer install-watcher
 
-# In another terminal, install the always-on image-cache watcher:
-uvx claude-explorer install-watcher
+# 5. Start the app:
+claude-explorer serve
 ```
 
 #### Windows on ARM
 
-On Windows ARM, install claude-explorer against an **x86_64 Python** rather than the default ARM64-native Python. Several upstream dependencies (`cryptography`, `httptools`, `Brotli`, and `mitmproxy`) still publish no Windows ARM64 wheels. An x86_64 Python runs under Microsoft Prism translation at near-native speed and has full wheel coverage. This matches Microsoft's own recommendation for Python development on Windows on ARM.
+Several libraries that Claude Explorer uses publish no Windows ARM builds. So on ARM, Claude Explorer runs on an x86_64 (Intel-type) Python. Windows translates it automatically, at close to native speed. Microsoft recommends the same approach for Python on Windows on ARM.
 
-**The order of these commands matters.** Install the tool first. Each later command then reuses that same x86_64 environment. A bare `uvx` command as the first step builds a temporary ARM64 environment instead, and the install fails.
+**Keep the `--python` option in steps 2 and 3.** Without it, uv picks an ARM Python, and the install fails.
 
 ```powershell
-# Install uv if you do not have it:
-powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# 1. Install uv, the tool that installs and updates Claude Explorer:
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+#    Then close this PowerShell window and open a new one.
 
-# 1. Install against an x86_64 Python (uv downloads it on demand):
+# 2. Install Claude Explorer on an x86_64 Python (uv downloads it for you):
 uv tool install claude-explorer --python cpython-3.13-windows-x86_64-none
 
-# 2. One-time: install the Chromium build that credential capture drives:
-uv tool run --from claude-explorer --python cpython-3.13-windows-x86_64-none playwright install chromium
+# 3. Install the browser that Claude Explorer uses to log you in to Claude:
+uvx --from claude-explorer --python cpython-3.13-windows-x86_64-none playwright install chromium
 
-# 3. Start the web app:
-claude-explorer serve
-
-# 4. In another terminal, install the always-on image-cache watcher:
+# 4. Install the image-cache watcher (one time; it then starts at each logon):
 claude-explorer install-watcher
+
+# 5. Start the app:
+claude-explorer serve
 ```
 
-The MCP setup below works the same on both processor types.
+On Windows ARM, the proxy method of credential capture is not available. The default browser login works. See [Method B](#method-b-proxy-interception---proxy).
 
-That's it. Open `http://localhost:8765` in your browser and your Claude Code and Claude Cowork sessions are visible immediately. Click **Refresh** in the sidebar to capture credentials and fetch your Claude Desktop history (the UI handles capture via in-process Playwright on first run; no terminal commands needed).
+### After you install
 
-The watcher is a one-time install that registers a tiny background job with your OS supervisor (launchd / systemd / Task Scheduler) so Claude Code can't quietly rotate your screenshots and pasted images off disk before they get mirrored. Without it, you only have image protection while `claude-explorer serve` is running.
+1. Open `http://localhost:8765` in your browser. Your Claude Code and Claude Cowork sessions show immediately.
+2. Click **Refresh** in the sidebar to download your Claude Desktop conversations. The first time, a browser window opens. Log in to Claude in that window. The app then saves your login and downloads your conversations.
 
-If you'd rather hack on the project than install it, see [From source (for contributors)](#from-source-for-contributors) below.
+**Why the watcher matters.** Claude Code deletes old screenshots and pasted images from your disk. The watcher copies each image as soon as it appears. It runs in the background under your operating system's service manager (launchd, systemd, or Task Scheduler). Without it, images are protected only while `claude-explorer serve` runs.
+
+**If a command says "command not found" or "not recognized":**
+
+- After step 1, open a new terminal window. The uv installer updates your settings, but only new windows see the change.
+- After step 2, run `uv tool update-shell`. Then open a new terminal window.
+
+### PDF export (optional)
+
+Markdown export works with no extra setup. PDF export needs graphics libraries that Claude Explorer cannot install for you. Skip this section if you need only Markdown.
+
+- **macOS:** install [Homebrew](https://brew.sh) if you do not have it. Then run:
+
+  ```bash
+  brew install pango cairo libffi
+  ```
+
+- **Ubuntu and Debian:**
+
+  ```bash
+  sudo apt-get install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
+  ```
+
+  On other distributions, install the `pango` package.
+
+- **Windows:** PDF export needs the GTK3 runtime libraries. Follow the [WeasyPrint Windows instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html). Or install [MSYS2](https://www.msys2.org), and run `pacman -S mingw-w64-x86_64-pango` in its shell.
+
+  WeasyPrint looks for these libraries in `C:\msys64\mingw64\bin` and `C:\Program Files\GTK3-Runtime Win64\bin`. If you installed them in a different folder, set the user environment variable `WEASYPRINT_DLL_DIRECTORIES` to that folder.
+
+  The standalone WeasyPrint download does not enable PDF export here. It is a separate program, and this app uses WeasyPrint as a library.
+
+After you install the libraries, stop the app and start it again.
+
+### Use it from Claude
+
+Claude Explorer includes an MCP server, so Claude can search and read your history for you. For example, ask *"find the session where I debugged the weasyprint install"*.
+
+- **Claude Code:** run this one command. It works in every project.
+
+  ```bash
+  claude mcp add --scope user claude-sessions -- claude-explorer mcp
+  ```
+
+- **Claude Desktop:** see [Claude Desktop setup](#claude-desktop-setup).
+
+### Everyday commands
+
+| To | Run |
+|---|---|
+| Start the app | `claude-explorer serve`, then open `http://localhost:8765` |
+| Stop the app | Press **Ctrl+C** in the terminal where it runs |
+| Check the watcher | See [Verify it's running](#image-cache-watcher--technical-details) |
+| Upgrade | The four steps below |
+| Uninstall | The steps below |
+
+**To upgrade:**
+
+1. Stop the app.
+2. Stop the watcher: `claude-explorer install-watcher --uninstall`
+3. Upgrade: `uv tool upgrade claude-explorer`
+4. Start the watcher again: `claude-explorer install-watcher`
+
+Stop the watcher first. Windows cannot replace files that a running program uses. On every platform, the watcher then restarts on the new version.
+
+If the **Refresh** login later reports a missing browser, run step 3 of your install block again.
+
+**To uninstall:**
+
+1. Remove the watcher: `claude-explorer install-watcher --uninstall`
+2. Remove the app: `uv tool uninstall claude-explorer`
+
+Your downloaded conversations stay in the `.claude-explorer` folder in your home folder.
+
+> **Warning:** Delete that folder only if you want to lose your downloaded conversations. Claude Explorer may hold conversations that no longer exist anywhere else, for example from an account that you can no longer log in to.
+
+If you'd rather hack on the project than install it, see [From source (for contributors)](#from-source-for-contributors).
 
 ## Install in Claude Desktop (one-click MCP)
 
@@ -126,10 +232,11 @@ Two non-obvious things to know up front:
 - **The extension is read-only.** It only reads what's already in
   `~/.claude-explorer/conversations/`. It never writes, deletes, or
   modifies your archive.
-- **You still need the CLI to capture conversations.** The extension
-  does not fetch from Claude. Run `uvx claude-explorer capture` once
-  to grab credentials and `uvx claude-explorer fetch` to download your
-  archive. After that, this extension does the read side.
+- **The extension does not download your Claude Desktop conversations.**
+  Install the app with the [Quick Start](#quick-start), start it, and
+  click **Refresh** once. The extension then reads what the app
+  downloaded. Click **Refresh** again whenever you want newer
+  conversations.
 
 First launch is a little slow (Claude Desktop's [UV runtime](https://github.com/anthropics/dxt)
 resolves and installs the bundle's Python deps on first run; ~10–30 s
@@ -331,15 +438,15 @@ The `content` array contains typed blocks:
 ```
 claude-explorer/
 ├── README.md
-├── CLAUDE.md                 # Development guide
+├── AGENTS.md                 # Development guide (for people and coding agents)
+├── TESTING.md                # How to run, write, and trust the tests
+├── UX.md                     # UI flows and rules
 ├── pyproject.toml            # Python dependencies + CLI entry point
-├── PLANS/
-│   ├── overview.md           # Project goals and architecture
-│   ├── fetcher.md            # Fetcher design and test plan
-│   ├── backend.md            # Backend API design and test plan
-│   └── frontend.md           # Frontend design and test plan
+├── PLANS/                    # Design notes and implementation plans
+├── cli/
+│   ├── main.py               # CLI entry point (claude-explorer command)
+│   └── watcher.py            # install-watcher: launchd / systemd / Task Scheduler
 ├── fetcher/
-│   ├── cli.py                # CLI entry point (claude-explorer command)
 │   ├── playwright_capture.py # Browser-based credential capture (default)
 │   ├── mitmproxy_addon.py    # Proxy-based credential capture (--proxy)
 │   └── bulk_fetch.py         # Downloads all conversations to local JSON
@@ -347,13 +454,18 @@ claude-explorer/
 │   ├── main.py               # FastAPI app
 │   ├── models.py             # Pydantic models
 │   ├── store.py              # Reads and indexes JSON files from disk
-│   ├── search.py             # Full-text search
+│   ├── search.py             # Search dispatcher (FTS5 index, linear fallback)
+│   ├── search_index.py       # SQLite FTS5 search index
+│   ├── cc_watcher.py         # Image-cache and search-index watcher
 │   ├── export.py             # Markdown + PDF export
-│   └── routers/              # conversations, search, export endpoints
+│   └── routers/              # API endpoints
+├── mcp_server/
+│   └── server.py             # stdio MCP server (5 tools)
 ├── frontend/
 │   └── src/                  # React 19 + TypeScript + Tailwind + shadcn/ui
 ├── scripts/
-│   ├── check-cleanup-period.py        # Inspect/fix Claude Code's cleanupPeriodDays
+│   ├── build-mcpb.py                     # Builds the Claude Desktop extension
+│   ├── check-cleanup-period.py           # Inspect/fix Claude Code's cleanupPeriodDays
 │   └── macos-restore-claude-projects.py  # Recover deleted projects from Time Machine
 └── utils/
     └── restore-deleted-sessions-and-images.sh  # Recover both sessions AND image-cache PNGs
@@ -361,31 +473,37 @@ claude-explorer/
 
 ### Prerequisites
 
-```bash
-# Install uv (Python package manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+You need three tools:
 
-# Clone and install
+- **uv:** install it with step 1 of the [Quick Start](#quick-start) block for your platform.
+- **git:** to clone the repository.
+- **Node.js 20.19 or later:** to build the web UI. Without the build, `serve` runs the API only and shows no UI.
+
+Then run these commands. They work the same in bash, zsh, and PowerShell.
+
+```bash
+# 1. Clone the repository:
 git clone https://github.com/rpeck/claude-explorer
 cd claude-explorer
-uv sync
 
-# Install Playwright browsers (for browser-based credential capture)
+# 2. Install the Python dependencies, including the test tools:
+uv sync --extra dev
+
+# 3. Install the browser for credential capture:
 uv run playwright install chromium
 
-# Optional: install the system libraries WeasyPrint needs for PDF export
-# (skip if you only care about Markdown export).
-#   macOS:   run the brew command below
-#   Linux:   use your distro's pango / cairo / libffi packages
-#   Windows: PDF export needs the GTK3 runtime libraries. Follow
-#            https://doc.courtbouillon.org/weasyprint/stable/first_steps.html
-#            Or install MSYS2 (https://www.msys2.org) and run
-#            `pacman -S mingw-w64-x86_64-pango` in its shell.
-#            NOTE: the standalone WeasyPrint download is a separate
-#            program. This app imports WeasyPrint as a library, so
-#            that download does not enable PDF export here.
-brew install pango cairo libffi
+# 4. Build the web UI:
+cd frontend
+npm install
+npm run build
+cd ..
 ```
+
+Platform differences:
+
+- **Linux:** in step 3, run `uv run playwright install --with-deps chromium`. It installs the browser's system libraries, so it asks for your password.
+- **Windows on ARM:** in step 2, run `uv sync --extra dev --python cpython-3.13-windows-x86_64-none`. The [Windows on ARM](#windows-on-arm) section explains why.
+- **PDF export:** install the libraries in [PDF export (optional)](#pdf-export-optional).
 
 ### Step 1: Capture Your Session Cookie
 
@@ -545,40 +663,24 @@ The server runs over **stdio** (no network port) and reads the same on-disk corp
 
 ### Prerequisites
 
-Make sure the project is installed and conversations have been fetched at least once.
+1. Install Claude Explorer with the [Quick Start](#quick-start).
+2. Start the app, and click **Refresh** once to download your Claude Desktop conversations. Claude Code and Cowork sessions need no download.
 
-If you installed via PyPI/uvx, you already have everything you need:
-
-```bash
-uvx claude-explorer serve   # fetch via the Refresh button, then quit
-```
-
-If you're working from a git checkout (contributor flow), the equivalent is:
+The MCP command is `claude-explorer mcp`. To test it by itself, run:
 
 ```bash
-cd /path/to/claude-explorer
-uv sync
-uv run claude-explorer capture   # one-time
-uv run claude-explorer fetch
+claude-explorer mcp
+# It prints nothing and waits for MCP messages on stdin. Press Ctrl+C to exit.
 ```
 
-The MCP entry point is `claude-explorer mcp`. You can verify it works standalone:
-
-```bash
-# PyPI/uvx install:
-uvx claude-explorer mcp
-# (prints nothing; it's waiting for MCP JSON-RPC on stdin — Ctrl+C to exit)
-
-# From source:
-uv run --directory /path/to/claude-explorer claude-explorer mcp
-```
+From a git checkout, run `uv run --directory /path/to/claude-explorer claude-explorer mcp` instead.
 
 ### Claude Code setup (all platforms)
 
-The simplest path is the `claude mcp add` CLI, which writes the config for you and runs the published package via `uvx` — nothing to clone, no path to hard-code:
+Run this one command. It writes the config for you:
 
 ```bash
-claude mcp add --scope user claude-sessions -- uvx claude-explorer mcp
+claude mcp add --scope user claude-sessions -- claude-explorer mcp
 ```
 
 `--scope user` makes the server available in every project (written to `~/.claude.json`). Swap it for `--scope project` to scope it to the current repo instead (written to a `.mcp.json` at the repo root). A bare `claude mcp add` defaults to `local` scope (private to the current project, also stored in `~/.claude.json`). Verify with:
@@ -594,38 +696,47 @@ To edit the config by hand instead, the `mcpServers` block is identical at both 
   "mcpServers": {
     "claude-sessions": {
       "type": "stdio",
-      "command": "uvx",
-      "args": ["claude-explorer", "mcp"]
+      "command": "claude-explorer",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-> **Note:** If the MCP client can't find `uvx` on the `PATH` it sees, replace `"uvx"` with its absolute path (from `which uvx` / `where uvx`). Contributors running from a checkout can instead use `"command": "uv"` with `"args": ["run", "--directory", "/path/to/claude-explorer", "claude-explorer", "mcp"]`.
+> **Note:** Contributors running from a checkout can instead use `"command": "uv"` with `"args": ["run", "--directory", "/path/to/claude-explorer", "claude-explorer", "mcp"]`.
 
 ### Claude Desktop setup
 
-The easiest way to open the config file is from inside the app: **Settings → Developer → Edit Config**. (The Extensions browser is only for packaged "Desktop Extension" bundles; this is a plain stdio server, so it's a quick paste into the config, not a one-click install.) Or open the file directly — its location depends on the OS:
+The easiest option is the [one-click extension](#install-in-claude-desktop-one-click-mcp). To configure the server by hand instead, follow these steps.
+
+**1. Find the full path of the command.** Claude Desktop does not read your terminal's `PATH`, so give it the full path.
+
+- macOS and Linux: run `which claude-explorer`. The usual result is `/Users/YOU/.local/bin/claude-explorer` on macOS, or `/home/YOU/.local/bin/claude-explorer` on Linux.
+- Windows (PowerShell): run `(Get-Command claude-explorer).Source`. The usual result is `C:\Users\YOU\.local\bin\claude-explorer.exe`.
+
+**2. Open the config file.** In Claude Desktop, open **Settings → Developer → Edit Config**. Or open the file directly:
 
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json` (typically `C:\Users\YOU\AppData\Roaming\Claude\claude_desktop_config.json`)
 - **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-Add the same block you'd use for Claude Code, then **fully quit and relaunch** Claude Desktop (it only reads the config at startup):
+**3. Add this block.** Put the path from step 1 in `command`:
 
 ```json
 {
   "mcpServers": {
     "claude-sessions": {
       "type": "stdio",
-      "command": "uvx",
-      "args": ["claude-explorer", "mcp"]
+      "command": "/Users/YOU/.local/bin/claude-explorer",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-> **Note:** A GUI app may not inherit your shell's `PATH`, so if Desktop can't find `uvx`, put its absolute path (from `which uvx` / `where uvx`) in `command`.
+On Windows, double each backslash in the path, for example `"C:\\Users\\YOU\\.local\\bin\\claude-explorer.exe"`. JSON requires that.
+
+**4. Quit Claude Desktop fully, and start it again.** It reads the config only when it starts.
 
 ### Verifying it works
 
@@ -637,8 +748,8 @@ In Claude Code you can also run `/mcp` to see the server status and the list of 
 
 ### Troubleshooting
 
-- **"command not found: uvx"** — the MCP client doesn't see your shell `PATH`. Use the absolute path to `uvx` in `command`.
-- **"Session not found" / empty results** — run `uvx claude-explorer fetch` first (or use the web app's Refresh button); the MCP server reads from `~/.claude-explorer/conversations/`.
+- **"command not found: claude-explorer"** — the MCP client does not see your terminal's `PATH`. Put the full path from `which claude-explorer` (or `(Get-Command claude-explorer).Source` on Windows) in `command`.
+- **"Session not found" / empty results** — open the web app and click **Refresh**. The MCP server reads Claude Desktop conversations from `~/.claude-explorer/conversations/`.
 - **Need to use a non-default data dir** — set `CLAUDE_EXPLORER_DATA_DIR` via an `env` block in the MCP config:
   ```json
   "env": { "CLAUDE_EXPLORER_DATA_DIR": "/path/to/conversations" }
@@ -649,7 +760,7 @@ In Claude Code you can also run `/mcp` to see the server status and the list of 
 
 ## Image-Cache Watcher — Technical Details
 
-The Quick Start above tells you to run `claude-explorer install-watcher`. This section explains what that actually does, where to look when it breaks, and how to tune it.
+Step 4 of the Quick Start runs `claude-explorer install-watcher`. This section explains what that actually does, where to look when it breaks, and how to tune it.
 
 **Architecture: event-driven primary + backstop poll.** The watcher subscribes to OS-native filesystem events (FSEvents on macOS, inotify on Linux, ReadDirectoryChangesW on Windows, all via the [`watchdog`](https://github.com/gorakhargosh/watchdog) library) and copies new files within sub-second latency at near-zero idle CPU. A periodic backstop poll (default 600s = 10 min) re-runs the full directory walk to catch the rare event the OS dropped or coalesced. On a sandboxed Python or an unsupported filesystem (NFS, etc.) `watchdog` falls back to its `PollingObserver` automatically — strictly worse latency, same correctness — and the watcher logs which backend got selected so misconfigurations are diagnosable.
 
@@ -684,7 +795,7 @@ All three run the same Python entry point (`backend.cc_watcher.run_watcher`), wh
 |----------|-------------------------------------------------------------------------------------|
 | macOS    | `~/Library/Logs/claude-explorer-cc-watcher.{out,err}`                                |
 | Linux    | `journalctl --user -u claude-explorer-cc-watcher.service -f`                         |
-| Windows  | Suppressed (uses `pythonw.exe` so no console pops up). For debugging, run `pythonw.exe %USERPROFILE%\.claude-explorer\cc-watcher.py` from `cmd.exe` to see output. |
+| Windows  | None: the task runs `pythonw.exe`, which has no console. To see output, run `schtasks /Query /TN ClaudeExplorerCCWatcher /V /FO LIST` and copy the **Task To Run** line. Run that line in PowerShell with `python.exe` in place of `pythonw.exe`, after a `&` (for example `& "C:\...\python.exe" "C:\...\cc-watcher.py"`). |
 
 **Where mirrored images live:** `~/.claude-explorer/cc-images/<sess>/<sess>--<N>.<sha8>.<ext>` — content-addressed, append-only. Safe even if Claude Code rotates the original, even if you reinstall, even if the conversation JSONL itself is deleted later by `cleanupPeriodDays`.
 
