@@ -47,14 +47,14 @@ dependencies = [
     "curl_cffi>=0.7",
     "orjson>=3.10",
     "playwright>=1.40",
-    # mitmproxy is conditional: skipped on Windows ARM64 because mitmproxy-rs
-    # (the Rust HTTP/3 stack) has no prebuilt arm64-pc-windows-msvc wheels and
-    # would require ~6 GB Visual Studio Build Tools + ~45 min compile from
-    # source. Skipping it on that platform falls through to the browser-based
-    # capture (the default `claude-explorer capture` without --proxy), which
-    # works without mitmproxy. See PLANS/2026.06.12-V2-cookie-storage-read.md
-    # for the longer-term V2 plan to remove mitmproxy entirely.
-    "mitmproxy>=10.0; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    # mitmproxy has no marker. Until 2026-09-24 it carried
+    # "platform_machine != 'ARM64'" on Windows, but that marker was random on
+    # Windows ARM: Python reads the machine type from WMI (ARM64) and falls
+    # back to PROCESSOR_ARCHITECTURE (AMD64 under emulation) when the WMI
+    # query fails, so the same x86_64 Python sometimes got mitmproxy and
+    # sometimes not. The marker protected nothing: Windows ARM must use the
+    # x86_64 Python anyway, where mitmproxy's x86_64 wheels install.
+    "mitmproxy>=10.0",
     "fastmcp>=3.0",
     "portalocker>=2.8",
     "watchdog>=4.0",

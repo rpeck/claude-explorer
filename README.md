@@ -600,7 +600,7 @@ Get-Process Claude | Select-Object Path
 
 **Windows caveats.**
 
-- **Windows ARM cannot use this method.** mitmproxy publishes no Windows ARM64 wheels, so `--proxy` is not installed there. Use Method A instead. The CLI prints the same advice if you try.
+- **Windows ARM: installed, but not yet verified.** Claude Explorer runs on an x86_64 Python there, so mitmproxy installs. Nobody has yet confirmed proxy capture end to end on Windows ARM. If it fails, use Method A.
 - **A Microsoft Store install may ignore these flags.** That build lives under `C:\Program Files\WindowsApps\` and runs sandboxed. If no credentials appear after a minute of clicking around in Claude Desktop, use Method A.
 - **Use PowerShell, not `cmd.exe`.** `cmd.exe` does not understand `&` or `$env:`.
 

@@ -17,7 +17,6 @@ intended layering. The console-script entry point in pyproject.toml
 is ``claude-explorer = "cli.main:main"``.
 """
 
-import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -344,34 +343,15 @@ def _capture_via_proxy(port: int) -> None:
             check=True,
         )
     except FileNotFoundError:
-        # mitmproxy is a conditional dependency (PEP 508 marker in
-        # pyproject.toml skips it on Windows ARM64 — see V2 plan at
-        # PLANS/2026.06.12-V2-cookie-storage-read.md). When the binary
-        # is absent, point users at the default browser-based capture,
-        # which doesn't need mitmproxy.
-        is_win_arm64 = sys.platform == "win32" and platform.machine() == "ARM64"
-        if is_win_arm64:
-            raise click.ClickException(
-                "mitmproxy is not installed on this platform.\n"
-                "\n"
-                "Windows ARM64 has no prebuilt mitmproxy wheels available\n"
-                "(see PLANS/2026.06.12-V2-cookie-storage-read.md).\n"
-                "\n"
-                "Use the default browser-based capture instead:\n"
-                "    claude-explorer capture\n"
-                "\n"
-                "(Omit the --proxy flag; the browser flow works on every\n"
-                "platform without mitmproxy.)\n"
-                "\n"
-                "If you specifically need the proxy method on Windows ARM64,\n"
-                "install Visual Studio Build Tools + Rust toolchain and run:\n"
-                "    pipx inject claude-explorer mitmproxy"
-            )
+        # mitmproxy is a dependency on every platform, so a missing binary
+        # means an incomplete install.
         raise click.ClickException(
-            "mitmproxy not found.\n"
+            "mitmproxy not found, so this install is incomplete.\n"
             "\n"
-            "Install with: pipx inject claude-explorer mitmproxy\n"
-            "(Or use the default browser-based capture: omit --proxy.)"
+            "Reinstall: uv tool install --force claude-explorer\n"
+            "(On Windows ARM, add --python cpython-3.13-windows-x86_64-none.)\n"
+            "\n"
+            "Or use the default browser-based capture: omit --proxy."
         )
     except subprocess.CalledProcessError as e:
         raise click.ClickException(f"mitmproxy exited with error: {e}")

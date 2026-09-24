@@ -1576,7 +1576,7 @@ those by hand before a release, on every platform that supports them.
 | MCP server (stdio) | Yes | Yes | Yes | Yes |
 | MCPB bundle in Claude Desktop | Yes | No: no Claude Desktop | Yes | Yes |
 | Browser capture (default) | Yes | Yes | Yes | Yes |
-| Proxy capture (`--proxy`) | Yes | No: no Claude Desktop | Yes | **No:** no mitmproxy wheels |
+| Proxy capture (`--proxy`) | Yes | No: no Claude Desktop | Yes | Installed, **not yet verified** |
 | PDF export | Needs Pango | Needs Pango | Needs GTK3 runtime | Needs GTK3 runtime |
 
 Claude Desktop is not available for Linux, so the two checks that depend on

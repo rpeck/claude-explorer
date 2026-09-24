@@ -161,8 +161,6 @@ def test_playwright_capture_uses_canonical_resolver() -> None:
 
 def test_mitmproxy_addon_uses_canonical_resolver() -> None:
     """mitmproxy_addon.ClaudeCredentialCapture must not redefine _pick_primary."""
-    # mitmproxy is a conditional dependency on Win ARM64; skip if absent.
-    pytest.importorskip("mitmproxy")
     from fetcher.mitmproxy_addon import ClaudeCredentialCapture
 
     assert not hasattr(ClaudeCredentialCapture, "_pick_primary"), (
