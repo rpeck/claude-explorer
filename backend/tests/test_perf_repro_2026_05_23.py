@@ -255,13 +255,19 @@ async def test_concurrent_conversation_fetches_do_not_serialize_behind_gzip(
     * Flaky on slow machines. The GitHub macOS Intel runner took 0.61 s
       and 0.71 s with the bypass intact, and the test failed.
 
-    Measured on an M-series Mac, median of five interleaved rounds:
-    bypass intact, gzip/identity = 0.62-1.01; bypass broken, 1.62-1.84.
-    The 1.3 threshold sits between them. A ratio cancels the machine's
-    speed, and the median absorbs a single noisy round.
+    Measured on an M-series Mac, per interleaved round: bypass intact,
+    gzip/identity = 0.62-1.01; bypass broken, 1.62-1.84. The 1.3
+    threshold sits between them. A ratio cancels the machine's speed.
+
+    2026-09-24: compare the FASTEST round on each side, not the median of
+    per-round ratios. Runner noise only ever adds time, so each side's
+    minimum is its least-disturbed measurement. The median still failed
+    under xdist on the macOS Intel runner (rounds 4.11, 1.82, 2.25, 0.78,
+    1.15), because one noisy side of a round skews that round's ratio.
     """
-    rounds = 5
-    ratios: list[float] = []
+    rounds = 7
+    gzip_walls: list[float] = []
+    identity_walls: list[float] = []
 
     async def _three_wall(client: httpx.AsyncClient, encoding: str) -> float:
         t0 = time.perf_counter()
@@ -281,18 +287,19 @@ async def test_concurrent_conversation_fetches_do_not_serialize_behind_gzip(
 
         # Interleave, so a burst of runner noise hits both sides alike.
         for _ in range(rounds):
-            gzip_wall = await _three_wall(client, "gzip")
-            identity_wall = await _three_wall(client, "identity")
-            ratios.append(gzip_wall / identity_wall)
+            gzip_walls.append(await _three_wall(client, "gzip"))
+            identity_walls.append(await _three_wall(client, "identity"))
 
-    median_ratio = sorted(ratios)[rounds // 2]
-    assert median_ratio < 1.3, (
+    ratio = min(gzip_walls) / min(identity_walls)
+    assert ratio < 1.3, (
         f"3 concurrent /api/conversations/<uuid> requests with "
-        f"Accept-Encoding: gzip took {median_ratio:.2f}x as long as the same "
-        f"requests with identity (median of {rounds}; all: "
-        f"{', '.join(f'{r:.2f}' for r in ratios)}). The route is paying "
-        f"gzip CPU on the event loop: SelectiveGZipMiddleware is no longer "
-        f"bypassing it. Check _CONV_DETAIL_PATH_RE in backend/main.py."
+        f"Accept-Encoding: gzip took {ratio:.2f}x as long as the same "
+        f"requests with identity (fastest of {rounds} rounds each; gzip "
+        f"{', '.join(f'{w * 1000:.0f}' for w in gzip_walls)} ms; identity "
+        f"{', '.join(f'{w * 1000:.0f}' for w in identity_walls)} ms). The "
+        f"route is paying gzip CPU on the event loop: SelectiveGZipMiddleware "
+        f"is no longer bypassing it. Check _CONV_DETAIL_PATH_RE in "
+        f"backend/main.py."
     )
 
 
