@@ -451,10 +451,11 @@ def serve(host: str, port: int, reload: bool) -> None:
     # See PLANS/2026.05.26-watcher-install-detection.md.
     try:
         from backend.watcher_status import is_watcher_installed
+        from fetcher.install_hints import watcher_install_hint
         if not is_watcher_installed():
             click.echo(
                 "\nWARNING: CC image-cache watcher not installed.\n"
-                "  Run 'uv run claude-explorer install-watcher' to prevent\n"
+                f"  Run '{watcher_install_hint()}' to prevent\n"
                 "  permanent image-cache data loss during backend downtime.\n",
                 err=True,
             )
@@ -865,6 +866,21 @@ def install_watcher(python_bin: str | None, interval: float, uninstall: bool) ->
         return
 
     if python_bin is None:
+        from fetcher.install_hints import is_ephemeral_interpreter
+
+        # A uvx run lives in uv's cache, which uv may delete at any time.
+        # A watcher registered against it stops at the next login with no
+        # visible error, so refuse and name the lasting install instead.
+        if is_ephemeral_interpreter(_sys.executable):
+            raise click.ClickException(
+                "install-watcher needs a lasting Python, but this one is a "
+                "temporary uvx copy that uv can delete.\n"
+                "Install the tool first, then run the command again:\n"
+                "  uv tool install claude-explorer\n"
+                "  claude-explorer install-watcher\n"
+                "On Windows ARM, add --python cpython-3.13-windows-x86_64-none "
+                "to the first command."
+            )
         python_bin = _sys.executable
 
     if _sys.platform == "darwin":

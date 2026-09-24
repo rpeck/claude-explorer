@@ -29,7 +29,6 @@ from .watcher_status import is_watcher_installed
 log = logging.getLogger(__name__)
 
 
-_INSTALL_CMD = "uv run claude-explorer install-watcher"
 _DOCS_URL = "PLANS/2026.05.26-watcher-install-detection.md"
 
 
@@ -54,6 +53,11 @@ def log_watcher_status() -> None:
     # call per .warning) so structured-log parsers don't fight the
     # newlines.
     log.warning("CC image-cache watcher not installed.")
-    log.warning("  Run %r to prevent permanent image-cache data loss", _INSTALL_CMD)
+    from fetcher.install_hints import watcher_install_hint
+
+    log.warning(
+        "  Run %r to prevent permanent image-cache data loss",
+        watcher_install_hint(),
+    )
     log.warning("  during backend downtime.")
     log.warning("  See %s for details.", _DOCS_URL)

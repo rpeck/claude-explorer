@@ -18,6 +18,8 @@ import sys
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from fetcher.install_hints import watcher_install_hint
+
 from ..watcher_status import invalidate_cache, is_watcher_installed
 
 
@@ -44,6 +46,6 @@ def get_watcher_health() -> WatcherHealth:
     return WatcherHealth(
         installed=is_watcher_installed(),
         platform=sys.platform,
-        install_command="uv run claude-explorer install-watcher",
+        install_command=watcher_install_hint(),
         docs_url="PLANS/2026.05.26-watcher-install-detection.md",
     )
