@@ -106,6 +106,7 @@ exclude = [
 include = [
     "backend/**/*.py",
     "cli/**/*.py",
+    "cli/assets/*.png",
     "fetcher/**/*.py",
     "mcp_server/**/*.py",
     "frontend/src/**",

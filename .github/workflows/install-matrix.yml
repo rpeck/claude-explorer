@@ -103,10 +103,10 @@ jobs:
           set -euo pipefail
           claude-explorer --version
           help=$(claude-explorer --help)
-          for cmd in capture fetch serve install-watcher reindex-search; do
+          for cmd in capture fetch serve install-watcher install-app reindex-search; do
             grep -q "$cmd" <<<"$help" || { echo "missing subcommand: $cmd"; exit 1; }
           done
-          echo "all five subcommands present"
+          echo "all six subcommands present"
 
       - name: Chromium installs and launches (macOS, Linux)
         if: matrix.family != 'windows'
@@ -166,6 +166,44 @@ jobs:
           if launchctl list | grep -q claude-explorer; then echo "still registered after uninstall"; exit 1; fi
           echo "watcher lifecycle verified"
 
+      - name: Launcher app starts and stops the server (macOS)
+        if: matrix.family == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The app starts through LaunchServices, which does not pass this
+          # step's environment on, so the server uses the default data dir.
+          apps="$RUNNER_TEMP/apps"
+          claude-explorer install-app --dest "$apps"
+          codesign --verify --verbose "$apps/Claude Explorer.app"
+          # The port must be free first, or a server left by an earlier step
+          # would answer, and this step would pass without the app starting
+          # anything.
+          for i in $(seq 1 15); do
+            curl -fsS -o /dev/null http://127.0.0.1:8765/api/config || break
+            sleep 1
+          done
+          if curl -fsS -o /dev/null http://127.0.0.1:8765/api/config; then echo "port 8765 still busy"; exit 1; fi
+          # Opening the app must start the server on its own.
+          open -g "$apps/Claude Explorer.app"
+          up=0
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8765/api/config; then up=1; break; fi
+            sleep 2
+          done
+          [ "$up" = 1 ] || { echo "server did not start"; cat ~/Library/Logs/claude-explorer-serve.log || true; exit 1; }
+          echo "app started the server"
+          # Quitting the app must stop the server that it started.
+          # macOS has no `timeout`; perl's alarm bounds a hung Apple Event.
+          perl -e 'alarm 60; exec @ARGV' osascript -e 'tell application id "com.claude-explorer.launcher" to quit'
+          for i in $(seq 1 15); do
+            curl -fsS -o /dev/null http://127.0.0.1:8765/api/config || { echo "quit stopped the server"; break; }
+            sleep 1
+          done
+          if curl -fsS -o /dev/null http://127.0.0.1:8765/api/config; then echo "server still up after quit"; exit 1; fi
+          claude-explorer install-app --uninstall --dest "$apps"
+          [ ! -e "$apps/Claude Explorer.app" ] || { echo "app still present after uninstall"; exit 1; }
+
       - name: Watcher lifecycle (Linux)
         if: matrix.family == 'linux'
         shell: bash
@@ -212,10 +250,10 @@ jobs:
           claude-explorer --version
           if ($LASTEXITCODE -ne 0) { throw "claude-explorer --version failed" }
           $help = claude-explorer --help | Out-String
-          foreach ($cmd in @("capture", "fetch", "serve", "install-watcher", "reindex-search")) {
+          foreach ($cmd in @("capture", "fetch", "serve", "install-watcher", "install-app", "reindex-search")) {
             if ($help -notmatch $cmd) { throw "missing subcommand: $cmd" }
           }
-          Write-Host "all five subcommands present"
+          Write-Host "all six subcommands present"
 
       - name: Chromium installs and launches (Windows)
         if: matrix.family == 'windows'

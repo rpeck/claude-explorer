@@ -899,5 +899,67 @@ def install_watcher(python_bin: str | None, interval: float, uninstall: bool) ->
     click.echo(f"Uninstall: {_sys.argv[0]} install-watcher --uninstall")
 
 
+@main.command("install-app")
+@click.option(
+    "--dest",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Folder for the app (default: ~/Applications).",
+)
+@click.option(
+    "--uninstall",
+    is_flag=True,
+    help="Remove the launcher app instead of installing it.",
+)
+def install_app(dest: Path | None, uninstall: bool) -> None:
+    """Install a macOS app that starts Claude Explorer from the Dock.
+
+    Opening "Claude Explorer" starts the server if needed and opens the
+    browser. Quitting it stops the server that it started. See
+    ``cli/app_launcher.py`` for the details.
+    """
+    import sys as _sys
+
+    from cli import app_launcher
+
+    if _sys.platform != "darwin":
+        raise click.ClickException(
+            "install-app is for macOS. On Windows and Linux, run "
+            "'claude-explorer serve' and open http://localhost:8765."
+        )
+    if dest is None:
+        dest = app_launcher.default_dest()
+
+    if uninstall:
+        if app_launcher.uninstall_app(dest):
+            click.echo(f"Removed {dest / app_launcher.APP_NAME}")
+        else:
+            click.echo(f"Not installed: {dest / app_launcher.APP_NAME} does not exist")
+        return
+
+    from fetcher.install_hints import is_ephemeral_interpreter
+
+    # Same rule as install-watcher: the app runs this environment's
+    # entry point, and a uvx environment can vanish from uv's cache.
+    if is_ephemeral_interpreter(_sys.executable):
+        raise click.ClickException(
+            "install-app needs a lasting install, but this is a temporary "
+            "uvx copy that uv can delete.\n"
+            "Install the tool first, then run the command again:\n"
+            "  uv tool install claude-explorer\n"
+            "  claude-explorer install-app"
+        )
+
+    app = app_launcher.build_app(
+        dest=dest,
+        executable=app_launcher.launcher_executable(),
+        port=app_launcher.DEFAULT_PORT,
+        log_path=app_launcher.default_log_path(),
+    )
+    click.echo(f"Installed {app}")
+    click.echo("Open it from Launchpad or Spotlight, or drag it to the Dock.")
+    click.echo(f"Server log: {app_launcher.default_log_path()}")
+
+
 if __name__ == "__main__":
     main()
