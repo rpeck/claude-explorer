@@ -151,20 +151,21 @@ def _looks_like_our_server(pid: int, port: int) -> bool:
     return True
 
 
-def _wait_for_exit(pid: int, port: int, timeout: float) -> bool:
+def _wait_for_exit(port: int, timeout: float) -> bool:
+    """Wait until the server stops answering on ``port``.
+
+    The port, not the PID, is the signal on every platform:
+
+    * On Windows, ``os.kill(pid, 0)`` does not probe. It calls
+      TerminateProcess, and could kill a program that reused the PID.
+    * On POSIX, a stopped server whose parent has not collected it stays a
+      zombie, and ``os.kill(pid, 0)`` still succeeds on a zombie. That made
+      every stop wait its full timeout, then send SIGKILL.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if sys.platform == "win32":
-            # Never probe with os.kill(pid, 0) on Windows: it calls
-            # TerminateProcess, which could kill a program that reused
-            # the PID. Watch the port instead.
-            if not server_up(port, timeout=0.5):
-                return True
-        else:
-            try:
-                os.kill(pid, 0)
-            except OSError:
-                return True
+        if not server_up(port, timeout=0.5):
+            return True
         time.sleep(0.2)
     return False
 
@@ -181,7 +182,7 @@ def stop_recorded_server() -> bool:
             # On Windows os.kill calls TerminateProcess. SQLite survives
             # that: it rolls back an unfinished transaction on next open.
             os.kill(pid, signal.SIGTERM)
-            if not _wait_for_exit(pid, port, STOP_TIMEOUT_SEC) and sys.platform != "win32":
+            if not _wait_for_exit(port, STOP_TIMEOUT_SEC) and sys.platform != "win32":
                 os.kill(pid, signal.SIGKILL)
             stopped = True
         except OSError:

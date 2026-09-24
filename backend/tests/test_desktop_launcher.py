@@ -34,9 +34,13 @@ import pytest
 from backend.tests._platform_home import patch_home
 from cli import app_launcher, desktop_launcher
 
+# socketserver.TCPServer, not http.server.HTTPServer: HTTPServer.server_bind
+# calls socket.getfqdn("127.0.0.1"), a reverse DNS lookup. On the GitHub
+# macOS runners that lookup stalled the stand-in for more than 10 s, and
+# the three tests that wait only 10 s failed (2026-09-24).
 _FAKE_SERVER = textwrap.dedent(
     """
-    import http.server, sys
+    import http.server, socketserver, sys
 
     class H(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -48,7 +52,7 @@ _FAKE_SERVER = textwrap.dedent(
             pass
 
     port = int(sys.argv[sys.argv.index("--port") + 1])
-    http.server.HTTPServer(("127.0.0.1", port), H).serve_forever()
+    socketserver.TCPServer(("127.0.0.1", port), H).serve_forever()
     """
 )
 
