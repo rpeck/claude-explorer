@@ -82,7 +82,9 @@ This section is the backend equivalent of the Playwright "long names" rule. Some
   - pagination boundaries
 
   Build a fixture with at least 50 messages. Put a known token in only one of them.
-- **Filesystem walks.** `discover_jsonl_files` paginates and dedups across orgs.
+- **Filesystem walks.** Two walks remove duplicates, and a fixture with one file cannot show a defect in either:
+  - `ConversationStore._get_conversation_files` reads `by-org/<org>/<uuid>.json` for every org. It also removes a legacy flat copy that has the same UUID.
+  - `_dedup_resume_continuations` in `backend/claude_code_reader.py` merges Claude Code sessions that `--resume` split.
   - With 1 file, you do not test the dedup.
   - With 50 files across 3 orgs, you do test it.
 - **Memory limits.** Large attachments (images of several MB) do not fit in a 1×1 PNG fixture.
@@ -184,12 +186,16 @@ def test_atomic_write_recovers_from_replace_failure(isolated_data_dir, monkeypat
 - Simulate a crash after each file.
 - Assert that recovery occurs on the next mount.
 
-**SQLite WAL contention.** If the project uses SQLite at some time, do these tests:
+**SQLite WAL contention.** The project uses SQLite in three places:
+
+- the FTS5 search index, in `~/.claude-explorer/search-index.sqlite`;
+- the summary cache, in the same file;
+- the outline cache of the MCP server, in `~/.claude-explorer/cache.db`.
+
+For each of them, do these tests:
 
 - Test concurrent readers + a writer.
 - Assert that no `database is locked` errors leak to the client.
-
-The project does not use SQLite at this time. But the cache.db hint suggests that SQLite can be relevant. If it is relevant, flag it.
 
 ## 5.9 · Security-adjacent inputs
 
@@ -211,7 +217,7 @@ Some routes take a path, a URL, a pattern, or other external input. Every such r
 
 - The atomic-write path sets the mode bits.
 - If that path calls `os.replace()` with a `tmp` file that has `0o644`, the permission is wrong.
-- The project has this test for credentials but not for preferences. Write the test for preferences.
+- `backend/tests/test_credentials_perms.py` has this test for both files: the PUT and PATCH routes for preferences, and `save_credentials` with its `.bak` copy.
 
 **Regex DoS.** The user can supply regex patterns (`AtomFilter.mode == 'regex'`). A pathological pattern like `(a+)+$` with a long input can hang. Assert one of these two things:
 
@@ -252,7 +258,11 @@ def test_get_config(client):
 1. Use one of these two modes. Do not mix them.
    - `pyproject.toml` sets `asyncio_mode = "auto"`. Then `pytest-asyncio` runs all `async def` tests automatically.
    - Or, use `asyncio_mode = "strict"`, and decorate each test explicitly with `@pytest.mark.asyncio`.
-2. CI runs with `-W error::RuntimeWarning`. Thus "coroutine was never awaited" is a test failure, not a silent warning.
+2. `pyproject.toml` makes a coroutine that nobody awaited fail the test. It sets two warning filters:
+   - `error::RuntimeWarning`
+   - `error::pytest.PytestUnraisableExceptionWarning`
+
+   The warning "coroutine was never awaited" fires during garbage collection, outside the test. pytest reports it as `PytestUnraisableExceptionWarning`. So `error::RuntimeWarning` alone lets the test pass.
 3. Select the client for the type of test:
    - For simple HTTP tests, use the FastAPI `TestClient` (sync). It wraps `httpx.AsyncClient` internally, and you write a plain `def test_…`.
    - For SSE, streams, or explicit async behavior, use `httpx.AsyncClient` + `async def test_…`.

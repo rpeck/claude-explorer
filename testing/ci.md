@@ -129,7 +129,9 @@ The protection is best effort on every platform.
 
 **Browser automation controls web pages.** Browser automation includes
 Playwright and Claude in Chrome. Of the manual checks in
-[§8](manual-checks.md), only the web UI in step 2 is a web page:
+[§8](manual-checks.md), only the web UI in step 2 is fully a web page. Step 4
+starts in the web UI, but its check is the PDF file. Step 6 opens the web UI
+from a native launcher:
 
 - You **can** automate the web UI. CI already proves that `serve` answers
   with HTTP 200. A Playwright screenshot pass can add the visual check.

@@ -250,14 +250,11 @@ As a result, the user got a confident "the test suite passes", but the suite did
   - vitest → `Test Files N passed`.
   - Playwright → `N passed` with `0 failed`, and zero `Error:` / `SyntaxError` lines anywhere in the output.
 - **Compare the COUNT with the known baseline.**
-  - The baseline for this repo on 2026-06-01:
-    - backend pytest: **1139 passed / 1 skipped**
-    - vitest: **538 passed / 67 files**
-    - Playwright: **~441 tests**
+  - The baseline numbers are in [§0](../TESTING.md). They are kept in that one place only.
   - If the count *drops*, the runner stopped collecting something.
     Investigate before you declare green.
   - Never assume "fewer tests = they were deleted."
-  - Update these numbers as the suites grow.
+  - Update the numbers in §0 as the suites grow.
     Then "the count dropped" stays a usable signal.
 - **Count the test FILES on disk. Confirm that the runner collected exactly that many.**
   - This check is the baseline-free version of the previous check.
@@ -265,19 +262,19 @@ As a result, the user got a confident "the test suite passes", but the suite did
     Thus it catches silent non-execution even when you do not know the historical numbers.
   - A parse, import, or collection error drops a *whole file*.
     Thus `disk-file-count > collected` is the direct signal.
-  - The check for each runner follows (numbers current 2026-06-01):
-    - **vitest**: `find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l` (= **67**) must equal the `Test Files N passed (N)` number that the reporter prints.
-    - **Playwright**: `find frontend/e2e -name '*.spec.ts' | wc -l` (= **113**) must equal the file count in the `Total: N tests in M files` footer of `npx playwright test --list`.
+  - The check for each runner follows. [§0](../TESTING.md) has the current numbers.
+    - **vitest**: `find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l` must equal the total in parentheses in `Test Files N passed (N)`. If a file fails, the reporter prints `M failed | N passed (T)`, and `T` is still the total.
+    - **Playwright**: `find frontend/e2e -name '*.spec.ts' | wc -l` must equal the file count in the `Total: N tests in M files` footer of `npx playwright test --list`.
       - On a parse-broken file, `--list` *fails outright*.
         Thus a clean list whose `M` matches `find` proves that every spec is collectable.
       - Get `M` with this command:
         `npx playwright test --list 2>&1 | sed -nE 's/^Total: [0-9]+ tests in ([0-9]+) files$/\1/p'`.
-    - **pytest**: compare `find backend fetcher -name 'test_*.py' | wc -l` (= **142**) with the unique-file count that pytest collects.
+    - **pytest**: compare `find backend fetcher mcp_server -name 'test_*.py' | wc -l` with the unique-file count that pytest collects.
       - Get the collected count with this command:
-        `uv run pytest --collect-only -q 2>&1 | grep -oE '^[^:]+\.py' | sort -u | wc -l` (= **141**).
+        `uv run pytest --collect-only -q 2>&1 | grep -oE '^[^:]+\.py' | sort -u | wc -l`.
       - The expected difference is the **deliberately-deselected** files.
       - The default `addopts = -m 'not serial'` drops the serial benchmark `backend/tests/test_search_index_benchmark.py`.
-        Thus 142 vs 141 is correct and is not a gap.
+        Thus a difference of one file is correct and is not a gap.
   - **Rule:** investigate *every* mismatch.
     - A file can be legitimately excluded by one of these:
       - a marker filter (`-m 'not serial'`)
@@ -298,7 +295,7 @@ As a result, the user got a confident "the test suite passes", but the suite did
   - `0 passed`
   - `did not run`
 - **Report only what you verified.**
-  - A confident "the suite passes" from an unread or piped result is a falsification event at the moment it is wrong (per `feedback_never_accept_failing_tests`).
+  - A confident "the suite passes" from an unread or piped result is a falsification event at the moment it is wrong.
   - If this happens, correct the claim loudly and immediately.
   - Never let the false claim stand.
 

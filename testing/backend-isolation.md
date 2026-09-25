@@ -61,27 +61,23 @@ Each singleton has a test-only `reset_for_tests()` helper or an equivalent. Call
 - `tmp_path_factory` is session-scoped and shared.
 - Unless you reset `tmp_path_factory`, do not write user data to it.
 
-**Patch a constant that other modules import by value at every call site.** `fetcher/credentials.py` defines `DEFAULT_CREDENTIALS_PATH = ...`. *Three* other modules import the constant by value at module-load time:
+**Patch a constant that other modules import by value at every call site.** `fetcher/paths.py` defines `DEFAULT_CREDENTIALS_PATH`. Eight other modules import the constant by value at module-load time. Each import makes a separate copy.
 
-- `fetcher/bulk_fetch.py`
-- `backend/routers/fetch.py`
-- re-imports in tests
-
-`monkeypatch.setattr("fetcher.credentials.DEFAULT_CREDENTIALS_PATH",
-new)` rebinds ONLY the canonical name. The three by-value copies still point at `~/.claude-explorer/credentials.json`. The fixture must patch all four:
+- `monkeypatch.setattr("fetcher.paths.DEFAULT_CREDENTIALS_PATH", new)` rebinds ONLY the name in `fetcher.paths`.
+- Each by-value copy still points at `~/.claude-explorer/credentials.json`.
+- So the fixture `_isolated_credentials_path` patches every copy. `CREDENTIALS_PATH_BINDINGS` in `backend/tests/conftest.py` lists them:
 
 ```python
-@pytest.fixture
-def _isolated_credentials_path(tmp_path, monkeypatch):
-    creds = tmp_path / "credentials.json"
-    for target in (
-        "fetcher.credentials.DEFAULT_CREDENTIALS_PATH",
-        "fetcher.bulk_fetch.DEFAULT_CREDENTIALS_PATH",
-        "backend.routers.fetch.DEFAULT_CREDENTIALS_PATH",
-    ):
-        monkeypatch.setattr(target, creds)
-    yield creds
+for target in CREDENTIALS_PATH_BINDINGS:
+    monkeypatch.setattr(target, creds, raising=False)
 ```
+
+`test_credentials_path_bindings.py` keeps that list complete. It reads the top-level imports of every module, and it fails when a module holds a copy that the list does not name. Before 2026-09-25 the list missed `backend.routers.files` and `fetcher.mitmproxy_addon`, which read their copies at call time.
+
+**No patch reaches a default argument.** Python evaluates `def load_credentials(path: Path = DEFAULT_CREDENTIALS_PATH)` once, at import. A later patch of the module attribute does not change that default.
+
+- In a test, pass the path explicitly to each function that has such a default.
+- These functions include `load_credentials` and `save_credentials` in `fetcher/credentials.py`, and `capture_credentials` in `fetcher/playwright_capture.py`.
 
 The same pattern applies to each module that does `from foo import CONSTANT` and not `from foo import bar; bar.CONSTANT`.
 
@@ -313,16 +309,19 @@ If the PATCH omits the keys, the keys stay on disk. The council review by Gemini
 The way a test rebinds a symbol determines whether you can safely refactor the module under test. There are two different idioms:
 
 ```python
-# ✓ ATTRIBUTE PATCH (refactor-safe)
+# ✓ ATTRIBUTE PATCH on the module that makes the call (refactor-safe)
 from backend.routers import fetch as fetch_router
 monkeypatch.setattr(fetch_router, "save_credentials", fake_save)
-
-# ✗ VALUE BINDING (refactor-fragile)
-from backend.routers.fetch import save_credentials
+# The string form patches the same attribute:
 monkeypatch.setattr("backend.routers.fetch.save_credentials", fake_save)
-# Or worse, capturing the value at import time:
-saved_real = save_credentials
-monkeypatch.setattr(saved_real, "__call__", fake_save)  # doesn't do what you think
+
+# ✗ VALUE BINDING: rebinds only the test's own name
+from backend.routers.fetch import save_credentials
+save_credentials = fake_save  # the route still calls the real function
+
+# ✗ DEFINITION SITE: fetch.py imported the function by value
+monkeypatch.setattr("fetcher.credentials.save_credentials", fake_save)
+# backend.routers.fetch keeps its own copy, so the route calls the real one
 ```
 
 **Why this matters.**
@@ -357,7 +356,7 @@ monkeypatch.setattr(saved_real, "__call__", fake_save)  # doesn't do what you th
 - Before you refactor a module that has heavy test coverage, run this grep FIRST. It shows the count of risky patch sites:
 
 ```bash
-grep -rnE 'monkeypatch\.setattr\(|patch\.object\(|patch\(["\'][^"\']*<module>' \
+grep -rnE "monkeypatch\.setattr\(|patch\.object\(|patch\(['\"][^'\"]*<module>" \
   backend/tests/ fetcher/tests/ | grep -E '<module>' | wc -l
 ```
 

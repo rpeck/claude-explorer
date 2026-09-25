@@ -63,6 +63,8 @@ cd frontend && npx vitest run        # frontend unit tests
 cd frontend && npx playwright test   # end-to-end tests
 ```
 
+Run each line on its own. Each line starts from the repository root.
+
 **Run the Python suite serially from time to time.** Parallel execution hides
 order-dependent failures.
 
@@ -99,11 +101,11 @@ exit code of the runner to verify it.
    - Example: on 2026-06-01, 13 Playwright specs threw `SyntaxError` at parse
      time, and the run still "completed".
    - Before you report green, confirm that the pass count of the runner is at
-     or above the known baseline:
-     - Python pytest: **1299 passed / 2 skipped** (measured again on
-       2026-09-23).
-     - vitest: **538 passed / 67 files**.
-     - Playwright: **~441 tests**.
+     or above the known baseline. These are the only baseline numbers in the
+     guide; update them here when a suite grows. Measured on 2026-09-25:
+     - Python pytest (`uv run pytest`): **1346 passed / 4 skipped**.
+     - vitest: **539 passed / 67 files**.
+     - Playwright: **441 tests / 113 files**.
    - Before you report green, also grep the output for each of these strings:
      - `SyntaxError`
      - `Error:`
@@ -116,16 +118,18 @@ exit code of the runner to verify it.
      - A parse or collection error drops a whole file silently.
      - Thus, a disk file count larger than the collected count is the direct
        sign of this problem.
-   - Examples (numbers current on 2026-06-01):
+   - Examples (numbers measured on 2026-09-25):
      - vitest: `find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l`
-       (= 67) must equal the `Test Files N passed (N)` count.
+       (= 67) must equal the total in parentheses in `Test Files N passed (N)`.
+       If a file fails, the reporter shows `M failed | N passed (T)`, and `T`
+       is still the total.
      - Playwright: `find frontend/e2e -name '*.spec.ts' | wc -l` (= 113) must
        equal the `M` in the `Total: N tests in M files` footer of
        `npx playwright test --list`. The `--list` option fails with an error
        on a file that does not parse.
      - pytest: compare `find backend fetcher mcp_server -name 'test_*.py' | wc -l`
-       (= 173, 2026-09-23) with the unique files from
-       `uv run pytest --collect-only -q -n 0` (= 172).
+       (= 179) with the unique files from
+       `uv run pytest --collect-only -q -n 0` (= 178).
        - The **expected** difference is the serial benchmark, deselected on
          purpose: `-m 'not serial'` drops
          `backend/tests/test_search_index_benchmark.py`.

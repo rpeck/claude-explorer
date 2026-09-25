@@ -53,7 +53,7 @@ For non-trivial features, write a small set of `spec-*.spec.ts` tests.
 
 These files in this codebase use this pattern:
 
-- `frontend/e2e/spec-filters-*.spec.ts` (54 tests; covers UX.md §615-738).
+- `frontend/e2e/spec-filters-*.spec.ts` (54 tests; covers the "Composable filters (named title filters)" section of UX.md).
 
 Add new `spec-*.spec.ts` files for new features.
 
@@ -254,7 +254,7 @@ Before you decide that a new test is sufficient, confirm these items.
 
 ## Reference incidents
 
-These bugs produced this document. Read the linked commits before you add a new section.
+These bugs produced this document. Before you add a new section, read the commits in the Fix column.
 
 ### UI / Playwright
 

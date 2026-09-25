@@ -16,8 +16,8 @@ P0 fixtures (added 2026-05-08 per ``PLANS/2026.05.08 BACKEND TEST PLAN.md``):
 * :func:`legacy_v1_prefs` — seeds an on-disk v1 preferences blob with the
   legacy markers (``polarity``, ``pinned``, ``activeFilterIds``) for
   migration tests per TESTING.md \u00a75.5.
-* :func:`_isolated_credentials_path` — patches the three module-level
-  ``DEFAULT_CREDENTIALS_PATH`` bindings for fetch tests.
+* :func:`_isolated_credentials_path` — patches every module-level
+  ``DEFAULT_CREDENTIALS_PATH`` binding in :data:`CREDENTIALS_PATH_BINDINGS`.
 * :func:`reset_refresh_flag` — autouse, resets the
   ``backend.routers.fetch._refresh_in_progress`` module flag between
   tests so a leaked ``True`` doesn't 409 the next test.
@@ -368,46 +368,45 @@ def legacy_v1_prefs(isolated_data_dir: Path) -> Path:
     return prefs_path
 
 
+# Every module-level copy of DEFAULT_CREDENTIALS_PATH. fetcher.paths is the
+# definition; each other entry imports it by value at module load.
+# test_credentials_path_bindings.py keeps this list complete.
+CREDENTIALS_PATH_BINDINGS = (
+    "fetcher.paths.DEFAULT_CREDENTIALS_PATH",
+    "fetcher.credentials.DEFAULT_CREDENTIALS_PATH",
+    "fetcher.bulk_fetch.DEFAULT_CREDENTIALS_PATH",
+    "fetcher.migrate_to_v2.DEFAULT_CREDENTIALS_PATH",
+    "fetcher.mitmproxy_addon.DEFAULT_CREDENTIALS_PATH",
+    "fetcher.playwright_capture.DEFAULT_CREDENTIALS_PATH",
+    "backend.routers.fetch.DEFAULT_CREDENTIALS_PATH",
+    "backend.routers.files.DEFAULT_CREDENTIALS_PATH",
+    "backend.routers.orgs.DEFAULT_CREDENTIALS_PATH",
+)
+
+
 @pytest.fixture
 def _isolated_credentials_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[Path]:
     """Pin the credentials path to ``<tmp_path>/credentials.json``.
 
-    There are FOUR module-level ``DEFAULT_CREDENTIALS_PATH`` bindings to
-    consider:
+    ``fetcher.paths`` defines ``DEFAULT_CREDENTIALS_PATH``. Every module that
+    does ``from ... import DEFAULT_CREDENTIALS_PATH`` holds its own copy, so a
+    patch of the source alone leaves each copy pointing at the user's real
+    ``~/.claude-explorer/credentials.json``. This fixture patches every copy
+    in :data:`CREDENTIALS_PATH_BINDINGS`, and
+    ``test_credentials_path_bindings.py`` fails when a new module imports the
+    constant and that list does not name it.
 
-    1. ``fetcher.credentials.DEFAULT_CREDENTIALS_PATH`` (line 66) \u2014 the
-       default ``path=`` arg of ``save_credentials``.
-    2. ``fetcher.bulk_fetch.DEFAULT_CREDENTIALS_PATH`` (line 40) \u2014 a
-       SEPARATE definition; ``backend.routers.fetch`` imports from here.
-    3. ``backend.routers.fetch.DEFAULT_CREDENTIALS_PATH`` (line 19, value-
-       imported at module load) \u2014 the binding the route handler reads.
-    4. ``backend.routers.orgs.DEFAULT_CREDENTIALS_PATH`` (value-imported
-       from ``fetcher.credentials`` at module load) \u2014 the binding the
-       ``/api/orgs`` route handler reads.
-
-    All four must be patched: a ``from foo import X`` does a value-binding
-    into the importing module's namespace, so patching the source alone
-    does not affect the importer's local copy. ``raising=False`` is used
-    defensively in case future refactors move a constant.
+    A default argument such as ``def load_credentials(path=DEFAULT_...)`` is
+    evaluated once, at import, and no patch reaches it. Pass the path
+    explicitly in a test that calls such a function. See TESTING.md §5.1.
 
     Yields the temp credentials path (file may or may not exist on disk).
     """
 
     creds = tmp_path / "credentials.json"
-    # fetcher.paths is the CANONICAL location post-Council A5-PATHS
-    # (2026-05-21). The other four are re-exports — Python attribute
-    # lookup resolves each on its own module's namespace, so we must
-    # setattr at every site for fully-isolated test scope.
-    targets = (
-        "fetcher.paths.DEFAULT_CREDENTIALS_PATH",
-        "fetcher.credentials.DEFAULT_CREDENTIALS_PATH",
-        "fetcher.bulk_fetch.DEFAULT_CREDENTIALS_PATH",
-        "backend.routers.fetch.DEFAULT_CREDENTIALS_PATH",
-        "backend.routers.orgs.DEFAULT_CREDENTIALS_PATH",
-    )
-    for target in targets:
+    for target in CREDENTIALS_PATH_BINDINGS:
         monkeypatch.setattr(target, creds, raising=False)
     yield creds
 

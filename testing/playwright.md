@@ -178,7 +178,15 @@ A Playwright e2e test that asserts only on DOM state is half-blind. The same is 
 - The user opened the same page in their browser and reported "flashes on and disappears".
 - The problem was visible on the first manual test, because the user's console had errors that my check never asserted on.
 
-**Rule**: every Playwright `*.spec.ts` test must install a console-error capture in `beforeEach`. The test must assert in `afterEach` that the capture is empty. The only exceptions are the patterns in an explicit allowlist. Suggested fixture:
+**Rule**: every Playwright spec must fail on an unexpected console error or warning. The only exceptions are the patterns in an explicit allowlist.
+
+`frontend/e2e/fixtures.ts` does this for every spec. It defines `consoleAssertions` as an automatic fixture (`{ auto: true }`), which checks the console after each test.
+
+- A spec gets the check when it imports `test` from `./fixtures`, not from `@playwright/test`.
+- On 2026-09-25, all 113 specs do this.
+- To allow a message in one test, push a pattern into `consoleAssertions.allowlist` in that test.
+
+The fixture follows this pattern (shortened):
 
 ```typescript
 import { test as base } from '@playwright/test'

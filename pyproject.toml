@@ -152,7 +152,7 @@ exclude = [
 path = "hatch_build.py"
 
 [tool.pytest.ini_options]
-testpaths = ["fetcher/tests", "backend/tests"]
+testpaths = ["fetcher/tests", "backend/tests", "mcp_server/tests"]
 asyncio_mode = "auto"
 # Parallel execution via pytest-xdist (PLANS/2026.05.18-test-hardening.md
 # task C3). Cuts the full backend suite from ~98 s single-threaded to
@@ -171,4 +171,12 @@ asyncio_mode = "auto"
 addopts = "-n auto -m 'not serial'"
 markers = [
     "serial: wall-clock-sensitive test; runs only outside `-n auto` to avoid CPU-contention flakes. `make test` runs the parallel pass + a follow-up serial pass via `-n0 -m serial`.",
+]
+# A coroutine that nobody awaited must fail the test (TESTING.md §5.10).
+# Its RuntimeWarning fires when the coroutine is garbage-collected, which
+# pytest reports as PytestUnraisableExceptionWarning; RuntimeWarning alone
+# does not turn it into a failure, so both filters are needed.
+filterwarnings = [
+    "error::RuntimeWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
 ]

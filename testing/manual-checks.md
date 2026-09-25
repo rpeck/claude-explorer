@@ -48,12 +48,15 @@ image.
 
 ### Step 1. Install the build under test
 
-On every platform, install from the current `main`:
+Test the build that you plan to release, not the older build on PyPI. `uv tool install claude-explorer` installs the PyPI release.
 
-- macOS and Linux: `uv tool install --force claude-explorer`
-- Windows x64: the same command.
-- Windows ARM64:
-  `uv tool install --force claude-explorer --python cpython-3.13-windows-x86_64-none`
+1. On the Mac, build a wheel from `main`: `uv build --wheel`. The build also compiles the web UI, so it needs Node.js on the Mac.
+2. Copy `dist/claude_explorer-<version>-py3-none-any.whl` to each test machine.
+3. Install the wheel on each platform:
+   - macOS, Linux, and Windows x64: `uv tool install --force <path-to-wheel>`
+   - Windows ARM64: `uv tool install --force <path-to-wheel> --python cpython-3.13-windows-x86_64-none`
+
+After the release, check the PyPI build the same way: replace `<path-to-wheel>` with `claude-explorer`.
 
 A VM that you set up earlier contains the build that was current at that time.
 
@@ -75,10 +78,11 @@ A VM that you set up earlier contains the build that was current at that time.
 
 1. Download the `.mcpb` from the latest GitHub Release.
 2. Record the prompts that appear:
-   - On Windows, **record the exact SmartScreen text**. Also record the path
-     that you took.
+   - On Windows, **record the exact SmartScreen text**. Also record the
+     buttons that you clicked to continue, for example **More info**, then
+     **Run anyway**.
    - On macOS, record each Gatekeeper prompt in the same way.
-3. Drag the file into Claude Desktop, then Settings, then Extensions.
+3. In Claude Desktop, open **Settings**, then **Extensions**. Drag the file onto that page.
 4. Accept the install dialog.
 5. Confirm that the five tools appear.
 
@@ -113,7 +117,7 @@ If a user needs only Markdown, the user can skip this step:
   today's date.
 - `fetch` reports conversations.
 
-**Proxy capture** applies only on macOS and Windows x64. Proxy capture is
+**Proxy capture** applies on macOS and Windows. On Windows ARM64 it is installed but not yet verified, so record the result there. Proxy capture is
 for users who cannot log in on the web but still have a working Claude
 Desktop session. Do proxy capture last, because it has the most risk:
 
@@ -139,7 +143,7 @@ You can install Claude Desktop from the **Microsoft Store**. That version
 runs in a sandbox from a protected `C:\Program Files\WindowsApps\` folder.
 It possibly ignores the proxy flags. Then its traffic never gets to
 mitmproxy, and the proxy captures nothing. This statement is a prediction
-from the June test run. Nobody confirmed it yet.
+from the June 2026 test run. Nobody confirmed it yet.
 
 **What the user sees:**
 
