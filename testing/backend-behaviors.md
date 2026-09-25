@@ -1,15 +1,30 @@
 # Testing: Backend behaviors
 
-Part of [TESTING.md](../../TESTING.md). Read this file when: you test sse, data sizes, concurrency, security inputs, async code, or pydantic models.
+Part of [TESTING.md](../TESTING.md). Read this file when you test one of these areas:
+
+- SSE streams
+- data sizes
+- concurrency
+- security inputs
+- async code
+- pydantic models
 
 ## 5.6 · SSE streaming tests
 
-`/api/fetch/refresh`, `/api/fetch/start`, and any future SSE endpoint
-have a contract that's ENTIRELY about the event stream. A test that
-asserts `status_code == 200` proves none of it.
+The contract of an SSE endpoint is ALL about the event stream. This rule applies to these endpoints:
 
-**The full SSE contract: event order, event types, payload shape per
-event, termination.**
+- `/api/fetch/refresh`
+- `/api/fetch/start`
+- any SSE endpoint that the project adds in a later change
+
+A test that asserts `status_code == 200` proves no part of this contract.
+
+**The full SSE contract has four parts:**
+
+- the event order
+- the event types
+- the payload shape for each event
+- the termination
 
 ```python
 @pytest.mark.asyncio
@@ -40,38 +55,43 @@ async def test_refresh_emits_start_progress_complete(client_with_real_app):
 ```
 
 **Termination.** Every SSE stream must reach `complete` OR `error`.
-Tests should assert the terminator and that the stream actually
-closes (no hang). Use `asyncio.wait_for(..., timeout=5)` on the
-`async for` loop.
 
-**Reconnection.** If the impl supports SSE retry (`retry: N`), a test
-should assert the retry directive is emitted and respected.
+- Assert the terminator event.
+- Assert that the stream really closes and does not hang.
+- To do this, put `asyncio.wait_for(..., timeout=5)` on the `async for` loop.
 
-**Cancellation.** Disconnect mid-stream and assert the server-side
-generator cleans up (no leaked threads, no half-written file). For
-the cc-image watcher: assert the polling loop cancels cleanly when
-the lifespan teardown fires.
+**Reconnection.** If the implementation supports SSE retry (`retry: N`), write a test for it. The test should assert two things:
+
+- The server sends the retry directive.
+- The client obeys the retry directive.
+
+**Cancellation.** Disconnect in the middle of the stream. Then assert that the server-side generator cleans up:
+
+- No threads leak.
+- No file stays half-written.
+
+For the cc-image watcher, assert that the polling loop cancels cleanly when the lifespan teardown occurs.
 
 ## 5.7 · Realistic data sizes
 
-Backend equivalent of the Playwright "long names" rule. Bugs that
-only appear at scale:
+This section is the backend equivalent of the Playwright "long names" rule. Some bugs occur only at scale:
 
-- **Search / scoring loops** — fixtures with 1 message don't test
-  per-message sort, dedup, or pagination boundaries. Build a fixture
-  with at least 50 messages and a known token in only one of them.
-- **Filesystem walks** — `discover_jsonl_files` paginates / dedups
-  across orgs. With 1 file, you don't test the dedup. With 50 files
-  spanning 3 orgs, you do.
-- **Memory limits** — large attachments (multi-MB images) don't fit
-  in a 1×1 PNG fixture. PDF export with 10+ images can hit
-  WeasyPrint memory pressure; include at least one such test.
-- **UUID / off-by-one bugs** — sequential UUIDs hide collisions and
-  off-by-one errors. Use `uuid.uuid4()` in fixtures, not
-  `f"uuid-{i}"`.
-- **Long content** — message text > 100kB exercises the streaming-
-  tokenizer code paths. Title/name strings ≥ 30 chars test the
-  truncation paths the UI relies on.
+- **Search and scoring loops.** A fixture with 1 message does not test these areas:
+  - the sort for each message
+  - dedup
+  - pagination boundaries
+
+  Build a fixture with at least 50 messages. Put a known token in only one of them.
+- **Filesystem walks.** `discover_jsonl_files` paginates and dedups across orgs.
+  - With 1 file, you do not test the dedup.
+  - With 50 files across 3 orgs, you do test it.
+- **Memory limits.** Large attachments (images of several MB) do not fit in a 1×1 PNG fixture.
+  - PDF export with 10+ images can cause WeasyPrint memory pressure.
+  - Include at least one test of this type.
+- **UUID and off-by-one bugs.** Sequential UUIDs hide collisions and off-by-one errors. In fixtures, use `uuid.uuid4()`, not `f"uuid-{i}"`.
+- **Long content.**
+  - Message text > 100kB exercises the code paths of the streaming tokenizer.
+  - Title and name strings ≥ 30 chars test the truncation paths that the UI relies on.
 
 **Fixture helper template.**
 
@@ -114,13 +134,12 @@ def make_realistic_conversation(uuid: str, *, message_count: int = 50,
 
 ## 5.8 · Concurrency and atomic-op tests
 
-Endpoints that use locks, atomic ops, or shared state need explicit
-race tests. The contract is "lock holds under contention" — and the
-only way to exercise that is to actually contend.
+Some endpoints use locks, atomic operations, or shared state. These endpoints need explicit race tests.
 
-**Lock under contention.** `/api/fetch/refresh` is serialized via
-`asyncio.Lock` + `_refresh_in_progress`. The test fires concurrent
-requests:
+- The contract is "lock holds under contention".
+- The only way to test that contract is to cause real contention.
+
+**Lock under contention.** `/api/fetch/refresh` uses `asyncio.Lock` + `_refresh_in_progress` to run one request at a time. The test sends concurrent requests:
 
 ```python
 @pytest.mark.asyncio
@@ -135,9 +154,10 @@ async def test_refresh_serialized(real_async_client):
     assert statuses == [200, 409]
 ```
 
-**Atomic write under crash.** When the impl uses `tmp + os.replace`,
-inject a failure between write and replace. Assert (a) the original
-file is intact and (b) the temp file is cleaned up.
+**Atomic write under crash.** If the implementation uses `tmp + os.replace`, inject a failure between the write and the replace. Then assert two things:
+
+1. The original file is intact.
+2. The temp file is cleaned up.
 
 ```python
 def test_atomic_write_recovers_from_replace_failure(isolated_data_dir, monkeypatch):
@@ -158,57 +178,63 @@ def test_atomic_write_recovers_from_replace_failure(isolated_data_dir, monkeypat
     assert not list(isolated_data_dir.glob("preferences.json.tmp*"))
 ```
 
-**Filesystem ordering in migrations.** What happens if the user kills
-the process mid-migration? Test the partial states. If migration
-writes files A, B, C in order, simulate a crash after each and assert
-recovery on next mount.
+**Filesystem order in migrations.** The user can kill the process in the middle of a migration. Test the partial states that this causes.
 
-**SQLite WAL contention.** If we ever use SQLite, test concurrent
-readers + a writer; assert no `database is locked` errors leak to the
-client. (Currently no SQLite — but the cache.db hint suggests it
-might be relevant; flag if so.)
+- Example: a migration writes files A, B, and C in that order.
+- Simulate a crash after each file.
+- Assert that recovery occurs on the next mount.
+
+**SQLite WAL contention.** If the project uses SQLite at some time, do these tests:
+
+- Test concurrent readers + a writer.
+- Assert that no `database is locked` errors leak to the client.
+
+The project does not use SQLite at this time. But the cache.db hint suggests that SQLite can be relevant. If it is relevant, flag it.
 
 ## 5.9 · Security-adjacent inputs
 
-Every route that takes a path / URL / pattern / external input needs
-explicit malicious-input tests. The test passes when the route
-*refuses* the input (4xx with no leakage), not when it serves
-something.
+Some routes take a path, a URL, a pattern, or other external input. Every such route needs explicit tests with malicious input.
 
-**Path traversal.** `/api/cc-image?path=../../../etc/passwd` — assert
-403 or 400, not 200 with /etc/passwd content. Same for
-`/api/attachments/<conv>/<file>/<variant>`. Real pattern: the route
-must `Path(...).resolve(strict=True).relative_to(allowed_root)` and
-404 on `ValueError`.
+- The test passes when the route *refuses* the input (4xx with no leakage).
+- The test does not pass when the route serves something.
 
-**Symlink resolution.** Place a symlink in `tmp_path` pointing
-outside the data dir. Assert the route doesn't follow it.
+**Path traversal.** Send `/api/cc-image?path=../../../etc/passwd`.
 
-**Permission bits.** After writing `~/.claude-explorer/credentials.json`
-or `preferences.json`, assert `os.stat(p).st_mode & 0o777 == 0o600`.
-The atomic-write path is what writes mode bits; if it
-`os.replace()`s a `tmp` file with `0o644`, the permission slips. We
-have this test for credentials but not preferences — write it.
+- Assert 403 or 400.
+- Do not accept 200 with /etc/passwd content.
+- Do the same test for `/api/attachments/<conv>/<file>/<variant>`.
+- The real pattern: the route must call `Path(...).resolve(strict=True).relative_to(allowed_root)`, and return 404 on `ValueError`.
 
-**Regex DoS.** If the user can supply regex patterns
-(`AtomFilter.mode == 'regex'`), a pathological pattern like
-`(a+)+$` with a long input can hang. Assert the matcher terminates
-within a small time budget OR validates pattern complexity.
+**Symlink resolution.** Put a symlink in `tmp_path` that points outside the data dir. Assert that the route does not follow it.
 
-**Auth headers.** Routes that expect headers (X-Org-ID,
-Authorization, etc.) should 401 on missing headers, 403 on
-malformed. Don't rely on FastAPI's default behavior; explicit tests
-prevent regressions.
+**Permission bits.** After a write of `~/.claude-explorer/credentials.json` or `preferences.json`, assert `os.stat(p).st_mode & 0o777 == 0o600`.
 
-**Header / form smuggling.** Tests that supply unexpected
-content-type, oversized JSON, or duplicate headers should produce
-4xx with a useful detail body, not 500.
+- The atomic-write path sets the mode bits.
+- If that path calls `os.replace()` with a `tmp` file that has `0o644`, the permission is wrong.
+- The project has this test for credentials but not for preferences. Write the test for preferences.
+
+**Regex DoS.** The user can supply regex patterns (`AtomFilter.mode == 'regex'`). A pathological pattern like `(a+)+$` with a long input can hang. Assert one of these two things:
+
+- The matcher stops within a small time budget.
+- The matcher validates the complexity of the pattern.
+
+**Auth headers.** Some routes expect headers (X-Org-ID, Authorization, etc.).
+
+- These routes should return 401 when a header is missing.
+- These routes should return 403 when a header is malformed.
+- Do not rely on the default behavior of FastAPI. Explicit tests prevent regressions.
+
+**Header and form smuggling.** Write tests that send these inputs:
+
+- an unexpected content-type
+- oversized JSON
+- duplicate headers
+
+Each test should get a 4xx with a useful detail body, not a 500.
 
 ## 5.10 · Async / await pitfalls
 
-Backend false-pass class #5: a coroutine is created but not awaited.
-The test happily passes; the assertion runs against the coroutine
-object instead of its resolved value.
+Backend false-pass class #5: the code creates a coroutine but does not await it. The test passes with no error. The assertion runs against the coroutine object, not against its resolved value.
 
 **Concrete trap.**
 
@@ -223,61 +249,58 @@ def test_get_config(client):
 
 **Discipline.**
 
-1. `pyproject.toml` sets `asyncio_mode = "auto"` so all `async def`
-   tests run via `pytest-asyncio` automatically. Or use
-   `asyncio_mode = "strict"` and decorate explicitly with
-   `@pytest.mark.asyncio`. Don't mix.
-2. CI runs with `-W error::RuntimeWarning` so "coroutine was never
-   awaited" is a test failure, not a silent warning.
-3. For the simple HTTP tests, use FastAPI's `TestClient` (sync) — it
-   wraps `httpx.AsyncClient` internally and you write plain
-   `def test_…`. For SSE / streaming / explicit async behavior, use
-   `httpx.AsyncClient` + `async def test_…`.
-4. Never `asyncio.run()` inside a test; always let `pytest-asyncio`
-   manage the loop.
+1. Use one of these two modes. Do not mix them.
+   - `pyproject.toml` sets `asyncio_mode = "auto"`. Then `pytest-asyncio` runs all `async def` tests automatically.
+   - Or, use `asyncio_mode = "strict"`, and decorate each test explicitly with `@pytest.mark.asyncio`.
+2. CI runs with `-W error::RuntimeWarning`. Thus "coroutine was never awaited" is a test failure, not a silent warning.
+3. Select the client for the type of test:
+   - For simple HTTP tests, use the FastAPI `TestClient` (sync). It wraps `httpx.AsyncClient` internally, and you write a plain `def test_…`.
+   - For SSE, streams, or explicit async behavior, use `httpx.AsyncClient` + `async def test_…`.
+4. Do not call `asyncio.run()` inside a test. Always let `pytest-asyncio` manage the loop.
 
-**Warning hygiene.** `filterwarnings` in `pyproject.toml` should NOT
-contain a blanket `ignore::DeprecationWarning`. Real deprecations
-from third-party libs are how we learn about upgrade requirements.
-Filter only the specific warnings you've consciously decided to live
-with, with a comment explaining why.
+**Warning hygiene.** Do NOT put a blanket `ignore::DeprecationWarning` in `filterwarnings` in `pyproject.toml`.
+
+- Real deprecation warnings from third-party libraries tell the project about necessary upgrades.
+- Filter only the specific warnings that you consciously decided to accept.
+- Add a comment that explains the reason for each filter.
 
 ## 5.11 · Pydantic / FastAPI specifics
 
-**Strict input validation.** Input models should declare
-`model_config = ConfigDict(extra='forbid')` so unknown fields produce
-422, not silent acceptance. Tests should send a payload with one
-extra field and assert 422 with a useful detail.
+**Strict input validation.** Input models should declare `model_config = ConfigDict(extra='forbid')`.
+
+- With this setting, unknown fields produce 422. They are not silently accepted.
+- Write a test that sends a payload with one extra field.
+- Assert 422 with a useful detail.
 
 **Edge cases for every input model.**
 
-- empty list, empty dict, empty string for required-non-empty fields
-- `null` for required fields → 422
-- Type coercion: `"1"` (string) where `int` is required — assert the
-  coercion happens AND the right cases reject (e.g. `"abc"` → 422).
-- Float / int boundary: `1.0` for `int` field; `2**53 + 1` for large
-  ints (JSON precision loss).
-- Datetime: ISO-8601 with and without timezone; assert tz handling.
+- An empty list, an empty dict, or an empty string for fields that are required and must not be empty.
+- `null` for required fields → 422.
+- Type coercion: `"1"` (string) where `int` is required.
+  - Assert that the coercion occurs.
+  - Also assert that the correct cases are rejected (e.g. `"abc"` → 422).
+- The float / int boundary:
+  - `1.0` for an `int` field.
+  - `2**53 + 1` for large ints (JSON precision loss).
+- Datetime: ISO-8601 with a timezone and without a timezone. Assert the timezone handling.
 
-**Response model coercion only runs through HTTP.** Calling a route
-handler directly skips `response_model`. Always test via
-`httpx.AsyncClient`/`TestClient`, not by importing the handler.
+**Response model coercion runs only through HTTP.** A direct call to a route handler skips `response_model`. Always test through `httpx.AsyncClient`/`TestClient`. Do not import the handler and call it.
 
-**Schema migration tests.** When you add a response field, write a
-test that consumes the OLD response shape and adapts (proves
-backwards compat). When you remove a field, write a test that the
-new response does NOT contain it (proves you actually removed it,
-didn't accidentally keep it for one extra release).
+**Schema migration tests.**
 
-**`Depends()` overrides.** Use `app.dependency_overrides[get_settings]
-= lambda: TestSettings()` for unit testing. Do NOT monkeypatch
-`get_settings` globally — that breaks lru_cache discipline (5.1).
+- When you add a response field, write a test that consumes the OLD response shape and adapts. This test proves backwards compatibility.
+- When you remove a field, write a test that asserts the new response does NOT contain it. This test proves that you really removed it. It also proves that you did not keep it by accident for one more release.
 
-**Status codes are part of the contract.** A 200/201/204/404/422 etc
-distinction matters to clients. Tests should assert the *exact* code,
-not "≥ 200 and < 300".
+**`Depends()` overrides.** For unit tests, use `app.dependency_overrides[get_settings] = lambda: TestSettings()`.
 
-**Test the error path.** For every route, assert at least one error
-case explicitly: missing data → 404; bad input → 422; conflict → 409;
-internal failure → 500 with a sanitized detail (no traceback in body
-for production responses).
+- Do NOT monkeypatch `get_settings` globally.
+- A global monkeypatch breaks the lru_cache discipline ([§5.1](backend-isolation.md)).
+
+**Status codes are part of the contract.** The difference between 200, 201, 204, 404, 422, and other codes matters to clients. Tests should assert the *exact* code, not "≥ 200 and < 300".
+
+**Test the error path.** For every route, assert at least one error case explicitly:
+
+- missing data → 404
+- bad input → 422
+- conflict → 409
+- internal failure → 500 with a sanitized detail (no traceback in the body of production responses)

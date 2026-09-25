@@ -6,22 +6,23 @@ All UX flows and rules are documented in [UX.md](./UX.md). Code changes that aff
 
 ## Testing Rules
 
-All testing guidance lives in [TESTING.md](./TESTING.md): how to run the suites and trust
+All testing guidance starts at [TESTING.md](./TESTING.md): how to run the suites and trust
 the result, how to write tests, what CI proves, and how to verify each platform by hand.
-Read it before you write, review, or report on tests.
+TESTING.md is a short index. Its table maps each section number to a file in `testing/`.
+Read §0 and the file for your task before you write, review, or report on tests.
 
 The test-execution integrity rule is a hard invariant. It now lives in
 [TESTING.md §0](./TESTING.md). Never report a suite as passing without it.
 
 ## Performance Work
 
-Three project-specific invariants the 2026-05-22 → 2026-05-23 search-perf hunt earned. Full walk: [PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md](./PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md). Testing protocol: [TESTING.md §5.14](./TESTING.md). Council-driven perf workflow: `~/.claude/agents/llm-council-coding.md` Rules P0–P11.
+Three project-specific invariants the 2026-05-22 → 2026-05-23 search-perf hunt earned. Full walk: [PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md](./PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md). Testing protocol: [§5.14](./testing/backend-contracts.md). Council-driven perf workflow: `~/.claude/agents/llm-council-coding.md` Rules P0–P11.
 
 1. **No `useContext()` of a churning provider in any list-rendered component (N ≥ 100 rows).** Known churning providers in this codebase: `SettingsContext`, `SearchPanelContext`, `BookmarksContext` — their value identity changes on every keystroke, toggle, or navigation. `useContext` bypasses `React.memo` (Fiber resolves context deps in `beginWork` before the bailout check), so subscribing from a row component re-renders every row on every context flip. The list-owning parent (`ConversationPage`) calls `useContext` once and threads relevant fields as props. Carve-outs: dispatch-only contexts with stable function identity, and `useMemo([])`-stabilized config contexts.
 
 2. **Memoize every `<Provider value={{...}}>` with `useMemo` + explicit deps list.** Inline object literals rebuild value identity every render and fire the entire subscriber graph. Pattern lives in `SearchPanelContext.tsx` and `SettingsContext.tsx`.
 
-3. **For any user-reported "feels slow", the first commit on the branch is a measurement commit.** Output: one number from `PerformanceObserver` Long Task total OR cProfile wall time on the real corpus (not a 3-row synthetic). Every subsequent commit must move that number, or revert. A user re-reporting the same symptom after a fix shipped is a falsification event for the diagnosis — re-instrument, don't stack a second fix in the same suspected layer. Instrumentation snippet in `TESTING.md §5.14`.
+3. **For any user-reported "feels slow", the first commit on the branch is a measurement commit.** Output: one number from `PerformanceObserver` Long Task total OR cProfile wall time on the real corpus (not a 3-row synthetic). Every subsequent commit must move that number, or revert. A user re-reporting the same symptom after a fix shipped is a falsification event for the diagnosis — re-instrument, don't stack a second fix in the same suspected layer. Instrumentation snippet in [§5.14](./testing/backend-contracts.md).
 
 ## Project Structure
 

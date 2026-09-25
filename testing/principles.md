@@ -1,151 +1,170 @@
 # Testing: Principles, fixtures, and review
 
-Part of [TESTING.md](../../TESTING.md). Read this file when: you write or review any test.
+Part of [TESTING.md](../TESTING.md). Read this file when you write or review a test.
 
 ## 1 · Black-box, spec-driven discipline
 
-When the same session writes both the feature and its tests, the tests
-silently encode the implementation's quirks instead of verifying the
-contract. Two real outcomes from this codebase:
+If the same session writes a feature and its tests, the tests often record the quirks of the implementation. They do not verify the contract. This codebase has two real examples.
 
-- **CFR1 (filter v2 redesign).** Tests written alongside the impl
-  asserted on `data-testid` everywhere. The shipped impl rendered
-  Behavior + Mode + Match radios as `<button aria-pressed>` instead
-  of `role="radio"`. The same agent's tests passed because they
-  used the test-ids; an a11y-aware contract test would have failed.
-- **2026-05-07 trash-icon regression.** The original canary asserted
-  `toBeVisible()` + a row-anchored bounding-box check. Both passed
-  even when the trash button was clipped by an `overflow: hidden`
-  ancestor. The test was tuned to "the impl renders something" and
-  not to "the user can see/click it".
+- **CFR1 (filter v2 redesign).**
+  - The tests that the session wrote together with the implementation used `data-testid` in all assertions.
+  - The shipped implementation showed the Behavior, Mode, and Match radios as `<button aria-pressed>`, not as `role="radio"`.
+  - The tests from the same agent passed because they used the test IDs.
+  - An a11y-aware contract test fails on this implementation.
+- **2026-05-07 trash-icon regression.**
+  - The original canary asserted `toBeVisible()` and a row-anchored bounding-box check.
+  - Both assertions passed when an ancestor with `overflow: hidden` clipped the trash button.
+  - The test checked that "the impl renders something". It did not check that "the user can see/click it".
 
 ### The contract
 
-The UI contract lives in `UX.md`. The API contract lives in the
-Pydantic models under `backend/models.py` and the FastAPI route
-signatures. Backend test contracts also live in the OpenAPI shape
-each route produces. Tests verify those — not the implementation.
+Tests verify the contract. They do not verify the implementation. The contract comes from these sources:
+
+- The UI contract is in `UX.md`.
+- The API contract is in the Pydantic models in `backend/models.py` and in the FastAPI route signatures.
+- The backend test contract also includes the OpenAPI shape that each route produces.
 
 ### Selector priority (UI tests)
+
+Use the selectors in this order:
 
 1. `getByRole('button', { name: /…/i })`
 2. `getByLabel(/…/i)`
 3. `getByPlaceholder(/…/i)`
-4. `getByText(/…/i)` *(prefer the above; this catches non-interactive elements)*
-5. `data-testid="…"` ONLY when the spec dictates a test-id
+4. `getByText(/…/i)` *(prefer the selectors above; this selector finds non-interactive elements)*
+5. `data-testid="…"`: use it ONLY when the spec dictates a test ID.
 
-`getByRole` is load-bearing because it forces the implementation to be
-accessible. If you find yourself reaching for `data-testid` because
-`getByRole` "doesn't work", that is a finding to surface — the impl
-likely shipped a div-with-onclick where the spec wanted a real button,
-or a `<button aria-pressed>` where the spec said "radio". Don't
-silently route around it; report.
+`getByRole` is important because it forces the implementation to be accessible.
+
+- If `getByRole` "doesn't work" and you want to use `data-testid`, report this as a finding.
+- The cause is probably one of these implementation errors:
+  - A div with an onclick handler, where the spec wanted a real button.
+  - A `<button aria-pressed>`, where the spec said "radio".
+- Do not silently work around the problem. Report it.
 
 ### Spec-driven test files
 
-For non-trivial features, write a small set of `spec-*.spec.ts` tests
-derived from the spec **alone** — no implementation reads while
-writing. These sit alongside the implementation-coupled tests and
-catch contract drift those tests can't see.
+For non-trivial features, write a small set of `spec-*.spec.ts` tests.
 
-Files in this codebase that use this pattern:
+- Write these tests from the spec **alone**.
+- Do not read the implementation while you write them.
+- These tests sit next to the implementation-coupled tests.
+- They find contract drift that the implementation-coupled tests cannot see.
+
+These files in this codebase use this pattern:
 
 - `frontend/e2e/spec-filters-*.spec.ts` (54 tests; covers UX.md §615-738).
 
-Add new `spec-*.spec.ts` files for new features. The "no app code
-reads" rule is a discipline, not an enforcement — keep an explicit
-allowlist of files you may consult while writing the spec test
-(usually `UX.md`, the relevant plan doc, `frontend/e2e/fixtures.ts`,
-and `frontend/src/lib/types.ts`). Read no others.
+Add new `spec-*.spec.ts` files for new features.
+
+The "no app code reads" rule is a discipline. No tool enforces it. Keep an explicit allowlist of the files that you can read while you write the spec test. The usual allowlist is:
+
+- `UX.md`
+- the relevant plan doc
+- `frontend/e2e/fixtures.ts`
+- `frontend/src/lib/types.ts`
+
+Read no other files.
 
 ## 2 · Bidirectional verification
 
-A new test must demonstrate BOTH:
+A new test MUST show both of these results:
 
-1. It passes against the correct implementation, AND
-2. It FAILS against a deliberately-broken implementation.
+1. It passes against the correct implementation.
+2. It FAILS against a deliberately broken implementation.
 
-If you can't make it fail by reverting the fix, the test is asserting
-something the bug doesn't violate.
+If the test does not fail when you revert the fix, the test asserts something that the bug does not violate.
 
-The 2026-05-07 trash canary "passed on first run" — that should have
-been a red flag that the assertions were too lax. Four separate
-assertions (`toHaveCount` + `toBeVisible` + `toBeInViewport` +
-row-anchored bounding-box) all passed even with the trash button
-visually clipped. The fix: rewrote the canary with a real
-clip-ancestor check, then verified bidirectionally — passed against
-the fix, FAILED against the reverted-fix state.
+The 2026-05-07 trash canary "passed on first run". That result was a red flag: the assertions were too lax. Four separate assertions passed while the trash button was visually clipped:
+
+- `toHaveCount`
+- `toBeVisible`
+- `toBeInViewport`
+- a row-anchored bounding-box check
+
+The fix:
+
+- Rewrote the canary with a real clip-ancestor check.
+- Verified the canary bidirectionally. The canary passed against the fix. It FAILED against the reverted-fix state.
 
 ### Workflow for bug-fix commits
 
-1. **Reproduce the bug live first.** Take a screenshot. Note the
-   actual broken state — not what you assume the bug is.
-2. **Write the failing test FIRST.** Run it; verify it fails.
-   Verify it fails *for the right reason* (read the failure message;
-   if it's "selector not found" but the bug is "selector clipped",
-   the test is targeting the wrong thing).
-3. **Fix the code.** Run the test; verify it passes.
-4. **Revert the fix temporarily** (`git stash` or `git revert
-   --no-commit`); re-run the test; confirm it fails again with the
-   informative message you'd want to see in the future. Re-apply the
-   fix.
+1. **Reproduce the bug live first.**
+   - Take a screenshot.
+   - Record the actual broken state. Do not record what you assume the bug is.
+2. **Write the failing test FIRST.**
+   - Run the test. Verify that it fails.
+   - Verify that it fails *for the right reason*. Read the failure message.
+   - If the message is "selector not found" but the bug is "selector clipped", the test targets the wrong thing.
+3. **Fix the code.** Run the test. Verify that it passes.
+4. **Revert the fix temporarily** with `git stash` or `git revert
+   --no-commit`.
+   - Run the test again.
+   - Confirm that it fails again with the informative message that you want to see in the future.
+   - Apply the fix again.
 
-For non-bug-fix changes, write the test against the spec FIRST, fix
-any spec drift the test surfaces, THEN ship. Same bidirectional rule.
+For changes that are not bug fixes, use this order:
+
+1. Write the test against the spec FIRST.
+2. Fix any spec drift that the test shows.
+3. THEN ship.
+
+The same bidirectional rule applies.
 
 ### "Tests pass" proves nothing on its own
 
-Always pair a green run with at least one falsification: run the test
-in isolation against a known-broken state, OR have the test fail in CI
-on a parallel branch that intentionally regressed the behavior. If the
-test never fails, it never tested anything.
+Always pair a green run with at least one falsification. Use one of these methods:
+
+- Run the test in isolation against a known-broken state.
+- Make the test fail in CI on a parallel branch that intentionally regressed the behavior.
+
+If the test never fails, it never tested anything.
 
 ## 4 · Test fixture design
 
-Use realistic edge-case data, not minimal happy-path data. Each
-fixture should answer the question: "what's the most likely thing the
-user has that breaks the layout / logic?"
+Use realistic edge-case data. Do not use minimal happy-path data. Make each fixture answer this question: "what is the most likely thing that the user has, which breaks the layout or the logic?"
 
 ### Long strings
 
-For any UI that can show user-entered text (filter names,
-conversation titles, project paths, attachment names), include at
-least one fixture whose string is long enough to trigger
-truncation, overflow, or wrap. A short name doesn't reproduce layout
-failures.
+Some UI shows text that the user entered. Examples:
 
-The 2026-05-07 row-clip bug shipped because the canary used
-`"Foo filter"` (12 chars) instead of something like
-`"automated run of a scheduled task"` (33 chars). The Radix
-`display: table; min-width: 100%` wrapper grew past 100% only when
-content forced it — short names never triggered the wrapper to
-overflow.
+- filter names
+- conversation titles
+- project paths
+- attachment names
 
-When in doubt, include a name ≥30 characters. If the impl uses
-`truncate`, that's a hint that long strings exist in the wild;
-include them in tests.
+For each such UI, include at least one fixture with a long string. The string must be long enough to cause truncation, overflow, or wrap. A short name does not reproduce layout failures.
+
+The 2026-05-07 row-clip bug shipped because the canary used a short name.
+
+- The canary used `"Foo filter"` (12 chars).
+- It did not use a longer name such as `"automated run of a scheduled task"` (33 chars).
+- The Radix `display: table; min-width: 100%` wrapper grew past 100% only when the content forced it.
+- Short names never caused the wrapper to overflow.
+
+If you are not sure, include a name of ≥30 characters. If the implementation uses `truncate`, long strings probably exist in real user data. Include them in tests.
 
 ### Many items
 
-For any list, scroll-area, or quantifier (group members,
-conversations, search hits), include enough items to trigger
-scroll, pagination, or virtualization paths. Two items don't test
-overflow; ten or fifty often do.
+Some UI shows a list, a scroll area, or a quantifier. Examples:
+
+- group members
+- conversations
+- search hits
+
+For this UI, include enough items to start the scroll, pagination, or virtualization code paths. Two items do not test overflow. Ten or fifty items often do.
 
 ### Empty state
 
 Every list and every dependent input has an empty case. Test it.
-The "Manage filters with zero filters" test (in
-`spec-filters-active-picker.spec.ts`) was added in the spec-driven
-sweep precisely because this case was easy to forget.
+
+The spec-driven sweep added the "Manage filters with zero filters" test (in `spec-filters-active-picker.spec.ts`). The sweep added this test because this case was easy to forget.
 
 ### Migration / legacy state
 
-When shipping a schema migration, seed the fixture with the on-disk
-shape USERS WILL HAVE, not the new shape. Otherwise the migration
-code never runs in the test.
+When you ship a schema migration, seed the fixture with the on-disk shape that USERS HAVE. Do not seed it with the new shape. If you use the new shape, the migration code never runs in the test.
 
-For the v1→v2 filter migration:
+For the v1→v2 filter migration, use this fixture:
 
 ```ts
 preferences: {
@@ -160,96 +179,82 @@ preferences: {
 }
 ```
 
-Then assert the post-migration shape (with `behavior: 'hide'`,
-`_migratedV2: true`) was PATCHed back to the server.
+Then assert that a PATCH sent the post-migration shape back to the server. The post-migration shape has `behavior: 'hide'` and `_migratedV2: true`.
 
 ### Special characters
 
-Test names / patterns containing spaces, `*`, regex metas, Unicode,
-line breaks, leading/trailing whitespace. Pattern-matching code is
-where these bite first; UI rendering is where they bite second.
+Test names and patterns that contain these characters:
 
-For the `name` field specifically, include a fixture with `*` in
-the name (which the auto-fill rule's metachar-strip would otherwise
-remove — useful for testing that the strip behaves as documented).
+- spaces
+- `*`
+- regex metacharacters
+- Unicode
+- line breaks
+- leading or trailing whitespace
+
+Pattern-matching code is the first place where these characters cause failures. UI rendering is the second place.
+
+For the `name` field, include a fixture with `*` in the name.
+
+- The metachar-strip step of the auto-fill rule otherwise removes this character.
+- This fixture is useful to test that the strip step behaves as documented.
 
 ### Fixture seeding rule
 
-Build the smallest fixture that reproduces the failure mode you're
-testing. Don't reuse another spec's fixture by import — that ties
-two tests' definitions together and makes failures harder to read.
-Build clean fixtures from the spec.
+Build the smallest fixture that reproduces the failure mode that you test.
+
+- Do not import a fixture from another spec.
+- An import ties the definitions of two tests together. It also makes failures harder to read.
+- Build clean fixtures from the spec.
 
 ## 6 · Test review checklist
 
-Before declaring a new test sufficient, confirm:
+Before you decide that a new test is sufficient, confirm these items.
 
 ### Universal (UI + backend)
 
-- [ ] Bidirectional verification: the test fails when the fix is
-      reverted, with an informative error message. ("Test passes"
-      proves nothing; can you make it fail?)
-- [ ] Test name names the contract, not the impl. ("Manage Filters
-      modal: every row exposes a visible, in-viewport, NOT-clipped
-      delete affordance" — not "trash icon visible".)
-- [ ] At least one fixture exercises an edge case (long string, many
-      items, special chars), not just the happy path.
-- [ ] Spec docs (`UX.md` for UI, the relevant model / route docstring
-      for backend) updated to match any new contract the test
-      asserts.
-- [ ] Negative-space assertion when the contract has one: assert
-      what should NOT change, not just what should.
+- [ ] Bidirectional verification: the test fails when you revert the fix, and the error message is informative. ("Test passes" proves nothing. Can you make it fail?)
+- [ ] The test name names the contract, not the implementation.
+  - Good name: "Manage Filters modal: every row exposes a visible, in-viewport, NOT-clipped delete affordance".
+  - Bad name: "trash icon visible".
+- [ ] At least one fixture tests an edge case, not only the happy path. Examples: a long string, many items, special characters.
+- [ ] The spec docs match any new contract that the test asserts.
+  - For UI, the spec doc is `UX.md`.
+  - For backend, the spec doc is the relevant model or route docstring.
+- [ ] If the contract has a negative-space assertion, the test includes it. Assert what should NOT change, not only what should change.
 
 ### UI / Playwright
 
-- [ ] Selector uses `getByRole`/`getByLabel` first; `data-testid` only
-      where spec dictates.
-- [ ] Visibility tests use `expectInsideClipAncestor` (or equivalent)
-      when the assertion is "user can see this".
-- [ ] An actionability check (`hover`/`click`) cross-tests
-      reachability where it matters.
-- [ ] Strict-mode locator: every `getBy*` query is unambiguous, OR
-      explicitly scoped/`.first()`d.
-- [ ] PATCH/route spies are registered AFTER `mockBackend` for LIFO
-      precedence.
+- [ ] The selector uses `getByRole` or `getByLabel` first. It uses `data-testid` only where the spec dictates.
+- [ ] If the assertion is "user can see this", the visibility test uses `expectInsideClipAncestor` (or an equivalent).
+- [ ] Where reachability matters, an actionability check (`hover`/`click`) also tests it.
+- [ ] Strict-mode locator: every `getBy*` query is unambiguous, OR it has an explicit scope or `.first()`.
+- [ ] Register PATCH and route spies AFTER `mockBackend`. This order gives them LIFO precedence.
 
 ### Backend / pytest
 
-- [ ] Test seeds the LEGACY shape (what users have on disk), not the
-      new shape, when migration code is under test. Otherwise the
-      migration code never runs.
-- [ ] Real `tmp_path` for filesystem ops; no mocking the store /
-      writer / serializer layer. Mock at the HTTP boundary or the
-      filesystem boundary, not in between.
-- [ ] Strong value assertion (not just "field exists"). If a field is
-      hardcoded by design, the test asserts the meaningful expected
-      value computed from a known fixture.
-- [ ] Async test uses `async def` + `await` AND the pytest config
-      surfaces "coroutine was never awaited" as a failure
-      (`-W error::RuntimeWarning`).
-- [ ] `lru_cache.cache_clear()` called after `monkeypatch.setenv` for
-      any settings/config function that's cached.
-- [ ] Module-level singletons (`_refresh_in_progress`, `_seen` sets,
-      in-memory caches) reset per test via fixture.
-- [ ] Migration test asserts: (a) post-migration on-disk shape; (b)
-      tombstone keys explicitly nulled; (c) idempotency (running
-      twice is a no-op); (d) sentinel flag set.
-- [ ] SSE tests assert event ORDER + types + payload shape +
-      termination; never just `status_code == 200`.
-- [ ] Concurrency test where a lock or atomic op is part of the
-      contract.
-- [ ] Security-adjacent input test for every route taking a path /
-      URL / pattern / external input (path traversal, symlinks,
-      permission bits, regex DoS).
-- [ ] For PDF / image / binary output: assert against a known fixture
-      byte signature, not "≥1 stream present".
-- [ ] Status code asserted EXACTLY (not "2xx") and at least one
-      error path tested explicitly.
+- [ ] When the test covers migration code, it seeds the LEGACY shape (what users have on disk), not the new shape. Otherwise the migration code never runs.
+- [ ] Use a real `tmp_path` for filesystem operations.
+  - Do not mock the store, writer, or serializer layer.
+  - Mock at the HTTP boundary or at the filesystem boundary, not between them.
+- [ ] The test makes a strong value assertion, not only a "field exists" check. If the code hardcodes a field by design, the test asserts the meaningful expected value that comes from a known fixture.
+- [ ] An async test uses `async def` and `await`. The pytest config also reports "coroutine was never awaited" as a failure (`-W error::RuntimeWarning`).
+- [ ] Call `lru_cache.cache_clear()` after `monkeypatch.setenv` for any cached settings or config function.
+- [ ] A fixture resets module-level singletons for each test. Examples: `_refresh_in_progress`, `_seen` sets, in-memory caches.
+- [ ] A migration test asserts these results:
+  - (a) the post-migration on-disk shape;
+  - (b) tombstone keys explicitly set to null;
+  - (c) idempotency (a second run is a no-op);
+  - (d) the sentinel flag is set.
+- [ ] SSE tests assert event ORDER, types, payload shape, and termination. They never assert only `status_code == 200`.
+- [ ] Include a concurrency test where a lock or an atomic operation is part of the contract.
+- [ ] Every route that takes a path, URL, pattern, or other external input has a security-adjacent input test. Examples: path traversal, symlinks, permission bits, regex DoS.
+- [ ] For PDF, image, or binary output, assert against the byte signature of a known fixture. Do not assert only "≥1 stream present".
+- [ ] Assert the status code EXACTLY, not "2xx". Test at least one error path explicitly.
 
 ## Reference incidents
 
-These are the bugs that produced this document. Read the linked
-commits before adding a new section.
+These bugs produced this document. Read the linked commits before you add a new section.
 
 ### UI / Playwright
 
@@ -270,6 +275,9 @@ commits before adding a new section.
 | 2026-05-07 | migration tombstone-keys must be explicit `null` in PATCH | omitting `savedFilters` and `activeFilterIds` from the PATCH leaves them on disk because backend uses per-key overwrite, not deep-delete | `2c94860` migration test asserts the PATCH body explicitly contains `savedFilters: null, activeFilterIds: null` |
 | 2026-05-08 | `/api/attachments` path traversal — read-leak | `file_dir = _attachments_root() / conv_uuid / file_uuid` had no validation before `is_dir()`; the downstream `chosen.resolve().relative_to(file_dir.resolve())` only validates the FINAL chosen file. `conv_uuid="../../etc"` and absolute-path injection (`Path("a") / "/abs" == Path("/abs")`) both fell through to a 200 with arbitrary on-disk file bytes when a `<variant>.*` glob matched | `e121e39` (RED: 3 traversal tests) + `1135f61` (GREEN: `file_dir.resolve().relative_to(_attachments_root().resolve())` 400-on-escape) — RED→GREEN two-commit pattern |
 | 2026-05-08 | atomic-write `.tmp` leak on `os.replace` failure | `_write_atomic` (preferences.py) and `_write_all` (bookmarks.py) didn't wrap the rename in try/finally; if `os.replace` raised, the `.tmp` was orphaned in the user's `~/.claude-explorer/` dir. No data corruption (the original file is preserved by `os.replace` atomicity) but disk leaked across failed writes | `0955f29` — try/except BaseException + `tmp.unlink()` cleanup (FileNotFoundError-tolerant) + re-raise. Test pattern: monkeypatch `os.replace` to raise OSError, assert `pytest.raises` + filesystem invariants (original byte-identical + no `*.tmp` glob) |
-| 2026-05-08 | `DEFAULT_CREDENTIALS_PATH` value-imported in 4 modules, not 2 or 3 | `fetcher/credentials.py` defines it; `fetcher/bulk_fetch.py`, `backend/routers/fetch.py`, AND `backend/routers/orgs.py` each `from … import` it by value at module load. A test that only patches the canonical name leaves three handlers reading the user's real `~/.claude-explorer/credentials.json`. Discovered while implementing P4.2 (orgs corrupt-creds test) | `ea6781b` — conftest `_isolated_credentials_path` patches all 4 bindings; pattern documented in §5.1 ("constants imported by value need patching at every call site") |
+| 2026-05-08 | `DEFAULT_CREDENTIALS_PATH` value-imported in 4 modules, not 2 or 3 | `fetcher/credentials.py` defines it; `fetcher/bulk_fetch.py`, `backend/routers/fetch.py`, AND `backend/routers/orgs.py` each `from … import` it by value at module load. A test that only patches the canonical name leaves three handlers reading the user's real `~/.claude-explorer/credentials.json`. Discovered while implementing P4.2 (orgs corrupt-creds test) | `ea6781b` — conftest `_isolated_credentials_path` patches all 4 bindings; pattern documented in [§5.1](backend-isolation.md) ("constants imported by value need patching at every call site") |
 
-Add to the appropriate sub-table when you ship a fix that surfaced a testing-discipline gap. The "class" column should name the FAILURE MODE, not the feature; the goal is to make the next agent recognize the same shape if it appears in a different feature.
+When you ship a fix for a bug that showed a gap in testing discipline, add the bug to the correct sub-table.
+
+- In the "class" column, name the FAILURE MODE, not the feature.
+- The goal: the next agent recognizes the same failure shape when it appears in a different feature.

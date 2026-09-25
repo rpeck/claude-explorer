@@ -29,7 +29,7 @@ name: Release
 # the maintainer create them. Nothing leaves the repo before approval:
 # the PyPI upload and the GitHub Release asset both wait for it.
 #
-# Before you tag: run every manual check in TESTING.md §8 on every
+# Before you tag: run every manual check in testing/manual-checks.md (§8) on every
 # platform. CI cannot reach Claude Desktop, certificate trust, or a
 # real login.
 

@@ -52,7 +52,7 @@ Every change reaches `main` through a pull request. Direct pushes to `main` are 
 
 1. Open an issue describing the change (skip for typos / docs).
 2. Fork, branch, commit.
-3. Run all three test suites locally before pushing. Read the counts, as [TESTING.md §0](./TESTING.md#0--running-the-tests-and-trusting-the-result) describes.
+3. Run all three test suites locally before pushing. Read the counts, as [TESTING.md §0](./TESTING.md) describes.
 4. Open the pull request, and fill in the template.
 5. On PR open, the [CLA Assistant](https://cla-assistant.io) bot will ask you to sign the [Contributor License Agreement](./CLA.md) (one-time, takes 30 seconds via GitHub OAuth).
 6. PR review focuses on: test coverage, voice consistency for any article/doc changes, no silent regressions.
@@ -67,7 +67,7 @@ Every change reaches `main` through a pull request. Direct pushes to `main` are 
 
 ### Manual checks
 
-CI cannot test Claude Desktop, certificate trust, or a real login. [TESTING.md §8](./TESTING.md#8--verifying-each-platform-by-hand) lists the checks that a person must run.
+CI cannot test Claude Desktop, certificate trust, or a real login. [§8 in testing/manual-checks.md](./testing/manual-checks.md) lists the checks that a person must run.
 
 If your change touches install or upgrade, credential capture, fetch, the watcher, PDF export, the MCP server, or the `.mcpb` bundle, run the matching §8 steps on each platform that you can reach. Record them in the table in the pull-request template. The maintainer runs the other platforms before the next release.
 

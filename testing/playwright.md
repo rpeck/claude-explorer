@@ -1,28 +1,26 @@
 # Testing: Playwright and end-to-end tests
 
-Part of [TESTING.md](../../TESTING.md). Read this file when: you write or debug an end-to-end spec.
+Part of [TESTING.md](../TESTING.md). Read this file when you write or debug an end-to-end spec.
 
 ## 3 · Playwright-specific gotchas
 
-These bit us. Encode them now so the next agent doesn't relearn them.
+These problems caused failures in this project. This section records them so that the next agent does not learn them again.
 
-### `toBeVisible()` does NOT detect ancestor clipping
+### `toBeVisible()` does not detect ancestor clipping
 
-Playwright's `toBeVisible()` definition: non-empty bounding box +
-`display !== 'none'` + `visibility !== 'hidden'`. An ancestor's
-`overflow: hidden` doesn't change any of those — the element's own box
-remains non-empty and its computed style is unchanged.
+Playwright's `toBeVisible()` checks three conditions:
 
-`toBeInViewport()` checks intersection with the **browser viewport**,
-not an inner scroll container. Same blind spot.
+- The bounding box is not empty.
+- `display !== 'none'`.
+- `visibility !== 'hidden'`.
 
-A row-anchored bounding-box check (button-inside-row) doesn't help
-either: when the row itself is clipped by the same ancestor, both row
-and button are inside the row's logical box but both are clipped
-together.
+An ancestor with `overflow: hidden` does not change any of these conditions. The element's own box stays non-empty, and its computed style does not change.
 
-**Fix: use a helper that walks up to the nearest
-`overflow:hidden|auto|scroll|clip` ancestor and asserts containment.**
+`toBeInViewport()` has the same blind spot. It checks intersection with the **browser viewport**, not with an inner scroll container.
+
+A row-anchored bounding-box check (button inside row) also does not help. If the same ancestor clips the row, the row and the button are both inside the row's logical box. The ancestor clips them together.
+
+**Fix: use a helper that goes up to the nearest `overflow:hidden|auto|scroll|clip` ancestor and asserts containment.**
 
 ```ts
 async function expectInsideClipAncestor(target: Locator, label: string) {
@@ -54,70 +52,61 @@ async function expectInsideClipAncestor(target: Locator, label: string) {
 }
 ```
 
-The reference implementation lives in
-`frontend/e2e/spec-filters-trash-visible.spec.ts`. If you need it in
-multiple specs, factor it into a shared helper at `frontend/e2e/helpers/clipAncestor.ts`.
+The reference implementation is in `frontend/e2e/spec-filters-trash-visible.spec.ts`. If you need it in more than one spec, move it into a shared helper at `frontend/e2e/helpers/clipAncestor.ts`.
 
-### Add `.hover()` or `.click()` for actionability cross-checks
+### Add `.hover()` or `.click()` as an actionability cross-check
 
-Playwright's actionability includes "element is at the click point".
-A clipped element fails this. Adding a `.hover()` after the static
-assertions catches the "user can reach this" property end-to-end.
+Playwright's actionability checks include "element is at the click point". A clipped element fails this check. Add a `.hover()` after the static assertions. The hover checks the "user can reach this" property end-to-end.
 
 ```ts
 await deleteButton.hover({ timeout: 2000 })
 ```
 
-Use this on every test that asserts "the user can interact with X".
-It's cheap and orthogonal to the static checks.
+Use this in every test that asserts "the user can interact with X". It is cheap, and it is independent of the static checks.
 
 ### shadcn `<Select>` quirks
 
-- The Select trigger renders as `role="button"`, NOT `role="combobox"`.
-  Prefer `getByLabel(/…/i)` for the trigger. The
-  `data-testid="active-filter-select"` is the only acceptable test-id
-  fallback (the spec names the picker structure unambiguously).
-- Options live in a Portal with mount animations. Always:
+- The Select trigger renders as `role="button"`, not as `role="combobox"`.
+  - Prefer `getByLabel(/…/i)` for the trigger.
+  - The only acceptable test-id fallback is `data-testid="active-filter-select"`. The spec names the picker structure unambiguously.
+- The options are in a Portal with mount animations. Always use this sequence:
   ```ts
   await trigger.click()
   await expect(page.getByRole('option', { name: /…/i })).toBeVisible()
   await page.getByRole('option', { name: /…/i }).click()
   ```
-  Bare `.click()` on options races the mount.
+  A bare `.click()` on an option races the mount.
 
 ### Radix `<ScrollArea>` quirks
 
-- Radix `<ScrollArea>` Viewport wraps content in
-  `style="display: table; min-width: 100%"` which auto-sizes to
-  content width and lets rows overflow past the Viewport's bounded
-  width. The outer `overflow: hidden` then clips the right end.
-- Fix at the use site: append `[&>div>div]:!block` to the
-  ScrollArea's `className`. The arbitrary-selector override forces
-  the Radix wrapper to `display: block` so it inherits the Viewport's
-  bounded width.
-- See the `ManageFiltersModal.tsx` ScrollArea for the canonical
-  application + comment.
+- The Radix `<ScrollArea>` Viewport wraps its content in `style="display: table; min-width: 100%"`.
+  - This wrapper sizes itself to the content width.
+  - Rows can then overflow past the bounded width of the Viewport.
+  - The outer `overflow: hidden` then clips the right end of the rows.
+- Fix this problem at the use site. Append `[&>div>div]:!block` to the `className` of the ScrollArea.
+  - This arbitrary-selector override forces the Radix wrapper to `display: block`.
+  - The wrapper then inherits the bounded width of the Viewport.
+- For the canonical application and its comment, see the ScrollArea in `ManageFiltersModal.tsx`.
 
 ### Radix `<RadioGroup>` `.check()` races controlled-component re-renders
 
-- Playwright's `.check()` clicks the radio AND asserts
-  `aria-checked="true"` before returning. Radix `<RadioGroupItem>`
-  flips `aria-checked` only once the parent `<RadioGroup>`'s `value`
-  prop changes, which requires the consumer's `onValueChange` handler
-  to fire, the React state setter to run, and a re-render to land.
-  When the setter routes through TanStack Query's `useMutation` (e.g.
-  `usePreferences`), the re-render lands on a microtask that often
-  loses the race against `.check()`'s post-assertion under
-  parallel-worker load.
-- Symptom: `Error: locator.check: Clicking the checkbox did not
-  change its state`, with the locator log showing
-  `aria-checked="false" data-state="unchecked"` AFTER the click
-  action succeeded. The test passes on retry, so it surfaces as
-  "flaky" not "failed". Easy to miss until the suite runs
-  often enough that the retry budget runs out.
-- Fix: use `.click()` and verify state via the durable side effect
-  you actually care about (the PATCH body, a downstream DOM change,
-  or a post-`waitForResponse` aria-checked assertion). Pattern:
+- Playwright's `.check()` clicks the radio. Then it asserts `aria-checked="true"` before it returns.
+- Radix `<RadioGroupItem>` changes `aria-checked` only after the `value` prop of the parent `<RadioGroup>` changes. That change needs three steps:
+  1. The consumer's `onValueChange` handler fires.
+  2. The React state setter runs.
+  3. A re-render completes.
+- If the setter goes through TanStack Query's `useMutation` (for example, `usePreferences`), the re-render occurs on a microtask. Under parallel-worker load, that microtask often loses the race against the post-assertion of `.check()`.
+- Symptom: the test fails with `Error: locator.check: Clicking the checkbox did not
+  change its state`.
+  - The locator log shows `aria-checked="false" data-state="unchecked"` after the click action succeeded.
+  - The test passes on retry, so the failure shows as "flaky", not as "failed".
+  - This problem is easy to miss until the suite runs often enough to use up the retry budget.
+- Fix: use `.click()`. Then verify the state through the durable side effect that you actually care about:
+  - the PATCH body
+  - a downstream DOM change
+  - an aria-checked assertion after `waitForResponse`
+
+  Pattern:
   ```ts
   // WRONG: races the controlled-component update
   await radioGroup.getByRole('radio', { name: 'Bundle Obsidian' }).check()
@@ -130,37 +119,33 @@ It's cheap and orthogonal to the static checks.
   await patch
   await expect(radioGroup.getByRole('radio', { name: 'Bundle Obsidian' })).toBeChecked()
   ```
-- The rule applies to every Radix primitive wrapping a controlled
-  component whose state setter runs asynchronously (`RadioGroup`,
-  `Switch`, controlled `Checkbox`). Native HTML
-  `<input type="checkbox">` updates synchronously and stays safe with
-  `.check()`. When the radio's state lives in plain `useState` with
-  no async mutation, `.check()` may work, but `.click()` plus a
-  post-assertion is the lower-foot-gun default.
-- Project sites already on the fix: `preferences-cross-context.spec.ts`,
-  `settings.spec.ts`, `markdown-export-mode-unified.spec.ts`.
+- The rule applies to every Radix primitive that wraps a controlled component with an asynchronous state setter:
+  - `RadioGroup`
+  - `Switch`
+  - controlled `Checkbox`
+- A native HTML `<input type="checkbox">` updates synchronously. `.check()` stays safe for it.
+- If the radio state is in plain `useState` with no async mutation, `.check()` can work. But `.click()` plus a post-assertion is the safer default.
+- These project files already use the fix:
+  - `preferences-cross-context.spec.ts`
+  - `settings.spec.ts`
+  - `markdown-export-mode-unified.spec.ts`
 
 ### Strict-mode locator collisions
 
-Playwright runs locators in strict mode by default; if a query matches
-more than one element, it fails. Common pitfalls:
+Playwright runs locators in strict mode by default. If a query matches more than one element, the query fails. These are the common problems:
 
-- `getByText('Foo')` matches every visible occurrence — use
-  `.first()` deliberately, OR scope to a parent
-  (`page.getByRole('dialog').getByText('Foo')`), OR add a more
-  specific selector.
-- `getByRole('combobox')` matches every `<Select>` trigger, every
-  `<input role=combobox>`, etc. Always pair with `{ name: /…/i }` or
-  scope to a parent.
+- `getByText('Foo')` matches every visible occurrence. Use one of these fixes:
+  - Use `.first()` deliberately.
+  - Scope the query to a parent (`page.getByRole('dialog').getByText('Foo')`).
+  - Add a more specific selector.
+- `getByRole('combobox')` matches every `<Select>` trigger, every `<input role=combobox>`, and similar elements. Always pair it with `{ name: /…/i }`, or scope it to a parent.
 
 ### PATCH-spy ordering (LIFO route registration)
 
-When a test seeds `mockBackend({ preferences: ... })` AND wants to
-intercept later PATCH bodies, the `page.route('**/api/preferences')`
-spy must register AFTER the seed. Playwright runs route handlers in
-LIFO order; the latest-registered wins. If the spy is registered
-before `mockBackend`, the seed mock catches the request and the spy
-never fires.
+Some tests seed `mockBackend({ preferences: ... })` and also intercept later PATCH bodies. In these tests, register the `page.route('**/api/preferences')` spy after the seed.
+
+- Playwright runs route handlers in LIFO order. The handler that registered last wins.
+- If you register the spy before `mockBackend`, the seed mock catches the request. The spy then never fires.
 
 ```ts
 await mockBackend({ preferences: seedBlob })
@@ -173,24 +158,27 @@ await page.route('**/api/preferences', (route, req) => {
 
 ## 5.15 · E2E tests MUST assert zero unexpected console errors / warnings
 
-A Playwright e2e (or Playwright MCP investigation) that asserts only
-on DOM state is half-blind. A page can have the right elements in the
-right place AND simultaneously emit red errors that crash a different
-code path, leak unhandled promises, or fire React warnings that
-correlate with a real bug. DOM-passing + console-failing is exactly
-the failure mode the user finds first on manual test.
+A Playwright e2e test that asserts only on DOM state is half-blind. The same is true for a Playwright MCP investigation.
 
-**Incident**: 2026-05-24 settings-page flash-and-disappear regression.
-My Playwright check confirmed URL stays at `/settings`, the
-`[data-section="markdown-export"]` exists, the new checkbox toggles,
-and `localStorage` updates. All green. The user opened the same page
-in their browser and reported "flashes on and disappears" — visible
-on first manual test because their console had errors mine never
-asserted on.
+- A page can have the right elements in the right place.
+- At the same time, the page can emit red errors. These errors can:
+  - crash a different code path
+  - leak unhandled promises
+  - fire React warnings that correlate with a real bug
+- A test that passes on the DOM but fails on the console is exactly the failure mode that the user finds first in a manual test.
 
-**Rule**: every Playwright `*.spec.ts` test MUST install a
-console-error capture in `beforeEach` and assert empty in `afterEach`,
-modulo an explicit allowlist. Suggested fixture:
+**Incident**: the 2026-05-24 settings-page flash-and-disappear regression.
+
+- My Playwright check confirmed four things:
+  - The URL stays at `/settings`.
+  - The `[data-section="markdown-export"]` exists.
+  - The new checkbox toggles.
+  - `localStorage` updates.
+- All four checks were green.
+- The user opened the same page in their browser and reported "flashes on and disappears".
+- The problem was visible on the first manual test, because the user's console had errors that my check never asserted on.
+
+**Rule**: every Playwright `*.spec.ts` test must install a console-error capture in `beforeEach`. The test must assert in `afterEach` that the capture is empty. The only exceptions are the patterns in an explicit allowlist. Suggested fixture:
 
 ```typescript
 import { test as base } from '@playwright/test'
@@ -225,43 +213,57 @@ export const test = base.extend<{ consoleCapture: ConsoleCapture }>({
 ```
 
 **Rule for Playwright MCP investigation** (interactive debugging):
-after EVERY navigation and after EVERY meaningful action, call
-`mcp__playwright__browser_console_messages({ level: 'warning', all: true })`.
-Errors that fire during a navigation tell you which navigation broke;
-checking only at the end loses the timeline. A clean `level: 'error'`
-response is NOT enough — React warnings (missing keys, missing
-`aria-describedby`, effect-dependency drift) often correlate with
-the bug under investigation.
 
-**Allowlist hygiene**: the allowlist is explicit (each pattern has a
-comment naming the source and why it's tolerated), not a blanket
-skip. A new pattern in the allowlist is a code-review checkpoint.
+- After every navigation and after every meaningful action, call `mcp__playwright__browser_console_messages({ level: 'warning', all: true })`.
+- Errors that fire during a navigation tell you which navigation broke. If you check only at the end, you lose the timeline.
+- A clean `level: 'error'` response is not enough. React warnings often correlate with the bug under investigation. Examples of these warnings:
+  - missing keys
+  - missing `aria-describedby`
+  - effect-dependency drift
 
-The §5.13/§5.14 framing extends here: asserting "the DOM has X" pins
-an implementation rule; asserting "the console has no errors" pins
-the user-observable contract (the developer opening the browser dev
-tools is part of the contract — red text there IS a bug). Both are
-required.
+**Allowlist hygiene**:
+
+- The allowlist is explicit. It is not a blanket skip.
+- Each pattern has a comment that names the source and the reason that the pattern is tolerated.
+- A new pattern in the allowlist is a code-review checkpoint.
+
+The framing of [§5.13](backend-contracts.md) and [§5.14](backend-contracts.md) also applies here:
+
+- An assertion that "the DOM has X" pins an implementation rule.
+- An assertion that "the console has no errors" pins the user-observable contract.
+  - The developer who opens the browser dev tools is part of the contract.
+  - Red text in the dev tools is a bug.
+- Both assertions are required.
 
 ## 5.17 · Specs with a local `mockBackend(page)` MUST mock `/api/preferences`
 
-Any spec that defines its OWN local `async function mockBackend(page)`
-helper (i.e. does NOT use the shared `mockBackend` fixture from
-`frontend/e2e/fixtures.ts`) must also mock `**/api/preferences`. Without
-the mock, GET/PATCH/PUT `/api/preferences` falls through Vite's dev-
-server proxy to whatever backend happens to be running on `:8765`, so
-prefs like `rightPaneTab`, `searchPanel.isOpen`, `showCompactions`, and
-`showToolCalls` persist across browser contexts and bleed between
-tests.
+Some specs define their own local `async function mockBackend(page)` helper. These specs do not use the shared `mockBackend` fixture from `frontend/e2e/fixtures.ts`. Each of these specs must also mock `**/api/preferences`.
 
-The 2026-06-01 recovery surfaced this as the root cause of every
-remaining post-Tailscale-fix flake (bookmarks, compact-markers,
-cowork-multi-org, force-refetch, per-bubble-tools, redownload-
-conversation, url-navigation, search-compact-auto-expand,
-connection-status). Symptom shape: an assertion fails because a UI
-toggle / panel state set by a sibling test persists into the current
-test's first render. The failure looks like a UI race; the root cause
-is server-side state.
+If this mock is missing, these problems occur:
+
+- GET/PATCH/PUT `/api/preferences` falls through the Vite dev-server proxy to any backend that runs on `:8765` at that time.
+- Prefs persist across browser contexts and leak from one test into another. Examples of these prefs:
+  - `rightPaneTab`
+  - `searchPanel.isOpen`
+  - `showCompactions`
+  - `showToolCalls`
+
+The 2026-06-01 recovery found this problem as the root cause of every flake that remained after the Tailscale fix. These specs had the flakes:
+
+- bookmarks
+- compact-markers
+- cowork-multi-org
+- force-refetch
+- per-bubble-tools
+- redownload-conversation
+- url-navigation
+- search-compact-auto-expand
+- connection-status
+
+The symptom has this shape:
+
+- An assertion fails because a UI toggle or a panel state from a sibling test persists into the first render of the current test.
+- The failure looks like a UI race. The root cause is server-side state.
 
 Use the shared helper:
 
@@ -276,16 +278,15 @@ async function mockBackend(page: Page) {
 }
 ```
 
-The helper supports GET (returns the current blob), PATCH (merges the
-body into the blob), PUT (overwrites the blob), and 405 for everything
-else. Status-quo behavior; no migration cost for existing call sites.
+The helper supports these methods:
 
-**Rule for new specs**: if you write a local `mockBackend(page)`, audit
-your route mocks for `/api/preferences` coverage AS PART OF THE PR
-review. If `/api/preferences` is missing, that's a Vite-proxy leak
-waiting to flake the next sibling test that toggles a pref.
+- GET returns the current blob.
+- PATCH merges the body into the blob.
+- PUT overwrites the blob.
+- All other methods return 405.
 
-The shared `mockBackend` fixture from `fixtures.ts` already wires its
-own prefs mock with the same shape (accepting `preferences` /
-`sharedPrefsState` options). Specs using the shared fixture do NOT
-need this helper.
+The helper keeps the status-quo behavior. Existing call sites have no migration cost.
+
+**Rule for new specs**: if you write a local `mockBackend(page)`, audit your route mocks for `/api/preferences` coverage as part of the PR review. If `/api/preferences` is missing, the spec has a Vite-proxy leak. That leak can cause a flake in the next sibling test that toggles a pref.
+
+The shared `mockBackend` fixture from `fixtures.ts` already sets up its own prefs mock with the same shape. That fixture accepts the `preferences` and `sharedPrefsState` options. Specs that use the shared fixture do not need this helper.

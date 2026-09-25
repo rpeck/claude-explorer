@@ -12,7 +12,7 @@
 ## Manual checks
 
 CI cannot test Claude Desktop, certificate trust, or a real login.
-[TESTING.md §8](https://github.com/rpeck/claude-explorer/blob/main/TESTING.md#8--verifying-each-platform-by-hand) lists the checks that a person must run.
+[§8 in testing/manual-checks.md](https://github.com/rpeck/claude-explorer/blob/main/testing/manual-checks.md) lists the checks that a person must run.
 
 **If this change touches any of these areas, run the matching §8 steps:**
 

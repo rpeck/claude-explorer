@@ -1,26 +1,36 @@
 # Testing: Backend isolation and mocking
 
-Part of [TESTING.md](../../TESTING.md). Read this file when: you write pytest fixtures, mocks, or monkeypatches.
+Part of [TESTING.md](../TESTING.md). Read this file when you write pytest fixtures, mocks, or monkeypatches.
 
 ## 5 · Backend test discipline (pytest, FastAPI, async)
 
-The Playwright lessons from sections 1–4 transpose cleanly to pytest:
-write tests against the contract, falsify them, build realistic
-fixtures, beware of clip-ancestor-style false-positives. The shape of
-the false-positives is different on the backend, but the discipline is
-the same. The 11 sub-sections below are concrete failure modes we've
-shipped or nearly shipped.
+The Playwright lessons in [§1, §2, §4](principles.md) and [§3](playwright.md) also apply to pytest:
+
+- Write tests against the contract.
+- Falsify the tests.
+- Build realistic fixtures.
+- Be careful of false positives of the clip-ancestor type.
+
+On the backend, the false positives have a different shape. The discipline is the same.
+
+The sub-sections of §5 are concrete failure modes that we shipped or almost shipped. They are in four files:
+
+- §5.1 to §5.5 and §5.12: this file.
+- §5.6 to §5.11: [backend-behaviors.md](backend-behaviors.md).
+- §5.13, §5.14 and §5.16: [backend-contracts.md](backend-contracts.md).
+- §5.15 and §5.17: [playwright.md](playwright.md).
 
 ## 5.1 · Test isolation: lru_cache, env vars, module singletons, time
 
-Backend false-pass class #1: a test passes because it's actually
-running against state from a *previous* test.
+Backend false-pass class #1: a test passes because it actually runs against state from a *previous* test.
 
-**`get_settings()` is `@lru_cache`d.** If your test does
-`monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(tmp_path))` but
-doesn't clear the cache, every subsequent `get_settings()` call
-returns the FIRST test's settings. `tmp_path` from this test is never
-read. Fixture template:
+**`get_settings()` uses `@lru_cache`.**
+
+- Your test can do `monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(tmp_path))` and not clear the cache.
+- Then each later `get_settings()` call returns the settings of the FIRST test.
+- The code never reads the `tmp_path` of this test.
+
+Use this fixture template:
 
 ```python
 @pytest.fixture
@@ -32,29 +42,33 @@ def isolated_data_dir(tmp_path, monkeypatch):
     config.get_settings.cache_clear()  # don't leak this test's settings into the next
 ```
 
-**Module-level singletons need explicit reset.** Examples in this
-codebase: `_refresh_in_progress` flag in `backend/routers/fetch.py`,
-the `_seen` set in `backend/cc_watcher.py`, the in-memory cache
-in `backend/cache.py`. Each has a test-only `reset_for_tests()`
-helper or equivalent — call it from a fixture.
+**Reset module-level singletons explicitly.** These are examples in this codebase:
 
-**Time-dependent tests need `freezegun` or `monkeypatch`.** `migrate_to_v2`'s
-sentinel uses `datetime.now()`; tests that race the sentinel can flake
-on slow CI. `monkeypatch.setattr("backend.foo.datetime", FakeDatetime)`
-or use `freezegun.freeze_time(...)`.
+- the `_refresh_in_progress` flag in `backend/routers/fetch.py`
+- the `_seen` set in `backend/cc_watcher.py`
+- the in-memory cache in `backend/cache.py`
 
-**`tmp_path` is per-test by default** but `tmp_path_factory` is
-session-scoped and shared. Don't write user data to `tmp_path_factory`
-unless you reset it.
+Each singleton has a test-only `reset_for_tests()` helper or an equivalent. Call it from a fixture.
 
-**Constants imported by value need patching at every call site.**
-`fetcher/credentials.py` defines `DEFAULT_CREDENTIALS_PATH = ...`, and
-*three* other modules import the constant by value at module-load time:
-`fetcher/bulk_fetch.py`, `backend/routers/fetch.py`, and re-imports in
-tests. `monkeypatch.setattr("fetcher.credentials.DEFAULT_CREDENTIALS_PATH",
-new)` ONLY rebinds the canonical name — the three by-value copies still
-point at `~/.claude-explorer/credentials.json`. The fixture must patch
-all four:
+**Use `freezegun` or `monkeypatch` in time-dependent tests.**
+
+- The sentinel of `migrate_to_v2` uses `datetime.now()`.
+- Tests that race the sentinel can fail at random on slow CI.
+- Use `monkeypatch.setattr("backend.foo.datetime", FakeDatetime)`, or use `freezegun.freeze_time(...)`.
+
+**`tmp_path` is per-test by default.**
+
+- `tmp_path_factory` is session-scoped and shared.
+- Unless you reset `tmp_path_factory`, do not write user data to it.
+
+**Patch a constant that other modules import by value at every call site.** `fetcher/credentials.py` defines `DEFAULT_CREDENTIALS_PATH = ...`. *Three* other modules import the constant by value at module-load time:
+
+- `fetcher/bulk_fetch.py`
+- `backend/routers/fetch.py`
+- re-imports in tests
+
+`monkeypatch.setattr("fetcher.credentials.DEFAULT_CREDENTIALS_PATH",
+new)` rebinds ONLY the canonical name. The three by-value copies still point at `~/.claude-explorer/credentials.json`. The fixture must patch all four:
 
 ```python
 @pytest.fixture
@@ -69,81 +83,84 @@ def _isolated_credentials_path(tmp_path, monkeypatch):
     yield creds
 ```
 
-Same pattern applies to any module that does
-`from foo import CONSTANT` rather than `from foo import bar; bar.CONSTANT`.
-Grep for the constant name globally; if it appears as a bare-name import
-anywhere, patch each binding.
+The same pattern applies to each module that does `from foo import CONSTANT` and not `from foo import bar; bar.CONSTANT`.
 
-**`CLAUDE_DIR` and `CLAUDE_EXPLORER_DATA_DIR` are different knobs.**
-`CLAUDE_DIR` controls where `~/.claude-explorer/` itself resolves
-(used by capture, credentials, and the orgs router);
-`CLAUDE_EXPLORER_DATA_DIR` controls where `conversations/` lives.
-A test that only pins `CLAUDE_EXPLORER_DATA_DIR` can still scribble
-into the user's real `~/.claude-explorer/credentials.json` if the
-code under test goes through the credentials path. Pin both unless
-you've verified the call graph never touches credentials.
+1. Grep for the constant name in the full codebase.
+2. If the name appears as a bare-name import anywhere, patch each binding.
 
-**`isolated_data_dir` must be a SUBDIRECTORY of `tmp_path`, not
-`tmp_path` itself.** `_resolve_path` uses
-`data_dir.parent / "preferences.json"`, so `preferences.json` lives one
-level up from the data dir. If the fixture uses `tmp_path` directly,
-`preferences.json` lands in the pytest tmp root and bleeds across tests
-on the same worker. The reference fixture uses `<tmp_path>/data` — `data/`
-is the data dir, `<tmp_path>/preferences.json` is the prefs file.
+**`CLAUDE_DIR` and `CLAUDE_EXPLORER_DATA_DIR` are different settings.**
 
-**`real_async_client` is orthogonal to data isolation.** The `httpx.AsyncClient`
-+ `ASGITransport(app=...)` fixture used for SSE/concurrency tests does NOT
-imply isolated disk. Compose explicitly: a test that streams over real ASGI
-AND touches preferences/credentials must use `real_async_client` PLUS
-`isolated_data_dir` PLUS (if creds are involved) `_isolated_credentials_path`.
-Don't fold them; an SSE test for a read-only endpoint shouldn't pay the
-disk-isolation cost it doesn't need.
+- `CLAUDE_DIR` controls where `~/.claude-explorer/` itself resolves. Capture, credentials, and the orgs router use it.
+- `CLAUDE_EXPLORER_DATA_DIR` controls where `conversations/` lives.
+- A test can pin only `CLAUDE_EXPLORER_DATA_DIR`. That test can still write into the real `~/.claude-explorer/credentials.json` of the user. This occurs if the code under test goes through the credentials path.
+- Unless you verified that the call graph never touches credentials, pin both.
 
-**Do not compute a home-relative path at import time.** A module
-constant such as `Path.home() / "Library" / ...` freezes the developer's
-real home before any test runs. `patch_home` (in
-`backend/tests/_platform_home.py`) changes `HOME` later, so it cannot
-redirect that constant.
+**Make `isolated_data_dir` a SUBDIRECTORY of `tmp_path`. Do not use `tmp_path` itself.**
 
-- **What happened:** on 2026-09-23 a corrupt-config test ran
-  `install-watcher --uninstall` under a patched home. The plist path
-  was a module constant, so every local test run deleted the
-  maintainer's real launchd watcher.
-- **The rule:** make the path a function that reads `Path.home()` when
-  it is called. `cli/watcher.py` now does this.
-- **The guard:** `test_watcher_paths_follow_home.py`. It asserts that
-  each path follows the patched home, and that no subprocess argument
-  leaves it.
+- `_resolve_path` uses `data_dir.parent / "preferences.json"`. Thus `preferences.json` is one level above the data dir.
+- If the fixture uses `tmp_path` directly, `preferences.json` goes into the pytest tmp root. The file then leaks across tests on the same worker.
+- The reference fixture uses `<tmp_path>/data`:
+  - `data/` is the data dir.
+  - `<tmp_path>/preferences.json` is the prefs file.
 
-**Lifecycle tests must be order-independent.** Don't rely on file
-collection order (`test_zz_step1_set_flag`, `test_zz_step2_observe_flag`);
-pytest-randomly and pytest-xdist will reorder or split them across workers
-and the second test will see uninitialized state. Pattern: extract the
-fixture body into a plain helper (`def _reset_refresh_flag_body(...): ...`)
-and have BOTH the fixture and any lifecycle test call the helper directly.
-The test asserts on observable state after each helper invocation in the
-same function body.
+**`real_async_client` is orthogonal to data isolation.**
+
+- SSE and concurrency tests use a fixture with `httpx.AsyncClient` + `ASGITransport(app=...)`. That fixture does NOT give isolated disk.
+- Combine the fixtures explicitly. A test that streams over real ASGI AND touches preferences or credentials uses `real_async_client` PLUS `isolated_data_dir`.
+- If the test also involves credentials, add `_isolated_credentials_path`.
+- Do not fold the fixtures into one. An SSE test for a read-only endpoint does not need the cost of disk isolation.
+
+**Do not compute a home-relative path at import time.** A module constant such as `Path.home() / "Library" / ...` stores the real home of the developer before any test runs. `patch_home` (in `backend/tests/_platform_home.py`) changes `HOME` later. Thus it cannot redirect that constant.
+
+- **What happened:**
+  - On 2026-09-23, a corrupt-config test ran `install-watcher --uninstall` under a patched home.
+  - The plist path was a module constant.
+  - Thus each local test run deleted the real launchd watcher of the maintainer.
+- **The rule:** make the path a function that reads `Path.home()` at call time. `cli/watcher.py` now does this.
+- **The guard:** `test_watcher_paths_follow_home.py`. It asserts two conditions:
+  - Each path follows the patched home.
+  - No subprocess argument leaves the patched home.
+
+**Make lifecycle tests order-independent.**
+
+- Do not rely on the order in which pytest collects files (`test_zz_step1_set_flag`, `test_zz_step2_observe_flag`).
+- pytest-randomly and pytest-xdist reorder these tests or split them across workers. Then the second test sees uninitialized state.
+
+Use this pattern:
+
+1. Extract the fixture body into a plain helper (`def _reset_refresh_flag_body(...): ...`).
+2. Make BOTH the fixture and each lifecycle test call the helper directly.
+3. In the same function body, make the test assert on observable state after each call to the helper.
 
 ## 5.2 · Mock at the boundary, not the nesting
 
-Backend false-pass class #2: the test mocks so much of the
-implementation that the real bug never runs.
+Backend false-pass class #2: the test mocks so much of the implementation that the real bug never runs.
 
-**Rule.** Mock at the HTTP boundary (outbound calls to claude.ai), or
-at the filesystem boundary in the rare case where `tmp_path` won't
-work. Let everything else run for real.
+**Rule.**
 
-**Don't mock:** Pydantic models, serializers, migration code, the
-prefs reader/writer, the store layer, the route handlers, the SSE
-generators. They're cheap and they're where the bugs live.
+- Mock at the HTTP boundary (outbound calls to claude.ai).
+- In the rare case where `tmp_path` does not work, mock at the filesystem boundary.
+- Let all other code run for real.
 
-**Counter-example.** The `/api/preferences` PATCH deep-merge contract
-(`{savedFilters: null, activeFilterIds: null}` must explicitly null
-legacy keys for the per-key overwrite to clear them). A test that
-mocks `_write_atomic` and asserts "yes, _write_atomic was called with
-the right body" passes — but the real bug is what lands on disk after
-the round trip through `_read_blob() → merge → _write_atomic →
-_read_blob()`. Only a real-`tmp_path` test catches it.
+**Do not mock these parts:**
+
+- Pydantic models
+- serializers
+- migration code
+- the prefs reader/writer
+- the store layer
+- the route handlers
+- the SSE generators
+
+These parts are cheap to run, and the bugs are in them.
+
+**Counter-example.** Look at the deep-merge contract of the `/api/preferences` PATCH.
+
+- The contract: `{savedFilters: null, activeFilterIds: null}` must explicitly null the legacy keys, so that the per-key overwrite clears them.
+- A test can mock `_write_atomic` and assert "yes, _write_atomic was called with the right body". That test passes.
+- But the real bug is in the data on disk after the round trip through `_read_blob() → merge → _write_atomic →
+_read_blob()`.
+- Only a test with a real `tmp_path` catches the bug.
 
 ```python
 # WRONG: mocks too much
@@ -168,52 +185,54 @@ def test_patch_merges(isolated_data_dir, client):
 
 ## 5.3 · Strong assertions, not "field exists"
 
-Backend false-pass class #3: the assertion checks structure but not
-semantic value. The field could be hardcoded to 0, an empty array,
-`None`, or last-write-wins junk and the test still passes.
+Backend false-pass class #3: the assertion checks the structure but not the semantic value. The field can hold any of these values, and the test still passes:
+
+- a hardcoded 0
+- an empty array
+- `None`
+- last-write-wins junk
 
 **Examples.**
 
-- `assert "conversation_count" in data` — passed for weeks while
-  `/api/config` returned a hardcoded `0`. The right test asserts
-  against a value computed from a known fixture: with 3 conversation
-  files in `tmp_path`, `/api/config/stats` returns `3`.
-- `assert response.json()["bookmarks"]` — Python truthy. `[]` is
-  falsy, `[None]` is truthy. Assert `assert response.json()["bookmarks"]
+- `assert "conversation_count" in data`:
+  - This assertion passed for weeks while `/api/config` returned a hardcoded `0`.
+  - The correct test asserts against a value computed from a known fixture.
+  - For example: with 3 conversation files in `tmp_path`, `/api/config/stats` returns `3`.
+- `assert response.json()["bookmarks"]`:
+  - This checks Python truthiness. `[]` is falsy, and `[None]` is truthy.
+  - Assert the full value: `assert response.json()["bookmarks"]
   == [{...expected...}]`.
-- `assert response.status_code == 200` — most route bugs corrupt the
-  body, not the status. Always also assert the body shape and key
-  values.
+- `assert response.status_code == 200`:
+  - Most route bugs corrupt the body, not the status.
+  - Always also assert the body shape and the key values.
 
-**For PDF / image / binary outputs:** assert against a known fixture
-byte signature, NOT just "≥1 image stream". WeasyPrint emits valid
-streams for broken-image icons; "stream count" can't tell broken from
-fixed. The P5 test (`backend/tests/test_export_pdf_images.py`) decodes
-the FlateDecode XObject and matches a deterministic 6-byte RGB
-sequence in the fixture image. Bytes-in, bytes-out.
+**For PDF, image, or binary outputs:** assert against a known fixture byte signature. Do NOT assert only "≥1 image stream".
+
+- WeasyPrint emits valid streams for broken-image icons. Thus a "stream count" cannot tell broken from fixed.
+- The P5 test (`backend/tests/test_export_pdf_images.py`) decodes the FlateDecode XObject.
+- The test then matches a deterministic 6-byte RGB sequence in the fixture image.
+- Bytes in, bytes out.
 
 ## 5.4 · Negative-space assertions
 
-Don't only assert what should change. Also assert what should NOT
-change. This catches the entire class of "endpoint clobbers
-unrelated state" bugs.
+Do not assert only what must change. Also assert what must NOT change. This catches the full class of "endpoint clobbers unrelated state" bugs.
 
 **Concrete patterns.**
 
-- After a PATCH: GET back the resource and assert untouched fields.
-- After a migration: assert the keys you didn't migrate are still
-  there, and the values are byte-identical (`.read_bytes() ==
-  expected_bytes` if it's a file).
-- After copying to a cache: assert the source file is unchanged
-  (mtime + bytes).
-- After a delete: assert siblings/parents are unchanged.
+- After a PATCH: GET the resource back, and assert the untouched fields.
+- After a migration: assert that the keys you did not migrate are still there. Also assert that their values are byte-identical (`.read_bytes() ==
+  expected_bytes` if it is a file).
+- After a copy to a cache: assert that the source file did not change (mtime + bytes).
+- After a delete: assert that siblings and parents did not change.
 
-**Fenced-block strip incident (2026-05-05 P1.3, council caught).** The
-TOOL_PLACEHOLDER regex stripped placeholder text *inside* fenced code
-blocks, killing the friendly badge. A "strip works" test passes
-trivially. The real test is two-pronged: stripped *outside* fences;
-*preserved* inside fences. Negative-space assertion as a first-class
-test, not an afterthought.
+**Fenced-block strip incident (2026-05-05 P1.3, the council caught it).**
+
+- The TOOL_PLACEHOLDER regex stripped placeholder text *inside* fenced code blocks. This removed the friendly badge.
+- A "strip works" test passes trivially.
+- The real test has two parts:
+  - The text is stripped *outside* fences.
+  - The text is *preserved* inside fences.
+- Make the negative-space assertion a first-class test, not an afterthought.
 
 ```python
 def test_tool_placeholder_strip_outside_fence_only():
@@ -225,16 +244,23 @@ def test_tool_placeholder_strip_outside_fence_only():
 
 ## 5.5 · Migration tests MUST seed the legacy shape
 
-Backend false-pass class #4 (and the most common): tests seed the new
-schema, the migration code never runs, and the test happily verifies
-the new schema is still the new schema.
+Backend false-pass class #4 (and the most common):
 
-**Rule.** Migration tests seed the on-disk shape USERS WILL HAVE
-(legacy), then run the migration, then assert the post-migration
-shape AND the full contract of what the migration was supposed to do
-(tombstone keys, sentinel flags, side effects).
+- The tests seed the new schema.
+- Thus the migration code never runs.
+- The test only verifies that the new schema is still the new schema.
 
-**v1 → v2 filter migration template.**
+**Rule.** A migration test does these steps:
+
+1. Seed the on-disk shape that USERS ACTUALLY HAVE (legacy).
+2. Run the migration.
+3. Assert the post-migration shape.
+4. Assert the full contract of the migration:
+   - tombstone keys
+   - sentinel flags
+   - side effects
+
+**Template for the v1 → v2 filter migration.**
 
 ```python
 def test_v1_to_v2_atom_polarity_promotes_to_behavior(isolated_data_dir, client):
@@ -270,21 +296,21 @@ def test_v1_to_v2_atom_polarity_promotes_to_behavior(isolated_data_dir, client):
     assert final["activeId"] == "atom-x"      # active preserved
 ```
 
-**Idempotency.** Run the migration twice. Assert the second run is a
-no-op (no PATCH, no on-disk diff). The 2026-05-05 P3a fix uses a
-sentinel for exactly this; if the sentinel can be bypassed, the
-migration runs every page load and silently rewrites user state.
+**Idempotency.** Run the migration two times. Assert that the second run is a no-op (no PATCH, no on-disk diff).
 
-**Tombstone keys.** When a migration is supposed to clear legacy keys
-(via the per-key-overwrite PATCH path), assert they're EXPLICITLY
-nulled in the request body OR absent from the post-migration GET.
-Omitting them from the PATCH leaves them on disk — that's exactly the
-bug Gemini's council review caught in CFR1.
+- The 2026-05-05 P3a fix uses a sentinel for exactly this purpose.
+- If code can bypass the sentinel, the migration runs on each page load. It then silently rewrites user state.
+
+**Tombstone keys.** Some migrations must clear legacy keys through the per-key-overwrite PATCH path. For these migrations, assert one of these conditions:
+
+- The request body EXPLICITLY nulls the keys.
+- The keys are absent from the post-migration GET.
+
+If the PATCH omits the keys, the keys stay on disk. The council review by Gemini caught exactly this bug in CFR1.
 
 ## 5.12 · Monkeypatching: prefer attribute-patch over value-binding
 
-The way a test rebinds a symbol determines whether the module under
-test can be safely refactored. Two distinct idioms:
+The way a test rebinds a symbol determines whether you can safely refactor the module under test. There are two different idioms:
 
 ```python
 # ✓ ATTRIBUTE PATCH (refactor-safe)
@@ -299,47 +325,43 @@ saved_real = save_credentials
 monkeypatch.setattr(saved_real, "__call__", fake_save)  # doesn't do what you think
 ```
 
-**Why this matters.** When the module under test imports a helper from
-elsewhere (`from .helpers import save_credentials`), the helper is bound
-to the local module's namespace AT IMPORT TIME. A test that
-attribute-patches the local namespace (`fetch_router.save_credentials =
-...`) reaches through to the late-bound runtime call. A test that
-value-binds a snapshot of the function won't see updates.
+**Why this matters.**
 
-**The refactor-safety consequence.** If you extract `save_credentials`
-out of `fetch.py` into a new `fetch_pipeline.py` module:
+- The module under test can import a helper from another module (`from .helpers import save_credentials`).
+- Python then binds the helper to the namespace of the local module AT IMPORT TIME.
+- A test that attribute-patches the local namespace (`fetch_router.save_credentials =
+...`) reaches the late-bound runtime call.
+- A test that value-binds a snapshot of the function does not see updates.
 
-- Tests that use **attribute-patch on `fetch_router`** keep working iff
-  `fetch_router` still has `save_credentials` as a top-level attribute
-  (i.e., it's re-imported at the top of `fetch.py`). Mass refactors
-  that move helpers out without re-importing them break these tests
-  silently — the patch lands on a module that no longer routes the
-  call through.
+**The consequence for refactor safety.** Assume that you extract `save_credentials` out of `fetch.py` into a new `fetch_pipeline.py` module.
 
+- Tests that use **attribute-patch on `fetch_router`**:
+  - These tests continue to work iff `fetch_router` still has `save_credentials` as a top-level attribute. That is, `fetch.py` re-imports it at the top.
+  - Mass refactors that move helpers out without a re-import break these tests silently. The patch goes to a module that no longer sends the call through.
 - Tests that use **value-binding** (`from backend.routers.fetch import
-  save_credentials; ... = fake`) only patch the test's local symbol —
-  the route's call goes through to the real `save_credentials`. These
-  tests are vacuously green and DON'T catch the bug they should.
+  save_credentials; ... = fake`):
+  - These tests patch only the local symbol of the test. The call of the route goes to the real `save_credentials`.
+  - These tests are vacuously green. They do NOT catch the bug that they exist to catch.
 
-**Incident**: the 2026-05-21 A2 refactor of `routers/fetch.py`
-surfaced this. The Engineer council persona (gpt-5.2-pro) caught that
-23+ tests used the attribute-patch idiom against `fetch_router`, which
-forced the council to ship a CONSERVATIVE split (preserve top-level
-attributes on `fetch_router`) instead of the aggressive split the
-Architect originally proposed. Detailed in
-`PLANS/CODE-REVIEW-BACKEND.md`.
+**Incident:** the 2026-05-21 A2 refactor of `routers/fetch.py` showed this problem.
 
-**Rule**: prefer attribute-patch via `monkeypatch.setattr(module,
-"name", fake)`. Avoid value-binding via `from module import name` in
-test files — it makes future refactors strictly harder. When
-refactoring a module that has heavy test coverage, run this grep
-FIRST to surface the landmine count:
+- The Engineer council persona (gpt-5.2-pro) found that 23+ tests used the attribute-patch idiom against `fetch_router`.
+- This forced the council to ship a CONSERVATIVE split. That split preserves the top-level attributes on `fetch_router`.
+- The Architect originally proposed an aggressive split. The council shipped the conservative split instead.
+- `PLANS/CODE-REVIEW-BACKEND.md` has the details.
+
+**Rule:** prefer attribute-patch through `monkeypatch.setattr(module,
+"name", fake)`.
+
+- Avoid value-binding through `from module import name` in test files. It makes future refactors strictly harder.
+- Before you refactor a module that has heavy test coverage, run this grep FIRST. It shows the count of risky patch sites:
 
 ```bash
 grep -rnE 'monkeypatch\.setattr\(|patch\.object\(|patch\(["\'][^"\']*<module>' \
   backend/tests/ fetcher/tests/ | grep -E '<module>' | wc -l
 ```
 
-If the count is > 0, the refactor must either (a) preserve top-level
-attributes on the original module via re-export, or (b) migrate the
-test sites in lockstep.
+If the count is > 0, the refactor must do one of these:
+
+- (a) Preserve top-level attributes on the original module through re-export.
+- (b) Migrate the test sites in lockstep with the refactor.
