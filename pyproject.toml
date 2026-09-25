@@ -143,6 +143,7 @@ exclude = [
     # clutter the sdist on PyPI. Excluded from sdist only — still in repo.
     "AGENTS.md",
     "TESTING.md",
+    "testing/**",
 ]
 
 # Custom build hook that bundles the frontend into the wheel. Only fires for
