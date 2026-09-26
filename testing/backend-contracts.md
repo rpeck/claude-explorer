@@ -262,7 +262,7 @@ As a result, the user got a confident "the test suite passes", but the suite did
     Thus it catches silent non-execution even when you do not know the historical numbers.
   - A parse, import, or collection error drops a *whole file*.
     Thus `disk-file-count > collected` is the direct signal.
-  - The check for each runner follows. [§0](../TESTING.md) has the current numbers.
+  - The check for each runner follows. [§0](../TESTING.md) has the current numbers, and PowerShell forms of these commands for Windows.
     - **vitest**: `find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l` must equal the total in parentheses in `Test Files N passed (N)`. If a file fails, the reporter prints `M failed | N passed (T)`, and `T` is still the total.
     - **Playwright**: `find frontend/e2e -name '*.spec.ts' | wc -l` must equal the file count in the `Total: N tests in M files` footer of `npx playwright test --list`.
       - On a parse-broken file, `--list` *fails outright*.

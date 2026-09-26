@@ -12,6 +12,10 @@ task needs.
 2. Find your task in the table below.
 3. Open the file in that row.
 
+The guide applies on macOS, Linux, and Windows. Where a command differs by
+platform, the text gives each form. On Windows, run the remaining bash-only
+commands in Git Bash, which comes with Git for Windows.
+
 Each section keeps its number. Test docstrings and comments across the
 codebase cite sections as `TESTING.md §5.14`. Use the table to find the file
 for any cited number.
@@ -57,13 +61,15 @@ for any cited number.
 Run each suite from the repository root:
 
 ```bash
-uv run pytest                        # backend, fetcher, MCP server; parallel
-uv run pytest -n 0                   # the same suite, serially
-cd frontend && npx vitest run        # frontend unit tests
-cd frontend && npx playwright test   # end-to-end tests
+uv run pytest            # backend, fetcher, MCP server; parallel
+uv run pytest -n 0       # the same suite, serially
+cd frontend
+npx vitest run           # frontend unit tests
+npx playwright test      # end-to-end tests
 ```
 
-Run each line on its own. Each line starts from the repository root.
+These commands work in bash, zsh, and PowerShell. The last two run in the
+`frontend` folder.
 
 **Run the Python suite serially from time to time.** Parallel execution hides
 order-dependent failures.
@@ -95,6 +101,8 @@ exit code of the runner to verify it.
      - Redirect the full output to a file, and read the file.
      - Keep the runner status through the pipeline: `set -o pipefail`,
        `${PIPESTATUS[0]}` in bash, or `$pipestatus[1]` in zsh.
+     - In PowerShell, read `$LASTEXITCODE` right after the command. A
+       pipeline into a cmdlet such as `Select-Object` does not change it.
 2. **"0 failed" is not "green". Verify the COUNT.**
    - A parse, import, or collection error can make a suite "succeed" while it
      tests nothing. An empty filter can do the same.
@@ -130,6 +138,11 @@ exit code of the runner to verify it.
      - pytest: compare `find backend fetcher mcp_server -name 'test_*.py' | wc -l`
        (= 179) with the unique files from
        `uv run pytest --collect-only -q -n 0` (= 178).
+     - On Windows, use these PowerShell forms. They give the same numbers:
+       - vitest: `(Get-ChildItem frontend/src -Recurse -Include *.test.ts,*.test.tsx).Count`
+       - Playwright: `(Get-ChildItem frontend/e2e -Recurse -Filter *.spec.ts).Count`
+       - pytest on disk: `(Get-ChildItem backend,fetcher,mcp_server -Recurse -Filter test_*.py).Count`
+       - pytest collected: `(uv run pytest --collect-only -q -n 0 | Select-String '::' | ForEach-Object { ($_.Line -split '::')[0] } | Sort-Object -Unique).Count`
        - The **expected** difference is the serial benchmark, deselected on
          purpose: `-m 'not serial'` drops
          `backend/tests/test_search_index_benchmark.py`.

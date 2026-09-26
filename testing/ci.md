@@ -153,7 +153,7 @@ drag-drop. Three facts argue against its use here:
 
 - It runs against the display of a VM. Thus it is slow, and it breaks when
   a dialog moves or changes its text.
-- Proxy capture needs the real account of the maintainer. Do not give that
+- Proxy capture needs the real Claude account of the tester. Do not give that
   login to an automated tool.
 - Each check runs once per release. Thus the manual cost is small.
 

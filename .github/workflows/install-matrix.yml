@@ -438,6 +438,43 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: brew install pango cairo libffi
+      - name: The documented count commands work (POSIX)
+        # TESTING.md §0 tells readers to verify test counts with these exact
+        # commands. Check each one against an independent count by Python.
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          py() { uv run python -c "$1"; }
+          vitest=$(find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l | tr -d ' ')
+          spec=$(find frontend/e2e -name '*.spec.ts' | wc -l | tr -d ' ')
+          disk=$(find backend fetcher mcp_server -name 'test_*.py' | wc -l | tr -d ' ')
+          collected=$(uv run pytest --collect-only -q -n 0 2>&1 | grep '::' | cut -d: -f1 | sort -u | wc -l | tr -d ' ')
+          want_vitest=$(py "from pathlib import Path; print(sum(1 for p in Path('frontend/src').rglob('*') if p.name.endswith(('.test.ts', '.test.tsx'))))")
+          want_spec=$(py "from pathlib import Path; print(len(list(Path('frontend/e2e').rglob('*.spec.ts'))))")
+          want_disk=$(py "from pathlib import Path; print(sum(len(list(Path(d).rglob('test_*.py'))) for d in ('backend', 'fetcher', 'mcp_server')))")
+          echo "vitest $vitest/$want_vitest, playwright $spec/$want_spec, pytest disk $disk/$want_disk, collected $collected"
+          [ "$vitest" = "$want_vitest" ] && [ "$spec" = "$want_spec" ] && [ "$disk" = "$want_disk" ]
+          # The one expected gap is the serial benchmark that -m 'not serial' drops.
+          [ "$collected" -eq $((disk - 1)) ]
+      - name: The documented count commands work (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vitest = (Get-ChildItem frontend/src -Recurse -Include *.test.ts,*.test.tsx).Count
+          $spec = (Get-ChildItem frontend/e2e -Recurse -Filter *.spec.ts).Count
+          $disk = (Get-ChildItem backend,fetcher,mcp_server -Recurse -Filter test_*.py).Count
+          $collected = (uv run pytest --collect-only -q -n 0 | Select-String '::' | ForEach-Object { ($_.Line -split '::')[0] } | Sort-Object -Unique).Count
+          $wantVitest = [int](uv run python -c "from pathlib import Path; print(sum(1 for p in Path('frontend/src').rglob('*') if p.name.endswith(('.test.ts', '.test.tsx'))))")
+          $wantSpec = [int](uv run python -c "from pathlib import Path; print(len(list(Path('frontend/e2e').rglob('*.spec.ts'))))")
+          $wantDisk = [int](uv run python -c "from pathlib import Path; print(sum(len(list(Path(d).rglob('test_*.py'))) for d in ('backend', 'fetcher', 'mcp_server')))")
+          Write-Host "vitest $vitest/$wantVitest, playwright $spec/$wantSpec, pytest disk $disk/$wantDisk, collected $collected"
+          if ($vitest -ne $wantVitest -or $spec -ne $wantSpec -or $disk -ne $wantDisk) { throw "a documented count differs" }
+          if ($collected -ne ($disk - 1)) { throw "collected $collected, expected $($disk - 1)" }
+          # TESTING.md §0: a pipeline into a cmdlet does not change $LASTEXITCODE.
+          uv run python -c "import sys; sys.exit(3)" | Select-Object -Last 1
+          if ($LASTEXITCODE -ne 3) { throw "LASTEXITCODE was $LASTEXITCODE, expected 3" }
+          Write-Host "the documented PowerShell forms hold"
+          exit 0
       - name: Run the Python suite
         # Never pipe this through tail: a pipeline reports the last stage's
         # status and turns a failure into a pass. TESTING.md §0.

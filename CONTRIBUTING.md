@@ -14,14 +14,16 @@ Follow [From source](./README.md#prerequisites) in the README. It covers every p
 
 ## Running locally (dev mode)
 
-- Back end (with auto-reload):
-  `DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run uvicorn backend.main:app --reload --port 8765`
-  (On macOS the `DYLD_LIBRARY_PATH` prefix is needed for WeasyPrint; see [AGENTS.md](./AGENTS.md) for details.)
-- Frontend (separate dev server): `cd frontend && npm run dev`
-- Tests:
-  - Backend: `uv run pytest backend/tests -q`
-  - Vitest: `cd frontend && npm run test:run`
-  - Playwright: `cd frontend && npx playwright test`
+These commands work in bash, zsh, and PowerShell, except where a note says otherwise.
+
+- **Back end, with auto-reload:** `uv run uvicorn backend.main:app --reload --port 8765`
+  - macOS only, for PDF export: put `DYLD_LIBRARY_PATH=/opt/homebrew/lib` in front of that command. On an Intel Mac, use `/usr/local/lib`. [AGENTS.md](./AGENTS.md) explains why.
+- **Frontend, a separate dev server:** in the `frontend` folder, run `npm run dev`.
+- **Tests:** [TESTING.md §0](./TESTING.md) explains how to run them and how to trust the result. In short:
+  - Python: `uv run pytest`
+  - Vitest: in the `frontend` folder, run `npm run test:run`.
+  - Playwright: in the `frontend` folder, run `npx playwright test`.
+- **Manual checks on other platforms:** [§8 in testing/manual-checks.md](./testing/manual-checks.md) shows how to set up a test machine on Windows, macOS, or Linux, with or without a VM.
 
 ## Code style
 
