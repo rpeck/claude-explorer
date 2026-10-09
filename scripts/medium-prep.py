@@ -37,12 +37,28 @@ import sys
 
 RAW_BASE = "https://raw.githubusercontent.com/rpeck/claude-explorer/main/articles/"
 
-# Published Medium URLs, keyed by relative .md target. Fill in as parts ship;
-# unlisted relative .md links get stripped to plain text.
+# Published Medium URLs, keyed by the relative .md target that articles link
+# to. A relative .md link to a file NOT listed here is stripped to its plain
+# text, because Medium cannot resolve it.
+#
+# Order: by part; within a part, quickstart, then user's guide, then deep dive.
+# When a part ships, add its URLs here and to "Read the article series" in
+# README.md.
+#
+# Each URL was checked live on 2026-10-09 in a real browser: its og:title
+# names the article. (Medium answers HTTP 200 even for a made-up article id,
+# so check og:title, not the status code. Cloudflare blocks plain curl.)
 MEDIUM_URLS: dict[str, str] = {
-    "part_3_mcp_server.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-claude-querying-its-own-history-the-mcp-server-b3291ad76e13",
-    "part_3_mcp_server_userdoc.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-let-claude-analyze-your-claude-conversations-a-users-guide-0797fed94c34",
+    # Part 1: What This Thing Is and Why You'd Want It
+    "part_1_overview.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-1-f19000c05655",
+    # Part 2: the web app
+    "part_2_web_app_quickstart.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-quickstart-claude-explorer-in-five-minutes-41526bcce2a9",
+    "part_2_web_app_userdoc.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-using-the-claude-explorer-web-app-user-guide-109191dc24d4",
+    "part_2_web_app.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-using-the-claude-explorer-web-app-user-guide-with-technical-815ad3af1486",
+    # Part 3: the MCP server
     "part_3_mcp_server_quickstart.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-quickstart-query-your-claude-history-in-five-minutes-b12094c9c690",
+    "part_3_mcp_server_userdoc.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-let-claude-analyze-your-claude-conversations-a-users-guide-0797fed94c34",
+    "part_3_mcp_server.md": "https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-claude-querying-its-own-history-the-mcp-server-b3291ad76e13",
 }
 
 OUT_DIR = "medium-build"
