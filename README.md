@@ -2,6 +2,8 @@
 
 A local tool to browse, full-text search, and export your entire Claude conversation history — Claude Desktop, Claude Code, and Claude Cowork in one unified, searchable place — and to query it programmatically from Claude itself via a built-in MCP server. It also rescues conversations from accounts whose login email you've lost access to.
 
+To learn what the project does and how to use it, read the Medium series [*Unlocking Your Claude History*](#read-the-article-series).
+
 > **Disclaimer**: This is an independent, community-built project. It is not affiliated with, endorsed by, sponsored by, or supported by Anthropic, PBC. "Claude" and "Claude Code" are trademarks of Anthropic, PBC. This project consumes Anthropic's products as a user would — via the same APIs and on-disk file formats the official clients use — but nothing here represents an Anthropic-sanctioned interface, and the formats this project depends on may change without notice.
 
 ## Install
@@ -263,6 +265,19 @@ Two non-obvious things to know up front:
 First launch is a little slow (Claude Desktop's [UV runtime](https://github.com/anthropics/dxt)
 resolves and installs the bundle's Python deps on first run; ~10–30 s
 depending on your network). Subsequent launches are instant.
+
+## Read the article series
+
+The Medium series *Unlocking Your Claude History* explains why this project exists and how to use it. Parts 2 and 3 come in more than one version, for different readers.
+
+- **Part 1:** [What This Thing Is and Why You'd Want It](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-1-f19000c05655). The problem, and what the project does about it.
+- **Part 2, the web app:**
+  - [User's Guide](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-using-the-claude-explorer-web-app-user-guide-109191dc24d4). How to use the web app.
+  - [User's Guide with Technical Deep Dive](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-using-the-claude-explorer-web-app-user-guide-with-technical-815ad3af1486). The same tour, plus how it works.
+- **Part 3, Claude queries your history (the MCP server):**
+  - [Quickstart: Query Your Claude History in Five Minutes](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-quickstart-query-your-claude-history-in-five-minutes-b12094c9c690).
+  - [User's Guide: Let Claude Analyze Your Claude Conversations](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-let-claude-analyze-your-claude-conversations-a-users-guide-0797fed94c34).
+  - [Deep Dive: Claude Querying Its Own History](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-3-claude-querying-its-own-history-the-mcp-server-b3291ad76e13). How the MCP server works.
 
 ## Features
 
