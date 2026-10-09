@@ -272,6 +272,7 @@ The Medium series *Unlocking Your Claude History* explains why this project exis
 
 - **Part 1:** [What This Thing Is and Why You'd Want It](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-1-f19000c05655). The problem, and what the project does about it.
 - **Part 2, the web app:**
+  - [Quickstart: Claude Explorer in Five Minutes](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-quickstart-claude-explorer-in-five-minutes-41526bcce2a9).
   - [User's Guide](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-using-the-claude-explorer-web-app-user-guide-109191dc24d4). How to use the web app.
   - [User's Guide with Technical Deep Dive](https://medium.com/@raymondpeck/unlocking-your-claude-history-part-2-using-the-claude-explorer-web-app-user-guide-with-technical-815ad3af1486). The same tour, plus how it works.
 - **Part 3, Claude queries your history (the MCP server):**
