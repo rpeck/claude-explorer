@@ -31,6 +31,7 @@ import argparse
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -67,6 +68,94 @@ def server_up(port: int, timeout: float = 1.0, host: str = "127.0.0.1") -> bool:
             return response.status == 200
     except (urllib.error.URLError, OSError, ValueError):
         return False
+
+
+def port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    """True if the server could not bind ``host:port``.
+
+    A bind test, the same as the server's own bind, so the answer matches
+    what uvicorn sees. asyncio, which uvicorn uses, sets SO_REUSEADDR on
+    POSIX only: there a closed connection in TIME_WAIT does not block the
+    port, and on Windows SO_REUSEADDR would let two programs share it.
+    """
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(family, socket.SOCK_STREAM) as s:
+        if os.name != "nt":
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind((host, port))
+        except OSError:
+            return True
+    return False
+
+
+def free_port_after(port: int, host: str = "127.0.0.1") -> int:
+    """The first free port after ``port``, to suggest in a conflict message."""
+    for candidate in range(port + 1, min(port + 50, 65536)):
+        if not port_in_use(candidate, host):
+            return candidate
+    return port + 1 if port < 65535 else port - 1
+
+
+def app_port_conflict_message(
+    port: int, new_port: int, *, platform: str = sys.platform, copied: bool = False
+) -> str:
+    """Plain-words help for a launcher user whose port another program holds.
+
+    The user may not be a developer, so the text names the problem, then
+    gives numbered steps with the one command that fixes it for good.
+    """
+    command = f"claude-explorer install-app --port {new_port}"
+    if platform == "darwin":
+        steps = [
+            "Click Copy Command.",
+            "Open Terminal, paste the command, and press Return.",
+        ]
+    elif platform == "win32" and copied:
+        steps = ["Open PowerShell.", "Press Ctrl+V, then press Enter."]
+    elif platform == "win32":
+        steps = ["Open PowerShell.", "Type the command, then press Enter."]
+    else:
+        steps = ["Open a terminal.", "Type the command, then press Enter."]
+    steps.append("Open Claude Explorer again.")
+    lines = [
+        "Claude Explorer could not start, because another program on this "
+        f"computer already uses port {port}.",
+        "",
+        "To fix this, give Claude Explorer a different port. The command is:",
+        "",
+        f"    {command}",
+        "",
+    ]
+    if copied:
+        lines += ["The command is already on the clipboard.", ""]
+    lines += [f"{n}. {step}" for n, step in enumerate(steps, 1)]
+    return "\n".join(lines)
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """Put ``text`` on the Windows clipboard. False where that is not possible."""
+    if sys.platform != "win32":
+        return False
+    try:
+        result = subprocess.run(["clip"], input=text, text=True, capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+def report_port_conflict(port: int) -> bool:
+    """If another program holds ``port``, tell the user how to fix it.
+
+    Call this only after ``server_up`` is False: a running Claude Explorer
+    also holds the port.
+    """
+    if not port_in_use(port):
+        return False
+    new_port = free_port_after(port)
+    copied = copy_to_clipboard(f"claude-explorer install-app --port {new_port}")
+    notify_error(app_port_conflict_message(port, new_port, copied=copied))
+    return True
 
 
 def serve_command(port: int) -> list[str]:
@@ -209,6 +298,8 @@ def cmd_open(port: int) -> int:
     if server_up(port):
         open_ui(port)
         return 0
+    if report_port_conflict(port):
+        return 1
     proc = start_server(port)
     if not wait_until_up(port, proc):
         stop_process(proc)
@@ -230,6 +321,8 @@ def cmd_tray(port: int) -> int:
         # the app, and do not add a second tray icon.
         open_ui(port)
         return 0
+    if report_port_conflict(port):
+        return 1
 
     import pystray
     from PIL import Image
@@ -237,17 +330,21 @@ def cmd_tray(port: int) -> int:
     state: dict = {"proc": None}
 
     def ensure_server() -> bool:
+        """Start the server if needed. On failure, show one message."""
         if server_up(port):
             return True
+        if report_port_conflict(port):
+            return False
         proc = start_server(port)
         state["proc"] = proc
-        return wait_until_up(port, proc)
+        if wait_until_up(port, proc):
+            return True
+        notify_error(_start_failed_message())
+        return False
 
     def on_open(icon, item) -> None:
         if ensure_server():
             open_ui(port)
-        else:
-            notify_error(_start_failed_message())
 
     def on_quit(icon, item) -> None:
         stop_process(state["proc"])
@@ -259,7 +356,6 @@ def cmd_tray(port: int) -> int:
             icon.title = "Claude Explorer"
             open_ui(port)
         else:
-            notify_error(_start_failed_message())
             stop_process(state["proc"])
             icon.stop()
 

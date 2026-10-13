@@ -246,14 +246,19 @@ Claude Explorer includes an MCP server, so Claude can search and read your histo
 
 **If another program uses port 8765:**
 
-Claude Explorer uses port 8765. If a different program already uses that port, `serve` stops and tells you so. The app shows "Claude Explorer did not start". To see the program, run `lsof -nP -iTCP:8765 -sTCP:LISTEN` (Windows: `netstat -ano | findstr :8765`).
+Claude Explorer uses port 8765. If a different program already uses that port, Claude Explorer does not start. It tells you why, and it gives you the command that fixes it, with a free port:
 
-To use a different port, for example 8766:
+- **The app or menu entry** shows a message with numbered steps. On macOS, click **Copy Command**. On Windows, the command is already on the clipboard.
+- **`serve` in a terminal** prints the commands for the terminal and for the app.
+
+The fix, for example with port 8766:
 
 1. Install the launcher again with that port: `claude-explorer install-app --port 8766`
 2. Open **Claude Explorer** as usual. It opens `http://localhost:8766`.
 
 In a terminal, run `claude-explorer serve --port 8766`, then open `http://localhost:8766`.
+
+Choose the port one time, and keep it. The web page keeps some settings per address, so a new port starts with default settings.
 
 **To upgrade:**
 

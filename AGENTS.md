@@ -268,6 +268,20 @@ pass `--port` to `cli.desktop_launcher` (`tray` and `open`); `stop` reads
 the port from the PID file. On 2026-10-13 an Emacs process held 8765 on a
 user's laptop, so the app could not start until it used another port.
 
+**Port conflict message.** Many users are not developers. When another
+program holds the port, every launcher and `serve` say so in plain words,
+and give the exact fix command with a port that is free now:
+
+- `port_in_use` (`cli/desktop_launcher.py`) is a bind test with the same
+  socket options as asyncio, so it agrees with uvicorn.
+- Windows and Linux: `report_port_conflict` shows the message. Windows
+  also puts the command on the clipboard.
+- macOS: the applet runs the hidden `claude-explorer port-check` before it
+  starts `serve`. Line 1 of the output is the command for its
+  **Copy Command** button; the rest is the dialog text.
+- Do not switch ports automatically. The web page keeps settings in
+  `localStorage`, which is per address, so a changing port loses them.
+
 #### `claude-explorer reindex-search` (manual override only)
 
 Force a rebuild of the SQLite FTS5 search index at

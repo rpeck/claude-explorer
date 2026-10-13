@@ -411,24 +411,22 @@ def mcp() -> None:
 
 
 def _refuse_busy_port(host: str, port: int) -> None:
-    """Exit with a clear message if something already listens on the port.
+    """Exit with a clear message if the server cannot bind the port.
 
     uvicorn does not raise on a busy port. It runs the whole app startup,
     then logs ``[Errno 48] ... address already in use`` and exits. Check
-    first, and name the likely cause: an earlier Claude Explorer server.
+    first. The text is for any user, not only developers: it names the
+    problem and gives the exact commands, with a port that is free now.
     """
-    import socket
+    import sys as _sys
 
-    from cli.desktop_launcher import server_up
+    from cli.desktop_launcher import free_port_after, port_in_use, server_up
+
+    if not port_in_use(port, host):
+        return
 
     # A wildcard bind conflicts with a listener on loopback, so probe there.
     probe = {"": "127.0.0.1", "0.0.0.0": "127.0.0.1", "::": "::1"}.get(host, host)
-    try:
-        with socket.create_connection((probe, port), timeout=1.0):
-            pass
-    except OSError:
-        return  # nothing listens: the port is free
-
     if server_up(port, host=probe):
         click.echo(
             f"Claude Explorer already runs at http://{probe}:{port}\n"
@@ -436,14 +434,47 @@ def _refuse_busy_port(host: str, port: int) -> None:
             "stop the other one first.",
         )
         raise SystemExit(0)
+
+    new_port = free_port_after(port, host)
+    if _sys.platform == "win32":
+        find = f"netstat -ano | findstr :{port}"
+    else:
+        find = f"lsof -nP -iTCP:{port} -sTCP:LISTEN"
     click.echo(
-        f"\nError: port {port} is already in use by another program.\n"
-        f"Stop that program, or pick a different port with --port <N>.\n"
-        f"To see the program: lsof -nP -iTCP:{port} -sTCP:LISTEN "
-        f"(Windows: netstat -ano | findstr :{port})",
+        "\nClaude Explorer could not start, because another program already "
+        f"uses port {port}.\n\n"
+        "To use a different port, run:\n"
+        f"    claude-explorer serve --port {new_port}\n\n"
+        "If you open Claude Explorer from its app or menu, also run this once:\n"
+        f"    claude-explorer install-app --port {new_port}\n\n"
+        f"To see which program uses port {port}, run:\n"
+        f"    {find}\n",
         err=True,
     )
     raise SystemExit(1)
+
+
+@main.command("port-check", hidden=True)
+@click.option("--port", type=int, default=8765)
+def port_check(port: int) -> None:
+    """For the macOS app: explain a port conflict before it starts serve.
+
+    Prints nothing if the app can go on: the port is free, or Claude
+    Explorer already answers there. Otherwise, line 1 is the command that
+    the app's Copy Command button copies, and the rest is the dialog text.
+    """
+    from cli.desktop_launcher import (
+        app_port_conflict_message,
+        free_port_after,
+        port_in_use,
+        server_up,
+    )
+
+    if server_up(port) or not port_in_use(port):
+        return
+    new_port = free_port_after(port)
+    click.echo(f"claude-explorer install-app --port {new_port}")
+    click.echo(app_port_conflict_message(port, new_port, platform="darwin"))
 
 
 @main.command()

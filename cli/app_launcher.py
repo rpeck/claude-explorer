@@ -96,10 +96,29 @@ end reopen
 
 on ensureServer()
 	if not my serverUp() then
+		if my portConflict() then return
 		if not my startServer() then return
 	end if
 	open location {url}
 end ensureServer
+
+-- If another program holds the port, explain it in plain words and offer
+-- the fix. `port-check` prints nothing when the app can go on; else line 1
+-- is the fix command and the rest is the dialog text.
+on portConflict()
+	try
+		set report to do shell script quoted form of {exe} & " port-check --port {port}"
+	on error
+		return false
+	end try
+	if report is "" then return false
+	set fixCommand to paragraph 1 of report
+	set conflictText to text ((length of fixCommand) + 2) thru -1 of report
+	display dialog conflictText buttons {{"Quit", "Copy Command"}} default button "Copy Command" with title "Claude Explorer" with icon caution
+	if button returned of result is "Copy Command" then set the clipboard to fixCommand
+	quit
+	return true
+end portConflict
 
 on startServer()
 	set exe to {exe}

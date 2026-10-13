@@ -73,6 +73,13 @@ def test_quit_stops_only_a_server_the_app_started() -> None:
     assert "continue quit" in quit_block
 
 
+def test_app_checks_for_a_port_conflict_before_it_starts_the_server() -> None:
+    s = _script(port=9001)
+    assert "port-check --port 9001" in s
+    assert "set the clipboard to" in s
+    assert s.index("portConflict()") < s.index("startServer()")
+
+
 def test_paths_are_escaped_for_applescript() -> None:
     s = _script(executable='/Users/o"brien\\x/bin/claude-explorer')
     assert '"/Users/o\\"brien\\\\x/bin/claude-explorer"' in s

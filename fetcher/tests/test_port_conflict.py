@@ -12,6 +12,7 @@ answered on the port. The pre-check names the cause and the fix.
 from __future__ import annotations
 
 import http.server
+import re
 import socket
 import socketserver
 import threading
@@ -81,8 +82,32 @@ def test_busy_port_stops_before_startup(monkeypatch: pytest.MonkeyPatch) -> None
 
     assert result.exit_code == 1
     assert calls == [], "serve must not start the app on a busy port"
-    assert str(port) in result.output
-    assert "--port" in result.output
+    assert f"another program already uses port {port}" in result.output
+    # The fix commands name a port that is free now.
+    from cli.desktop_launcher import port_in_use
+
+    serve_fix = re.search(r"claude-explorer serve --port (\d+)", result.output)
+    app_fix = re.search(r"claude-explorer install-app --port (\d+)", result.output)
+    assert serve_fix and app_fix, result.output
+    assert serve_fix.group(1) == app_fix.group(1)
+    assert not port_in_use(int(serve_fix.group(1)))
+
+
+def test_port_check_prints_the_fix_for_the_macos_app() -> None:
+    """The macOS app runs `claude-explorer port-check` before it starts the
+    server. Line 1 is the command that its Copy Command button copies."""
+    with _plain_listener() as port:
+        result = CliRunner().invoke(main, ["port-check", "--port", str(port)])
+    assert result.exit_code == 0
+    first, _, rest = result.output.partition("\n")
+    assert re.fullmatch(r"claude-explorer install-app --port \d+", first)
+    assert first in rest and "Copy Command" in rest
+
+
+def test_port_check_is_silent_when_the_app_can_start() -> None:
+    with _fake_explorer() as port:
+        assert CliRunner().invoke(main, ["port-check", "--port", str(port)]).output == ""
+    assert CliRunner().invoke(main, ["port-check", "--port", str(_free_port())]).output == ""
 
 
 def test_running_explorer_is_named(monkeypatch: pytest.MonkeyPatch) -> None:

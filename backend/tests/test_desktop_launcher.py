@@ -311,3 +311,83 @@ def test_windows_shortcut_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert (tmp_path / ".claude-explorer" / "claude-explorer.ico").exists()
     assert app_launcher.uninstall_windows_shortcut(menu)
     assert not lnk.exists()
+
+
+# ---------------------------------------------------------- Port conflict
+#
+# 2026-10-13: an Emacs process held 8765 on a user's laptop. The app said
+# only "did not start" and pointed at a log. A launcher must say, in plain
+# words, that another program uses the port, and give the one command that
+# fixes it. Many users are not developers.
+
+
+@pytest.fixture
+def foreign_listener():
+    """Another program on a port: it accepts connections and speaks no HTTP."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        s.listen()
+        yield s.getsockname()[1]
+
+
+def test_port_in_use_sees_a_listener(foreign_listener) -> None:
+    assert desktop_launcher.port_in_use(foreign_listener)
+    assert not desktop_launcher.port_in_use(_free_port())
+
+
+def test_free_port_after_suggests_a_free_port(foreign_listener) -> None:
+    suggestion = desktop_launcher.free_port_after(foreign_listener)
+    assert suggestion > foreign_listener
+    assert not desktop_launcher.port_in_use(suggestion)
+
+
+@pytest.mark.parametrize(
+    ("platform", "opener"),
+    [("darwin", "Open Terminal"), ("win32", "Open PowerShell"), ("linux", "Open a terminal")],
+)
+def test_conflict_message_tells_a_user_what_to_do(platform: str, opener: str) -> None:
+    text = desktop_launcher.app_port_conflict_message(8765, 8766, platform=platform)
+    assert "another program" in text.lower()
+    assert "port 8765" in text
+    assert opener in text
+    assert "claude-explorer install-app --port 8766" in text
+    assert "Open Claude Explorer again" in text
+    assert "log" not in text.lower(), "a log file is no help to most users"
+
+
+def test_conflict_message_names_the_copy_button_on_macos() -> None:
+    text = desktop_launcher.app_port_conflict_message(8765, 8766, platform="darwin")
+    assert "Copy Command" in text
+
+
+def test_conflict_message_says_when_the_command_is_on_the_clipboard() -> None:
+    text = desktop_launcher.app_port_conflict_message(8765, 8766, platform="win32", copied=True)
+    assert "clipboard" in text and "Ctrl+V" in text
+
+
+def test_open_explains_a_port_conflict(launcher_env, foreign_listener, monkeypatch) -> None:
+    messages: list[str] = []
+    monkeypatch.setattr(desktop_launcher, "notify_error", messages.append)
+    monkeypatch.setattr(desktop_launcher, "copy_to_clipboard", lambda text: False)
+    monkeypatch.setattr(desktop_launcher, "start_server", lambda port: pytest.fail("started"))
+
+    assert desktop_launcher.cmd_open(foreign_listener) == 1
+
+    assert len(messages) == 1
+    assert f"port {foreign_listener}" in messages[0]
+    assert "claude-explorer install-app --port " in messages[0]
+
+
+def test_tray_explains_a_port_conflict_and_shows_no_icon(
+    launcher_env, foreign_listener, monkeypatch
+) -> None:
+    messages: list[str] = []
+    monkeypatch.setattr(desktop_launcher, "notify_error", messages.append)
+    monkeypatch.setattr(desktop_launcher, "copy_to_clipboard", lambda text: False)
+    made = _fake_pystray(monkeypatch)
+
+    assert desktop_launcher.cmd_tray(foreign_listener) == 1
+
+    assert "icon" not in made
+    assert len(messages) == 1
+    assert "claude-explorer install-app --port " in messages[0]
