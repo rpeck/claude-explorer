@@ -43,7 +43,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.0",
-    "weasyprint>=62.0",
+    "weasyprint>=68.1",  # URLFetcher API; see backend/exporters/pdf.py
     "curl_cffi>=0.7",
     "orjson>=3.10",
     "playwright>=1.40",
@@ -176,7 +176,12 @@ markers = [
 # Its RuntimeWarning fires when the coroutine is garbage-collected, which
 # pytest reports as PytestUnraisableExceptionWarning; RuntimeWarning alone
 # does not turn it into a failure, so both filters are needed.
+#
+# A WeasyPrint deprecation must fail the suite too. WeasyPrint 68 warned
+# that dict-returning URL fetchers would go away, the suite only logged it,
+# and WeasyPrint 70 then broke every image in a fresh install's PDF export.
 filterwarnings = [
     "error::RuntimeWarning",
     "error::pytest.PytestUnraisableExceptionWarning",
+    "error::DeprecationWarning:weasyprint",
 ]

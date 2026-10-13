@@ -471,25 +471,33 @@ def _build_pdf_url_fetcher(conversation: ConversationDetail) -> Any:
     """Build a WeasyPrint ``url_fetcher`` that resolves the URL shapes
     our HTML emits to on-disk bytes.
 
+    Returns a ``weasyprint.urls.URLFetcher`` subclass whose ``fetch``
+    returns ``URLFetcherResponse``. WeasyPrint 68 deprecated plain
+    functions that return dicts, and WeasyPrint 70 rejects them: every
+    image in a PDF export then failed (2026-10-13, found by a fresh
+    install on Python 3.15). WeasyPrint is imported here, not at module
+    level, to keep it out of the MCP import closure.
+
     Handled URL shapes:
       * ``/api/cc-image?path=<abs>`` (and ``http(s)://.../api/cc-image?...``)
       * ``/api/<org>/files/<uuid>/{thumbnail,preview}`` — Desktop attachment
         proxy. Resolved against the per-conv files cache using
         ``conversation.uuid`` from this closure.
       * ``/api/attachments/<conv>/<file>/<variant>`` — local cached attachment.
-      * ``data:`` URLs — defer to WeasyPrint's default fetcher.
-      * Anything else — defer to the default fetcher (which will raise
-        for non-data, non-file schemes; that's fine, it's external).
+      * ``data:`` URLs — decoded by WeasyPrint's own fetcher, which is
+        limited to the ``data`` scheme.
+      * Anything else — the transparent placeholder (no network, no
+        file read).
 
     Missing files emit a 1x1 transparent PNG placeholder so the PDF
     render never aborts on a single broken image.
     """
     conv_uuid = conversation.uuid
 
-    def fetcher(url: str) -> dict[str, Any]:
+    def resolve(url: str) -> tuple[bytes, str] | None:
         # `data:` URIs are inline (no network round trip) and WeasyPrint
         # may emit them internally for fonts or generated images, so we
-        # defer them to the default fetcher. EVERY other scheme — http(s),
+        # let WeasyPrint decode them. EVERY other scheme — http(s),
         # file, ftp — that doesn't match one of the three local-API regexes
         # below falls through to the transparent-PNG placeholder at the
         # bottom of this function. The default fetcher accepts all of those
@@ -499,9 +507,7 @@ def _build_pdf_url_fetcher(conversation: ConversationDetail) -> Any:
         # arbitrary-file-read during PDF render. Pinned in
         # tests/test_export_pdf_html_injection.py.
         if url.startswith("data:"):
-            from weasyprint.urls import default_url_fetcher
-
-            return default_url_fetcher(url)
+            return None
 
         # /api/cc-image?path=<abs>
         if _CC_IMAGE_PATH_RE.search(url):
@@ -512,15 +518,12 @@ def _build_pdf_url_fetcher(conversation: ConversationDetail) -> Any:
             resolved = _resolve_cc_image_path(abs_path)
             if resolved is not None:
                 try:
-                    return {
-                        "string": resolved.read_bytes(),
-                        "mime_type": _guess_mime(resolved),
-                    }
+                    return (resolved.read_bytes(), _guess_mime(resolved))
                 except OSError as exc:
                     log.warning("PDF url_fetcher: read failed for %s: %s", resolved, exc)
             else:
                 log.warning("PDF url_fetcher: cc-image not found on disk: %s", abs_path)
-            return {"string": _TRANSPARENT_1x1_PNG, "mime_type": "image/png"}
+            return (_TRANSPARENT_1x1_PNG, "image/png")
 
         # /api/<org>/files/<uuid>/{variant}
         files_match = _FILES_PROXY_PATH_RE.search(url)
@@ -530,10 +533,7 @@ def _build_pdf_url_fetcher(conversation: ConversationDetail) -> Any:
             resolved = _resolve_attachment_path(conv_uuid, file_uuid, variant)
             if resolved is not None:
                 try:
-                    return {
-                        "string": resolved.read_bytes(),
-                        "mime_type": _guess_mime(resolved),
-                    }
+                    return (resolved.read_bytes(), _guess_mime(resolved))
                 except OSError as exc:
                     log.warning("PDF url_fetcher: read failed for %s: %s", resolved, exc)
             else:
@@ -541,7 +541,7 @@ def _build_pdf_url_fetcher(conversation: ConversationDetail) -> Any:
                     "PDF url_fetcher: attachment not cached for %s/%s/%s",
                     conv_uuid, file_uuid, variant,
                 )
-            return {"string": _TRANSPARENT_1x1_PNG, "mime_type": "image/png"}
+            return (_TRANSPARENT_1x1_PNG, "image/png")
 
         # /api/attachments/<conv>/<file>/<variant>
         att_match = _ATTACHMENTS_PATH_RE.search(url)
@@ -552,10 +552,7 @@ def _build_pdf_url_fetcher(conversation: ConversationDetail) -> Any:
             resolved = _resolve_attachment_path(ac_uuid, file_uuid, variant)
             if resolved is not None:
                 try:
-                    return {
-                        "string": resolved.read_bytes(),
-                        "mime_type": _guess_mime(resolved),
-                    }
+                    return (resolved.read_bytes(), _guess_mime(resolved))
                 except OSError as exc:
                     log.warning("PDF url_fetcher: read failed for %s: %s", resolved, exc)
             else:
@@ -563,12 +560,24 @@ def _build_pdf_url_fetcher(conversation: ConversationDetail) -> Any:
                     "PDF url_fetcher: attachment not cached for %s/%s/%s",
                     ac_uuid, file_uuid, variant,
                 )
-            return {"string": _TRANSPARENT_1x1_PNG, "mime_type": "image/png"}
+            return (_TRANSPARENT_1x1_PNG, "image/png")
 
         log.warning("PDF url_fetcher: refusing unknown URL scheme: %r", url)
-        return {"string": _TRANSPARENT_1x1_PNG, "mime_type": "image/png"}
+        return (_TRANSPARENT_1x1_PNG, "image/png")
 
-    return fetcher
+    from weasyprint.urls import URLFetcher, URLFetcherResponse
+
+    class _LocalFetcher(URLFetcher):
+        def fetch(self, url: str, headers: Any = None) -> URLFetcherResponse:
+            resolved = resolve(url)
+            if resolved is None:
+                return super().fetch(url, headers)  # data: only
+            data, mime_type = resolved
+            return URLFetcherResponse(url, data, {"Content-Type": mime_type})
+
+    # allowed_protocols guards the super().fetch call: even if a future
+    # edit sends another URL there, WeasyPrint refuses non-data schemes.
+    return _LocalFetcher(allowed_protocols={"data"})
 
 
 def create_pdf(

@@ -586,7 +586,7 @@ requires-dist = [
     { name = "respx", marker = "extra == 'dev'", specifier = ">=0.21" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
     { name = "watchdog", specifier = ">=4.0" },
-    { name = "weasyprint", specifier = ">=62.0" },
+    { name = "weasyprint", specifier = ">=68.1" },
 ]
 provides-extras = ["dev"]
 

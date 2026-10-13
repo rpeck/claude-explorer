@@ -23,6 +23,10 @@ Two-part fix pinned here:
    local-API shapes (`/api/cc-image`, `/api/{org}/files/...`,
    `/api/attachments/...`) and inline `data:` URIs resolve.
    Anything else returns the transparent-PNG placeholder.
+
+2026-10-13: the fetcher is a ``weasyprint.urls.URLFetcher`` subclass that
+returns ``URLFetcherResponse``. WeasyPrint 70 rejects the old dict shape,
+so these tests read the response body.
 """
 
 from __future__ import annotations
@@ -35,6 +39,10 @@ from backend.exporters.pdf import (
     conversation_to_html,
 )
 from backend.models import ConversationDetail
+
+
+def _body(response) -> bytes:
+    return response.read()
 
 
 def _make_conv(name: str = "Test", model: str = "claude-3-5-sonnet") -> ConversationDetail:
@@ -88,7 +96,7 @@ def test_url_fetcher_returns_placeholder_for_external_https():
 
     result = fetcher("https://attacker.example.com/log.css?v=victim")
 
-    assert result["string"] == _TRANSPARENT_1x1_PNG, (
+    assert _body(result) == _TRANSPARENT_1x1_PNG, (
         "external https:// URL was not neutered — fetcher must return placeholder"
     )
 
@@ -99,7 +107,7 @@ def test_url_fetcher_returns_placeholder_for_file_scheme():
 
     result = fetcher("file:///etc/passwd")
 
-    assert result["string"] == _TRANSPARENT_1x1_PNG, (
+    assert _body(result) == _TRANSPARENT_1x1_PNG, (
         "file:// URL was not neutered — fetcher must return placeholder"
     )
 
@@ -109,7 +117,7 @@ def test_url_fetcher_returns_placeholder_for_ftp_scheme():
 
     result = fetcher("ftp://attacker.example.com/exfil")
 
-    assert result["string"] == _TRANSPARENT_1x1_PNG
+    assert _body(result) == _TRANSPARENT_1x1_PNG
 
 
 def test_url_fetcher_still_passes_data_uri_through():
@@ -124,11 +132,20 @@ def test_url_fetcher_still_passes_data_uri_through():
     )
     result = fetcher(f"data:image/png;base64,{tiny_png_b64}")
 
-    # Contract this test pins: "data: URIs are NOT routed to the
-    # placeholder branch." WeasyPrint's wire shape varies across
-    # versions (dict vs. URLFetcherResponse); the only failure we
-    # care about is the placeholder-PNG shortcut firing on a data URI.
-    placeholder_shape = {"string": _TRANSPARENT_1x1_PNG, "mime_type": "image/png"}
-    assert result != placeholder_shape, (
-        f"data: URI was neutered into the placeholder; got {result!r}"
-    )
+    # data: URIs are decoded, not routed to the placeholder branch.
+    import base64
+
+    assert _body(result) == base64.b64decode(tiny_png_b64)
+    assert result.content_type == "image/png"
+
+
+def test_url_fetcher_uses_the_weasyprint_fetcher_api():
+    """WeasyPrint 70 removed dict results and ``default_url_fetcher``.
+    A plain function that returns a dict broke every image in a PDF."""
+    from weasyprint.urls import URLFetcher, URLFetcherResponse
+
+    fetcher = _build_pdf_url_fetcher(_make_conv())
+    assert isinstance(fetcher, URLFetcher)
+    result = fetcher("https://attacker.example.com/x.png")
+    assert isinstance(result, URLFetcherResponse)
+    assert result.content_type == "image/png"
