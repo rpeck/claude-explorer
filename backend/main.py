@@ -224,6 +224,69 @@ def get_migration_state() -> dict:
     return dict(_migration_state)
 
 
+async def _cancel_background_tasks(background_tasks: list[asyncio.Task]) -> None:
+    """Cancel the lifespan's background tasks, and log any real failure.
+
+    Lives outside the lifespan's ``finally`` block on purpose: a
+    ``return`` inside ``finally`` discards any in-flight exception
+    (PEP 765; Python 3.14+ warns). Here an early return is harmless.
+    """
+    if not background_tasks:
+        return
+
+    log.info(
+        "Lifespan shutdown: cancelling %d background task(s)",
+        len(background_tasks),
+    )
+
+    # Cancel every non-done task. ``Task.cancel`` is idempotent.
+    #
+    # NOTE: we deliberately do NOT set ``watcher_stop`` first. The
+    # cooperative-shutdown path through cc_watcher.run_watcher's
+    # finally block synchronously awaits Observer joins (via
+    # ``asyncio.to_thread``) before completing — bounded but
+    # still O(seconds) for the OS-level thread joins. The
+    # CancelledError path through the SAME finally block exits as
+    # soon as the cancellation is delivered to the to_thread
+    # await; the OS thread keeps running and finishes on its own
+    # without holding up the asyncio shutdown. Cancellation is
+    # therefore strictly faster than cooperative shutdown for
+    # lifespan exit.
+    #
+    # ``watcher_stop`` is still set by the watcher's finally
+    # cleanup (via ``shutdown_projects_drift``) so a pending
+    # debounce Timer doesn't fire post-shutdown.
+    for task in background_tasks:
+        task.cancel()
+
+    # Wait for all cancellations to propagate, with a hard cap on
+    # total shutdown latency. ``return_exceptions=True`` collects
+    # each task's terminal value (or exception) so we can log
+    # anything unexpected without aborting the gather mid-way.
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(*background_tasks, return_exceptions=True),
+            timeout=5.0,
+        )
+        for task, result in zip(background_tasks, results):
+            if isinstance(result, asyncio.CancelledError):
+                # Expected.
+                continue
+            if isinstance(result, Exception):
+                log.warning(
+                    "Background task %s raised during shutdown: %r",
+                    task.get_name(), result,
+                )
+    except asyncio.TimeoutError:
+        still_running = [
+            t.get_name() for t in background_tasks if not t.done()
+        ]
+        log.error(
+            "Lifespan shutdown exceeded 5s budget; tasks still running: %s",
+            still_running,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
@@ -775,60 +838,7 @@ async def lifespan(app: FastAPI):
             ) if t is not None and not t.done()
         ]
 
-        if not background_tasks:
-            return
-
-        log.info(
-            "Lifespan shutdown: cancelling %d background task(s)",
-            len(background_tasks),
-        )
-
-        # Cancel every non-done task. ``Task.cancel`` is idempotent.
-        #
-        # NOTE: we deliberately do NOT set ``watcher_stop`` first. The
-        # cooperative-shutdown path through cc_watcher.run_watcher's
-        # finally block synchronously awaits Observer joins (via
-        # ``asyncio.to_thread``) before completing — bounded but
-        # still O(seconds) for the OS-level thread joins. The
-        # CancelledError path through the SAME finally block exits as
-        # soon as the cancellation is delivered to the to_thread
-        # await; the OS thread keeps running and finishes on its own
-        # without holding up the asyncio shutdown. Cancellation is
-        # therefore strictly faster than cooperative shutdown for
-        # lifespan exit.
-        #
-        # ``watcher_stop`` is still set by the watcher's finally
-        # cleanup (via ``shutdown_projects_drift``) so a pending
-        # debounce Timer doesn't fire post-shutdown.
-        for task in background_tasks:
-            task.cancel()
-
-        # Wait for all cancellations to propagate, with a hard cap on
-        # total shutdown latency. ``return_exceptions=True`` collects
-        # each task's terminal value (or exception) so we can log
-        # anything unexpected without aborting the gather mid-way.
-        try:
-            results = await asyncio.wait_for(
-                asyncio.gather(*background_tasks, return_exceptions=True),
-                timeout=5.0,
-            )
-            for task, result in zip(background_tasks, results):
-                if isinstance(result, asyncio.CancelledError):
-                    # Expected.
-                    continue
-                if isinstance(result, Exception):
-                    log.warning(
-                        "Background task %s raised during shutdown: %r",
-                        task.get_name(), result,
-                    )
-        except asyncio.TimeoutError:
-            still_running = [
-                t.get_name() for t in background_tasks if not t.done()
-            ]
-            log.error(
-                "Lifespan shutdown exceeded 5s budget; tasks still running: %s",
-                still_running,
-            )
+        await _cancel_background_tasks(background_tasks)
 
 
 def install_request_timing_middleware(app: FastAPI) -> None:
