@@ -57,11 +57,12 @@ def pid_path() -> Path:
     return state_dir() / "launcher-server.pid"
 
 
-def server_up(port: int, timeout: float = 1.0) -> bool:
-    """True if Claude Explorer answers on ``port``."""
+def server_up(port: int, timeout: float = 1.0, host: str = "127.0.0.1") -> bool:
+    """True if Claude Explorer answers on ``host:port``."""
+    netloc = f"[{host}]" if ":" in host else host
     try:
         with urllib.request.urlopen(
-            f"http://127.0.0.1:{port}/api/config", timeout=timeout
+            f"http://{netloc}:{port}/api/config", timeout=timeout
         ) as response:
             return response.status == 200
     except (urllib.error.URLError, OSError, ValueError):

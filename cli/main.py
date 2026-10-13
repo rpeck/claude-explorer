@@ -410,6 +410,42 @@ def mcp() -> None:
     mcp_main()
 
 
+def _refuse_busy_port(host: str, port: int) -> None:
+    """Exit with a clear message if something already listens on the port.
+
+    uvicorn does not raise on a busy port. It runs the whole app startup,
+    then logs ``[Errno 48] ... address already in use`` and exits. Check
+    first, and name the likely cause: an earlier Claude Explorer server.
+    """
+    import socket
+
+    from cli.desktop_launcher import server_up
+
+    # A wildcard bind conflicts with a listener on loopback, so probe there.
+    probe = {"": "127.0.0.1", "0.0.0.0": "127.0.0.1", "::": "::1"}.get(host, host)
+    try:
+        with socket.create_connection((probe, port), timeout=1.0):
+            pass
+    except OSError:
+        return  # nothing listens: the port is free
+
+    if server_up(port, host=probe):
+        click.echo(
+            f"Claude Explorer already runs at http://{probe}:{port}\n"
+            "Open that address in your browser. To restart the server, "
+            "stop the other one first.",
+        )
+        raise SystemExit(0)
+    click.echo(
+        f"\nError: port {port} is already in use by another program.\n"
+        f"Stop that program, or pick a different port with --port <N>.\n"
+        f"To see the program: lsof -nP -iTCP:{port} -sTCP:LISTEN "
+        f"(Windows: netstat -ano | findstr :{port})",
+        err=True,
+    )
+    raise SystemExit(1)
+
+
 @main.command()
 @click.option("--host", default="127.0.0.1", help="Host to bind to")
 @click.option("--port", default=8765, help="Port to bind to")
@@ -442,6 +478,8 @@ def serve(host: str, port: int, reload: bool) -> None:
     except Exception:  # noqa: BLE001
         # Detection is best-effort; never fail `serve` over the hint.
         pass
+
+    _refuse_busy_port(host, port)
 
     click.echo(f"Starting server on http://{host}:{port}")
     click.echo("Press Ctrl+C to stop.")
