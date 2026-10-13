@@ -50,6 +50,19 @@ def state_dir() -> Path:
     return Path.home() / ".claude-explorer"
 
 
+def port_path() -> Path:
+    """The port that the last ``install-app`` gave the launcher."""
+    return state_dir() / "launcher-port"
+
+
+def saved_port() -> int | None:
+    try:
+        port = int(port_path().read_text().strip())
+    except (OSError, ValueError):
+        return None
+    return port if 0 < port < 65536 else None
+
+
 def log_path() -> Path:
     return state_dir() / "serve.log"
 

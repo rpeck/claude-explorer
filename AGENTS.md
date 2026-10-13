@@ -263,7 +263,10 @@ claude-explorer install-app --port 8766  # use another port (default 8765)
 claude-explorer install-app --uninstall  # remove
 ```
 
-The launcher keeps the port that `install-app` gave it. Windows and Linux
+The launcher keeps the port that `install-app` gave it, and `install-app`
+saves it in `~/.claude-explorer/launcher-port`. A later `install-app`
+without `--port` (the upgrade steps run one) reuses it; `--uninstall`
+deletes it. Windows and Linux
 pass `--port` to `cli.desktop_launcher` (`tray` and `open`); `stop` reads
 the port from the PID file. On 2026-10-13 an Emacs process held 8765 on a
 user's laptop, so the app could not start until it used another port.

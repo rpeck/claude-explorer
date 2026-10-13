@@ -124,8 +124,10 @@ def test_install_app_passes_the_port_to_every_launcher(
 ) -> None:
     """Another program can own 8765 (on 2026-10-13, an Emacs process did).
     `install-app --port` must reach the launcher on every platform."""
+    from backend.tests._platform_home import patch_home
     from cli.main import main as cli_main
 
+    patch_home(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(sys, "platform", platform)
     monkeypatch.setattr(sys, "executable", "/opt/tool/bin/python")
     seen: list[int] = []
@@ -140,9 +142,26 @@ def test_install_app_passes_the_port_to_every_launcher(
     assert seen == [9001]
     assert "9001" in result.output
 
+    # The upgrade steps say to run install-app again, often without --port.
+    # A rebuild must keep the chosen port, not fall back to 8765.
     seen.clear()
     result = CliRunner().invoke(cli_main, ["install-app", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output
+    assert seen == [9001]
+
+    seen.clear()
+    result = CliRunner().invoke(
+        cli_main, ["install-app", "--dest", str(tmp_path), "--port", str(app_launcher.DEFAULT_PORT)]
+    )
+    assert result.exit_code == 0, result.output
+    assert seen == [app_launcher.DEFAULT_PORT]
+
+    # --uninstall forgets the port, so a later install starts at the default.
+    result = CliRunner().invoke(cli_main, ["install-app", "--dest", str(tmp_path), "--port", "9002"])
+    assert seen[-1] == 9002
+    CliRunner().invoke(cli_main, ["install-app", "--dest", str(tmp_path), "--uninstall"])
+    seen.clear()
+    CliRunner().invoke(cli_main, ["install-app", "--dest", str(tmp_path)])
     assert seen == [app_launcher.DEFAULT_PORT]
 
 

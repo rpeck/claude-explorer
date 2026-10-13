@@ -964,12 +964,11 @@ def install_watcher(python_bin: str | None, interval: float, uninstall: bool) ->
 @click.option(
     "--port",
     type=click.IntRange(1, 65535),
-    default=8765,
-    show_default=True,
+    default=None,
     help="Port for the server. Choose another port if a different program "
-    "already uses 8765.",
+    "already uses 8765. Default: the port of the last install-app, else 8765.",
 )
-def install_app(dest: Path | None, uninstall: bool, port: int) -> None:
+def install_app(dest: Path | None, uninstall: bool, port: int | None) -> None:
     """Add Claude Explorer to the Dock, the Start menu, or the app menu.
 
     \b
@@ -983,6 +982,7 @@ def install_app(dest: Path | None, uninstall: bool, port: int) -> None:
     import sys as _sys
 
     from cli import app_launcher
+    from cli.desktop_launcher import port_path, saved_port
 
     os_name = _sys.platform
     if os_name == "darwin":
@@ -1004,6 +1004,7 @@ def install_app(dest: Path | None, uninstall: bool, port: int) -> None:
         )
 
     if uninstall:
+        port_path().unlink(missing_ok=True)
         if remove(target_dir):
             click.echo(f"Removed {target_dir / name}")
         else:
@@ -1022,6 +1023,13 @@ def install_app(dest: Path | None, uninstall: bool, port: int) -> None:
             "  uv tool install claude-explorer\n"
             "  claude-explorer install-app"
         )
+
+    # The upgrade steps say to run install-app again, often without --port.
+    # Keep the port that the user chose, so a rebuild does not move to 8765.
+    if port is None:
+        port = saved_port() or app_launcher.DEFAULT_PORT
+    port_path().parent.mkdir(parents=True, exist_ok=True)
+    port_path().write_text(f"{port}\n")
 
     if os_name == "darwin":
         installed = app_launcher.build_app(

@@ -258,7 +258,7 @@ The fix, for example with port 8766:
 
 In a terminal, run `claude-explorer serve --port 8766`, then open `http://localhost:8766`.
 
-Choose the port one time, and keep it. The web page keeps some settings per address, so a new port starts with default settings.
+`install-app` remembers the port. When you run it again without `--port`, for example after an upgrade, it uses the same port. Choose the port one time, and keep it: the web page keeps some settings per address, so a new port starts with default settings.
 
 **To upgrade:**
 
@@ -273,7 +273,7 @@ First, find out how you installed Claude Explorer. Run `claude-explorer --versio
 2. Stop the watcher: `claude-explorer install-watcher --uninstall`
 3. Upgrade: `uv tool upgrade claude-explorer`
 4. Start the watcher again: `claude-explorer install-watcher`
-5. If you upgraded from a version before 1.1.0, add the launcher: `claude-explorer install-app`
+5. Build the launcher again, so it gets the new version's fixes: `claude-explorer install-app`. It keeps the port that you chose before.
 6. Check the version: `claude-explorer --version`
 
 Stop the watcher first. Windows cannot replace files that a running program uses. On every platform, the watcher then restarts on the new version.
