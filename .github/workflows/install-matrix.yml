@@ -369,7 +369,7 @@ jobs:
           $s = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
           Write-Host "Shortcut: $($s.TargetPath) $($s.Arguments)"
           if ((Split-Path $s.TargetPath -Leaf) -ne "pythonw.exe") { throw "shortcut does not target pythonw.exe" }
-          if ($s.Arguments -ne "-m cli.desktop_launcher tray") { throw "unexpected shortcut arguments" }
+          if ($s.Arguments -ne "-m cli.desktop_launcher tray --port 8765") { throw "unexpected shortcut arguments: $($s.Arguments)" }
           # The console twin of the shortcut's interpreter, so output shows.
           $python = Join-Path (Split-Path $s.TargetPath) "python.exe"
           & $python -c "import pystray, PIL; print('pystray imports')"
