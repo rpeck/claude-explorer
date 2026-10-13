@@ -81,6 +81,33 @@ these items:
   - On Windows, the xdist controller hung at shutdown.
   - On Windows, parallel runs hid order-dependent failures.
 
+**Three more `pytest` jobs test newer Pythons.** A user install can differ
+from the six main jobs in two ways:
+
+- **The Python version.** `uv tool install` uses the newest Python on the
+  machine. The six main jobs use Python 3.13.
+- **The dependency versions.** `uv tool install` resolves the newest
+  versions. It does not read `uv.lock`.
+
+The three jobs:
+
+- **Linux, Python 3.14:** the locked versions.
+- **Linux, Python 3.15:** the newest versions (`uv sync --upgrade`).
+- **macOS arm64, Python 3.15:** the newest versions.
+
+Each `pytest` job also compiles the code with `-W error::SyntaxWarning`.
+Python 3.14 and later warn about some syntax, for example `return` in a
+`finally` block (PEP 765). A user sees such a warning at every start.
+
+Example: on 2026-10-13, a user installed 1.1.1 on Python 3.15.
+
+- The start printed a PEP 765 `SyntaxWarning`.
+- The fresh resolve installed WeasyPrint 70, which removed an API that
+  the PDF export used. Every image in an exported PDF failed.
+- The suite passed on 3.13 with the locked WeasyPrint 68.1. That version
+  only logged a `DeprecationWarning`. Now `pyproject.toml` makes a
+  WeasyPrint `DeprecationWarning` fail the suite.
+
 ## 9 · Protecting credentials on every platform
 
 `~/.claude-explorer/credentials.json` holds the session key. A person who

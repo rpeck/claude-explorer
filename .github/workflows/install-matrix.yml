@@ -415,10 +415,19 @@ jobs:
           # Windows runs serially: the xdist controller hung at shutdown there.
           - { name: Windows x86_64, runner: windows-latest,   python: "3.13", xdist: "0" }
           - { name: Windows ARM64,  runner: windows-11-arm,   python: "cpython-3.13-windows-x86_64-none", xdist: "0" }
+          # Newer Pythons. `uv tool install` picks the newest Python on the
+          # machine and resolves the newest dependencies, not uv.lock. A
+          # user on 3.15 hit a PEP 765 SyntaxWarning, and the fresh
+          # resolve brought WeasyPrint 70, which broke PDF images. The
+          # "latest deps" jobs re-resolve (`uv sync --upgrade`) to see that.
+          - { name: Linux x86_64 py3.14,             runner: ubuntu-latest, python: "3.14", xdist: "auto" }
+          - { name: Linux x86_64 py3.15 latest deps, runner: ubuntu-latest, python: "3.15", xdist: "auto", upgrade: "--upgrade" }
+          - { name: macOS arm64 py3.15 latest deps,  runner: macos-latest,  python: "3.15", xdist: "auto", upgrade: "--upgrade" }
 
     env:
       PYSPEC: ${{ matrix.python }}
       XDIST: ${{ matrix.xdist }}
+      UPGRADE: ${{ matrix.upgrade }}
 
     defaults:
       run:
@@ -429,7 +438,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
       - name: Sync dependencies
-        run: uv sync --extra dev --python "$PYSPEC"
+        # $UPGRADE is empty (locked versions) or --upgrade (newest versions).
+        run: uv sync --extra dev --python "$PYSPEC" $UPGRADE
+      - name: Compile with warnings as errors
+        # Python 3.14+ warns about syntax such as `return` in `finally`
+        # (PEP 765). Users see those warnings at every start, so fail here.
+        run: uv run python -W error::SyntaxWarning -m compileall -q -f backend cli fetcher mcp_server
       - name: Install the PDF libraries (macOS)
         # The README's PDF prerequisite, so the PDF tests run instead of
         # skip. Without it, WeasyPrint's dlopen finds the runner's partial

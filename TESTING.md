@@ -110,8 +110,9 @@ exit code of the runner to verify it.
      time, and the run still "completed".
    - Before you report green, confirm that the pass count of the runner is at
      or above the known baseline. These are the only baseline numbers in the
-     guide; update them here when a suite grows. Measured on 2026-09-25:
-     - Python pytest (`uv run pytest`): **1346 passed / 4 skipped**.
+     guide; update them here when a suite grows. Measured on 2026-09-25
+     (pytest on 2026-10-13):
+     - Python pytest (`uv run pytest`): **1352 passed / 4 skipped**.
      - vitest: **539 passed / 67 files**.
      - Playwright: **441 tests / 113 files**.
    - Before you report green, also grep the output for each of these strings:
