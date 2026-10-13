@@ -259,8 +259,14 @@ Three traps, each hit while building it:
 
 ```bash
 claude-explorer install-app              # install or rebuild
+claude-explorer install-app --port 8766  # use another port (default 8765)
 claude-explorer install-app --uninstall  # remove
 ```
+
+The launcher keeps the port that `install-app` gave it. Windows and Linux
+pass `--port` to `cli.desktop_launcher` (`tray` and `open`); `stop` reads
+the port from the PID file. On 2026-10-13 an Emacs process held 8765 on a
+user's laptop, so the app could not start until it used another port.
 
 #### `claude-explorer reindex-search` (manual override only)
 

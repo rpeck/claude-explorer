@@ -273,11 +273,11 @@ def windowless_python(executable: str) -> str:
     return str(candidate) if candidate.exists() else executable
 
 
-def shortcut_fields(*, executable: str, icon: Path) -> dict[str, str]:
+def shortcut_fields(*, executable: str, icon: Path, port: int = DEFAULT_PORT) -> dict[str, str]:
     """The shortcut's target, arguments, working folder and icon."""
     return {
         "CE_TARGET": windowless_python(executable),
-        "CE_ARGS": "-m cli.desktop_launcher tray",
+        "CE_ARGS": f"-m cli.desktop_launcher tray --port {int(port)}",
         "CE_WORKDIR": str(Path.home()),
         "CE_ICON": str(icon),
     }
@@ -293,7 +293,7 @@ def _write_ico(dest: Path) -> Path:
     return dest
 
 
-def install_windows_shortcut(*, dest: Path, executable: str) -> Path:
+def install_windows_shortcut(*, dest: Path, executable: str, port: int = DEFAULT_PORT) -> Path:
     """Create the Start menu shortcut, and return its path."""
     import os
 
@@ -302,7 +302,8 @@ def install_windows_shortcut(*, dest: Path, executable: str) -> Path:
     icon = _write_ico(state_dir() / "claude-explorer.ico")
     dest.mkdir(parents=True, exist_ok=True)
     lnk = dest / SHORTCUT_NAME
-    env = dict(os.environ, CE_LNK=str(lnk), **shortcut_fields(executable=executable, icon=icon))
+    fields = shortcut_fields(executable=executable, icon=icon, port=port)
+    env = dict(os.environ, CE_LNK=str(lnk), **fields)
     result = subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", _SHORTCUT_PS],
         env=env, capture_output=True, text=True,
@@ -347,7 +348,8 @@ def _exec_arg(value: str) -> str:
     return ('"' + inner + '"').replace("\\", "\\\\").replace("%", "%%")
 
 
-def build_desktop_entry(*, executable: str, icon: Path) -> str:
+def build_desktop_entry(*, executable: str, icon: Path, port: int = DEFAULT_PORT) -> str:
+    # stop reads the port that open recorded, so only open takes --port.
     python = _exec_arg(executable)
     return (
         "[Desktop Entry]\n"
@@ -355,7 +357,7 @@ def build_desktop_entry(*, executable: str, icon: Path) -> str:
         "Version=1.5\n"
         "Name=Claude Explorer\n"
         "Comment=Browse, search, and export your Claude conversations\n"
-        f"Exec={python} -m cli.desktop_launcher open\n"
+        f"Exec={python} -m cli.desktop_launcher open --port {int(port)}\n"
         f"Icon={icon}\n"
         "Terminal=false\n"
         "Categories=Utility;\n"
@@ -367,7 +369,7 @@ def build_desktop_entry(*, executable: str, icon: Path) -> str:
     )
 
 
-def install_linux_entry(*, dest: Path, executable: str) -> Path:
+def install_linux_entry(*, dest: Path, executable: str, port: int = DEFAULT_PORT) -> Path:
     """Write the app-menu entry, and return its path."""
     from cli.desktop_launcher import state_dir
 
@@ -376,7 +378,9 @@ def install_linux_entry(*, dest: Path, executable: str) -> Path:
     shutil.copyfile(_ICON_PNG, icon)
     dest.mkdir(parents=True, exist_ok=True)
     entry = dest / DESKTOP_FILE
-    entry.write_text(build_desktop_entry(executable=executable, icon=icon), encoding="utf-8")
+    entry.write_text(
+        build_desktop_entry(executable=executable, icon=icon, port=port), encoding="utf-8"
+    )
     if shutil.which("update-desktop-database"):
         subprocess.run(["update-desktop-database", str(dest)], check=False, capture_output=True)
     return entry

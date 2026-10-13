@@ -215,13 +215,23 @@ def test_desktop_entry_has_open_and_stop() -> None:
     assert lines[0] == "[Desktop Entry]"
     assert (
         'Exec="/home/u/.local/share/uv/tools/claude-explorer/bin/python" '
-        "-m cli.desktop_launcher open" in lines
+        "-m cli.desktop_launcher open --port 8765" in lines
     )
     assert "Actions=stop;" in lines
     assert "[Desktop Action stop]" in lines
     assert "Name=Stop Claude Explorer" in lines
     assert lines[-1].endswith("-m cli.desktop_launcher stop")
     assert "Terminal=false" in lines
+
+
+def test_desktop_entry_opens_on_the_chosen_port() -> None:
+    """Another program can own 8765 (on 2026-10-13, an Emacs process did)."""
+    lines = app_launcher.build_desktop_entry(
+        executable="/usr/bin/python3", icon=Path("/i.png"), port=9001
+    ).splitlines()
+    assert 'Exec="/usr/bin/python3" -m cli.desktop_launcher open --port 9001' in lines
+    # stop reads the port that open recorded, so it takes no --port.
+    assert lines[-1] == 'Exec="/usr/bin/python3" -m cli.desktop_launcher stop'
 
 
 def test_desktop_exec_quoting_follows_the_spec() -> None:
@@ -266,7 +276,14 @@ def test_shortcut_targets_pythonw(tmp_path: Path) -> None:
         executable=str(tmp_path / "python.exe"), icon=tmp_path / "i.ico"
     )
     assert fields["CE_TARGET"] == str(tmp_path / "pythonw.exe")
-    assert fields["CE_ARGS"] == "-m cli.desktop_launcher tray"
+    assert fields["CE_ARGS"] == "-m cli.desktop_launcher tray --port 8765"
+
+
+def test_shortcut_uses_the_chosen_port(tmp_path: Path) -> None:
+    fields = app_launcher.shortcut_fields(
+        executable=str(tmp_path / "python.exe"), icon=tmp_path / "i.ico", port=9001
+    )
+    assert fields["CE_ARGS"] == "-m cli.desktop_launcher tray --port 9001"
 
 
 def test_shortcut_script_takes_values_only_from_the_environment() -> None:
@@ -290,7 +307,7 @@ def test_windows_shortcut_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyP
         capture_output=True, text=True, check=True,
     ).stdout.splitlines()
     assert Path(read[0]).name.lower() in ("pythonw.exe", "python.exe")
-    assert read[1] == "-m cli.desktop_launcher tray"
+    assert read[1] == "-m cli.desktop_launcher tray --port 8765"
     assert (tmp_path / ".claude-explorer" / "claude-explorer.ico").exists()
     assert app_launcher.uninstall_windows_shortcut(menu)
     assert not lnk.exists()

@@ -104,6 +104,41 @@ def test_install_app_refuses_a_uvx_interpreter(
     assert not any(tmp_path.iterdir())
 
 
+@pytest.mark.parametrize(
+    ("platform", "builder"),
+    [
+        ("darwin", "build_app"),
+        ("win32", "install_windows_shortcut"),
+        ("linux", "install_linux_entry"),
+    ],
+)
+def test_install_app_passes_the_port_to_every_launcher(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, platform: str, builder: str
+) -> None:
+    """Another program can own 8765 (on 2026-10-13, an Emacs process did).
+    `install-app --port` must reach the launcher on every platform."""
+    from cli.main import main as cli_main
+
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setattr(sys, "executable", "/opt/tool/bin/python")
+    seen: list[int] = []
+
+    def fake(**kwargs):
+        seen.append(kwargs["port"])
+        return tmp_path / "launcher"
+
+    monkeypatch.setattr(app_launcher, builder, fake)
+    result = CliRunner().invoke(cli_main, ["install-app", "--dest", str(tmp_path), "--port", "9001"])
+    assert result.exit_code == 0, result.output
+    assert seen == [9001]
+    assert "9001" in result.output
+
+    seen.clear()
+    result = CliRunner().invoke(cli_main, ["install-app", "--dest", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert seen == [app_launcher.DEFAULT_PORT]
+
+
 def test_uninstall_leaves_a_foreign_app_alone(tmp_path: Path) -> None:
     app = tmp_path / app_launcher.APP_NAME
     (app / "Contents").mkdir(parents=True)

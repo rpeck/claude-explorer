@@ -244,6 +244,17 @@ Claude Explorer includes an MCP server, so Claude can search and read your histo
 | Upgrade | The four steps below |
 | Uninstall | The steps below |
 
+**If another program uses port 8765:**
+
+Claude Explorer uses port 8765. If a different program already uses that port, `serve` stops and tells you so. The app shows "Claude Explorer did not start". To see the program, run `lsof -nP -iTCP:8765 -sTCP:LISTEN` (Windows: `netstat -ano | findstr :8765`).
+
+To use a different port, for example 8766:
+
+1. Install the launcher again with that port: `claude-explorer install-app --port 8766`
+2. Open **Claude Explorer** as usual. It opens `http://localhost:8766`.
+
+In a terminal, run `claude-explorer serve --port 8766`, then open `http://localhost:8766`.
+
 **To upgrade:**
 
 First, find out how you installed Claude Explorer. Run `claude-explorer --version`.

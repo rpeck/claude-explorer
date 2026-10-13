@@ -930,7 +930,15 @@ def install_watcher(python_bin: str | None, interval: float, uninstall: bool) ->
     is_flag=True,
     help="Remove the launcher instead of installing it.",
 )
-def install_app(dest: Path | None, uninstall: bool) -> None:
+@click.option(
+    "--port",
+    type=click.IntRange(1, 65535),
+    default=8765,
+    show_default=True,
+    help="Port for the server. Choose another port if a different program "
+    "already uses 8765.",
+)
+def install_app(dest: Path | None, uninstall: bool, port: int) -> None:
     """Add Claude Explorer to the Dock, the Start menu, or the app menu.
 
     \b
@@ -988,24 +996,24 @@ def install_app(dest: Path | None, uninstall: bool) -> None:
         installed = app_launcher.build_app(
             dest=target_dir,
             executable=app_launcher.launcher_executable(),
-            port=app_launcher.DEFAULT_PORT,
+            port=port,
             log_path=app_launcher.default_log_path(),
         )
-        click.echo(f"Installed {installed}")
+        click.echo(f"Installed {installed} (port {port})")
         click.echo("Open it from Launchpad or Spotlight, or drag it to the Dock.")
         click.echo(f"Server log: {app_launcher.default_log_path()}")
     elif os_name == "win32":
         installed = app_launcher.install_windows_shortcut(
-            dest=target_dir, executable=_sys.executable
+            dest=target_dir, executable=_sys.executable, port=port
         )
-        click.echo(f"Installed {installed}")
+        click.echo(f"Installed {installed} (port {port})")
         click.echo("Open 'Claude Explorer' from the Start menu. Right-click it to pin it.")
         click.echo("To stop it, right-click its icon in the notification area and choose Quit.")
     else:
         installed = app_launcher.install_linux_entry(
-            dest=target_dir, executable=_sys.executable
+            dest=target_dir, executable=_sys.executable, port=port
         )
-        click.echo(f"Installed {installed}")
+        click.echo(f"Installed {installed} (port {port})")
         click.echo("Open 'Claude Explorer' from your app menu.")
         click.echo("To stop it, right-click it and choose 'Stop Claude Explorer'.")
 
