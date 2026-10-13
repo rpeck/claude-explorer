@@ -246,14 +246,45 @@ Claude Explorer includes an MCP server, so Claude can search and read your histo
 
 **To upgrade:**
 
+First, find out how you installed Claude Explorer. Run `claude-explorer --version`.
+
+- If it prints a version number, you have a lasting install. Follow [Upgrade a lasting install](#upgrade-a-lasting-install).
+- If it reports "command not found" or "not recognized", you installed with `uvx`, as the README for versions before 1.1.0 said. Follow [Move from uvx to a lasting install](#move-from-uvx-to-a-lasting-install).
+
+#### Upgrade a lasting install
+
 1. Stop the app.
 2. Stop the watcher: `claude-explorer install-watcher --uninstall`
 3. Upgrade: `uv tool upgrade claude-explorer`
 4. Start the watcher again: `claude-explorer install-watcher`
+5. If you upgraded from a version before 1.1.0, add the launcher: `claude-explorer install-app`
+6. Check the version: `claude-explorer --version`
 
 Stop the watcher first. Windows cannot replace files that a running program uses. On every platform, the watcher then restarts on the new version.
 
+On Windows on ARM, `uv tool upgrade` keeps the x86_64 Python from your install. You do not need the `--python` option again.
+
 If the **Refresh** login later reports a missing browser, run step 3 of your install block again.
+
+#### Move from uvx to a lasting install
+
+`uvx` runs Claude Explorer from a temporary copy in uv's cache. uv can delete that copy at any time. If you installed the watcher with `uvx`, the watcher uses that copy, and it can stop without any warning. Move to a lasting install one time:
+
+1. Stop the app.
+2. Remove the old watcher: `uvx claude-explorer install-watcher --uninstall`
+3. Do steps 2 to 5 of the install block for your platform in the [Quick Start](#quick-start). They install the tool, the browser, the watcher, and the launcher.
+4. Check the version: `claude-explorer --version`
+
+Your downloaded conversations stay where they are. You do not need to download them again.
+
+If you set up the MCP server in Claude Code with `uvx`, that setup still works. To make it use the same version as the app, run these two commands:
+
+```bash
+claude mcp remove claude-sessions
+claude mcp add --scope user claude-sessions -- claude-explorer mcp
+```
+
+For Claude Desktop, see [Claude Desktop setup](#claude-desktop-setup).
 
 **To uninstall:**
 
