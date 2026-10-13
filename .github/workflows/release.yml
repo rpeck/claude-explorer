@@ -7,9 +7,13 @@ name: Release
 #
 # Cutting a release from your laptop:
 #
-#     # bump version in pyproject.toml first, commit, push to main
-#     git tag v0.2.0
+#     # bump __version__ in mcp_server/__init__.py first (pyproject.toml
+#     # reads it), commit, push to main
+#     git tag -a v0.2.0 -m "Claude Explorer 0.2.0"
 #     git push origin v0.2.0
+#
+# The check-tag job fails the run at once if the tag does not match
+# __version__.
 #
 # The workflow auto-runs on the tag push; ~3 min later the wheel is
 # live on https://pypi.org/project/claude-explorer/
@@ -47,8 +51,32 @@ permissions:
   contents: read
 
 jobs:
+  check-tag:
+    name: Tag matches __version__
+    # 2026-10-13: v1.1.2 was pushed on a commit whose __version__ was
+    # still 1.1.1. Fail before the tests and the build, not at upload.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Compare the tag with mcp_server/__init__.py
+        run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' mcp_server/__init__.py)
+          tag="${GITHUB_REF_NAME#v}"
+          # A pre-release tag (v1.2.3-rc1) and its PEP 440 version (1.2.3rc1)
+          # differ in spelling, so compare only the release part for those.
+          case "$tag" in
+            *-*) want="${tag%%-*}"; got="${version%%[!0-9.]*}" ;;
+            *)   want="$tag";       got="$version" ;;
+          esac
+          if [ -z "$version" ] || [ "$want" != "$got" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match __version__ '$version' in mcp_server/__init__.py"
+            exit 1
+          fi
+          echo "Tag $GITHUB_REF_NAME matches __version__ $version"
+
   test:
     name: Test suite (release gate)
+    needs: check-tag
     # Pinned to the tagged commit. Runs the full test.yml suite:
     # backend + fetcher + mcp_server pytest AND the Playwright e2e
     # job (now in real-backend fixture mode, see PLANS/2026.06.04-
