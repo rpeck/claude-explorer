@@ -61,7 +61,7 @@ uv python list
 # --- B6: WeasyPrint runtime libs ------------------------------------------
 separator "B6: WeasyPrint system deps"
 
-sudo apt install -y libpango-1.0-0 libpangocairo-1.0-0 libcairo2
+sudo apt install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
 
 # --- summary --------------------------------------------------------------
 separator "B4-B6 DONE"

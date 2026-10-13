@@ -403,7 +403,7 @@ WeasyPrint requires system libraries for PDF generation:
 brew install pango cairo libffi
 
 # Ubuntu/Debian
-apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2
+apt-get install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
 
 # Windows (via MSYS2 — https://www.msys2.org)
 # In the MSYS2 shell:
