@@ -43,10 +43,22 @@ DEFAULT_DATA_DIR: Path = DEFAULT_CONFIG_DIR / "conversations"
 #: Where attached files (images, PDFs) downloaded during fetch land.
 DEFAULT_FILES_DIR: Path = DEFAULT_CONFIG_DIR / "files"
 
+#: Subdirectory of the conversations data dir that holds remote Cowork
+#: sessions (tasks run in Anthropic's cloud), laid out as
+#: ``<org_uuid>/remote_<session_id>/audit.jsonl`` plus a sibling sidecar.
+#: Written by ``fetcher.remote_sessions``; read by ``backend.cowork_reader``.
+REMOTE_COWORK_DIRNAME = "cowork-remote"
+
+#: Directory-name prefix of a remote Cowork session. Local Cowork sessions
+#: use ``local_``.
+REMOTE_SESSION_PREFIX = "remote_"
+
 
 __all__ = [
     "DEFAULT_CONFIG_DIR",
     "DEFAULT_CREDENTIALS_PATH",
     "DEFAULT_DATA_DIR",
     "DEFAULT_FILES_DIR",
+    "REMOTE_COWORK_DIRNAME",
+    "REMOTE_SESSION_PREFIX",
 ]

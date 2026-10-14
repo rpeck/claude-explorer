@@ -42,6 +42,10 @@ def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     # var override is the contract Python's Path.home() promises.
     monkeypatch.delenv("CLAUDE_EXPLORER_SKIP_DATA_DIR_MIGRATION", raising=False)
     monkeypatch.delenv("CLAUDE_EXPORTER_SKIP_DATA_DIR_MIGRATION", raising=False)
+    # These tests exercise the home-based default; drop the conftest's
+    # isolated data-dir override.
+    monkeypatch.delenv("CLAUDE_EXPLORER_DATA_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_EXPORTER_DATA_DIR", raising=False)
     config.get_settings.cache_clear()
     yield tmp_path
     config.get_settings.cache_clear()

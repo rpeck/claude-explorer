@@ -1,4 +1,5 @@
 import type {
+  AccountResponse,
   ConversationListItem,
   ConversationDetail,
   ConversationTree,
@@ -73,6 +74,22 @@ export const api = {
 
   getOrgs: (signal?: AbortSignal): Promise<OrgsResponse> =>
     fetchJson<OrgsResponse>('/orgs', signal),
+
+  getAccount: (signal?: AbortSignal): Promise<AccountResponse> =>
+    fetchJson<AccountResponse>('/account', signal),
+
+  // Stops the server (sidebar power button). The custom header makes a
+  // cross-site page's request fail the CORS preflight; see
+  // backend/routers/shutdown.py.
+  shutdownServer: async (): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/shutdown`, {
+      method: 'POST',
+      headers: { 'X-Claude-Explorer-Action': 'shutdown' },
+    })
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.text())
+    }
+  },
 
   getConversation: async (
     uuid: string,

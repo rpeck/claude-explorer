@@ -2206,31 +2206,23 @@ def _file_path_for_conv(conv: dict[str, Any], data_dir: Path, claude_dir: Path) 
 
     if source == "CLAUDE_COWORK":
         # Cowork files: claude_desktop_app_dir/local-agent-mode-sessions/
-        # <deployment>/<org>/local_<uuid>/audit.jsonl. We don't have the
-        # cowork_root in this helper's signature (call sites are pinned
-        # to data_dir + claude_dir for back-compat), so consult
+        # <deployment>/<org>/local_<uuid>/audit.jsonl, or a remote task
+        # archived under data_dir/cowork-remote/<org>/remote_<id>/. We don't
+        # have the cowork_root in this helper's signature (call sites are
+        # pinned to data_dir + claude_dir for back-compat), so consult
         # Settings directly. Drift detection on Cowork without a tagged
         # path can fall back to the next backstop poll, so a missing
-        # cowork_root just returns None.
-        cowork_root = (
-            get_settings().claude_desktop_app_dir / "local-agent-mode-sessions"
+        # session dir just returns None.
+        from .cowork_reader import find_cowork_session_dir, remote_cowork_root
+        session_dir = find_cowork_session_dir(
+            get_settings().claude_desktop_app_dir / "local-agent-mode-sessions",
+            remote_cowork_root(data_dir),
+            uuid,
         )
-        if cowork_root.exists():
-            try:
-                deployment_dirs = list(cowork_root.iterdir())
-            except OSError:
-                deployment_dirs = []
-            for deployment_dir in deployment_dirs:
-                if not deployment_dir.is_dir():
-                    continue
-                try:
-                    org_dirs = list(deployment_dir.iterdir())
-                except OSError:
-                    continue
-                for org_dir in org_dirs:
-                    candidate = org_dir / f"local_{uuid}" / "audit.jsonl"
-                    if candidate.exists():
-                        return candidate
+        if session_dir is not None:
+            candidate = session_dir / "audit.jsonl"
+            if candidate.exists():
+                return candidate
         return None
 
     # Desktop: by-org first, legacy flat last.
@@ -2281,35 +2273,21 @@ def _enumerate_conversation_paths(store: Any) -> list[tuple[Path, str]]:
     # extension-based dispatch would silently route Cowork through
     # the CC reader, which doesn't understand the _audit_timestamp
     # field rename).
+    from .cowork_reader import iter_cowork_session_dirs, remote_cowork_root
+
     cowork_root = getattr(store, "cowork_root", None)
     if cowork_root is None:
         cowork_root = (
             get_settings().claude_desktop_app_dir / "local-agent-mode-sessions"
         )
-    if cowork_root.exists():
-        try:
-            deployment_dirs = list(cowork_root.iterdir())
-        except OSError:
-            deployment_dirs = []
-        for deployment_dir in deployment_dirs:
-            if not deployment_dir.is_dir():
-                continue
-            try:
-                org_dirs = list(deployment_dir.iterdir())
-            except OSError:
-                continue
-            for org_dir in org_dirs:
-                if not org_dir.is_dir():
-                    continue
-                try:
-                    sess_dirs = list(org_dir.iterdir())
-                except OSError:
-                    continue
-                for sess_dir in sess_dirs:
-                    if sess_dir.is_dir() and sess_dir.name.startswith("local_"):
-                        audit = sess_dir / "audit.jsonl"
-                        if audit.exists():
-                            paths.append((audit, "CLAUDE_COWORK"))
+    remote_root = getattr(store, "remote_cowork_root", None)
+    if remote_root is None:
+        data_dir = getattr(store, "data_dir", None) or get_settings().data_dir
+        remote_root = remote_cowork_root(data_dir)
+    for sess_dir in iter_cowork_session_dirs(cowork_root, remote_root):
+        audit = sess_dir / "audit.jsonl"
+        if audit.exists():
+            paths.append((audit, "CLAUDE_COWORK"))
     return paths
 
 

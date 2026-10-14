@@ -190,6 +190,25 @@ def test_tray_starts_the_server_and_quit_stops_it(launcher_env, monkeypatch) -> 
     assert not desktop_launcher.pid_path().exists()
 
 
+def test_tray_goes_away_when_its_server_stops_on_its_own(launcher_env, monkeypatch) -> None:
+    """After the web UI's Quit (power) button, the tray icon must not linger."""
+    import os
+    import signal
+
+    port, _ = launcher_env
+    monkeypatch.setattr(desktop_launcher, "WATCH_INTERVAL_SEC", 0.05)
+    made = _fake_pystray(monkeypatch)
+    assert desktop_launcher.cmd_tray(port) == 0
+    icon = made["icon"]
+    assert not icon.stopped
+    pid, _ = desktop_launcher._read_pid_file()
+
+    os.kill(pid, signal.SIGTERM)  # the server exits without the tray's help
+
+    assert _wait(lambda: icon.stopped)
+    assert not desktop_launcher.pid_path().exists()
+
+
 def test_tray_adds_no_second_icon_when_a_server_runs(launcher_env, monkeypatch) -> None:
     port, started = launcher_env
     proc = subprocess.Popen(desktop_launcher.serve_command(port))

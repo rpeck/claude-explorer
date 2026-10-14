@@ -20,7 +20,7 @@ The Medium series *Unlocking Your Claude History* explains why this project exis
 
 ## Features
 
-- **Browse conversations** from all three sources in one unified list: Claude Desktop (fetched), Claude Code, and Claude Cowork (both read live from local disk)
+- **Browse conversations** from all three sources in one unified list: Claude Desktop (fetched), Claude Code (read live from local disk), and Claude Cowork (local sessions read live from disk; tasks that ran in Anthropic's cloud are fetched)
 - **Full-text search** across all messages with instant results — multi-word queries AND tokens (all words must appear in the same message, any order); wrap in `"double quotes"` to require an exact phrase. Both the title-search and full-text-search honor the sidebar's active scope (source dropdown, workspace, and any active filter), so what you can't see in the sidebar can't appear in search results either.
 - **Export** to Markdown or PDF
 - **Dark mode** with automatic system preference detection
@@ -187,7 +187,7 @@ On Windows ARM, the proxy method of credential capture installs, but nobody has 
 ### After you install
 
 1. Open `http://localhost:8765` in your browser. If you started Claude Explorer from its menu entry or app, it opens this page for you. Your Claude Code and Claude Cowork sessions show immediately.
-2. Click **Refresh** in the sidebar to download your Claude Desktop conversations. The first time, a browser window opens. Log in to Claude in that window. The app then saves your login and downloads your conversations.
+2. Click **Refresh** in the sidebar to download your Claude Desktop conversations and any Cowork tasks that ran in the cloud. The first time, a browser window opens. Log in to Claude in that window. The app then saves your login and downloads your conversations.
 
 **Why the watcher matters.** Claude Code deletes old screenshots and pasted images from your disk. The watcher copies each image as soon as it appears. It runs in the background under your operating system's service manager (launchd, systemd, or Task Scheduler). Without it, images are protected only while `claude-explorer serve` runs.
 
@@ -239,7 +239,7 @@ Claude Explorer includes an MCP server, so Claude can search and read your histo
 | To | Run |
 |---|---|
 | Start the app | Open **Claude Explorer** from Launchpad, the Start menu, or your app menu. Or run `claude-explorer serve`, then open `http://localhost:8765` |
-| Stop the app | macOS: quit **Claude Explorer**. Windows: right-click its notification-area icon, and choose **Quit**. Linux: right-click it in the menu, and choose **Stop Claude Explorer**. In a terminal: press **Ctrl+C** where `serve` runs |
+| Stop the app | Any platform: click the power button at the bottom of the sidebar, then **Quit**. macOS: or quit **Claude Explorer**. Windows: right-click its notification-area icon, and choose **Quit**. Linux: right-click it in the menu, and choose **Stop Claude Explorer**. In a terminal: press **Ctrl+C** where `serve` runs |
 | Check the watcher | See [Verify it's running](#image-cache-watcher--technical-details) |
 | Upgrade | The four steps below |
 | Uninstall | The steps below |

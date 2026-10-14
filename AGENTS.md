@@ -228,6 +228,15 @@ browser, and stops only a server that it started. Install code:
 | Windows | Start menu shortcut, runs `pythonw.exe -m cli.desktop_launcher tray` | Tray icon, **Quit** |
 | Linux | `~/.local/share/applications/claude-explorer.desktop`, runs `... open` | Right-click action, runs `... stop` |
 
+On every platform the sidebar's **power button** (UX.md → "Quit (power
+button)") also stops the server: `POST /api/shutdown` raises SIGINT in the
+server's own process, exactly like Ctrl+C (`backend/shutdown.py`), so
+`claude-explorer serve` exits with code 0. The route requires the header
+`X-Claude-Explorer-Action: shutdown` and a same-origin or loopback `Origin`,
+so another website cannot stop the server. The macOS applet's `idle`
+handler quits the app when the server it started is gone, and the Windows
+tray removes its icon. Linux needs nothing: `open` does not stay running.
+
 Windows and Linux share `cli/desktop_launcher.py`. It records the PID and
 port of each server that it starts in `~/.claude-explorer/launcher-server.pid`.
 Linux has no tray icon: GNOME shows none without an extension, and
@@ -345,6 +354,31 @@ The sidebar **Refresh** button owns the full pipeline — capture + fetch — so
 - **SSE event types:** `capture_start`, `capture_waiting_login` (heartbeat every 25s during the 5-min login wait), `capture_done`, `capture_error`, plus the existing `start`, `progress`, `complete`, `error`.
 - **Manual override:** the Details modal's "Full Refresh" and "Fetch New" buttons still hit `/fetch/start` directly with no auto-capture.
 - **Search is current at `complete`.** The backend re-indexes search before it emits `complete`. The frontend then calls `invalidateAfterFetch` (`frontend/src/lib/queryClient.ts`), which marks both the conversations and the search caches stale. A new fetch site must do both, or the Search Pane shows pre-fetch results.
+
+**Remote Cowork tasks are a second fetch source.** Cowork tasks that run in
+Anthropic's cloud are not chat conversations: `chat_conversations` never lists
+them, and nothing lands in Claude Desktop's local `local-agent-mode-sessions/`.
+An account that only runs tasks used to "fetch" 0 conversations. Every fetch
+path (Refresh, `/fetch/start`, `claude-explorer fetch`) now also syncs them
+through `fetcher/remote_sessions.py`:
+
+- **API:** `GET https://claude.ai/v1/code/sessions?tags=cowork-remote` and
+  `/v1/code/sessions/<id>/events` (newest first, `cursor=<seq>` pages back).
+  Both need the `anthropic-beta: ccr-byoc-2025-07-29`, `anthropic-version`,
+  and `x-organization-uuid` headers. Recorded from the claude.ai web app with
+  Playwright; re-record the same way if the API moves.
+- **Storage:** `<data_dir>/cowork-remote/<org>/remote_<id>/audit.jsonl` plus a
+  sibling sidecar, in the local Cowork shape, so `backend/cowork_reader.py`,
+  the store, and the search index read them unchanged
+  (`iter_cowork_session_dirs` / `find_cowork_session_dir`).
+- **Incremental:** a session is skipped when its sidecar records the API's
+  `updated_at`; otherwise only events newer than the highest
+  `_sequence_num` in `audit.jsonl` are fetched and appended.
+- **Additive:** an org without sessions-API access (401/403/404) is skipped;
+  any other failure is a `progress` message, never a stream `error`.
+- **Tests:** the autouse `_no_remote_cowork_network` fixture (both conftests)
+  stubs `RemoteCoworkFetcher._get_json`; `fetcher/tests/ccr_fake.py` is a
+  fake of the API with its real paging.
 
 If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_capture_phase_stream`, `_fetch_phase_stream`, and `refresh_pipeline_stream` async generators) and `frontend/src/components/fetch/FetchToast.tsx` (the `useRefreshPipeline` hook) together — the SSE event schema is shared.
 

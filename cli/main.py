@@ -526,6 +526,9 @@ def serve(host: str, port: int, reload: bool) -> None:
             # line per response (method + path + status + elapsed). The
             # default line lacks elapsed and would just double-print.
             access_log=False,
+            # An open Refresh stream must not hold up Ctrl+C or the web
+            # UI's Quit button forever.
+            timeout_graceful_shutdown=5,
         )
     except OSError as e:
         if e.errno == 48 or "address already in use" in str(e).lower():
