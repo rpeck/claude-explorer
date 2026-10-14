@@ -642,6 +642,32 @@ fetches.
 - **Loading / endpoint error:** the row keeps its height and shows no
   text, so the footer does not shift.
 
+### Quit (power button)
+
+The user can stop the Claude Explorer server from the app itself. This
+matters most when the macOS app, the Windows Start-menu shortcut, or the
+Linux menu entry started the server, because no terminal is open to
+press Ctrl+C in.
+
+- **Where:** the sidebar footer, at the right end of the button row: an
+  icon button with a power icon, named **Quit Claude Explorer**.
+- **Confirm first:** clicking it opens a dialog titled **Quit Claude
+  Explorer?** with the text "This stops the Claude Explorer server. Open
+  Claude Explorer again to restart it." Buttons: **Cancel** and **Quit**.
+  Cancel, Esc, or a click outside closes the dialog and changes nothing.
+- **Refresh running:** the dialog adds "A Refresh is running. Quitting
+  interrupts it; the next Refresh picks up where it stopped."
+- **Quit:** sends `POST /api/shutdown`. On success the whole page is
+  replaced by a screen with the heading **Claude Explorer has stopped**
+  and the text "You can close this tab." The stopped page sends no more
+  requests, so no connection-lost warning appears.
+- **Failure:** if the request fails, the dialog stays open and shows
+  "Could not stop the server." with the reason. The app keeps working.
+- **Launchers:** the macOS app quits itself when the server it started
+  stops, and the Windows tray icon goes away. A server started from a
+  terminal exits back to the prompt. The background image-cache watcher
+  is a separate job and keeps running.
+
 ### Sort controls (sidebar AND search panel)
 
 Both panes share the same four sort fields:

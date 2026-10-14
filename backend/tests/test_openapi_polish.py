@@ -180,10 +180,11 @@ def test_every_json_route_documents_a_response_schema(client: TestClient) -> Non
         if path in NON_JSON_RESPONSE_PATHS or path in INFRA_NO_RESPONSE_MODEL:
             continue
         responses = op.get("responses", {})
-        # FastAPI uses "200" for GET/PUT/PATCH and "201"/"204" for POST/DELETE
-        # configured with `status_code=`. Find the success response.
+        # FastAPI uses "200" for GET/PUT/PATCH and "201"/"202"/"204" for
+        # POST/DELETE configured with `status_code=` (202: /api/shutdown).
+        # Find the success response.
         success_code = None
-        for code in ("200", "201", "204"):
+        for code in ("200", "201", "202", "204"):
             if code in responses:
                 success_code = code
                 break

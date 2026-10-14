@@ -17,6 +17,8 @@ import { SettingsPage } from '@/routes/SettingsPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { KeyboardHelpModal } from '@/components/KeyboardHelpModal'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { ServerStoppedScreen } from '@/components/ServerStoppedScreen'
+import { useServerStopped } from '@/lib/serverStopped'
 
 function ThemeApplier({ children }: { children: React.ReactNode }) {
   const { effectiveTheme } = useSettings()
@@ -39,6 +41,11 @@ function KeyboardShortcutHandler() {
 }
 
 function App() {
+  // After the power button stops the server, replace the whole app. The
+  // unmount stops every poller and query. UX.md → "Quit (power button)".
+  const serverStopped = useServerStopped()
+  if (serverStopped) return <ServerStoppedScreen />
+
   return (
     <QueryClientProvider client={queryClient}>
       <SettingsProvider>

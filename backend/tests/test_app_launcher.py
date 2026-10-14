@@ -73,6 +73,18 @@ def test_quit_stops_only_a_server_the_app_started() -> None:
     assert "continue quit" in quit_block
 
 
+def test_app_quits_when_its_server_stops_on_its_own() -> None:
+    """The web UI's Quit (power) button stops the server; the app must not
+    linger in the Dock with nothing behind it."""
+    s = _script()
+    idle = s[s.index("on idle") : s.index("end idle")]
+    assert "if ownsServer and serverPID" in idle
+    assert '"kill -0 " & serverPID' in idle
+    on_error = idle[idle.index("on error") :]
+    assert "set ownsServer to false" in on_error and "quit" in on_error
+    assert "return 2" in idle
+
+
 def test_app_checks_for_a_port_conflict_before_it_starts_the_server() -> None:
     s = _script(port=9001)
     assert "port-check --port 9001" in s

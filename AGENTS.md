@@ -228,6 +228,15 @@ browser, and stops only a server that it started. Install code:
 | Windows | Start menu shortcut, runs `pythonw.exe -m cli.desktop_launcher tray` | Tray icon, **Quit** |
 | Linux | `~/.local/share/applications/claude-explorer.desktop`, runs `... open` | Right-click action, runs `... stop` |
 
+On every platform the sidebar's **power button** (UX.md → "Quit (power
+button)") also stops the server: `POST /api/shutdown` raises SIGINT in the
+server's own process, exactly like Ctrl+C (`backend/shutdown.py`), so
+`claude-explorer serve` exits with code 0. The route requires the header
+`X-Claude-Explorer-Action: shutdown` and a same-origin or loopback `Origin`,
+so another website cannot stop the server. The macOS applet's `idle`
+handler quits the app when the server it started is gone, and the Windows
+tray removes its icon. Linux needs nothing: `open` does not stay running.
+
 Windows and Linux share `cli/desktop_launcher.py`. It records the PID and
 port of each server that it starts in `~/.claude-explorer/launcher-server.pid`.
 Linux has no tray icon: GNOME shows none without an extension, and

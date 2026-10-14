@@ -160,6 +160,21 @@ on serverUp()
 	end try
 end serverUp
 
+-- Quit the app when the server it started stops on its own: the web UI's
+-- Quit (power) button, or a crash. Otherwise the app would sit in the Dock
+-- with nothing behind it.
+on idle
+	if ownsServer and serverPID is not "" then
+		try
+			do shell script "kill -0 " & serverPID
+		on error
+			set ownsServer to false
+			quit
+		end try
+	end if
+	return 2
+end idle
+
 on quit
 	if ownsServer and serverPID is not "" then
 		try

@@ -19,6 +19,7 @@ import {
 import { ConversationList } from '@/components/conversation/ConversationList'
 import { FetchDialog } from '@/components/fetch/FetchDialog'
 import { AccountBadge } from '@/components/layout/AccountBadge'
+import { QuitButton } from '@/components/layout/QuitButton'
 import { useFetchPipeline } from '@/contexts/FetchPipelineContext'
 import { useSourceFilter } from '@/contexts/SourceFilterContext'
 import { useOrgs } from '@/hooks/useOrgs'
@@ -402,6 +403,7 @@ export function Sidebar({ className }: SidebarProps) {
           <Button variant="ghost" size="icon" title="Export All">
             <Download className="h-4 w-4" />
           </Button>
+          <QuitButton />
         </div>
       </div>
 

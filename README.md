@@ -239,7 +239,7 @@ Claude Explorer includes an MCP server, so Claude can search and read your histo
 | To | Run |
 |---|---|
 | Start the app | Open **Claude Explorer** from Launchpad, the Start menu, or your app menu. Or run `claude-explorer serve`, then open `http://localhost:8765` |
-| Stop the app | macOS: quit **Claude Explorer**. Windows: right-click its notification-area icon, and choose **Quit**. Linux: right-click it in the menu, and choose **Stop Claude Explorer**. In a terminal: press **Ctrl+C** where `serve` runs |
+| Stop the app | Any platform: click the power button at the bottom of the sidebar, then **Quit**. macOS: or quit **Claude Explorer**. Windows: right-click its notification-area icon, and choose **Quit**. Linux: right-click it in the menu, and choose **Stop Claude Explorer**. In a terminal: press **Ctrl+C** where `serve` runs |
 | Check the watcher | See [Verify it's running](#image-cache-watcher--technical-details) |
 | Upgrade | The four steps below |
 | Uninstall | The steps below |

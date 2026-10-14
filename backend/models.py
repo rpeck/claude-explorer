@@ -393,6 +393,15 @@ class OrgsResponse(BaseModel):
     orgs: list[Org] = Field(default_factory=list)
 
 
+class ShutdownResponse(BaseModel):
+    """``POST /api/shutdown`` accepted: the server stops in a moment.
+
+    See ``backend/routers/shutdown.py`` and UX.md → "Quit (power button)".
+    """
+
+    status: Literal["stopping"] = "stopping"
+
+
 class AccountResponse(BaseModel):
     """``/api/account``: the Anthropic account the credentials belong to.
 

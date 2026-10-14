@@ -56,7 +56,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
 
 from .config import get_settings, migrate_legacy_data_dir, read_env  # noqa: E402
-from .routers import account, conversations, search, export, config, fetch, bookmarks, orgs, files, preferences, watcher_health  # noqa: E402
+from .routers import account, conversations, search, export, config, fetch, bookmarks, orgs, files, preferences, shutdown, watcher_health  # noqa: E402
 
 
 # Exact-match pattern for the conversation-detail route.
@@ -987,6 +987,7 @@ app.include_router(bookmarks.router, prefix="/api")
 app.include_router(preferences.router, prefix="/api")
 app.include_router(orgs.router, prefix="/api")
 app.include_router(account.router, prefix="/api")
+app.include_router(shutdown.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 # watcher_health endpoint paths already include the /api prefix.
 app.include_router(watcher_health.router)
