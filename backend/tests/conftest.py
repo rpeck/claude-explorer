@@ -90,6 +90,34 @@ def _weasyprint_available() -> bool:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_data_dir_by_default(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+):
+    """Autouse: point CLAUDE_EXPLORER_DATA_DIR at an isolated empty dir.
+
+    Without this, any code path that calls ``get_settings()`` directly
+    (not through a FastAPI dependency a test overrides) resolves the
+    developer's real ``~/.claude-explorer/conversations``, and files that
+    live next to it, such as ``preferences.json``. On 2026-10-14
+    ``test_writer_gate_config_corrupt.py`` wrote ``{"theme": "dark"}`` into
+    a developer's real preferences that way, and the installed app opened
+    in dark mode.
+
+    Tests that need their own data dir still set the variable (or delete
+    it) with ``monkeypatch``; their setting wins because it runs later.
+    """
+    from backend import config
+
+    data_dir = tmp_path_factory.mktemp("home_isolated") / "conversations"
+    monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(data_dir))
+    config.get_settings.cache_clear()
+    try:
+        yield
+    finally:
+        config.get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _isolate_cowork_app_dir(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ):
