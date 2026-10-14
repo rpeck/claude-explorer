@@ -182,7 +182,7 @@ claude-explorer install-app
 #    choose Quit. Or, in PowerShell, run: claude-explorer serve
 ```
 
-On Windows ARM, the proxy method of credential capture is not available. The default browser login works. See [Method B](#method-b-proxy-interception---proxy).
+On Windows ARM, the proxy method of credential capture installs, but nobody has verified it yet. The default browser login works. See [Method B](#method-b-proxy-interception---proxy).
 
 ### After you install
 
