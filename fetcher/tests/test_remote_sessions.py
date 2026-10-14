@@ -25,13 +25,16 @@ from fetcher.tests.ccr_fake import (
 ORG = "11111111-1111-4111-8111-111111111111"
 
 
+# The fetcher writes UTF-8. Read it as UTF-8 too: without an encoding,
+# Windows reads with cp1252 and garbles any non-ASCII title.
 def _audit(out: Path, sid: str) -> list[dict]:
     path = out / "cowork-remote" / ORG / f"remote_{sid}" / "audit.jsonl"
-    return [json.loads(line) for line in path.read_text().splitlines()]
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
 def _sidecar(out: Path, sid: str) -> dict:
-    return json.loads((out / "cowork-remote" / ORG / f"remote_{sid}.json").read_text())
+    path = out / "cowork-remote" / ORG / f"remote_{sid}.json"
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _fetcher(out: Path, incremental: bool = True) -> RemoteCoworkFetcher:
@@ -147,9 +150,9 @@ def test_stale_sidecar_after_a_crash_does_not_duplicate_events(
     FakeSessionsApi({ORG: [session]}).install(monkeypatch)
     _fetcher(tmp_path).sync_org(ORG)
     sidecar = tmp_path / "cowork-remote" / ORG / "remote_cse_01Crash.json"
-    data = json.loads(sidecar.read_text())
+    data = json.loads(sidecar.read_text(encoding="utf-8"))
     data["apiUpdatedAt"] = "2000-01-01T00:00:00Z"  # as if the sidecar write was lost
-    sidecar.write_text(json.dumps(data))
+    sidecar.write_text(json.dumps(data), encoding="utf-8")
 
     _fetcher(tmp_path).sync_org(ORG)
 
