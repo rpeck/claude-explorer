@@ -1,4 +1,5 @@
 import type {
+  AccountResponse,
   ConversationListItem,
   ConversationDetail,
   ConversationTree,
@@ -73,6 +74,9 @@ export const api = {
 
   getOrgs: (signal?: AbortSignal): Promise<OrgsResponse> =>
     fetchJson<OrgsResponse>('/orgs', signal),
+
+  getAccount: (signal?: AbortSignal): Promise<AccountResponse> =>
+    fetchJson<AccountResponse>('/account', signal),
 
   getConversation: async (
     uuid: string,

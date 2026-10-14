@@ -609,6 +609,39 @@ doesn't shift mid-stream when a second org appears.
 - "System" follows `prefers-color-scheme` and reacts live to OS changes.
 - Persisted per-user (Section 10).
 
+### Signed-in account (sidebar footer)
+
+The bottom of the sidebar shows the Anthropic account that the captured
+credentials belong to, as claude.ai and Claude Desktop do. A user with a
+work account and a personal account can see whose archive Refresh
+fetches.
+
+- **Where:** a row in the sidebar footer, above the Settings, theme, and
+  Export buttons. It is a region named **Signed-in account**.
+- **Avatar:** a circle with the account's initials: the first letter of
+  the first and the last word of the name that contain a letter
+  ("Ada Lovelace @ Engines.co" → "AE"). A one-word name gives one letter.
+  With no name, the first letter of the email.
+- **First line:** the display name, else the full name, else the email.
+- **Second line:** `email · workspace`, where the workspace is the
+  primary org from the credentials. A missing part and its `·` are left
+  out. When the email is already the first line, the second line is the
+  workspace alone.
+- No credentials, or no initials to show: the avatar shows a person icon.
+- Long text truncates with an ellipsis. Each line's `title` tooltip holds
+  its full text.
+- **No credentials:** first line "Not signed in", second line "Click
+  Refresh to sign in".
+- **Lookup failed** (expired session, offline): the first line is the
+  workspace name if known, else "Signed in". The second line is the
+  error message from `/api/account`, such as "Session expired. Click
+  Refresh to sign in again."
+- **Freshness:** read from `GET /api/account`. The row is refetched when
+  a Refresh pipeline completes, because Refresh may have captured new
+  credentials for a different account.
+- **Loading / endpoint error:** the row keeps its height and shows no
+  text, so the footer does not shift.
+
 ### Sort controls (sidebar AND search panel)
 
 Both panes share the same four sort fields:

@@ -108,6 +108,19 @@ export interface OrgsResponse {
   orgs: Org[]
 }
 
+// `/api/account`: the Anthropic account the captured credentials belong
+// to. Mirrors `AccountResponse` in backend/models.py. `error` is set when
+// credentials exist but the identity lookup failed.
+export interface AccountResponse {
+  authenticated: boolean
+  account_uuid: string | null
+  email: string | null
+  full_name: string | null
+  display_name: string | null
+  org_name: string | null
+  error: string | null
+}
+
 export interface ImageBlockSource {
   type: 'base64' | 'url'
   // base64

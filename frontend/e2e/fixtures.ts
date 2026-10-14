@@ -1,5 +1,6 @@
 import { test as base, expect, type Page, type Request, type Route } from '@playwright/test'
 import type {
+  AccountResponse,
   AppConfig,
   AppConfigStats,
   ConversationDetail,
@@ -42,6 +43,8 @@ export interface MockBackendOptions {
   trees?: Record<string, ConversationTree>
   /** /api/orgs response. Default: authenticated single primary org. */
   orgs?: OrgsResponse
+  /** /api/account response. Default: a signed-in account in "Personal". */
+  account?: AccountResponse
   /**
    * Initial server-side preferences blob (the `data` field of the
    * `/api/preferences` envelope). Tests that need pre-populated prefs
@@ -233,6 +236,16 @@ const PRIMARY_ORG_ID = 'ae24ae66-4622-48e7-b4b3-1ab2c49f933d'
 const DEFAULT_ORGS: OrgsResponse = {
   authenticated: true,
   orgs: [{ org_id: PRIMARY_ORG_ID, name: 'Personal', is_primary: true }],
+}
+
+const DEFAULT_ACCOUNT: AccountResponse = {
+  authenticated: true,
+  account_uuid: '00000000-0000-4000-8000-000000000001',
+  email: 'ada@example.com',
+  full_name: 'Ada Lovelace',
+  display_name: 'Ada Lovelace',
+  org_name: 'Personal',
+  error: null,
 }
 
 /**
@@ -444,6 +457,7 @@ export const test = base.extend<Fixtures>({
       const details = opts.details ?? {}
       const trees = opts.trees ?? {}
       const orgs = opts.orgs ?? DEFAULT_ORGS
+      const account = opts.account ?? DEFAULT_ACCOUNT
       const config: AppConfig = {
         data_dir: '/tmp',
         ...(opts.config ?? {}),
@@ -529,6 +543,11 @@ export const test = base.extend<Fixtures>({
       // -----------------------------------------------------------------
       await page.route('**/api/orgs', (route: Route) => {
         route.fulfill({ contentType: 'application/json', body: JSON.stringify(orgs) })
+      })
+
+      // Signed-in account (sidebar footer; every page mount).
+      await page.route('**/api/account', (route: Route) => {
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify(account) })
       })
 
       // -----------------------------------------------------------------

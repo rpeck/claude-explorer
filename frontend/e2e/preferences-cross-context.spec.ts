@@ -92,6 +92,20 @@ async function installSharedMocks(
       }),
     })
   })
+  await context.route('**/api/account', (route) => {
+    fulfill(route, {
+      contentType: 'application/json',
+      body: JSON.stringify({
+        authenticated: true,
+        account_uuid: null,
+        email: 'ada@example.com',
+        full_name: 'Ada Lovelace',
+        display_name: 'Ada Lovelace',
+        org_name: 'Personal',
+        error: null,
+      }),
+    })
+  })
   await context.route('**/api/conversations**', (route) => {
     fulfill(route, { contentType: 'application/json', body: '[]' })
   })

@@ -409,6 +409,7 @@ CREDENTIALS_PATH_BINDINGS = (
     "backend.routers.fetch.DEFAULT_CREDENTIALS_PATH",
     "backend.routers.files.DEFAULT_CREDENTIALS_PATH",
     "backend.routers.orgs.DEFAULT_CREDENTIALS_PATH",
+    "backend.routers.account.DEFAULT_CREDENTIALS_PATH",
 )
 
 
@@ -474,6 +475,30 @@ def _no_remote_cowork_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
         lambda self, url, org_uuid: {"data": []},
     )
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_account_lookup_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Block the ``/api/account`` identity lookup's network call by default.
+
+    ``GET /api/account`` asks claude.ai who the credentials belong to. A
+    test that reaches it with credentials on disk would otherwise send a
+    real request. Tests of the endpoint patch ``fetcher.account.fetch_account``
+    again; the later patch wins. The in-memory identity cache is cleared on
+    both sides so one test's lookup never answers another's.
+    """
+    from backend.routers import account as account_router
+    from fetcher import account as account_api
+
+    def _blocked(*_args, **_kwargs):
+        raise RuntimeError("network blocked in tests: fetcher.account.fetch_account")
+
+    monkeypatch.setattr(account_api, "fetch_account", _blocked)
+    account_router.clear_cache()
+    try:
+        yield
+    finally:
+        account_router.clear_cache()
 
 
 @pytest.fixture(autouse=True)

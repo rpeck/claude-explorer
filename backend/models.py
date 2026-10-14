@@ -393,6 +393,30 @@ class OrgsResponse(BaseModel):
     orgs: list[Org] = Field(default_factory=list)
 
 
+class AccountResponse(BaseModel):
+    """``/api/account``: the Anthropic account the credentials belong to.
+
+    The sidebar footer shows it, as claude.ai and Claude Desktop do.
+
+    * ``authenticated=False``: no credentials file; every other field is
+      ``None``.
+    * ``authenticated=True`` with identity fields set: the lookup succeeded.
+    * ``authenticated=True`` with ``error`` set: credentials exist but the
+      identity lookup failed (expired session, offline). ``org_name`` still
+      comes from the credentials file.
+
+    Mirrored by ``AccountResponse`` in ``frontend/src/lib/types.ts``.
+    """
+
+    authenticated: bool
+    account_uuid: str | None = None
+    email: str | None = None
+    full_name: str | None = None
+    display_name: str | None = None
+    org_name: str | None = None
+    error: str | None = None
+
+
 class AppConfig(BaseModel):
     """Application configuration for the frontend.
 
