@@ -574,6 +574,16 @@ created_at}`.
 - The FetchDialog (Details modal) exposes manual **Full Refresh** and
   **Fetch New** actions that hit `/fetch/start` directly and do NOT
   auto-trigger capture.
+- Every fetch also archives the account's **remote Cowork tasks**:
+  sessions that ran in Anthropic's cloud, listed in claude.ai under
+  "Chats and tasks". `chat_conversations` does not list them, so an
+  account that only runs tasks would otherwise fetch nothing. They appear
+  under the **Claude Cowork** source filter, like local Cowork sessions.
+  The `complete` message counts them ("Fetched 0 conversations and 18
+  Cowork tasks across 2 workspace(s).").
+- Incremental fetches re-download a conversation whose server
+  `updated_at` is newer than the local copy, not only conversations
+  missing from disk.
 
 ### Conversation list dim states
 

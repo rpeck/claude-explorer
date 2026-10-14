@@ -346,6 +346,31 @@ The sidebar **Refresh** button owns the full pipeline — capture + fetch — so
 - **Manual override:** the Details modal's "Full Refresh" and "Fetch New" buttons still hit `/fetch/start` directly with no auto-capture.
 - **Search is current at `complete`.** The backend re-indexes search before it emits `complete`. The frontend then calls `invalidateAfterFetch` (`frontend/src/lib/queryClient.ts`), which marks both the conversations and the search caches stale. A new fetch site must do both, or the Search Pane shows pre-fetch results.
 
+**Remote Cowork tasks are a second fetch source.** Cowork tasks that run in
+Anthropic's cloud are not chat conversations: `chat_conversations` never lists
+them, and nothing lands in Claude Desktop's local `local-agent-mode-sessions/`.
+An account that only runs tasks used to "fetch" 0 conversations. Every fetch
+path (Refresh, `/fetch/start`, `claude-explorer fetch`) now also syncs them
+through `fetcher/remote_sessions.py`:
+
+- **API:** `GET https://claude.ai/v1/code/sessions?tags=cowork-remote` and
+  `/v1/code/sessions/<id>/events` (newest first, `cursor=<seq>` pages back).
+  Both need the `anthropic-beta: ccr-byoc-2025-07-29`, `anthropic-version`,
+  and `x-organization-uuid` headers. Recorded from the claude.ai web app with
+  Playwright; re-record the same way if the API moves.
+- **Storage:** `<data_dir>/cowork-remote/<org>/remote_<id>/audit.jsonl` plus a
+  sibling sidecar, in the local Cowork shape, so `backend/cowork_reader.py`,
+  the store, and the search index read them unchanged
+  (`iter_cowork_session_dirs` / `find_cowork_session_dir`).
+- **Incremental:** a session is skipped when its sidecar records the API's
+  `updated_at`; otherwise only events newer than the highest
+  `_sequence_num` in `audit.jsonl` are fetched and appended.
+- **Additive:** an org without sessions-API access (401/403/404) is skipped;
+  any other failure is a `progress` message, never a stream `error`.
+- **Tests:** the autouse `_no_remote_cowork_network` fixture (both conftests)
+  stubs `RemoteCoworkFetcher._get_json`; `fetcher/tests/ccr_fake.py` is a
+  fake of the API with its real paging.
+
 If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_capture_phase_stream`, `_fetch_phase_stream`, and `refresh_pipeline_stream` async generators) and `frontend/src/components/fetch/FetchToast.tsx` (the `useRefreshPipeline` hook) together — the SSE event schema is shared.
 
 ## Development Setup

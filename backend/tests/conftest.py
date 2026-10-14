@@ -457,6 +457,26 @@ def _reset_refresh_flag_body() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _no_remote_cowork_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Stub the remote Cowork sessions API to "no sessions" by default.
+
+    Both fetch SSE paths end by archiving remote Cowork tasks
+    (``fetcher.remote_sessions``). Many router tests patch only the chat
+    methods of the real ``ClaudeFetcher``; without this stub they would send
+    real requests to claude.ai with fake credentials. Tests of the remote
+    step patch ``RemoteCoworkFetcher._get_json`` again; the later patch wins.
+    """
+    from fetcher import remote_sessions
+
+    monkeypatch.setattr(
+        remote_sessions.RemoteCoworkFetcher,
+        "_get_json",
+        lambda self, url, org_uuid: {"data": []},
+    )
+    yield
+
+
+@pytest.fixture(autouse=True)
 def reset_refresh_flag() -> Iterator[None]:
     """Reset ``backend.routers.fetch._refresh_in_progress`` per test.
 

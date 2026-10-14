@@ -66,6 +66,7 @@ logger = logging.getLogger(__name__)
 # so old imports + test patches at fetcher.bulk_fetch.DEFAULT_* keep working.
 # See backend/tests/conftest.py for the multi-site patch fixture.
 from fetcher.atomic import atomic_replace  # noqa: E402
+from fetcher.remote_sessions import RemoteCoworkFetcher  # noqa: E402
 from fetcher.paths import (  # noqa: E402  (after logger configure is fine here)
     DEFAULT_CREDENTIALS_PATH,
     DEFAULT_DATA_DIR as DEFAULT_OUTPUT_DIR,  # legacy local alias
@@ -395,19 +396,25 @@ class ClaudeFetcher:
             exc,
         )
 
-    def _get(self, url: str) -> curl_requests.Response:
+    def _get(
+        self, url: str, headers: dict[str, str] | None = None
+    ) -> curl_requests.Response:
         """Make a GET request with Chrome impersonation, retrying on transients.
 
         Maps libcurl transport errors and 5xx responses through the retry
         layer; 4xx (incl. 401/403) is fast-failed via the response's
         `raise_for_status()` path on the caller. We pre-flight 5xx here
         so the retry helper can treat them as transient.
+
+        ``headers`` carries the extra request headers some endpoints need,
+        such as the ``/v1/code/sessions`` API (see ``fetcher.remote_sessions``).
         """
 
         def _do() -> curl_requests.Response:
             resp = curl_requests.get(
                 url,
                 cookies=self.cookies,
+                headers=headers,
                 impersonate="chrome",
                 timeout=REQUEST_TIMEOUT,
             )
@@ -1006,6 +1013,49 @@ class ClaudeFetcher:
 
         click.echo(f"\nDone! Fetched {len(fetched)} conversations.")
         click.echo(f"Saved to: {self.output_dir}")
+
+        self.sync_remote_cowork([self.current_org["uuid"]])
+
+    def sync_remote_cowork(self, org_uuids: Iterable[str]) -> int:
+        """Archive remote Cowork sessions (cloud tasks) for each org.
+
+        ``chat_conversations`` never lists these tasks, so without this step
+        an account that only runs Cowork tasks fetches nothing. See
+        ``fetcher.remote_sessions``. An org without access to the sessions
+        API is skipped; other failures are reported and do not raise.
+
+        Returns the number of tasks fetched.
+        """
+        remote = RemoteCoworkFetcher(
+            self._get, self.output_dir, incremental=self.incremental, delay=self.delay
+        )
+        total = 0
+        for org_uuid in org_uuids:
+            try:
+                result = remote.sync_org(
+                    org_uuid,
+                    on_progress=lambda title: click.echo(
+                        f"Fetching Cowork task: {title[:40]}..."
+                    ),
+                )
+            except Exception as exc:  # noqa: BLE001  additive step; never fail the run
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                status = status or extract_http_status_from_message(str(exc))
+                if status in (401, 403, 404):
+                    logger.info(
+                        "remote cowork: org %s has no sessions API access (HTTP %s)",
+                        org_uuid, status,
+                    )
+                    continue
+                click.echo(f"Warning: could not fetch Cowork tasks: {exc}", err=True)
+                continue
+            total += result.fetched
+            if result.listed:
+                click.echo(
+                    f"Cowork tasks: {result.fetched} fetched, "
+                    f"{result.unchanged} unchanged, {len(result.failed)} failed."
+                )
+        return total
 
     # ----------------------------------------------------------------- C5
     # Multi-org loop

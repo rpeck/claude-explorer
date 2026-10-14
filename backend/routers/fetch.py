@@ -27,8 +27,10 @@ from fetcher.bulk_fetch import (
     kind_from_http_status,
     load_credentials,
     migrate_legacy_error_code,
+    needs_refetch,
 )
 from fetcher.playwright_capture import capture_credentials
+from fetcher.remote_sessions import RemoteCoworkFetcher
 from fetcher.credentials import save_credentials
 
 from ..deps import refuse_if_config_corrupt
@@ -326,6 +328,99 @@ async def _reindex_search_after_fetch() -> None:
         logger.info("search index: re-indexed %d file(s) after fetch", updated)
 
 
+async def _remote_cowork_stream(
+    fetcher: ClaudeFetcher,
+    orgs: list[tuple[str, str]],
+    incremental: bool,
+    totals: dict[str, int],
+) -> AsyncGenerator[str, None]:
+    """Archive remote Cowork sessions (cloud tasks) for each org.
+
+    Remote tasks are not chat conversations: ``chat_conversations`` never
+    lists them, so an account that only runs Cowork tasks fetched nothing at
+    all. See ``fetcher.remote_sessions``.
+
+    Yields SSE ``progress`` frames and adds the number of tasks fetched to
+    ``totals["fetched"]`` and failures to ``totals["failed"]``. This step is
+    additive: an org without access to the sessions API (401/403/404) is
+    skipped quietly, and any other error is reported as progress, never as
+    a stream error, so it cannot fail a chat fetch that succeeded.
+    """
+    loop = asyncio.get_running_loop()
+    remote = RemoteCoworkFetcher(
+        getattr(fetcher, "_get", None),
+        DEFAULT_OUTPUT_DIR,
+        incremental=incremental,
+        delay=0.3,
+    )
+    for org_uuid, org_name in orgs:
+        try:
+            work, unchanged = await loop.run_in_executor(None, remote.plan_org, org_uuid)
+        except Exception as exc:  # noqa: BLE001
+            for frame in _drain_retry_events(fetcher):
+                yield frame
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            status = status or extract_http_status_from_message(str(exc))
+            if status in (401, 403, 404):
+                logger.info(
+                    "remote cowork: org %s has no sessions API access (HTTP %s)",
+                    org_uuid, status,
+                )
+                continue
+            logger.warning("remote cowork: listing tasks for %s failed: %s", org_uuid, exc)
+            yield _send_event({
+                "type": "progress",
+                "message": f"[{org_name}] Could not list Cowork tasks: {exc}",
+                "current": 0,
+                "total": 0,
+            })
+            continue
+
+        for i, (session, after_seq) in enumerate(work, 1):
+            title = (session.get("title") or "Untitled")[:50]
+            yield _send_event({
+                "type": "progress",
+                "message": f"[{org_name}] Fetching Cowork task: {title}",
+                "current": i,
+                "total": len(work),
+                "conversation_name": title,
+            })
+            try:
+                await loop.run_in_executor(
+                    None, remote.sync_session, org_uuid, session, after_seq
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "remote cowork: fetching task %s failed: %s", session.get("id"), exc
+                )
+                totals["failed"] = totals.get("failed", 0) + 1
+                yield _send_event({
+                    "type": "progress",
+                    "message": f"Error fetching Cowork task {title}: {exc}",
+                    "current": i,
+                    "total": len(work),
+                })
+            else:
+                totals["fetched"] = totals.get("fetched", 0) + 1
+            for frame in _drain_retry_events(fetcher):
+                yield frame
+            if i < len(work):
+                await asyncio.sleep(0.3)
+        if work or unchanged:
+            logger.info(
+                "remote cowork: org %s: %d task(s) fetched, %d unchanged",
+                org_uuid, len(work), unchanged,
+            )
+
+
+def _remote_summary(totals: dict[str, int]) -> str:
+    """`` and N Cowork tasks`` for the ``complete`` message, or ``""``."""
+    n = totals.get("fetched", 0)
+    if not n:
+        return ""
+    return f" and {n} Cowork task{'s' if n != 1 else ''}"
+
+
 async def fetch_conversations_stream(
     incremental: bool = True,
     limit: int | None = None,
@@ -411,9 +506,18 @@ async def fetch_conversations_stream(
         if limit:
             conversations = conversations[:limit]
 
-        # Filter out existing if incremental
+        # Filter out existing if incremental. Presence on disk is not proof
+        # the copy is current: a conversation the user kept adding to has a
+        # newer ``updated_at`` on the server.
         if incremental:
-            to_fetch = [c for c in conversations if c.get("uuid") not in existing_uuids]
+            stored = fetcher.local_updated_at_for_org(
+                fetcher.org_id, [c.get("uuid", "") for c in conversations]
+            )
+            to_fetch = [
+                c for c in conversations
+                if c.get("uuid") not in existing_uuids
+                or needs_refetch(c.get("updated_at"), stored.get(c.get("uuid", "")))
+            ]
         else:
             to_fetch = conversations
 
@@ -422,17 +526,30 @@ async def fetch_conversations_stream(
 
         yield send_event({
             "type": "progress",
-            "message": f"Found {len(conversations)} conversations, fetching {total} new" +
-                       (f" (skipping {skipped} existing)" if skipped else ""),
+            "message": f"Found {len(conversations)} conversations, fetching {total} new or updated" +
+                       (f" (skipping {skipped} unchanged)" if skipped else ""),
             "current": 0,
             "total": total,
         })
 
+        remote_totals: dict[str, int] = {"fetched": 0, "failed": 0}
+        primary_name = next(
+            (o.get("name") for o in orgs_list if o.get("uuid") == primary), None
+        ) or primary[:8]
+
         if total == 0:
+            async for frame in _remote_cowork_stream(
+                fetcher, [(primary, primary_name)], incremental, remote_totals
+            ):
+                yield frame
             await _reindex_search_after_fetch()
             yield send_event({
                 "type": "complete",
-                "message": "No new conversations to fetch.",
+                "message": (
+                    "No new conversations to fetch."
+                    if not remote_totals["fetched"]
+                    else f"Fetched 0 conversations{_remote_summary(remote_totals)} successfully."
+                ),
                 "current": 0,
                 "total": 0,
             })
@@ -490,11 +607,18 @@ async def fetch_conversations_stream(
         await loop.run_in_executor(
             None, fetcher.save_index, conversations
         )
+        async for frame in _remote_cowork_stream(
+            fetcher, [(primary, primary_name)], incremental, remote_totals
+        ):
+            yield frame
         await _reindex_search_after_fetch()
 
         yield send_event({
             "type": "complete",
-            "message": f"Fetched {fetched_count} conversations successfully.",
+            "message": (
+                f"Fetched {fetched_count} conversations"
+                f"{_remote_summary(remote_totals)} successfully."
+            ),
             "current": total,
             "total": total,
         })
@@ -951,9 +1075,20 @@ async def _fetch_phase_stream(
                     conversations = conversations[:limit]
 
                 if incremental:
+                    # Same timestamp rule as ``run_all_orgs``: presence on
+                    # disk is not proof the copy is current.
+                    stored = await loop.run_in_executor(
+                        None,
+                        fetcher.local_updated_at_for_org,
+                        org_uuid,
+                        [c.get("uuid", "") for c in conversations],
+                    )
                     to_fetch = [
                         c for c in conversations
                         if (org_uuid, c.get("uuid", "")) not in existing_pairs
+                        or needs_refetch(
+                            c.get("updated_at"), stored.get(c.get("uuid", ""))
+                        )
                     ]
                 else:
                     to_fetch = conversations
@@ -967,7 +1102,7 @@ async def _fetch_phase_stream(
                         "type": "progress",
                         "message": (
                             f"[{org_name}] Found {len(conversations)} conversations, "
-                            f"fetching {org_total} new"
+                            f"fetching {org_total} new or updated"
                         ),
                         "current": cumulative_current,
                         "total": cumulative_total,
@@ -1089,12 +1224,25 @@ async def _fetch_phase_stream(
         yield (bucket, msg)
         return
 
+    remote_totals: dict[str, int] = {"fetched": 0, "failed": 0}
+    async for frame in _remote_cowork_stream(
+        fetcher,
+        [(r["org_id"], r["name"]) for r in successful],
+        incremental,
+        remote_totals,
+    ):
+        yield ("event", frame)
+
     await _reindex_search_after_fetch()
     yield (
         "event",
         _send_event({
             "type": "complete",
-            "message": f"Fetched {fetched_count} conversations across {len(org_results)} workspace(s).",
+            "message": (
+                f"Fetched {fetched_count} conversations{_remote_summary(remote_totals)} "
+                f"across {len(org_results)} workspace(s)."
+            ),
+            "cowork_tasks_fetched": remote_totals["fetched"],
             "current": cumulative_total,
             "total": cumulative_total,
             "orgs": org_results,

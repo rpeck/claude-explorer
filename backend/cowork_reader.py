@@ -49,6 +49,7 @@ from .agent_session_io import (
     parse_jsonl_file,
 )
 from .compact_prefixes import is_compaction_prefix_text
+from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
 
 
 log = logging.getLogger(__name__)
@@ -125,8 +126,13 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
     # stem (``local_<uuid>/``) AND the user-visible URL slug, and so
     # cross-source dedup at the store layer can compare uuid strings
     # without prefix bookkeeping.
+    #
+    # Remote sessions (``remote_<id>/``) store the bare API id (``cse_...``)
+    # as ``sessionId``; the prefix strip covers a missing sidecar.
     raw_session_id = sidecar.get("sessionId") or session_dir.name
-    uuid = raw_session_id.removeprefix("local_")
+    uuid = raw_session_id.removeprefix(LOCAL_SESSION_PREFIX).removeprefix(
+        REMOTE_SESSION_PREFIX
+    )
 
     first_msg_ts = messages[0]["created_at"]
     last_msg_ts = messages[-1]["updated_at"]
@@ -217,8 +223,77 @@ def _extract_cowork_compact_markers(messages: list[dict]) -> list[dict]:
     return markers
 
 
-def list_cowork_conversations(cowork_root: Path) -> list[dict]:
-    """Walk ``<deployment>/<org>/local_*/`` and return all sessions.
+LOCAL_SESSION_PREFIX = "local_"
+
+
+def remote_cowork_root(data_dir: Path) -> Path:
+    """Where ``fetcher.remote_sessions`` archives remote Cowork sessions."""
+    return data_dir / REMOTE_COWORK_DIRNAME
+
+
+def iter_cowork_session_dirs(
+    cowork_root: Path | None, remote_root: Path | None = None
+) -> list[Path]:
+    """Every Cowork session directory, local and remote.
+
+    Local sessions (written by Claude Desktop):
+        ``<cowork_root>/<deployment>/<org>/local_<uuid>/``
+    Remote sessions (cloud tasks, written by ``fetcher.remote_sessions``):
+        ``<remote_root>/<org>/remote_<session_id>/``
+
+    Missing or unreadable roots contribute nothing; this never raises.
+    """
+    out: list[Path] = []
+    for org_dir in _subdirs_at_depth(cowork_root, 2):
+        out.extend(_session_dirs_in(org_dir, LOCAL_SESSION_PREFIX))
+    for org_dir in _subdirs_at_depth(remote_root, 1):
+        out.extend(_session_dirs_in(org_dir, REMOTE_SESSION_PREFIX))
+    return out
+
+
+def find_cowork_session_dir(
+    cowork_root: Path | None, remote_root: Path | None, uuid: str
+) -> Path | None:
+    """The session directory for conversation ``uuid``, or ``None``.
+
+    Checks one candidate per org directory, so the cost is O(orgs), not
+    O(sessions).
+    """
+    for org_dir in _subdirs_at_depth(cowork_root, 2):
+        candidate = org_dir / f"{LOCAL_SESSION_PREFIX}{uuid}"
+        if candidate.is_dir():
+            return candidate
+    for org_dir in _subdirs_at_depth(remote_root, 1):
+        candidate = org_dir / f"{REMOTE_SESSION_PREFIX}{uuid}"
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def _subdirs_at_depth(root: Path | None, depth: int) -> list[Path]:
+    level = [root] if root is not None and root.is_dir() else []
+    for _ in range(depth):
+        nxt: list[Path] = []
+        for d in level:
+            try:
+                nxt.extend(c for c in d.iterdir() if c.is_dir())
+            except OSError:
+                continue
+        level = nxt
+    return level
+
+
+def _session_dirs_in(org_dir: Path, prefix: str) -> list[Path]:
+    try:
+        return [e for e in org_dir.iterdir() if e.is_dir() and e.name.startswith(prefix)]
+    except OSError:
+        return []
+
+
+def list_cowork_conversations(
+    cowork_root: Path, remote_root: Path | None = None
+) -> list[dict]:
+    """Read every local and remote Cowork session.
 
     D2: the deployment + org directory layers are flattened in the
     output — callers receive a single list of conversation dicts with
@@ -227,34 +302,10 @@ def list_cowork_conversations(cowork_root: Path) -> list[dict]:
     map to user-facing workspaces, so we deliberately leave
     ``organization_id`` unset on the conv dicts.
 
-    Returns ``[]`` (not raises) when the cowork root doesn't exist —
-    a user without Cowork data installed must not see a crash.
+    Returns ``[]`` (not raises) when neither root exists — a user
+    without Cowork data installed must not see a crash.
     """
-    if not cowork_root.exists():
-        return []
-
-    session_dirs: list[Path] = []
-    try:
-        deployment_dirs = list(cowork_root.iterdir())
-    except OSError:
-        return []
-    for deployment_dir in deployment_dirs:
-        if not deployment_dir.is_dir():
-            continue
-        try:
-            org_dirs = list(deployment_dir.iterdir())
-        except OSError:
-            continue
-        for org_dir in org_dirs:
-            if not org_dir.is_dir():
-                continue
-            try:
-                entries = list(org_dir.iterdir())
-            except OSError:
-                continue
-            for entry in entries:
-                if entry.is_dir() and entry.name.startswith("local_"):
-                    session_dirs.append(entry)
+    session_dirs = iter_cowork_session_dirs(cowork_root, remote_root)
 
     out: list[dict] = []
     for sd in session_dirs:
