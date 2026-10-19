@@ -91,6 +91,7 @@ export interface ConsoleCapture {
 interface Fixtures {
   mockBackend: MockBackendFn
   consoleAssertions: ConsoleCapture
+  stubAccountLookup: undefined
 }
 
 /**
@@ -827,6 +828,26 @@ export const test = base.extend<Fixtures>({
    *
    * The push is scoped to that test (allowlist array is fresh per test).
    */
+  /**
+   * Auto fixture: no spec reaches the real ``/api/account``. The sidebar
+   * asks for the signed-in account on every page mount, and the backend
+   * answers by calling claude.ai with the session key on disk. CI starts the
+   * backend with CLAUDE_EXPLORER_DISABLE_ACCOUNT_LOOKUP=1, but a local run
+   * reuses a developer's running server, which would send their real key
+   * (PR #6 review, 2026-10-19). Routes registered later win in Playwright,
+   * so ``mockBackend`` and a spec's own ``/api/account`` route still apply.
+   */
+  stubAccountLookup: [
+    async ({ page }, use) => {
+      await page.route('**/api/account', (route: Route) => {
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify(DEFAULT_ACCOUNT) })
+      })
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture `use(value)`, not React.use().
+      await use(undefined)
+    },
+    { auto: true },
+  ],
+
   consoleAssertions: [
     async ({ page }, use) => {
       const capture: ConsoleCapture = {
