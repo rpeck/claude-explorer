@@ -410,6 +410,40 @@ def mcp() -> None:
     mcp_main()
 
 
+def _is_loopback_host(host: str) -> bool:
+    import ipaddress
+
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.strip("[]")).is_loopback
+    except ValueError:
+        return False
+
+
+def _open_host_guard_for_network(host: str) -> None:
+    """Let a network ``--host`` through the backend's Host guard, with a warning.
+
+    The backend answers only loopback Host names (``backend/host_guard.py``),
+    which stops DNS-rebinding attacks from web pages. A network ``--host``
+    means the user chose to expose the server: other machines reach it by
+    other names, so the guard must let them in.
+    """
+    if _is_loopback_host(host):
+        return
+    import os
+
+    from backend.host_guard import ENV
+
+    os.environ[ENV] = "*"
+    click.echo(
+        f"WARNING: --host {host} makes Claude Explorer reachable from other "
+        "machines on your network. Anyone who can reach it can read your "
+        "archive and stop the server.",
+        err=True,
+    )
+
+
 def _refuse_busy_port(host: str, port: int) -> None:
     """Exit with a clear message if the server cannot bind the port.
 
@@ -511,6 +545,7 @@ def serve(host: str, port: int, reload: bool) -> None:
         pass
 
     _refuse_busy_port(host, port)
+    _open_host_guard_for_network(host)
 
     click.echo(f"Starting server on http://{host}:{port}")
     click.echo("Press Ctrl+C to stop.")

@@ -663,6 +663,9 @@ press Ctrl+C in.
   requests, so no connection-lost warning appears.
 - **Failure:** if the request fails, the dialog stays open and shows
   "Could not stop the server." with the reason. The app keeps working.
+  A server that `uvicorn --reload` or `--workers` started refuses with
+  "This server runs under a supervisor (uvicorn --reload or --workers).
+  Stop it with Ctrl+C in its terminal."
 - **Launchers:** the macOS app quits itself when the server it started
   stops, and the Windows tray icon goes away. A server started from a
   terminal exits back to the prompt. The background image-cache watcher

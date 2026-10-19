@@ -110,6 +110,15 @@ def _isolate_data_dir_by_default(
 
     data_dir = tmp_path_factory.mktemp("home_isolated") / "conversations"
     monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(data_dir))
+    # Also an empty Claude dir. Without it, a test that runs the app's
+    # startup (``with TestClient(app)``) builds the search index over the
+    # developer's real ~/.claude/projects: minutes of work in a background
+    # thread. The event loop then waits up to 300 s for that thread at exit,
+    # and the search-index fixture's teardown closed SQLite connections the
+    # thread still used, which crashed an xdist worker (2026-10-19).
+    claude_dir = data_dir.parent / "claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
     config.get_settings.cache_clear()
     try:
         yield

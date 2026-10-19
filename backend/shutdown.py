@@ -11,6 +11,10 @@ event loop there. A request served anywhere else (``TestClient`` runs the
 app on a worker thread) cannot stop the server this way, so
 :func:`request_shutdown` refuses instead of interrupting the test runner.
 
+It also refuses when a supervisor started this process: ``uvicorn --reload``
+and ``--workers`` run the app in a ``multiprocessing`` child. SIGINT would
+stop only that child, while the supervisor kept running in its terminal.
+
 If a long response (an open Refresh stream) keeps the graceful shutdown
 waiting, a second SIGINT forces it after :data:`FORCE_AFTER_SEC`; uvicorn
 treats a second Ctrl+C the same way. ``serve`` also caps the wait with
@@ -21,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import multiprocessing
 import signal
 import threading
 
@@ -41,19 +46,30 @@ def _send_signal(sig: int) -> None:
     signal.raise_signal(sig)
 
 
-def request_shutdown() -> bool:
-    """Schedule a graceful exit of this server. Returns False if it can't.
+NOT_MAIN_THREAD = "This server was not started in a way that lets it stop itself."
+SUPERVISED = (
+    "This server runs under a supervisor (uvicorn --reload or --workers). "
+    "Stop it with Ctrl+C in its terminal."
+)
 
+
+def request_shutdown() -> str | None:
+    """Schedule a graceful exit of this server.
+
+    Returns None when the exit is scheduled, or the reason it cannot be.
     Must be called from a coroutine running on the server's event loop.
     """
     if not _on_main_thread():
         log.warning("shutdown requested, but this server cannot signal itself")
-        return False
+        return NOT_MAIN_THREAD
+    if multiprocessing.parent_process() is not None:
+        log.warning("shutdown requested, but a supervisor process owns this server")
+        return SUPERVISED
     loop = asyncio.get_running_loop()
     loop.call_later(START_DELAY_SEC, _send_signal, signal.SIGINT)
     loop.call_later(START_DELAY_SEC + FORCE_AFTER_SEC, _force_exit)
     log.info("shutdown requested from the web UI; stopping")
-    return True
+    return None
 
 
 def _force_exit() -> None:

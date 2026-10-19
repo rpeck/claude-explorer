@@ -451,6 +451,28 @@ When `~/.claude-explorer/config.json` fails to parse (editor crash mid-save, tru
 
 **`cc_watcher.scan_once` is also NOT gated.** Blocking the background CC image-cache watcher during corrupt-config would cause the data loss it exists to prevent (Claude Code rotates images off disk while the watcher is blocked). Future enhancement: log a WARNING when scan_once runs against a corrupt config so the failure is visible in supervised-job logs.
 
+## Host-header guard (DNS rebinding)
+
+The server listens on localhost, but any web page can make its own domain
+resolve to 127.0.0.1 (DNS rebinding). Its requests are then same-origin, so
+the browser sends no CORS preflight, and the page can read every response
+and call every route. A probe in the PR #6 review (2026-10-19) read
+`/api/conversations` and `/api/account`, and stopped the server.
+
+- **The guard:** `backend/host_guard.py` refuses (400) every request whose
+  Host is not `localhost`, `127.0.0.1`, or `::1`. It is the outermost
+  middleware; a test pins that.
+- **Extra names:** `CLAUDE_EXPLORER_ALLOWED_HOSTS` (comma-separated). The
+  root `conftest.py` adds the test-client names `testserver` and `test`.
+- **`serve --host <network address>`** sets that variable to `*` and prints
+  a warning, because the user chose to expose the server.
+- **No CORS.** Do not add `CORSMiddleware` back. The web page calls `/api`
+  on its own origin, and the Vite dev server proxies `/api`. CORS for
+  `localhost:5173` let any project's dev server read the archive.
+- **A new state-changing route** follows `POST /api/shutdown`: POST only, a
+  custom header (which needs a preflight that the server never answers), and
+  an Origin check against the guard's allowlist, never against Host.
+
 ## PDF Export Dependencies
 
 WeasyPrint requires system libraries for PDF generation:
