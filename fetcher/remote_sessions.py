@@ -45,6 +45,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -70,6 +71,17 @@ ANTHROPIC_VERSION = "2023-06-01"
 REMOTE_COWORK_TAG = "cowork-remote"
 
 PAGE_LIMIT = 100
+#: The most pages one listing follows. A server bug that kept handing back
+#: new cursors would otherwise keep Refresh busy forever.
+MAX_PAGES = 10_000
+#: Session and org ids become folder names, so only these characters may
+#: reach a path. Real ids look like ``cse_01AbC...`` and UUIDs.
+_SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")
+
+
+def is_safe_id(value: object) -> bool:
+    """True if ``value`` can be a folder name with no path tricks."""
+    return isinstance(value, str) and _SAFE_ID.fullmatch(value) is not None
 
 #: Transport chatter that carries no conversation content. ``control_request``
 #: also repeats the full MCP server config on every turn.
@@ -137,8 +149,9 @@ class RemoteCoworkFetcher:
         """Every remote Cowork session in the org, following pagination."""
         sessions: list[dict] = []
         seen: set[str] = set()
+        seen_cursors: set[str] = set()
         cursor: str | None = None
-        while True:
+        for _ in range(MAX_PAGES):
             url = (
                 f"{CODE_SESSIONS_URL}?tags={REMOTE_COWORK_TAG}&limit={PAGE_LIMIT}"
                 "&include_trigger_sessions=true"
@@ -147,15 +160,21 @@ class RemoteCoworkFetcher:
                 url += f"&cursor={cursor}"
             body = self._get_json(url, org_uuid)
             page = body.get("data") or []
+            added = 0
             for s in page:
                 sid = s.get("id")
                 if sid and sid not in seen:
                     seen.add(sid)
                     sessions.append(s)
+                    added += 1
             cursor = body.get("next_cursor")
             if not page or not cursor:
                 return sessions
+            if not _still_advancing(cursor, seen_cursors, added, "session list"):
+                return sessions
             time.sleep(self.delay)
+        log.warning("remote cowork: session list stopped at %d pages", MAX_PAGES)
+        return sessions
 
     def fetch_events_after(
         self, org_uuid: str, session_id: str, after_seq: int | None
@@ -166,14 +185,17 @@ class RemoteCoworkFetcher:
         so we stop as soon as a page reaches ``after_seq``.
         """
         collected: list[dict] = []
+        seen_seqs: set[int] = set()
+        seen_cursors: set[str] = set()
         cursor: str | None = None
-        while True:
+        for _ in range(MAX_PAGES):
             url = f"{CODE_SESSIONS_URL}/{session_id}/events?limit={PAGE_LIMIT}"
             if cursor:
                 url += f"&cursor={cursor}"
             body = self._get_json(url, org_uuid)
             page = body.get("data") or []
             reached_known = False
+            added = 0
             for ev in page:
                 seq = _seq(ev)
                 if seq is None:
@@ -181,19 +203,33 @@ class RemoteCoworkFetcher:
                 if after_seq is not None and seq <= after_seq:
                     reached_known = True
                     continue
+                if seq in seen_seqs:
+                    continue
+                seen_seqs.add(seq)
                 collected.append(ev)
+                added += 1
             cursor = body.get("next_cursor")
             if not page or not cursor or reached_known:
                 break
+            if not _still_advancing(cursor, seen_cursors, added, f"events of {session_id}"):
+                break
             time.sleep(self.delay)
+        else:
+            log.warning("remote cowork: events of %s stopped at %d pages", session_id, MAX_PAGES)
         collected.sort(key=lambda e: _seq(e) or 0)
         return collected
 
     # --------------------------------------------------------------- storage
 
     def _session_paths(self, org_uuid: str, session_id: str) -> tuple[Path, Path]:
-        session_dir = self.root / org_uuid / f"{REMOTE_SESSION_PREFIX}{session_id}"
-        return session_dir, session_dir.with_suffix(".json")
+        """The session's folder and sidecar. Both ids come from outside (the
+        API, the credentials file), so refuse anything that is not a plain
+        name: ``x/../../escaped`` once wrote outside the archive."""
+        if not is_safe_id(org_uuid) or not is_safe_id(session_id):
+            raise ValueError(f"unsafe id for a path: org={org_uuid!r} session={session_id!r}")
+        name = f"{REMOTE_SESSION_PREFIX}{session_id}"
+        org_dir = self.root / org_uuid
+        return org_dir / name, org_dir / f"{name}.json"
 
     def save_session(
         self, org_uuid: str, session: dict, new_events: list[dict], replace: bool
@@ -278,6 +314,9 @@ class RemoteCoworkFetcher:
             sid = session.get("id")
             if not sid:
                 continue
+            if not is_safe_id(sid):
+                log.warning("remote cowork: skipping a session with an unsafe id: %r", sid)
+                continue
             if not self.incremental:
                 work.append((session, None))
                 continue
@@ -331,6 +370,16 @@ class RemoteCoworkFetcher:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _still_advancing(cursor: str, seen_cursors: set[str], added: int, what: str) -> bool:
+    """False when pagination stops making progress: a cursor that repeats, or
+    a page that added nothing new. Records ``cursor`` as seen."""
+    if cursor in seen_cursors or added == 0:
+        log.warning("remote cowork: %s stopped: the next page brings nothing new", what)
+        return False
+    seen_cursors.add(cursor)
+    return True
 
 
 def _seq(event: dict) -> int | None:

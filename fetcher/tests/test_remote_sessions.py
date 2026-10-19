@@ -218,3 +218,110 @@ def test_cli_fetch_run_skips_an_org_without_sessions_api_access(
     fetcher.run()  # must not raise
 
     assert not (tmp_path / "cowork-remote").exists()
+
+
+# ------------------------------------------------- PR #6 review, 2026-10-19
+
+
+def _scripted(monkeypatch: pytest.MonkeyPatch, pages: dict) -> list[str]:
+    """Answer each request from ``pages`` (keyed by URL substring); record URLs."""
+    calls: list[str] = []
+
+    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+        calls.append(url)
+        if len(calls) > 50:
+            raise AssertionError("pagination did not stop")
+        for key, body in pages.items():
+            if key in url:
+                return body
+        return {"data": []}
+
+    monkeypatch.setattr(RemoteCoworkFetcher, "_get_json", fake)
+    return calls
+
+
+def test_a_repeating_session_cursor_ends_the_listing(tmp_path: Path, monkeypatch) -> None:
+    """A cursor that never advances once kept Refresh busy forever."""
+    page = {"data": [{"id": "cse_01A", "updated_at": iso(1)}], "next_cursor": "same"}
+    calls = _scripted(monkeypatch, {"/v1/code/sessions?": page})
+
+    sessions = _fetcher(tmp_path).list_sessions(ORG)
+
+    assert [s["id"] for s in sessions] == ["cse_01A"]
+    assert len(calls) <= 2
+
+
+def test_a_page_with_nothing_new_ends_the_listing(tmp_path: Path, monkeypatch) -> None:
+    """A cursor that changes but returns the same page must stop too."""
+    counter = {"n": 0}
+
+    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+        counter["n"] += 1
+        if counter["n"] > 50:
+            raise AssertionError("pagination did not stop")
+        return {"data": [{"id": "cse_01A"}], "next_cursor": f"c{counter['n']}"}
+
+    monkeypatch.setattr(RemoteCoworkFetcher, "_get_json", fake)
+
+    assert [s["id"] for s in _fetcher(tmp_path).list_sessions(ORG)] == ["cse_01A"]
+    assert counter["n"] <= 2
+
+
+def test_a_repeating_event_cursor_ends_the_event_fetch(tmp_path: Path, monkeypatch) -> None:
+    page = {"data": [user_event(2, "hello")], "next_cursor": "2"}
+    calls = _scripted(monkeypatch, {"/events?": page})
+
+    events = _fetcher(tmp_path).fetch_events_after(ORG, "cse_01A", None)
+
+    assert [int(e["sequence_num"]) for e in events] == [2]  # the API sends strings
+    assert len(calls) <= 2
+
+
+def test_pagination_has_a_hard_page_cap(tmp_path: Path, monkeypatch) -> None:
+    """The last guard: even always-new pages stop at MAX_PAGES."""
+    from fetcher import remote_sessions
+
+    monkeypatch.setattr(remote_sessions, "MAX_PAGES", 3)
+    counter = {"n": 0}
+
+    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+        counter["n"] += 1
+        return {"data": [{"id": f"cse_{counter['n']:03d}"}], "next_cursor": f"c{counter['n']}"}
+
+    monkeypatch.setattr(RemoteCoworkFetcher, "_get_json", fake)
+
+    assert len(_fetcher(tmp_path).list_sessions(ORG)) == 3
+    assert counter["n"] == 3
+
+
+@pytest.mark.parametrize(
+    "bad_id", ["x/../../../../escaped", "..", "a\\..\\b", "cse_a.json", "", "a" * 129, "cse 01"]
+)
+def test_an_unsafe_session_id_writes_nothing_outside_the_archive(
+    tmp_path: Path, monkeypatch, bad_id: str
+) -> None:
+    """Session ids come from the API and become folder names. A hostile id
+    such as ``x/../../escaped`` once wrote outside the archive."""
+    page = {"data": [{"id": bad_id, "title": "bad"}, {"id": "cse_01Good", "title": "good"}]}
+    good_events = {"data": [user_event(1, "hi")]}
+    _scripted(monkeypatch, {"/v1/code/sessions?": page, "cse_01Good/events": good_events})
+    out = tmp_path / "out"
+    out.mkdir()
+
+    result = _fetcher(out).sync_org(ORG)
+
+    assert result.fetched == 1  # the good session still archives
+    written = {p.relative_to(out).parts[0] for p in out.rglob("*")}
+    assert written == {"cowork-remote"}, sorted(written)
+    assert not list(tmp_path.glob("escaped*"))
+
+
+def test_session_paths_refuse_unsafe_ids(tmp_path: Path) -> None:
+    fetcher = _fetcher(tmp_path)
+    with pytest.raises(ValueError):
+        fetcher._session_paths(ORG, "../x")
+    with pytest.raises(ValueError):
+        fetcher._session_paths("../org", "cse_01A")
+    session_dir, sidecar = fetcher._session_paths(ORG, "cse_01A")
+    assert sidecar.name == "remote_cse_01A.json"
+    assert session_dir.name == "remote_cse_01A"
