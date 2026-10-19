@@ -335,6 +335,55 @@ def build_message_tree(messages: list[dict[str, Any]]) -> list[MessageNode]:
     return root_nodes
 
 
+# ----- Cowork list cache -------------------------------------------------
+#
+# Why: the conversation list used to parse every Cowork session's whole
+# audit.jsonl on every call, on the event loop: 231 ms of each list call on
+# a 67 MB corpus, cold or warm (benchmarks/bench_cowork_list.py). Cloud
+# Cowork tasks that Refresh archives add to the same cost. A list row needs
+# only a summary, so keep one per session, keyed by the size and mtime of
+# its audit.jsonl and its sidecar. Search and export (full_content=True)
+# still read the full sessions.
+
+#: Keys that a list row never uses; the messages are most of the size.
+_COWORK_HEAVY_KEYS = ("chat_messages", "compact_markers")
+_cowork_summary_cache: dict[Path, tuple[tuple, dict[str, Any] | None]] = {}
+_cowork_summary_lock = threading.Lock()
+
+
+def clear_cowork_summary_cache() -> None:
+    """Forget every cached Cowork summary (tests)."""
+    with _cowork_summary_lock:
+        _cowork_summary_cache.clear()
+
+
+def _cowork_files_key(session_dir: Path) -> tuple:
+    """Size and mtime of the session's audit.jsonl and sidecar (None if absent).
+
+    The sidecar path matches ``cowork_reader.read_cowork_conversation``.
+    """
+    key = []
+    for path in (session_dir / "audit.jsonl", session_dir.with_suffix(".json")):
+        try:
+            st = path.stat()
+        except OSError:
+            key.append(None)
+        else:
+            key.append((st.st_size, st.st_mtime_ns))
+    return tuple(key)
+
+
+def _cowork_summary(data: dict[str, Any]) -> dict[str, Any]:
+    """A Cowork conversation without its messages, plus the counts and the
+    branch flag that ``_make_summary`` would have computed from them."""
+    messages = data.get("chat_messages") or []
+    summary = {k: v for k, v in data.items() if k not in _COWORK_HEAVY_KEYS}
+    summary["message_count"] = len(messages)
+    summary["human_message_count"] = sum(1 for m in messages if m.get("sender") == "human")
+    summary["has_branches"] = has_branches(messages)
+    return summary
+
+
 class ConversationStore:
     """Store for reading conversation data from disk and Claude Code JSONL files."""
 
@@ -575,14 +624,55 @@ class ConversationStore:
             ))
 
         # Load Cowork conversations: local-agent-mode-sessions audit.jsonl
-        # plus remote (cloud task) sessions archived by the fetcher.
+        # plus remote (cloud task) sessions archived by the fetcher. A list
+        # needs only summaries, which are cached; search and export need the
+        # full sessions.
         if source in ("all", "CLAUDE_COWORK"):
-            from .cowork_reader import list_cowork_conversations
-            conversations.extend(
-                list_cowork_conversations(self.cowork_root, self.remote_cowork_root)
-            )
+            if full_content:
+                from .cowork_reader import list_cowork_conversations
+                conversations.extend(
+                    list_cowork_conversations(self.cowork_root, self.remote_cowork_root)
+                )
+            else:
+                conversations.extend(self._cowork_summaries())
 
         return conversations
+
+    def _cowork_summaries(self) -> list[dict[str, Any]]:
+        """Cached summaries of every Cowork session; see the cache notes above."""
+        from . import cowork_reader
+
+        roots = [r for r in (self.cowork_root, self.remote_cowork_root) if r is not None]
+        out: list[dict[str, Any]] = []
+        live: set[Path] = set()
+        for session_dir in cowork_reader.iter_cowork_session_dirs(
+            self.cowork_root, self.remote_cowork_root
+        ):
+            live.add(session_dir)
+            # Stat before the read: a change during the read then has a newer
+            # key than the one stored, so the next call reads it again.
+            key = _cowork_files_key(session_dir)
+            with _cowork_summary_lock:
+                hit = _cowork_summary_cache.get(session_dir)
+            if hit is not None and hit[0] == key:
+                summary = hit[1]
+            else:
+                try:
+                    data = cowork_reader.read_cowork_conversation(session_dir)
+                except Exception:  # pragma: no cover  one bad session must not empty the list
+                    logger.exception("cowork: failed to read session %s", session_dir)
+                    continue
+                summary = _cowork_summary(data) if data else None
+                with _cowork_summary_lock:
+                    _cowork_summary_cache[session_dir] = (key, summary)
+            if summary is not None:
+                out.append(dict(summary))  # a copy: callers must not change the cache
+        # Forget sessions under these roots that no longer exist.
+        with _cowork_summary_lock:
+            for cached in list(_cowork_summary_cache):
+                if cached not in live and any(cached.is_relative_to(r) for r in roots):
+                    del _cowork_summary_cache[cached]
+        return out
 
     def list_conversations(
         self,
