@@ -6,12 +6,14 @@ import { test, expect, withNetRetry } from './fixtures'
  * call claude.ai with the session key on disk, and a local run reuses the
  * developer's own server. The ``stubAccountLookup`` auto fixture in
  * fixtures.ts answers it in the browser instead.
+ *
+ * Checked through the badge, not the network response: Chromium may drop a
+ * response body before the test reads it ("No data found for resource"),
+ * which made the first version of this spec flaky.
  */
 test('a spec without mockBackend gets the stubbed account, not the real one', async ({ page }) => {
-  const answered = page.waitForResponse((r) => r.url().endsWith('/api/account'))
   await withNetRetry(page, () => page.goto('/'))
-  const response = await answered
-  // Only the stub answers with this fixture account; the real backend has
-  // no such credentials.
-  expect(await response.json()).toMatchObject({ email: 'ada@example.com', authenticated: true })
+  // Only the stub knows this account; the real backend has no such credentials.
+  const badge = page.getByRole('region', { name: 'Signed-in account' })
+  await expect(badge.getByText(/ada@example\.com/)).toBeVisible()
 })
