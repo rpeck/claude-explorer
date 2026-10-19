@@ -162,11 +162,12 @@ end serverUp
 
 -- Quit the app when the server it started stops on its own: the web UI's
 -- Quit (power) button, or a crash. Otherwise the app would sit in the Dock
--- with nothing behind it.
+-- with nothing behind it. Check the command line, not only the PID: after
+-- the server exits, macOS can give its PID to another process.
 on idle
 	if ownsServer and serverPID is not "" then
 		try
-			do shell script "kill -0 " & serverPID
+			do shell script "ps -p " & serverPID & " -o command= | grep -q -- ' serve '"
 		on error
 			set ownsServer to false
 			quit

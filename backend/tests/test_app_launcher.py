@@ -79,7 +79,11 @@ def test_app_quits_when_its_server_stops_on_its_own() -> None:
     s = _script()
     idle = s[s.index("on idle") : s.index("end idle")]
     assert "if ownsServer and serverPID" in idle
-    assert '"kill -0 " & serverPID' in idle
+    # Not "kill -0": after the server exits, macOS can give its PID to
+    # another process, and the app would then wait for that one. Check that
+    # the PID still runs our serve command.
+    assert '"ps -p " & serverPID & " -o command= | grep -q -- \' serve \'"' in idle
+    assert "kill -0" not in idle
     on_error = idle[idle.index("on error") :]
     assert "set ownsServer to false" in on_error and "quit" in on_error
     assert "return 2" in idle
