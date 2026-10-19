@@ -663,6 +663,8 @@ press Ctrl+C in.
   requests, so no connection-lost warning appears.
 - **Failure:** if the request fails, the dialog stays open and shows
   "Could not stop the server." with the reason. The app keeps working.
+  If the server does not answer within 10 seconds, the reason is "The
+  server did not answer within 10 seconds.", and Cancel works again.
   A server that `uvicorn --reload` or `--workers` started refuses with
   "This server runs under a supervisor (uvicorn --reload or --workers).
   Stop it with Ctrl+C in its terminal."

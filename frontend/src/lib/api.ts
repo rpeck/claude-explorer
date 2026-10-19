@@ -19,6 +19,9 @@ import { mockConversations, mockConversationDetails, filterConversations } from 
 
 const BASE_URL = '/api'
 
+/** How long the Quit button waits for the server to accept the stop. */
+export const SHUTDOWN_TIMEOUT_MS = 10_000
+
 // Set to true to use mock data (for development without backend)
 const USE_MOCK_DATA = false
 
@@ -79,13 +82,31 @@ export const api = {
     fetchJson<AccountResponse>('/account', signal),
 
   // Stops the server (sidebar power button). The custom header makes a
-  // cross-site page's request fail the CORS preflight; see
-  // backend/routers/shutdown.py.
-  shutdownServer: async (): Promise<void> => {
-    const response = await fetch(`${BASE_URL}/shutdown`, {
-      method: 'POST',
-      headers: { 'X-Claude-Explorer-Action': 'shutdown' },
-    })
+  // cross-site page's request need a CORS preflight, which the server never
+  // answers; see backend/routers/shutdown.py. The Quit dialog locks while
+  // this runs, so a request that never answers must give up with a reason
+  // the dialog can show (PR #6 review, 2026-10-19).
+  shutdownServer: async (timeoutMs: number = SHUTDOWN_TIMEOUT_MS): Promise<void> => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    let response: Response
+    try {
+      response = await fetch(`${BASE_URL}/shutdown`, {
+        method: 'POST',
+        headers: { 'X-Claude-Explorer-Action': 'shutdown' },
+        signal: controller.signal,
+      })
+    } catch (error) {
+      if (controller.signal.aborted) {
+        const seconds = Math.max(1, Math.ceil(timeoutMs / 1000))
+        throw new Error(
+          `The server did not answer within ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`,
+        )
+      }
+      throw error
+    } finally {
+      clearTimeout(timer)
+    }
     if (!response.ok) {
       throw new ApiError(response.status, await response.text())
     }
