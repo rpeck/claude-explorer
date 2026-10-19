@@ -90,6 +90,43 @@ def _weasyprint_available() -> bool:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_data_dir_by_default(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+):
+    """Autouse: point CLAUDE_EXPLORER_DATA_DIR at an isolated empty dir.
+
+    Without this, any code path that calls ``get_settings()`` directly
+    (not through a FastAPI dependency a test overrides) resolves the
+    developer's real ``~/.claude-explorer/conversations``, and files that
+    live next to it, such as ``preferences.json``. On 2026-10-14
+    ``test_writer_gate_config_corrupt.py`` wrote ``{"theme": "dark"}`` into
+    a developer's real preferences that way, and the installed app opened
+    in dark mode.
+
+    Tests that need their own data dir still set the variable (or delete
+    it) with ``monkeypatch``; their setting wins because it runs later.
+    """
+    from backend import config
+
+    data_dir = tmp_path_factory.mktemp("home_isolated") / "conversations"
+    monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(data_dir))
+    # Also an empty Claude dir. Without it, a test that runs the app's
+    # startup (``with TestClient(app)``) builds the search index over the
+    # developer's real ~/.claude/projects: minutes of work in a background
+    # thread. The event loop then waits up to 300 s for that thread at exit,
+    # and the search-index fixture's teardown closed SQLite connections the
+    # thread still used, which crashed an xdist worker (2026-10-19).
+    claude_dir = data_dir.parent / "claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
+    config.get_settings.cache_clear()
+    try:
+        yield
+    finally:
+        config.get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _isolate_cowork_app_dir(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ):
@@ -381,6 +418,7 @@ CREDENTIALS_PATH_BINDINGS = (
     "backend.routers.fetch.DEFAULT_CREDENTIALS_PATH",
     "backend.routers.files.DEFAULT_CREDENTIALS_PATH",
     "backend.routers.orgs.DEFAULT_CREDENTIALS_PATH",
+    "backend.routers.account.DEFAULT_CREDENTIALS_PATH",
 )
 
 
@@ -426,6 +464,50 @@ def _reset_refresh_flag_body() -> Iterator[None]:
         yield
     finally:
         fetch_mod._refresh_in_progress = False
+
+
+@pytest.fixture(autouse=True)
+def _no_remote_cowork_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Stub the remote Cowork sessions API to "no sessions" by default.
+
+    Both fetch SSE paths end by archiving remote Cowork tasks
+    (``fetcher.remote_sessions``). Many router tests patch only the chat
+    methods of the real ``ClaudeFetcher``; without this stub they would send
+    real requests to claude.ai with fake credentials. Tests of the remote
+    step patch ``RemoteCoworkFetcher._get_json`` again; the later patch wins.
+    """
+    from fetcher import remote_sessions
+
+    monkeypatch.setattr(
+        remote_sessions.RemoteCoworkFetcher,
+        "_get_json",
+        lambda self, url, org_uuid: {"data": []},
+    )
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _no_account_lookup_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Block the ``/api/account`` identity lookup's network call by default.
+
+    ``GET /api/account`` asks claude.ai who the credentials belong to. A
+    test that reaches it with credentials on disk would otherwise send a
+    real request. Tests of the endpoint patch ``fetcher.account.fetch_account``
+    again; the later patch wins. The in-memory identity cache is cleared on
+    both sides so one test's lookup never answers another's.
+    """
+    from backend.routers import account as account_router
+    from fetcher import account as account_api
+
+    def _blocked(*_args, **_kwargs):
+        raise RuntimeError("network blocked in tests: fetcher.account.fetch_account")
+
+    monkeypatch.setattr(account_api, "fetch_account", _blocked)
+    account_router.clear_cache()
+    try:
+        yield
+    finally:
+        account_router.clear_cache()
 
 
 @pytest.fixture(autouse=True)

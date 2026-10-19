@@ -102,6 +102,9 @@ export default defineConfig({
         CLAUDE_EXPLORER_DISABLE_FTS5_WARM: '1',
         CLAUDE_EXPLORER_DISABLE_SUMMARY_CACHE_WARM: '1',
         CLAUDE_EXPLORER_DISABLE_FILECACHE_WARM: '1',
+        // /api/account would otherwise ask claude.ai who the developer's
+        // real ~/.claude-explorer credentials belong to.
+        CLAUDE_EXPLORER_DISABLE_ACCOUNT_LOOKUP: '1',
 
         // macOS dev only: WeasyPrint links against system libs from
         // Homebrew. Harmless on Linux CI (the env var is ignored).

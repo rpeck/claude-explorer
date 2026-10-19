@@ -266,13 +266,18 @@ test.describe('Connection Status', () => {
     // Find the largest gap between consecutive timestamps. Under the
     // 2s baseline this is ~2000ms; under the 4s V1-polish schedule it
     // should be ~4000ms (actually surfaces as ~3000ms because the
-    // react-query retries land in between). Reject sub-3000ms as a
-    // regression — any retry slower than 3s catches a drift away from
-    // the 4s V1-polish schedule back to the pre-polish 2s schedule.
+    // react-query retries land in between).
+    //
+    // The threshold sits halfway between the two schedules (2500ms), not
+    // at 3000ms. The 4s schedule measures ~3000ms by itself (3002ms in the
+    // run above), so a 3000ms threshold failed on a few ms of jitter: the
+    // first attempt failed in 3 of 4 main runs (2026-10-13/14), and PR #6
+    // measured 2978-2984ms on all three attempts. 2500ms still rejects the
+    // pre-polish 2s schedule (~2000ms) with the same 500ms margin.
     expect(requestTimes.length).toBeGreaterThanOrEqual(2);
     const gaps = requestTimes.slice(1).map((t, i) => t - requestTimes[i]);
     const maxGap = Math.max(...gaps);
-    expect(maxGap).toBeGreaterThanOrEqual(3000);
+    expect(maxGap).toBeGreaterThanOrEqual(2500);
   });
 
   test('does NOT flash dialog after a single transient (V1 polish)', async ({ page, mockBackend, consoleAssertions }) => {

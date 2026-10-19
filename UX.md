@@ -574,6 +574,16 @@ created_at}`.
 - The FetchDialog (Details modal) exposes manual **Full Refresh** and
   **Fetch New** actions that hit `/fetch/start` directly and do NOT
   auto-trigger capture.
+- Every fetch also archives the account's **remote Cowork tasks**:
+  sessions that ran in Anthropic's cloud, listed in claude.ai under
+  "Chats and tasks". `chat_conversations` does not list them, so an
+  account that only runs tasks would otherwise fetch nothing. They appear
+  under the **Claude Cowork** source filter, like local Cowork sessions.
+  The `complete` message counts them ("Fetched 0 conversations and 18
+  Cowork tasks across 2 workspace(s).").
+- Incremental fetches re-download a conversation whose server
+  `updated_at` is newer than the local copy, not only conversations
+  missing from disk.
 
 ### Conversation list dim states
 
@@ -598,6 +608,70 @@ doesn't shift mid-stream when a second org appears.
   → Sun ...).
 - "System" follows `prefers-color-scheme` and reacts live to OS changes.
 - Persisted per-user (Section 10).
+
+### Signed-in account (sidebar footer)
+
+The bottom of the sidebar shows the Anthropic account that the captured
+credentials belong to, as claude.ai and Claude Desktop do. A user with a
+work account and a personal account can see whose archive Refresh
+fetches.
+
+- **Where:** a row in the sidebar footer, above the Settings, theme, and
+  Export buttons. It is a region named **Signed-in account**.
+- **Avatar:** a circle with the account's initials: the first letter of
+  the first and the last word of the name that contain a letter
+  ("Ada Lovelace @ Engines.co" → "AE"). A one-word name gives one letter.
+  With no name, the first letter of the email.
+- **First line:** the display name, else the full name, else the email.
+- **Second line:** `email · workspace`, where the workspace is the
+  primary org from the credentials. A missing part and its `·` are left
+  out. When the email is already the first line, the second line is the
+  workspace alone.
+- No credentials, or no initials to show: the avatar shows a person icon.
+- Long text truncates with an ellipsis. Each line's `title` tooltip holds
+  its full text.
+- **No credentials:** first line "Not signed in", second line "Click
+  Refresh to sign in".
+- **Lookup failed** (expired session, offline): the first line is the
+  workspace name if known, else "Signed in". The second line is the
+  error message from `/api/account`, such as "Session expired. Click
+  Refresh to sign in again."
+- **Freshness:** read from `GET /api/account`. The row is refetched when
+  a Refresh pipeline completes, because Refresh may have captured new
+  credentials for a different account.
+- **Loading / endpoint error:** the row keeps its height and shows no
+  text, so the footer does not shift.
+
+### Quit (power button)
+
+The user can stop the Claude Explorer server from the app itself. This
+matters most when the macOS app, the Windows Start-menu shortcut, or the
+Linux menu entry started the server, because no terminal is open to
+press Ctrl+C in.
+
+- **Where:** the sidebar footer, at the right end of the button row: an
+  icon button with a power icon, named **Quit Claude Explorer**.
+- **Confirm first:** clicking it opens a dialog titled **Quit Claude
+  Explorer?** with the text "This stops the Claude Explorer server. Open
+  Claude Explorer again to restart it." Buttons: **Cancel** and **Quit**.
+  Cancel, Esc, or a click outside closes the dialog and changes nothing.
+- **Refresh running:** the dialog adds "A Refresh is running. Quitting
+  interrupts it; the next Refresh picks up where it stopped."
+- **Quit:** sends `POST /api/shutdown`. On success the whole page is
+  replaced by a screen with the heading **Claude Explorer has stopped**
+  and the text "You can close this tab." The stopped page sends no more
+  requests, so no connection-lost warning appears.
+- **Failure:** if the request fails, the dialog stays open and shows
+  "Could not stop the server." with the reason. The app keeps working.
+  If the server does not answer within 10 seconds, the reason is "The
+  server did not answer within 10 seconds.", and Cancel works again.
+  A server that `uvicorn --reload` or `--workers` started refuses with
+  "This server runs under a supervisor (uvicorn --reload or --workers).
+  Stop it with Ctrl+C in its terminal."
+- **Launchers:** the macOS app quits itself when the server it started
+  stops, and the Windows tray icon goes away. A server started from a
+  terminal exits back to the prompt. The background image-cache watcher
+  is a separate job and keeps running.
 
 ### Sort controls (sidebar AND search panel)
 

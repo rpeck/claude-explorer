@@ -228,6 +228,15 @@ browser, and stops only a server that it started. Install code:
 | Windows | Start menu shortcut, runs `pythonw.exe -m cli.desktop_launcher tray` | Tray icon, **Quit** |
 | Linux | `~/.local/share/applications/claude-explorer.desktop`, runs `... open` | Right-click action, runs `... stop` |
 
+On every platform the sidebar's **power button** (UX.md → "Quit (power
+button)") also stops the server: `POST /api/shutdown` raises SIGINT in the
+server's own process, exactly like Ctrl+C (`backend/shutdown.py`), so
+`claude-explorer serve` exits with code 0. The route requires the header
+`X-Claude-Explorer-Action: shutdown` and a same-origin or loopback `Origin`,
+so another website cannot stop the server. The macOS applet's `idle`
+handler quits the app when the server it started is gone, and the Windows
+tray removes its icon. Linux needs nothing: `open` does not stay running.
+
 Windows and Linux share `cli/desktop_launcher.py`. It records the PID and
 port of each server that it starts in `~/.claude-explorer/launcher-server.pid`.
 Linux has no tray icon: GNOME shows none without an extension, and
@@ -346,6 +355,31 @@ The sidebar **Refresh** button owns the full pipeline — capture + fetch — so
 - **Manual override:** the Details modal's "Full Refresh" and "Fetch New" buttons still hit `/fetch/start` directly with no auto-capture.
 - **Search is current at `complete`.** The backend re-indexes search before it emits `complete`. The frontend then calls `invalidateAfterFetch` (`frontend/src/lib/queryClient.ts`), which marks both the conversations and the search caches stale. A new fetch site must do both, or the Search Pane shows pre-fetch results.
 
+**Remote Cowork tasks are a second fetch source.** Cowork tasks that run in
+Anthropic's cloud are not chat conversations: `chat_conversations` never lists
+them, and nothing lands in Claude Desktop's local `local-agent-mode-sessions/`.
+An account that only runs tasks used to "fetch" 0 conversations. Every fetch
+path (Refresh, `/fetch/start`, `claude-explorer fetch`) now also syncs them
+through `fetcher/remote_sessions.py`:
+
+- **API:** `GET https://claude.ai/v1/code/sessions?tags=cowork-remote` and
+  `/v1/code/sessions/<id>/events` (newest first, `cursor=<seq>` pages back).
+  Both need the `anthropic-beta: ccr-byoc-2025-07-29`, `anthropic-version`,
+  and `x-organization-uuid` headers. Recorded from the claude.ai web app with
+  Playwright; re-record the same way if the API moves.
+- **Storage:** `<data_dir>/cowork-remote/<org>/remote_<id>/audit.jsonl` plus a
+  sibling sidecar, in the local Cowork shape, so `backend/cowork_reader.py`,
+  the store, and the search index read them unchanged
+  (`iter_cowork_session_dirs` / `find_cowork_session_dir`).
+- **Incremental:** a session is skipped when its sidecar records the API's
+  `updated_at`; otherwise only events newer than the highest
+  `_sequence_num` in `audit.jsonl` are fetched and appended.
+- **Additive:** an org without sessions-API access (401/403/404) is skipped;
+  any other failure is a `progress` message, never a stream `error`.
+- **Tests:** the autouse `_no_remote_cowork_network` fixture (both conftests)
+  stubs `RemoteCoworkFetcher._get_json`; `fetcher/tests/ccr_fake.py` is a
+  fake of the API with its real paging.
+
 If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_capture_phase_stream`, `_fetch_phase_stream`, and `refresh_pipeline_stream` async generators) and `frontend/src/components/fetch/FetchToast.tsx` (the `useRefreshPipeline` hook) together — the SSE event schema is shared.
 
 ## Development Setup
@@ -416,6 +450,28 @@ When `~/.claude-explorer/config.json` fails to parse (editor crash mid-save, tru
 **`install-watcher` is intentionally EXEMPT** from the writer gate. The launcher template lives under `~/Library/LaunchAgents/` (or systemd/Task Scheduler equivalents), NOT under `data_dir`, AND the supervised watcher IS the recovery path the user needs to reach when config is corrupt. Gating it would lock the user out of recovery. The CLI test `test_install_watcher_runs_when_config_corrupt` pins this exemption as a HARD invariant — do not remove.
 
 **`cc_watcher.scan_once` is also NOT gated.** Blocking the background CC image-cache watcher during corrupt-config would cause the data loss it exists to prevent (Claude Code rotates images off disk while the watcher is blocked). Future enhancement: log a WARNING when scan_once runs against a corrupt config so the failure is visible in supervised-job logs.
+
+## Host-header guard (DNS rebinding)
+
+The server listens on localhost, but any web page can make its own domain
+resolve to 127.0.0.1 (DNS rebinding). Its requests are then same-origin, so
+the browser sends no CORS preflight, and the page can read every response
+and call every route. A probe in the PR #6 review (2026-10-19) read
+`/api/conversations` and `/api/account`, and stopped the server.
+
+- **The guard:** `backend/host_guard.py` refuses (400) every request whose
+  Host is not `localhost`, `127.0.0.1`, or `::1`. It is the outermost
+  middleware; a test pins that.
+- **Extra names:** `CLAUDE_EXPLORER_ALLOWED_HOSTS` (comma-separated). The
+  root `conftest.py` adds the test-client names `testserver` and `test`.
+- **`serve --host <network address>`** sets that variable to `*` and prints
+  a warning, because the user chose to expose the server.
+- **No CORS.** Do not add `CORSMiddleware` back. The web page calls `/api`
+  on its own origin, and the Vite dev server proxies `/api`. CORS for
+  `localhost:5173` let any project's dev server read the archive.
+- **A new state-changing route** follows `POST /api/shutdown`: POST only, a
+  custom header (which needs a preflight that the server never answers), and
+  an Origin check against the guard's allowlist, never against Host.
 
 ## PDF Export Dependencies
 

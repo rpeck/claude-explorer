@@ -37,6 +37,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from contextlib import contextmanager
+
 import pytest
 
 from backend.tests._platform_home import patch_home
@@ -97,8 +99,33 @@ def clean_settings(tmp_path: Path) -> config.Settings:
     )
 
 
+@contextmanager
+def _settings_everywhere(settings: config.Settings, monkeypatch: pytest.MonkeyPatch):
+    """Serve ``settings`` both to FastAPI dependencies and to direct calls.
+
+    ``app.dependency_overrides`` only reaches routes that take
+    ``Depends(get_settings)``. Code that calls ``get_settings()`` directly
+    (``backend/routers/preferences.py:_resolve_path``) bypasses it and read
+    the developer's real ``~/.claude-explorer``: until 2026-10-14
+    ``test_preferences_patch_200_when_clean`` wrote ``{"theme": "dark"}``
+    into the real preferences file. Pointing the data-dir env var at the
+    same tmp dir covers the direct calls.
+    """
+    # Direct get_settings() calls resolve data_dir from the environment.
+    monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(settings.data_dir))
+    config.get_settings.cache_clear()
+    app.dependency_overrides[config.get_settings] = lambda: settings
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(config.get_settings, None)
+        config.get_settings.cache_clear()
+
+
 @pytest.fixture
-def client_with_corrupt(corrupt_settings: config.Settings) -> TestClient:
+def client_with_corrupt(
+    corrupt_settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+) -> TestClient:
     """TestClient with ``get_settings`` overridden to return a corrupt
     Settings.
 
@@ -109,11 +136,8 @@ def client_with_corrupt(corrupt_settings: config.Settings) -> TestClient:
     different dependency. The override is cleared on teardown so it
     can't leak into the next test.
     """
-    app.dependency_overrides[config.get_settings] = lambda: corrupt_settings
-    try:
+    with _settings_everywhere(corrupt_settings, monkeypatch):
         yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(config.get_settings, None)
 
 
 @pytest.fixture
@@ -130,11 +154,8 @@ def client_with_clean(
     monkeypatch.setenv(
         "CLAUDE_EXPLORER_BOOKMARKS_FILE", str(tmp_path / "bookmarks.json")
     )
-    app.dependency_overrides[config.get_settings] = lambda: clean_settings
-    try:
+    with _settings_everywhere(clean_settings, monkeypatch):
         yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(config.get_settings, None)
 
 
 # -- Bookmarks: writers 503 when corrupt; reads still 200 --------------

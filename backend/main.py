@@ -50,13 +50,13 @@ from contextlib import asynccontextmanager  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
 
 from .config import get_settings, migrate_legacy_data_dir, read_env  # noqa: E402
-from .routers import conversations, search, export, config, fetch, bookmarks, orgs, files, preferences, watcher_health  # noqa: E402
+from .host_guard import HostGuardMiddleware  # noqa: E402
+from .routers import account, conversations, search, export, config, fetch, bookmarks, orgs, files, preferences, shutdown, watcher_health  # noqa: E402
 
 
 # Exact-match pattern for the conversation-detail route.
@@ -959,23 +959,23 @@ install_request_timing_middleware(app)
 # below ~1 KB, gzip's framing overhead can produce a LARGER output and
 # always wastes CPU. Pinned by ``test_small_response_is_not_gzipped``.
 #
-# Middleware order: ``add_middleware`` prepends to the response chain,
-# so the LAST middleware added runs FIRST on the request. Currently:
-#   request:  timing -> CORS -> gzip -> route
-#   response: route -> gzip -> CORS -> timing
-# This means the request-timing middleware measures pre-gzip wall time
-# (the route's actual work), NOT compression time. That keeps the
-# elapsed=Xs log meaningful for backend perf diagnosis.
+# Middleware order: ``add_middleware`` prepends, so the LAST middleware
+# added runs FIRST on the request. Currently (``app.user_middleware``):
+#   request:  host guard -> gzip -> timing -> route
+#   response: route -> timing -> gzip -> host guard
+# The request-timing middleware sits inside gzip, so it measures the
+# route's own work, NOT compression time. That keeps the elapsed=Xs log
+# meaningful for backend perf diagnosis.
 app.add_middleware(SelectiveGZipMiddleware, minimum_size=1024, compresslevel=1)
 
-# CORS middleware for development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS middleware. The web page calls /api on its own origin, and the
+# Vite dev server proxies /api (frontend/vite.config.ts), so no browser
+# request is cross-origin. Answering CORS for http://localhost:5173 let any
+# project's dev server on that port read the whole archive (PR #6 review).
+
+# Added last, so it runs first: no route or middleware sees a request whose
+# Host is not a loopback name (DNS rebinding). See backend/host_guard.py.
+app.add_middleware(HostGuardMiddleware)
 
 # Include routers under /api prefix
 app.include_router(conversations.router, prefix="/api")
@@ -986,6 +986,8 @@ app.include_router(fetch.router, prefix="/api")
 app.include_router(bookmarks.router, prefix="/api")
 app.include_router(preferences.router, prefix="/api")
 app.include_router(orgs.router, prefix="/api")
+app.include_router(account.router, prefix="/api")
+app.include_router(shutdown.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 # watcher_health endpoint paths already include the /api prefix.
 app.include_router(watcher_health.router)

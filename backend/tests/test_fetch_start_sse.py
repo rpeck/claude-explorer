@@ -79,7 +79,8 @@ class _FakeFetcher:
 
     Exposes only the surface area the ``/api/fetch/start`` path uses
     (see ``backend/routers/fetch.py:228-354``):
-    constructor; ``existing_uuids_for_current_org``;
+    constructor; ``org_id``; ``existing_uuids_for_current_org``;
+    ``local_updated_at_for_org``;
     ``fetch_conversation_list``; ``fetch_conversation``;
     ``save_conversation``; ``save_index``; ``retry_events`` attr.
 
@@ -107,8 +108,13 @@ class _FakeFetcher:
         type(self).save_calls = []
         type(self).index_calls = []
 
+    org_id = "ae24ae66-4622-48e7-b4b3-1ab2c49f933d"
+
     def existing_uuids_for_current_org(self) -> set[str]:
         return set()
+
+    def local_updated_at_for_org(self, org_uuid: str, uuids: list[str]) -> dict[str, str]:
+        return {}
 
     def fetch_conversation_list(self) -> list[dict]:
         if type(self).list_raises is not None:

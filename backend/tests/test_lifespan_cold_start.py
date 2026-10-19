@@ -428,12 +428,13 @@ async def test_warm_image_scan_fires_only_when_fts5_disabled(
         "disabled (the fallback path should fire it)"
     )
     delay = call_times[0] - t0
-    # The 5 s legacy delay is gone — task should fire within ~200 ms
-    # (event-loop scheduling slack only). Anything > 500 ms means
-    # the legacy sleep is still in place.
-    assert delay < 0.5, (
+    # The 5 s legacy delay is gone; the task normally fires within ~200 ms.
+    # The limit sits halfway to the 5 s it guards against (2.5 s), not at
+    # 500 ms: a slow Windows CI runner measured 859 ms once (PR #6,
+    # 2026-10-19), and a returning 5 s delay still fails by a wide margin.
+    assert delay < 2.5, (
         f"warm_all_sessions_async fired {delay*1000:.0f}ms after "
-        f"lifespan start; expected <500ms (legacy 5 s delay removed)"
+        f"lifespan start; expected <2500ms (legacy 5 s delay removed)"
     )
 
 

@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/select'
 import { ConversationList } from '@/components/conversation/ConversationList'
 import { FetchDialog } from '@/components/fetch/FetchDialog'
+import { AccountBadge } from '@/components/layout/AccountBadge'
+import { QuitButton } from '@/components/layout/QuitButton'
 import { useFetchPipeline } from '@/contexts/FetchPipelineContext'
 import { useSourceFilter } from '@/contexts/SourceFilterContext'
 import { useOrgs } from '@/hooks/useOrgs'
@@ -375,6 +377,9 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Manage filters modal */}
       <ManageFiltersModal isOpen={isManageOpen} onClose={() => setIsManageOpen(false)} />
 
+      {/* Signed-in account (UX.md → "Signed-in account (sidebar footer)") */}
+      <AccountBadge />
+
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex items-center gap-1">
@@ -398,6 +403,7 @@ export function Sidebar({ className }: SidebarProps) {
           <Button variant="ghost" size="icon" title="Export All">
             <Download className="h-4 w-4" />
           </Button>
+          <QuitButton />
         </div>
       </div>
 

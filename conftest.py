@@ -1,7 +1,7 @@
 """Root pytest configuration.
 
-Currently holds one diagnostic: report threads that would block interpreter
-shutdown. Windows CI passed every test and still failed the step, because a
+Holds the test-client host names for the backend's Host guard, and one
+diagnostic: report threads that would block interpreter shutdown. Windows CI passed every test and still failed the step, because a
 worker process never exited and was interrupted at threading shutdown. A
 non-daemon thread left running is the usual cause, and it is invisible on
 POSIX when the same thread happens to be collected earlier.
@@ -9,7 +9,14 @@ POSIX when the same thread happens to be collected earlier.
 
 from __future__ import annotations
 
+import os
 import threading
+
+# The backend answers only loopback Host names (backend/host_guard.py).
+# Starlette's TestClient sends "Host: testserver", and the httpx ASGI clients
+# in backend/tests use "test". Set here, at the root, because mcp_server/tests
+# also calls the backend app.
+os.environ.setdefault("CLAUDE_EXPLORER_ALLOWED_HOSTS", "testserver,test")
 
 
 def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ARG001

@@ -1,5 +1,6 @@
 import { test as base, expect, type Page, type Request, type Route } from '@playwright/test'
 import type {
+  AccountResponse,
   AppConfig,
   AppConfigStats,
   ConversationDetail,
@@ -42,6 +43,8 @@ export interface MockBackendOptions {
   trees?: Record<string, ConversationTree>
   /** /api/orgs response. Default: authenticated single primary org. */
   orgs?: OrgsResponse
+  /** /api/account response. Default: a signed-in account in "Personal". */
+  account?: AccountResponse
   /**
    * Initial server-side preferences blob (the `data` field of the
    * `/api/preferences` envelope). Tests that need pre-populated prefs
@@ -88,6 +91,7 @@ export interface ConsoleCapture {
 interface Fixtures {
   mockBackend: MockBackendFn
   consoleAssertions: ConsoleCapture
+  stubAccountLookup: undefined
 }
 
 /**
@@ -233,6 +237,16 @@ const PRIMARY_ORG_ID = 'ae24ae66-4622-48e7-b4b3-1ab2c49f933d'
 const DEFAULT_ORGS: OrgsResponse = {
   authenticated: true,
   orgs: [{ org_id: PRIMARY_ORG_ID, name: 'Personal', is_primary: true }],
+}
+
+const DEFAULT_ACCOUNT: AccountResponse = {
+  authenticated: true,
+  account_uuid: '00000000-0000-4000-8000-000000000001',
+  email: 'ada@example.com',
+  full_name: 'Ada Lovelace',
+  display_name: 'Ada Lovelace',
+  org_name: 'Personal',
+  error: null,
 }
 
 /**
@@ -444,6 +458,7 @@ export const test = base.extend<Fixtures>({
       const details = opts.details ?? {}
       const trees = opts.trees ?? {}
       const orgs = opts.orgs ?? DEFAULT_ORGS
+      const account = opts.account ?? DEFAULT_ACCOUNT
       const config: AppConfig = {
         data_dir: '/tmp',
         ...(opts.config ?? {}),
@@ -529,6 +544,11 @@ export const test = base.extend<Fixtures>({
       // -----------------------------------------------------------------
       await page.route('**/api/orgs', (route: Route) => {
         route.fulfill({ contentType: 'application/json', body: JSON.stringify(orgs) })
+      })
+
+      // Signed-in account (sidebar footer; every page mount).
+      await page.route('**/api/account', (route: Route) => {
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify(account) })
       })
 
       // -----------------------------------------------------------------
@@ -808,6 +828,26 @@ export const test = base.extend<Fixtures>({
    *
    * The push is scoped to that test (allowlist array is fresh per test).
    */
+  /**
+   * Auto fixture: no spec reaches the real ``/api/account``. The sidebar
+   * asks for the signed-in account on every page mount, and the backend
+   * answers by calling claude.ai with the session key on disk. CI starts the
+   * backend with CLAUDE_EXPLORER_DISABLE_ACCOUNT_LOOKUP=1, but a local run
+   * reuses a developer's running server, which would send their real key
+   * (PR #6 review, 2026-10-19). Routes registered later win in Playwright,
+   * so ``mockBackend`` and a spec's own ``/api/account`` route still apply.
+   */
+  stubAccountLookup: [
+    async ({ page }, use) => {
+      await page.route('**/api/account', (route: Route) => {
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify(DEFAULT_ACCOUNT) })
+      })
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture `use(value)`, not React.use().
+      await use(undefined)
+    },
+    { auto: true },
+  ],
+
   consoleAssertions: [
     async ({ page }, use) => {
       const capture: ConsoleCapture = {

@@ -357,6 +357,10 @@ class ConversationStore:
             cowork_root
             or get_settings().claude_desktop_app_dir / "local-agent-mode-sessions"
         )
+        # Remote Cowork sessions (cloud tasks) are archived by the fetcher
+        # alongside the Desktop JSONs. See ``fetcher.remote_sessions``.
+        from .cowork_reader import remote_cowork_root
+        self.remote_cowork_root = remote_cowork_root(self.data_dir)
 
     def _get_conversation_files(self) -> list[Path]:
         """Get all conversation JSON files.
@@ -570,10 +574,13 @@ class ConversationStore:
                 full_content=full_content, include_phantom=include_phantom
             ))
 
-        # Load Cowork conversations (from local-agent-mode-sessions audit.jsonl)
+        # Load Cowork conversations: local-agent-mode-sessions audit.jsonl
+        # plus remote (cloud task) sessions archived by the fetcher.
         if source in ("all", "CLAUDE_COWORK"):
             from .cowork_reader import list_cowork_conversations
-            conversations.extend(list_cowork_conversations(self.cowork_root))
+            conversations.extend(
+                list_cowork_conversations(self.cowork_root, self.remote_cowork_root)
+            )
 
         return conversations
 
@@ -775,33 +782,17 @@ class ConversationStore:
                 if data:
                     return data, jsonl_path
 
-        # Finally check Cowork sessions. The directory stem is
-        # ``local_<uuid>``, so we walk every deployment+org and look
-        # for the matching session_dir. We only call
-        # ``read_cowork_conversation`` on the candidate (not the whole
-        # tree) so this resolution is O(deployments * orgs), not
-        # O(sessions).
-        if self.cowork_root.exists():
-            from .cowork_reader import read_cowork_conversation
-            try:
-                deployment_dirs = list(self.cowork_root.iterdir())
-            except OSError:
-                deployment_dirs = []
-            for deployment_dir in deployment_dirs:
-                if not deployment_dir.is_dir():
-                    continue
-                try:
-                    org_dirs = list(deployment_dir.iterdir())
-                except OSError:
-                    continue
-                for org_dir in org_dirs:
-                    if not org_dir.is_dir():
-                        continue
-                    candidate = org_dir / f"local_{uuid}"
-                    if candidate.is_dir():
-                        data = read_cowork_conversation(candidate)
-                        if data and data.get("uuid") == uuid:
-                            return data, candidate / "audit.jsonl"
+        # Finally check Cowork sessions, local (``local_<uuid>``) and remote
+        # (``remote_<id>``). ``find_cowork_session_dir`` checks one candidate
+        # per org dir, so this resolution is O(orgs), not O(sessions).
+        from .cowork_reader import find_cowork_session_dir, read_cowork_conversation
+        candidate = find_cowork_session_dir(
+            self.cowork_root, self.remote_cowork_root, uuid
+        )
+        if candidate is not None:
+            data = read_cowork_conversation(candidate)
+            if data and data.get("uuid") == uuid:
+                return data, candidate / "audit.jsonl"
 
         return None, None
 

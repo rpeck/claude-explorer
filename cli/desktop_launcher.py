@@ -8,7 +8,9 @@ Three commands, run as ``python -m cli.desktop_launcher <command>``:
 
 * ``tray`` (the Windows Start menu shortcut): starts the server if nothing
   answers on the port, opens the browser, and shows a notification-area
-  (tray) icon. Its menu has **Open Claude Explorer** and **Quit**.
+  (tray) icon. Its menu has **Open Claude Explorer** and **Quit**. The icon
+  goes away when its server stops on its own, as after the web UI's Quit
+  (power) button.
 * ``open`` (the Linux menu entry): starts the server if needed, opens the
   browser, and exits. The server keeps running.
 * ``stop`` (the Linux entry's right-click action): stops the server that
@@ -34,6 +36,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -43,6 +46,8 @@ from pathlib import Path
 DEFAULT_PORT = 8765
 START_TIMEOUT_SEC = 60.0
 STOP_TIMEOUT_SEC = 10.0
+#: How often the tray checks that the server it started is still running.
+WATCH_INTERVAL_SEC = 2.0
 ICON_PNG = Path(__file__).resolve().parent / "assets" / "app-icon.png"
 
 
@@ -360,13 +365,26 @@ def cmd_tray(port: int) -> int:
             open_ui(port)
 
     def on_quit(icon, item) -> None:
+        state["quitting"] = True
         stop_process(state["proc"])
         icon.stop()
+
+    def watch_server(icon) -> None:
+        """Remove the tray icon when the server it started exits on its own:
+        the web UI's Quit (power) button, or a crash."""
+        while not state.get("quitting"):
+            proc = state["proc"]
+            if proc is not None and proc.poll() is not None:
+                stop_process(proc)  # forget the PID record
+                icon.stop()
+                return
+            time.sleep(WATCH_INTERVAL_SEC)
 
     def setup(icon) -> None:
         icon.visible = True
         if ensure_server():
             icon.title = "Claude Explorer"
+            threading.Thread(target=watch_server, args=(icon,), daemon=True).start()
             open_ui(port)
         else:
             stop_process(state["proc"])
