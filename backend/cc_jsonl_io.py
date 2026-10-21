@@ -43,6 +43,7 @@ import orjson
 
 from .agent_session_io import parse_jsonl_file  # noqa: F401  re-export
 from .cc_message_transforms import (
+    cc_session_uuid,
     _extract_title_from_message,
     _is_system_message,
     _title_from_entry,
@@ -133,7 +134,7 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
         and len(assistant_message_ids) == 0
     )
 
-    session_id = first_user.get("sessionId", jsonl_path.stem)
+    session_id = cc_session_uuid(jsonl_path)
     cwd = first_user.get("cwd", "")
     git_branch = first_user.get("gitBranch", "")
 

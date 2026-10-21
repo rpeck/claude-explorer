@@ -715,6 +715,7 @@ class SearchIndex:
                         (COMPACTION_TITLE_PREFIX,),
                     )
                 self._forget_remote_cowork_without_workspace(cur)
+                self._forget_cc_files_under_another_uuid(cur)
                 self._write_conn.commit()
                 return
 
@@ -993,6 +994,41 @@ class SearchIndex:
                 "their workspace",
                 cur.rowcount,
             )
+
+    @staticmethod
+    def _forget_cc_files_under_another_uuid(cur: sqlite3.Cursor) -> None:
+        """Re-index Claude Code files that the index holds under another uuid.
+
+        Before 2026-10-21 a Claude Code conversation took its uuid from the
+        first user row's ``sessionId``. A continued session's file starts
+        with rows copied from the session that it continues, so the index
+        stored it under that older session's uuid, and its search hits
+        opened the wrong file. The uuid is now the file name
+        (``cc_message_transforms.cc_session_uuid``), but the files do not
+        change, so the drift pass alone never re-reads them.
+
+        For each affected uuid, drop its rows and the ``indexed_files`` rows
+        of every file stored under it, so the drift pass indexes each file
+        again under its own uuid. In the steady state this is one read of
+        the Claude Code rows, and nothing matches.
+        """
+        rows = cur.execute(
+            "SELECT f.path, f.conv_uuid FROM indexed_files f "
+            "JOIN conversations c ON c.conv_uuid = f.conv_uuid "
+            "WHERE c.source = 'CLAUDE_CODE'"
+        ).fetchall()
+        stale = sorted({conv for path, conv in rows if Path(path).stem != conv})
+        if not stale:
+            return
+        for conv_uuid in stale:
+            cur.execute("DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,))
+            cur.execute("DELETE FROM conversations WHERE conv_uuid = ?", (conv_uuid,))
+            cur.execute("DELETE FROM indexed_files WHERE conv_uuid = ?", (conv_uuid,))
+        logger.info(
+            "search_index: re-indexing the Claude Code files of %d "
+            "conversation(s) that were stored under another session's uuid",
+            len(stale),
+        )
 
     # ----- read connections ------------------------------------------
 

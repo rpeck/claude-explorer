@@ -17,9 +17,9 @@ clean — this masked the bug until Full mode was exercised.
 
 Bidirectional pair:
 
-  * ``test_resume_collapses_to_single_conv_keeping_latest`` — the
-    fix point: two files with same sessionId → one conv with the
-    LATEST updated_at survives.
+  * ``test_resume_files_stay_two_conversations`` — since 2026-10-21 a
+    conversation's uuid is its file name, so the two files are two
+    conversations. The old collapse hid the older file's messages.
 
   * ``test_two_distinct_session_ids_remain_two_convs`` — the
     must-not-match pair: distinct sessionIds across two files must
@@ -93,9 +93,17 @@ def _reset_conversation_cache():
         _conversation_cache.clear()
 
 
-def test_resume_collapses_to_single_conv_keeping_latest(tmp_path):
-    """Two JSONL files share sessionId=S (CC resume pattern). The dedup
-    must keep ONE conv dict with uuid=S and the LATEST updated_at."""
+def test_resume_files_stay_two_conversations(tmp_path):
+    """Two JSONL files share sessionId=S (the old CC resume pattern).
+
+    Until 2026-10-21 the list collapsed them into ONE conversation that
+    showed only the newer file, so the older file's messages were hidden.
+    On one real archive such a hidden file had 6,790 rows, and only 21 of
+    them were in the newer file. A conversation's uuid is now its file name
+    (``cc_message_transforms.cc_session_uuid``), so both files stay visible,
+    each with its own messages, and no uuid appears twice.
+    """
+
     claude_dir = tmp_path / "claude"
     project_dir = claude_dir / "projects" / "test-project"
 
@@ -151,20 +159,13 @@ def test_resume_collapses_to_single_conv_keeping_latest(tmp_path):
 
     convs = list_claude_code_conversations(claude_dir, full_content=True)
 
-    matching = [c for c in convs if c.get("uuid") == SHARED_SESSION]
-    assert len(matching) == 1, (
-        f"Expected exactly 1 conv with uuid={SHARED_SESSION} (CC resume "
-        f"sessions share sessionId across files); got {len(matching)} "
-        f"with updated_ats={[c.get('updated_at') for c in matching]}"
-    )
-
-    kept = matching[0]
-    # Keep-the-latest rule: the continuation file's last timestamp is
-    # 2025-01-03; the original's last is 2025-01-01. The kept conv
-    # MUST be the continuation (latest updated_at).
-    assert kept["updated_at"].startswith("2025-01-03"), (
-        f"Dedup must keep the LATEST updated_at; got {kept['updated_at']}"
-    )
+    by_uuid = {c["uuid"]: c for c in convs}
+    assert sorted(by_uuid) == sorted([SHARED_SESSION, OTHER_STEM])
+    assert len(convs) == 2, "no uuid may appear twice (duplicate React keys)"
+    original = {m["uuid"] for m in by_uuid[SHARED_SESSION]["chat_messages"]}
+    resumed = {m["uuid"] for m in by_uuid[OTHER_STEM]["chat_messages"]}
+    assert original == {"m1", "m2"}
+    assert resumed == {"m3", "m4", "m5"}
 
 
 def test_two_distinct_session_ids_remain_two_convs(tmp_path):
