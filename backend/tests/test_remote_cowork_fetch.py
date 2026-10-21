@@ -295,3 +295,48 @@ def test_the_failure_note_lists_at_most_three_names() -> None:
         "The next Refresh tries them again."
     )
     assert _remote_failures({"failed": 0, "failed_titles": []}) == ""
+
+
+# PR #8 review (2026-10-21): a task with nothing new to read was counted as
+# fetched on every Refresh ("and 1 Cowork task"), and its events were all
+# downloaded again each time.
+
+
+def test_refresh_does_not_count_a_task_whose_only_change_is_its_title(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tasks = _tasks()
+    api = FakeSessionsApi({ORG: tasks}).install(monkeypatch)
+    client.get("/api/fetch/refresh?incremental=true")
+    tasks[1].title = "Daily summary (renamed)"
+    tasks[1].updated_at = iso(300)
+    api.requests.clear()
+
+    r = client.get("/api/fetch/refresh?incremental=true")
+
+    complete = _frames(r.text)[-1]
+    assert complete["message"] == "Fetched 0 conversations across 2 workspace(s)."
+    assert complete["cowork_tasks_fetched"] == 0
+    store = ConversationStore(data_dir=env["out"], cowork_root=env["tmp"] / "no-local-cowork")
+    names = {c.name for c in store.list_conversations(source="CLAUDE_COWORK")}
+    assert "Daily summary (renamed)" in names
+
+
+def test_refresh_skips_a_task_with_only_transport_events(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fetcher.tests.ccr_fake import noise_event
+
+    quiet = FakeSession(
+        "cse_01Quiet", "Waiting for input",
+        [noise_event(1, "control_request"), noise_event(2, "keep_alive")],
+    )
+    api = FakeSessionsApi({ORG: [quiet]}).install(monkeypatch)
+    first = _frames(client.get("/api/fetch/refresh?incremental=true").text)[-1]
+    api.requests.clear()
+
+    second = _frames(client.get("/api/fetch/refresh?incremental=true").text)[-1]
+
+    assert first["cowork_tasks_fetched"] == 0
+    assert second["cowork_tasks_fetched"] == 0
+    assert not any("/events" in u for u in api.requests)

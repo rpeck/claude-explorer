@@ -387,7 +387,7 @@ async def _remote_cowork_stream(
                 "conversation_name": title,
             })
             try:
-                await loop.run_in_executor(
+                stored = await loop.run_in_executor(
                     None, remote.sync_session, org_uuid, session, after_seq
                 )
             except Exception as exc:  # noqa: BLE001
@@ -403,7 +403,10 @@ async def _remote_cowork_stream(
                     "total": len(work),
                 })
             else:
-                totals["fetched"] = totals.get("fetched", 0) + 1
+                # Only a task with new events counts. A new title alone, or
+                # only dropped transport events, is saved but not "fetched".
+                if stored:
+                    totals["fetched"] = totals.get("fetched", 0) + 1
             for frame in _drain_retry_events(fetcher):
                 yield frame
             if i < len(work):

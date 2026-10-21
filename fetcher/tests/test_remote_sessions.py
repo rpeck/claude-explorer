@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from curl_cffi.requests.exceptions import HTTPError as CurlHTTPError
 
 from fetcher.remote_sessions import RemoteCoworkFetcher
 from fetcher.tests.ccr_fake import (
@@ -19,10 +21,15 @@ from fetcher.tests.ccr_fake import (
     assistant_event,
     conversation_events,
     iso,
+    noise_event,
     user_event,
 )
 
 ORG = "11111111-1111-4111-8111-111111111111"
+
+#: The real network boundary, saved before the autouse conftest fixture
+#: replaces it for every test.
+_REAL_GET_JSON = RemoteCoworkFetcher.__dict__["_get_json"]
 
 
 # The fetcher writes UTF-8. Read it as UTF-8 too: without an encoding,
@@ -325,3 +332,278 @@ def test_session_paths_refuse_unsafe_ids(tmp_path: Path) -> None:
     session_dir, sidecar = fetcher._session_paths(ORG, "cse_01A")
     assert sidecar.name == "remote_cse_01A.json"
     assert session_dir.name == "remote_cse_01A"
+
+
+# ------------------------------------------- PR #8 review, 2026-10-21
+
+
+def test_an_opaque_session_cursor_is_url_encoded(tmp_path: Path, monkeypatch) -> None:
+    """A base64-style cursor carries ``+ / = &``. Sent raw, ``+`` reads as a
+    space and ``&x=1`` becomes a separate query parameter, so the second
+    page was never found."""
+    cursor = "ab+c/d==&x=1"
+    calls: list[str] = []
+
+    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+        calls.append(url)
+        if len(calls) > 5:
+            raise AssertionError("pagination did not stop")
+        q = parse_qs(urlsplit(url).query)
+        if "cursor" not in q:
+            return {"data": [{"id": "cse_01A"}], "next_cursor": cursor}
+        if q["cursor"] == [cursor] and "x" not in q:
+            return {"data": [{"id": "cse_01B"}]}
+        return {"data": []}
+
+    monkeypatch.setattr(RemoteCoworkFetcher, "_get_json", fake)
+
+    sessions = _fetcher(tmp_path).list_sessions(ORG)
+
+    assert [s["id"] for s in sessions] == ["cse_01A", "cse_01B"]
+    assert parse_qs(urlsplit(calls[0]).query)["tags"] == ["cowork-remote"]
+
+
+def test_an_opaque_event_cursor_and_the_session_id_are_url_encoded(
+    tmp_path: Path, monkeypatch
+) -> None:
+    cursor = "ab+c/d==&x=1"
+    calls: list[str] = []
+
+    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+        calls.append(url)
+        if len(calls) > 5:
+            raise AssertionError("pagination did not stop")
+        q = parse_qs(urlsplit(url).query)
+        if "cursor" not in q:
+            return {"data": [user_event(2, "second")], "next_cursor": cursor}
+        if q["cursor"] == [cursor] and "x" not in q:
+            return {"data": [user_event(1, "first")]}
+        return {"data": []}
+
+    monkeypatch.setattr(RemoteCoworkFetcher, "_get_json", fake)
+
+    events = _fetcher(tmp_path).fetch_events_after(ORG, "cse_01A", None)
+    assert [int(e["sequence_num"]) for e in events] == [1, 2]
+    assert urlsplit(calls[0]).path == "/v1/code/sessions/cse_01A/events"
+
+    # The id is quoted too, so a "/" can never add a path segment.
+    calls.clear()
+    _fetcher(tmp_path).fetch_events_after(ORG, "a/b", None)
+    assert urlsplit(calls[0]).path == "/v1/code/sessions/a%2Fb/events"
+
+
+def test_new_events_are_fetched_when_only_last_event_at_advances(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The API can add events without changing ``updated_at``. Comparing
+    only ``updated_at`` then skipped the session, and the new events were
+    never fetched."""
+    events = conversation_events(1, 2)  # seq 1..8
+    session = FakeSession("cse_01Ev", "Long task", events, updated_at=iso(10))
+    api = FakeSessionsApi({ORG: [session]}).install(monkeypatch)
+    _fetcher(tmp_path).sync_org(ORG)
+    assert len(_audit(tmp_path, "cse_01Ev")) == 4
+
+    session.events = events + [user_event(9, "more"), assistant_event(10, "more done")]
+    session.last_event_at = iso(500)  # updated_at stays iso(10)
+    api.requests.clear()
+
+    result = _fetcher(tmp_path).sync_org(ORG)
+
+    assert (result.fetched, result.unchanged) == (1, 0)
+    lines = _audit(tmp_path, "cse_01Ev")
+    assert [line["_sequence_num"] for line in lines[-2:]] == [9, 10]
+    assert len(lines) == 6
+    assert _sidecar(tmp_path, "cse_01Ev")["apiLastEventAt"] == iso(500)
+
+    # And with both timestamps unchanged, the next sync asks for nothing.
+    api.requests.clear()
+    assert _fetcher(tmp_path).sync_org(ORG).unchanged == 1
+    assert api.event_requests("cse_01Ev") == []
+
+
+def test_a_sidecar_from_an_older_version_is_upgraded_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sidecars written before ``apiLastEventAt`` and ``lastSequenceNum``
+    existed get one incremental check, then count as unchanged."""
+    session = FakeSession("cse_01Old", "Meeting notes", conversation_events(1, 3))
+    api = FakeSessionsApi({ORG: [session]}).install(monkeypatch)
+    _fetcher(tmp_path).sync_org(ORG)
+    sidecar = tmp_path / "cowork-remote" / ORG / "remote_cse_01Old.json"
+    legacy = json.loads(sidecar.read_text(encoding="utf-8"))
+    legacy.pop("apiLastEventAt")
+    legacy.pop("lastSequenceNum")
+    sidecar.write_text(json.dumps(legacy), encoding="utf-8")
+    before = _audit(tmp_path, "cse_01Old")
+    api.requests.clear()
+
+    first = _fetcher(tmp_path).sync_org(ORG)
+
+    assert first.fetched == 0  # nothing new was stored
+    assert len(api.event_requests("cse_01Old")) == 1  # one page, stops at the known seq
+    assert _audit(tmp_path, "cse_01Old") == before
+    assert _sidecar(tmp_path, "cse_01Old")["lastSequenceNum"] == 12
+    api.requests.clear()
+
+    second = _fetcher(tmp_path).sync_org(ORG)
+
+    assert (second.fetched, second.unchanged) == (0, 1)
+    assert api.event_requests("cse_01Old") == []
+
+
+@pytest.mark.parametrize(
+    "events",
+    [
+        [noise_event(1, "control_request"), noise_event(2, "keep_alive")],
+        [],
+    ],
+    ids=["only-dropped-payload-types", "no-events-yet"],
+)
+def test_a_session_with_nothing_to_store_is_not_refetched_or_counted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, events: list[dict]
+) -> None:
+    """Such a session once stayed "changed" forever: every Refresh fetched
+    all its events again and counted it as a fetched task."""
+    session = FakeSession("cse_01Quiet", "Waiting for input", events)
+    api = FakeSessionsApi({ORG: [session]}).install(monkeypatch)
+
+    first = _fetcher(tmp_path).sync_org(ORG)
+
+    assert first.fetched == 0 and first.failed == []
+    assert _sidecar(tmp_path, "cse_01Quiet")["lastSequenceNum"] == (2 if events else None)
+    api.requests.clear()
+
+    second = _fetcher(tmp_path).sync_org(ORG)
+
+    assert (second.listed, second.fetched, second.unchanged) == (1, 0, 1)
+    assert api.event_requests("cse_01Quiet") == []
+
+
+def test_a_dropped_only_session_resumes_after_its_last_sequence_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``lastSequenceNum`` is also the append point when the audit file has
+    no events: the next fetch asks only for newer events."""
+    noise = [noise_event(1, "control_request"), noise_event(2, "keep_alive")]
+    session = FakeSession("cse_01Late", "Waiting for input", noise, updated_at=iso(2))
+    FakeSessionsApi({ORG: [session]}).install(monkeypatch)
+    fetcher = _fetcher(tmp_path)
+    fetcher.sync_org(ORG)
+    session.events = noise + [user_event(3, "finally a question")]
+    session.updated_at = iso(3)
+
+    work, unchanged = fetcher.plan_org(ORG)
+
+    assert unchanged == 0
+    assert [(s["id"], after) for s, after in work] == [("cse_01Late", 2)]
+    result = fetcher.sync_org(ORG)
+    assert result.fetched == 1
+    assert [line["_sequence_num"] for line in _audit(tmp_path, "cse_01Late")] == [3]
+
+
+def test_a_title_only_change_saves_the_title_but_is_not_counted_as_fetched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = FakeSession(
+        "cse_01Title", "Old title", conversation_events(1, 2), updated_at=iso(10)
+    )
+    FakeSessionsApi({ORG: [session]}).install(monkeypatch)
+    _fetcher(tmp_path).sync_org(ORG)
+    session.title = "New title"
+    session.updated_at = iso(20)
+
+    result = _fetcher(tmp_path).sync_org(ORG)
+
+    assert (result.fetched, result.unchanged, result.failed) == (0, 1, [])
+    side = _sidecar(tmp_path, "cse_01Title")
+    assert side["title"] == "New title"
+    assert side["apiUpdatedAt"] == iso(20)
+    assert len(_audit(tmp_path, "cse_01Title")) == 4
+
+
+# --------------------------------------------- the real HTTP boundary
+#
+# Every test above replaces ``RemoteCoworkFetcher._get_json``. These run the
+# real one against a fake ``http_get`` (``ClaudeFetcher._get``'s place).
+
+
+class _FakeResponse:
+    """The parts of a curl_cffi response that ``_get_json`` uses."""
+
+    def __init__(self, status: int, body: dict | None = None) -> None:
+        self.status_code = status
+        self.reason = "Forbidden" if status == 403 else "OK"
+        self._body = body or {}
+
+    def raise_for_status(self) -> None:
+        if not 200 <= self.status_code < 400:
+            raise CurlHTTPError(f"HTTP Error {self.status_code}: {self.reason}", 0, self)
+
+    def json(self) -> dict:
+        return self._body
+
+
+def _real_get_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(RemoteCoworkFetcher, "_get_json", _REAL_GET_JSON)
+
+
+def test_get_json_sends_the_sessions_api_headers_and_returns_the_body(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _real_get_json(monkeypatch)
+    calls: list[tuple[str, dict]] = []
+
+    def http_get(url: str, headers: dict | None = None) -> _FakeResponse:
+        calls.append((url, dict(headers or {})))
+        return _FakeResponse(200, {"data": [{"id": "cse_01A", "title": "Daily summary"}]})
+
+    fetcher = RemoteCoworkFetcher(http_get, tmp_path, delay=0)
+
+    sessions = fetcher.list_sessions(ORG)
+
+    assert [s["id"] for s in sessions] == ["cse_01A"]
+    assert len(calls) == 1
+    url, headers = calls[0]
+    assert url.startswith("https://claude.ai/v1/code/sessions?")
+    assert headers == {
+        "anthropic-beta": "ccr-byoc-2025-07-29",
+        "anthropic-version": "2023-06-01",
+        "x-organization-uuid": ORG,
+        "content-type": "application/json",
+    }
+
+
+def test_get_json_raises_an_http_error_that_carries_the_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The fetch router reads ``exc.response.status_code`` to skip an org
+    without sessions-API access (401/403/404) quietly."""
+    _real_get_json(monkeypatch)
+    fetcher = RemoteCoworkFetcher(lambda url, headers=None: _FakeResponse(403), tmp_path, delay=0)
+
+    with pytest.raises(CurlHTTPError) as info:
+        fetcher.list_sessions(ORG)
+
+    assert info.value.response.status_code == 403
+
+
+def test_a_session_whose_events_call_fails_is_recorded_as_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _real_get_json(monkeypatch)
+
+    def http_get(url: str, headers: dict | None = None) -> _FakeResponse:  # noqa: ARG001
+        if "/events" in url:
+            return _FakeResponse(500)
+        return _FakeResponse(200, {"data": [{"id": "cse_01A", "title": "Broken"}]})
+
+    result = RemoteCoworkFetcher(http_get, tmp_path, delay=0).sync_org(ORG)
+
+    assert (result.listed, result.fetched, result.failed) == (1, 0, ["cse_01A"])
+
+
+def test_get_json_without_an_http_client_refuses(tmp_path: Path, monkeypatch) -> None:
+    _real_get_json(monkeypatch)
+    with pytest.raises(RuntimeError, match="no HTTP client"):
+        RemoteCoworkFetcher(None, tmp_path).list_sessions(ORG)

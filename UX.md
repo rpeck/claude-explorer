@@ -581,6 +581,10 @@ created_at}`.
   under the **Claude Cowork** source filter, like local Cowork sessions.
   The `complete` message counts them ("Fetched 0 conversations and 18
   Cowork tasks across 2 workspace(s).").
+- The count includes only the tasks that brought new messages. A task
+  with only a new title gets the new title, but the count does not include
+  it. An incremental fetch skips a task only when its `updated_at` and its
+  `last_event_at` did not change.
 - **A Cowork task that fails to download is never hidden.** The `complete`
   message then names up to three failed tasks ("2 Cowork tasks could not
   be downloaded (A, B). The next Refresh tries them again."), and the final
