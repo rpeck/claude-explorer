@@ -230,6 +230,11 @@ region is visually `sr-only` but reachable to screen readers.
 Every search hit is navigable, from the user or from Claude. Claude Code
 stores tool results as user rows, so a "You" hit can be a tool result.
 
+- **The search always includes tool content**, whatever Show Tools says.
+  From 2026-05-11 to 2026-10-21, Show Tools off also left tool content
+  out of the search (`include_tool_calls=false`), because such hits
+  could not be navigated.
+
 - **Show Tools off (the default):** the active hit's bubble shows ONLY the
   tool blocks that hold the match, expanded, with the match highlighted.
   The other tool blocks stay hidden, and the **Show Tools** setting does

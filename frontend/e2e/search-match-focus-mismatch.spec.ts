@@ -261,11 +261,14 @@ test.describe('Search — include_tool_calls filter (architectural fix 2026-05-1
   })
 
   // ─────────────────────────────────────────────────────────────────────
-  // Test B — the new behavior. With Tools hidden (default), a search
-  // that ONLY matches a tool-only message yields zero results. Flipping
-  // Tools ON resurfaces the snippet (bidirectional inversion).
+  // Test B — since 2026-10-21. With Tools hidden (the default), the search
+  // still finds the tool-only message, and the conversation pane shows
+  // ONLY that tool call, so sidebar and pane agree. Until 2026-10-21 the
+  // page sent include_tool_calls=false and the hit never appeared; the
+  // user asked for every hit to be navigable, with only the matching tool
+  // call revealed (UX.md §4).
   // ─────────────────────────────────────────────────────────────────────
-  test('Test B: showToolCalls=OFF → tool-only match is filtered out server-side; toggling ON restores it', async ({
+  test('Test B: showToolCalls=OFF → the tool-only match appears and reveals only that tool call', async ({
     page,
     mockBackend,
   }) => {
@@ -275,57 +278,39 @@ test.describe('Search — include_tool_calls filter (architectural fix 2026-05-1
 
     await withNetRetry(page, () => page.goto(`/conversations/${TM}`))
     await expect(page.locator('[data-message-uuid="tm-0"]')).toBeVisible()
-    // Sanity: showToolCalls defaults to false, so tm-tool is filtered out.
+    // Sanity: showToolCalls defaults to false, so tm-tool is not rendered.
     await expect(page.locator('[data-message-uuid="tm-tool"]')).toBeHidden()
 
     await page.keyboard.press('Meta+k')
     const searchInput = page.locator('input[placeholder="Search messages..."]')
     await searchInput.fill('needle')
 
-    // Only tm-0 should appear in the sidebar (1 match, not 2). The
-    // network call MUST have included include_tool_calls=false, and the
-    // mock server must have returned the filtered payload.
-    await expect(page.locator('text=/of\\s+1\\s+match/')).toBeVisible({
-      timeout: 10000,
-    })
-
-    // The tool-only snippet must NOT be in the sidebar at all.
-    const sidebarHtml = await page.evaluate(() => {
-      return Array.from(
-        document.querySelectorAll('button[data-result-card]'),
-      )
-        .map((el) => (el as HTMLElement).innerText)
-        .join('\n')
-    })
-    expect(sidebarHtml).not.toContain('echo needle in tool call')
-    expect(sidebarHtml).toContain('plain text')
-
-    // And the URL must have carried include_tool_calls=false at least once.
-    const filteredCall = seen.find(
-      (c) => c.q.includes('needle') && c.includeToolCalls === 'false',
-    )
-    expect(filteredCall, 'expected at least one /api/search call with include_tool_calls=false').toBeTruthy()
-
-    // ── Inversion: flipping Tools ON re-fires the request with
-    // include_tool_calls=true and the tool-only snippet reappears.
-    // 2026-05-25: Tools control is now a <input type="checkbox">.
-    await page.getByTestId('header-show-tools-checkbox').check()
-
+    // Both hits appear, the tool-only one too.
     await expect(page.locator('text=/of\\s+2\\s+matches/')).toBeVisible({
       timeout: 10000,
     })
-    const sidebarHtmlAfter = await page.evaluate(() => {
-      return Array.from(
-        document.querySelectorAll('button[data-result-card]'),
-      )
-        .map((el) => (el as HTMLElement).innerText)
-        .join('\n')
-    })
-    expect(sidebarHtmlAfter).toContain('echo needle in tool call')
 
-    const unfilteredCall = seen.find(
-      (c) => c.q.includes('needle') && c.includeToolCalls === 'true',
-    )
-    expect(unfilteredCall, 'flipping Tools ON should re-fire /api/search with include_tool_calls=true').toBeTruthy()
+    // The newest hit (tm-tool) auto-promotes: the pane shows that tool
+    // call, and sidebar and pane agree.
+    await expect
+      .poll(
+        async () => ({
+          sidebar: await getActiveSidebarMatchText(page),
+          ringed: await getRingedMessageUuid(page),
+        }),
+        { timeout: 5000, message: 'Test B: sidebar-active card and pane focus must agree' },
+      )
+      .toEqual({
+        sidebar: expect.stringContaining('echo needle in tool call'),
+        ringed: 'tm-tool',
+      })
+    const toolBubble = page.locator('[data-message-uuid="tm-tool"]')
+    await expect(toolBubble.getByText('Tool: Bash')).toBeVisible()
+    await expect(toolBubble.locator('mark', { hasText: 'needle' })).toBeVisible()
+    // The Tools setting itself did not change.
+    await expect(page.getByTestId('header-show-tools-checkbox')).not.toBeChecked()
+
+    // No request left the tool content out.
+    expect(seen.filter((c) => c.q.includes('needle')).map((c) => c.includeToolCalls)).not.toContain('false')
   })
 })
