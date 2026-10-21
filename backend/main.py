@@ -46,6 +46,7 @@ _bootstrap_macos_dyld_for_weasyprint()
 import asyncio  # noqa: E402
 import logging  # noqa: E402
 import re  # noqa: E402
+import threading  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 from pathlib import Path  # noqa: E402
 
@@ -385,6 +386,15 @@ async def lifespan(app: FastAPI):
     # env var still wins for users who want full manual control.
     watcher_stop = asyncio.Event()
     watcher_task: asyncio.Task | None = None
+
+    # Cooperative stop flag for long loops that run in executor threads
+    # (the first FTS5 build, the FTS5-off image-warm walk). Cancelling
+    # the asyncio task only abandons the future: the thread keeps
+    # running, and ``asyncio.run`` plus Python's exit-time join wait for
+    # it. A first build over a large corpus could thus keep the process
+    # alive for minutes after Quit. Shutdown sets this flag before it
+    # cancels the tasks; each loop checks it once per conversation.
+    executor_stop = threading.Event()
     disabled_by_env = read_env(
         "CLAUDE_EXPLORER_DISABLE_CC_WATCHER", "CLAUDE_EXPORTER_DISABLE_CC_WATCHER"
     ) == "1"
@@ -448,7 +458,7 @@ async def lifespan(app: FastAPI):
         async def _warm_all_sessions_fallback() -> None:
             from backend.cc_image_cache import warm_all_sessions_async
 
-            await warm_all_sessions_async()
+            await warm_all_sessions_async(stop=executor_stop)
 
         warm_task = asyncio.create_task(
             _warm_all_sessions_fallback(), name="warm_task"
@@ -506,8 +516,13 @@ async def lifespan(app: FastAPI):
                     )
                     return
                 files, msgs = await asyncio.to_thread(
-                    build_full_index, ConversationStore(), index=idx
+                    build_full_index,
+                    ConversationStore(),
+                    index=idx,
+                    stop=executor_stop,
                 )
+                if executor_stop.is_set():
+                    return
                 print(
                     f"search index build complete: {files} files / {msgs} messages",
                     flush=True,
@@ -838,6 +853,9 @@ async def lifespan(app: FastAPI):
             ) if t is not None and not t.done()
         ]
 
+        # Set the executor stop flag first, so that executor threads
+        # return at their next check instead of after their whole loop.
+        executor_stop.set()
         await _cancel_background_tasks(background_tasks)
 
 

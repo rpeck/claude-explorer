@@ -651,11 +651,21 @@ fetches.
   workspace name if known, else "Signed in". The second line is the
   error message from `/api/account`, such as "Session expired. Click
   Refresh to sign in again."
+- **Credentials file corrupt** (`/api/account` answers 503): first line
+  "Account unavailable". The second line is the reason from the server,
+  such as "Credentials file is corrupt: … Re-run capture to refresh
+  credentials." Its `title` tooltip holds the full text. The request is
+  not retried, because the file does not fix itself.
 - **Freshness:** read from `GET /api/account`. The row is refetched when
-  a Refresh pipeline completes, because Refresh may have captured new
-  credentials for a different account.
-- **Loading / endpoint error:** the row keeps its height and shows no
-  text, so the footer does not shift.
+  Refresh captures new credentials, and again when a Refresh pipeline
+  completes, because the new credentials can belong to a different
+  account. The fetch after a capture can fail, so the capture alone
+  refetches the row.
+- **Failed lookup retry:** while the row shows a lookup failure, the app
+  asks again every 60 seconds, the interval at which the server retries
+  claude.ai. A successful lookup stops this.
+- **Loading / other endpoint error:** the row keeps its height and shows
+  no text, so the footer does not shift.
 
 ### Quit (power button)
 
@@ -672,10 +682,19 @@ press Ctrl+C in.
   Cancel, Esc, or a click outside closes the dialog and changes nothing.
 - **Refresh running:** the dialog adds "A Refresh is running. Quitting
   interrupts it; the next Refresh picks up where it stopped."
-- **Quit:** sends `POST /api/shutdown`. On success the whole page is
-  replaced by a screen with the heading **Claude Explorer has stopped**
-  and the text "You can close this tab." The stopped page sends no more
-  requests, so no connection-lost warning appears.
+- **Quit:** sends `POST /api/shutdown`. On success the app closes a
+  running Refresh stream, and then the whole page is replaced by a screen
+  with the heading **Claude Explorer has stopped** and the text "You can
+  close this tab." The stopped page sends no more requests, so no
+  connection-lost warning appears.
+- **Screen readers:** the stopped screen moves focus to its heading, and
+  the text "You can close this tab." is in a polite status region.
+- **Other tabs:** every other open Claude Explorer tab in the same
+  browser and at the same address (for example
+  `http://localhost:8765`) shows the same stopped screen at once, instead
+  of the "Connecting to Backend" or "Connection Failed" dialog. A browser
+  without `BroadcastChannel` shows the stopped screen only in the tab
+  that quit.
 - **Failure:** if the request fails, the dialog stays open and shows
   "Could not stop the server." with the reason. The app keeps working.
   If the server does not answer within 10 seconds, the reason is "The
@@ -687,6 +706,10 @@ press Ctrl+C in.
   stops, and the Windows tray icon goes away. A server started from a
   terminal exits back to the prompt. The background image-cache watcher
   is a separate job and keeps running.
+- **Quit during the first search-index build:** the build stops after
+  the conversation in progress, so the server exits promptly. Search
+  keeps working without the index until the next start, which indexes
+  the rest.
 
 ### Sort controls (sidebar AND search panel)
 

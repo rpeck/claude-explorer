@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
-import { invalidateAfterFetch } from '@/lib/queryClient'
+import { invalidateAfterCapture, invalidateAfterFetch } from '@/lib/queryClient'
 import { api } from '@/lib/api'
 import { errorToast } from '@/lib/errorToast'
 import { completeToastFor, formatProgressText, type FetchProgress } from '@/components/fetch/FetchToast'
@@ -54,6 +54,12 @@ interface FetchPipelineContextValue {
    * consumers don't need a separate prop drill.
    */
   openDetails: () => void
+  /**
+   * Close a running Refresh stream without a toast or a state change.
+   * Quit calls this before it replaces the app, so the server's graceful
+   * shutdown does not wait for the open stream.
+   */
+  closeStream: () => void
   closeDetails: () => void
   detailsOpen: boolean
 }
@@ -163,6 +169,7 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
               duration: Infinity,
               action: { label: 'Details', onClick: () => openDetails() },
             })
+            void invalidateAfterCapture(queryClient)
             break
           case 'start':
           case 'progress': {
@@ -222,6 +229,20 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
     startRefreshRef.current = startRefresh
   }, [startRefresh])
 
+  const closeStream = useCallback(() => {
+    const source = sourceRef.current
+    if (!source) return
+    source.onmessage = null
+    source.onerror = null
+    source.close()
+    sourceRef.current = null
+  }, [])
+
+  // Quit unmounts the whole tree. A stream left open kept the server's
+  // graceful shutdown waiting, and its later onerror ran setState and an
+  // error toast in the unmounted tree.
+  useEffect(() => closeStream, [closeStream])
+
   const isRunning = state === 'running'
 
   // Project invariant #2 (CLAUDE.md "Performance Work"): every
@@ -238,6 +259,7 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
       reset,
       openDetails,
       closeDetails,
+      closeStream,
       detailsOpen,
     }),
     [
@@ -249,6 +271,7 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
       reset,
       openDetails,
       closeDetails,
+      closeStream,
       detailsOpen,
     ],
   )

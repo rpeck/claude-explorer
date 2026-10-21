@@ -1,6 +1,6 @@
 import { User } from 'lucide-react'
-import { useAccount } from '@/hooks/useAccount'
-import type { AccountResponse } from '@/lib/types'
+import { isCredentialsCorrupt, useAccount } from '@/hooks/useAccount'
+import type { AccountResponse, ApiError } from '@/lib/types'
 
 /**
  * Initials for the avatar: first letters of the first and last words that
@@ -44,14 +44,32 @@ function linesFor(account: AccountResponse): Lines {
   }
 }
 
+/** The reason from a 503 `{"detail": "..."}` body, else a generic one. */
+function corruptReason(error: ApiError): string {
+  try {
+    const detail = JSON.parse(error.message)?.detail
+    if (typeof detail === 'string' && detail) return detail
+  } catch {
+    // not JSON; fall through
+  }
+  return 'Credentials file is corrupt. Re-run capture to refresh credentials.'
+}
+
 /**
  * The signed-in Anthropic account, shown at the bottom of the sidebar as
  * claude.ai and Claude Desktop do. Contract: UX.md → "Signed-in account
  * (sidebar footer)".
  */
 export function AccountBadge() {
-  const { data } = useAccount()
-  const lines = data ? linesFor(data) : null
+  const { data, error } = useAccount()
+  // A corrupt credentials file wins over older data: the account that data
+  // names is no longer the one Refresh would use.
+  let lines: Lines | null = null
+  if (isCredentialsCorrupt(error)) {
+    lines = { initials: '', primary: 'Account unavailable', secondary: corruptReason(error) }
+  } else if (data) {
+    lines = linesFor(data)
+  }
 
   return (
     <section

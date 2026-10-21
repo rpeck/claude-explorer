@@ -2448,6 +2448,7 @@ def build_full_index(
     *,
     index: SearchIndex | None = None,
     on_progress: Callable[[int, int], None] | None = None,
+    stop: threading.Event | None = None,
 ) -> tuple[int, int]:
     """Walk every conversation and (re)populate the index.
 
@@ -2462,10 +2463,21 @@ def build_full_index(
     invariant is that ``mark_ready()`` fires AFTER the drifted set has
     been absorbed, never before — otherwise FTS5 would serve stale
     rows between schema-rebuild and drift-absorption.
+
+    ``stop``: optional cooperative-cancel flag. The lifespan sets it on
+    server shutdown (Quit, Ctrl+C). The build checks it before each
+    conversation and returns early with the counts so far. An early
+    return does NOT call ``mark_ready()``: search keeps the linear-scan
+    fallback, and the next startup's drift scan indexes the rest.
+    Without the flag, a long first build kept the process alive after
+    shutdown, because Python joins executor threads at exit.
     """
     if index is None:
         index = get_search_index()
     if index is None:
+        return (0, 0)
+
+    if stop is not None and stop.is_set():
         return (0, 0)
 
     drifted, missing = _drift_first_scan(store, index)
@@ -2481,6 +2493,13 @@ def build_full_index(
     messages_indexed = 0
     total = len(drifted)
     for i, (path, source) in enumerate(drifted):
+        if stop is not None and stop.is_set():
+            logger.info(
+                "search_index: build stopped at shutdown after %d of %d "
+                "file(s); the next startup indexes the rest",
+                i, total,
+            )
+            return files_indexed, messages_indexed
         # Hunt #8 TOCTOU fix: check-read-check (see update_drifted_files
         # for the full rationale). Stat before AND after the read; if
         # the file was mutated during the read, skip the upsert so the

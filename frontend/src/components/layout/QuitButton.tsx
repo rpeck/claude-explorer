@@ -36,7 +36,7 @@ export function QuitButton() {
   const [open, setOpen] = useState(false)
   const [stopping, setStopping] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { isRunning: refreshRunning } = useFetchPipeline()
+  const { isRunning: refreshRunning, closeStream } = useFetchPipeline()
 
   const onOpenChange = (next: boolean) => {
     if (stopping) return
@@ -54,6 +54,9 @@ export function QuitButton() {
       setStopping(false)
       return
     }
+    // Close a running Refresh stream first: the server's graceful
+    // shutdown waits for open connections.
+    closeStream()
     void queryClient.cancelQueries()
     markServerStopped()
   }
