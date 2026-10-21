@@ -522,6 +522,10 @@ class FetchProgress(BaseModel):
     #: failed. A failure makes the frontend show a warning toast.
     cowork_tasks_fetched: int | None = None
     cowork_tasks_failed: int | None = None
+    #: ``"cowork"`` on the remote Cowork step's progress frames. Their
+    #: ``current``/``total`` count the tasks of one workspace from 1, not
+    #: the chat phase's cumulative counts.
+    phase: Literal["cowork"] | None = None
 
 
 class ForceRefetchResponse(BaseModel):

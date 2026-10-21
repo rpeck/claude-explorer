@@ -84,6 +84,11 @@ _refresh_in_progress: bool = False
 
 FETCH_IN_PROGRESS_DETAIL = "A fetch is already in progress."
 
+#: ``phase`` of the remote Cowork step's progress frames. Their
+#: ``current``/``total`` start again at 1 for each workspace, after the chat
+#: phase's cumulative counts, so the web page labels them "Cowork task N/M".
+COWORK_PHASE = "cowork"
+
 
 # Build-9: timeout the user has to complete login in the captured browser.
 CAPTURE_TIMEOUT_SECONDS = 300
@@ -383,6 +388,7 @@ async def _remote_cowork_stream(
                 "message": f"[{org_name}] Could not list Cowork tasks: {exc}",
                 "current": 0,
                 "total": 0,
+                "phase": COWORK_PHASE,
             })
             continue
 
@@ -394,6 +400,7 @@ async def _remote_cowork_stream(
                 "current": i,
                 "total": len(work),
                 "conversation_name": title,
+                "phase": COWORK_PHASE,
             })
             try:
                 stored = await loop.run_in_executor(
@@ -410,6 +417,7 @@ async def _remote_cowork_stream(
                     "message": f"Error fetching Cowork task {title}: {exc}",
                     "current": i,
                     "total": len(work),
+                    "phase": COWORK_PHASE,
                 })
             else:
                 # Only a task with new events counts. A new title alone, or

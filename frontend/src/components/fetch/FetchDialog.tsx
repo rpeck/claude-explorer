@@ -12,6 +12,7 @@ import {
 import { api } from '@/lib/api'
 import { invalidateAfterFetch, queryClient } from '@/lib/queryClient'
 import { useFetchPipeline } from '@/contexts/FetchPipelineContext'
+import { streamFailureMessage } from '@/components/fetch/FetchToast'
 
 interface FetchDialogProps {
   isOpen: boolean
@@ -96,8 +97,10 @@ export function FetchDialog({ isOpen, onClose }: FetchDialogProps) {
     setErrorMessage('')
 
     const eventSource = api.startFetch(incremental)
+    let receivedEvents = false
 
     eventSource.onmessage = (event) => {
+      receivedEvents = true
       try {
         const data: LegacyFetchProgress = JSON.parse(event.data)
         setProgress(data)
@@ -118,9 +121,14 @@ export function FetchDialog({ isOpen, onClose }: FetchDialogProps) {
     }
 
     eventSource.onerror = () => {
-      setState('error')
-      setErrorMessage('Connection lost during fetch')
       eventSource.close()
+      // A 409 (another fetch runs) also lands here: name it if so.
+      void streamFailureMessage(receivedEvents, 'Connection lost during fetch').then(
+        (message) => {
+          setState('error')
+          setErrorMessage(message)
+        },
+      )
     }
   }, [])
 

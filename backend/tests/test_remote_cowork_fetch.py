@@ -340,3 +340,28 @@ def test_refresh_skips_a_task_with_only_transport_events(
     assert first["cowork_tasks_fetched"] == 0
     assert second["cowork_tasks_fetched"] == 0
     assert not any("/events" in u for u in api.requests)
+
+
+def test_cowork_progress_frames_say_which_phase_they_belong_to(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The chat phase counts across workspaces; the Cowork phase counts from
+    1 in each workspace. Without a phase field the toast seemed to jump back
+    from "Fetching 120/120" to "Fetching 1/18" (PR #8 review, 2026-10-21)."""
+    FakeSessionsApi(
+        {ORG: _tasks()}, list_status={PERSONAL: 500}, broken_sessions={"cse_01ExampleA_short"}
+    ).install(monkeypatch)
+
+    events = _frames(client.get("/api/fetch/refresh?incremental=true").text)
+
+    cowork = [
+        e for e in events if e["type"] == "progress" and "Cowork task" in e.get("message", "")
+    ]
+    # Two task frames, one failure frame, one "could not list" frame.
+    assert len(cowork) == 4, [e["message"] for e in cowork]
+    assert all(e.get("phase") == "cowork" for e in cowork), cowork
+    assert [(e["current"], e["total"]) for e in cowork if "Fetching Cowork task" in e["message"]] == [
+        (1, 2), (2, 2),
+    ]
+    others = [e for e in events if e not in cowork]
+    assert all("phase" not in e for e in others), others
