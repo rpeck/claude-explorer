@@ -15,7 +15,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8765',
+        // The e2e config sets this to its own backend (playwright.config.ts).
+        target: process.env.CLAUDE_EXPLORER_API_URL ?? 'http://localhost:8765',
         changeOrigin: true,
       },
     },

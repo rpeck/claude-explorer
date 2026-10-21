@@ -61,7 +61,7 @@ test.describe('mockBackend default routes (M1)', () => {
         body: '<!doctype html><html><body>boot</body></html>',
       }),
     )
-    await withNetRetry(page, () => page.goto('http://localhost:5173/__bootstrap__'))
+    await withNetRetry(page, () => page.goto('/__bootstrap__'))
   })
 
   test('GET /api/config returns AppConfig JSON without conversation_count', async ({ page, mockBackend }) => {
