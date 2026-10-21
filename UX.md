@@ -606,6 +606,16 @@ renders a workspace `<Select>` between the source filter and sort
 controls. The slot is reserved (`h-9`) even with one org so the layout
 doesn't shift mid-stream when a second org appears.
 
+- When the user selects a workspace, the list and the Search Pane show
+  only the conversations of that workspace.
+- A remote Cowork task belongs to the workspace that Refresh fetched it
+  from. Its sidecar records that workspace as `organizationId`.
+- A local Cowork session has no workspace. Claude Desktop stores it under
+  an internal org directory that does not match a workspace. Thus, the
+  list shows local Cowork sessions only when "All workspaces" is
+  selected.
+- Claude Code sessions also have no workspace.
+
 ### Theme
 
 - Three options: **light**, **dark**, **system**.

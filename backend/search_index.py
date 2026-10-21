@@ -68,6 +68,7 @@ from .compact_prefixes import (
 )
 from .config import get_settings
 from .search_text import _extract_searchable_text
+from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
 
 
 logger = logging.getLogger(__name__)
@@ -713,6 +714,7 @@ class SearchIndex:
                         "GROUP BY conv_uuid",
                         (COMPACTION_TITLE_PREFIX,),
                     )
+                self._forget_remote_cowork_without_workspace(cur)
                 self._write_conn.commit()
                 return
 
@@ -961,6 +963,36 @@ class SearchIndex:
                 self._write_conn.commit()
             finally:
                 self._schema_ok = True
+
+    @staticmethod
+    def _forget_remote_cowork_without_workspace(cur: sqlite3.Cursor) -> None:
+        """Make the next drift pass re-read remote Cowork tasks that the
+        index holds without a workspace.
+
+        Before 2026-10-21 the reader gave every Cowork session an empty
+        ``organization_id``. Remote tasks now carry their workspace, but
+        their audit files do not change, so the drift pass alone never
+        re-reads them, and a workspace filter in the Search Pane misses
+        them. Dropping their ``indexed_files`` rows makes the drift pass
+        upsert them again. The old rows stay searchable until then.
+
+        Local Cowork sessions have no workspace by design and stay as they
+        are. In the steady state this is one query that matches no rows.
+        """
+        cur.execute(
+            "DELETE FROM indexed_files "
+            "WHERE path LIKE ? AND conv_uuid IN ("
+            "  SELECT conv_uuid FROM conversations "
+            "  WHERE source = 'CLAUDE_COWORK' "
+            "    AND COALESCE(organization_id, '') = '')",
+            (f"%{REMOTE_COWORK_DIRNAME}%{REMOTE_SESSION_PREFIX}%",),
+        )
+        if cur.rowcount:
+            logger.info(
+                "search_index: re-indexing %d remote Cowork task(s) to add "
+                "their workspace",
+                cur.rowcount,
+            )
 
     # ----- read connections ------------------------------------------
 
@@ -2213,13 +2245,12 @@ def _file_path_for_conv(conv: dict[str, Any], data_dir: Path, claude_dir: Path) 
         # Settings directly. Drift detection on Cowork without a tagged
         # path can fall back to the next backstop poll, so a missing
         # session dir just returns None.
-        from .cowork_reader import find_cowork_session_dir, remote_cowork_root
-        session_dir = find_cowork_session_dir(
+        from .cowork_reader import find_cowork_session_dirs, remote_cowork_root
+        for session_dir in find_cowork_session_dirs(
             get_settings().claude_desktop_app_dir / "local-agent-mode-sessions",
             remote_cowork_root(data_dir),
             uuid,
-        )
-        if session_dir is not None:
+        ):
             candidate = session_dir / "audit.jsonl"
             if candidate.exists():
                 return candidate

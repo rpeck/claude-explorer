@@ -177,11 +177,26 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
         "error": sidecar.get("error") or None,
         # D10: aliased for the detail view's "Sandbox path" label.
         "sandbox_path": cwd,
-        # Cowork doesn't map ``<org>`` directory to a user-visible
-        # workspace (autonomous decision #4) — leave the legacy
-        # workspace fields unset.
-        "organization_id": None,
+        # D2: only a remote task has a workspace. See
+        # ``list_cowork_conversations``.
+        "organization_id": _remote_organization_id(session_dir, sidecar),
     }
+
+
+def _remote_organization_id(session_dir: Path, sidecar: dict) -> str | None:
+    """The workspace of a remote task, or ``None`` for a local session.
+
+    ``fetcher.remote_sessions`` writes each task under
+    ``<remote_root>/<org_uuid>/`` and records the same uuid as the sidecar
+    ``organizationId``. The directory name is the fallback when the sidecar
+    is missing or has no value.
+    """
+    if not session_dir.name.startswith(REMOTE_SESSION_PREFIX):
+        return None
+    org = sidecar.get("organizationId")
+    if isinstance(org, str) and org:
+        return org
+    return session_dir.parent.name or None
 
 
 # Canonical Claude compaction-prompt prefix the runtime injects after a
@@ -251,23 +266,30 @@ def iter_cowork_session_dirs(
     return out
 
 
-def find_cowork_session_dir(
+def find_cowork_session_dirs(
     cowork_root: Path | None, remote_root: Path | None, uuid: str
-) -> Path | None:
-    """The session directory for conversation ``uuid``, or ``None``.
+) -> list[Path]:
+    """Every session directory for conversation ``uuid``, in list order.
+
+    Usually there is one. The same session directory can exist under two
+    deployment or org directories, and one copy can be empty or have no
+    user turn. The list builds its row from a readable copy, so a caller
+    that opens the conversation must try each directory, not only the
+    first.
 
     Checks one candidate per org directory, so the cost is O(orgs), not
     O(sessions).
     """
+    out: list[Path] = []
     for org_dir in _subdirs_at_depth(cowork_root, 2):
         candidate = org_dir / f"{LOCAL_SESSION_PREFIX}{uuid}"
         if candidate.is_dir():
-            return candidate
+            out.append(candidate)
     for org_dir in _subdirs_at_depth(remote_root, 1):
         candidate = org_dir / f"{REMOTE_SESSION_PREFIX}{uuid}"
         if candidate.is_dir():
-            return candidate
-    return None
+            out.append(candidate)
+    return out
 
 
 def _subdirs_at_depth(root: Path | None, depth: int) -> list[Path]:
@@ -297,10 +319,17 @@ def list_cowork_conversations(
 
     D2: the deployment + org directory layers are flattened in the
     output — callers receive a single list of conversation dicts with
-    no deployment/org metadata leaking through. Cowork's ``<org>``
+    no deployment/org metadata leaking through. Local Cowork's ``<org>``
     directories reuse Claude Desktop's internal org UUIDs but don't
     map to user-facing workspaces, so we deliberately leave
-    ``organization_id`` unset on the conv dicts.
+    ``organization_id`` unset on local sessions.
+
+    Remote tasks are different: the fetcher downloads each task from one
+    workspace (the ``x-organization-uuid`` of the sessions API call) and
+    records that workspace uuid as the sidecar ``organizationId``. That is
+    the same uuid that the sidebar workspace filter uses for Desktop
+    conversations, so a remote task carries it as ``organization_id``.
+    Without it, a workspace filter hides every remote task.
 
     Returns ``[]`` (not raises) when neither root exists — a user
     without Cowork data installed must not see a crash.
@@ -317,7 +346,43 @@ def list_cowork_conversations(
             continue
         if conv:
             out.append(conv)
-    return out
+    return newest_per_uuid(out)
+
+
+_OLDEST = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def updated_at_key(conv: dict) -> datetime:
+    """``conv["updated_at"]`` as an aware datetime, for "newest" comparisons.
+
+    A missing or unparseable value sorts as the oldest.
+    """
+    value = conv.get("updated_at")
+    if not isinstance(value, str) or not value:
+        return _OLDEST
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return _OLDEST
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def newest_per_uuid(convs: list[dict]) -> list[dict]:
+    """One conversation per uuid: the copy with the newest ``updated_at``.
+
+    The same session can exist in two org or deployment directories (one
+    remote task written under two orgs, or one local session under two
+    deployments). Without this, the sidebar shows two rows with one uuid.
+    On a tie the first copy wins. The output keeps the order in which each
+    uuid first appears.
+    """
+    best: dict[str, dict] = {}
+    for conv in convs:
+        uuid = conv.get("uuid") or ""
+        kept = best.get(uuid)
+        if kept is None or updated_at_key(conv) > updated_at_key(kept):
+            best[uuid] = conv
+    return list(best.values())
 
 
 # ---------------------------------------------------------------------------
