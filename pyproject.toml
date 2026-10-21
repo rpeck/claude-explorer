@@ -46,7 +46,7 @@ dependencies = [
     "weasyprint>=68.1",  # URLFetcher API; see backend/exporters/pdf.py
     "curl_cffi>=0.7",
     "orjson>=3.10",
-    "playwright>=1.40",
+    "playwright>=1.61",  # 1.61 is the first with Chromium on Ubuntu 26.04
     # mitmproxy has no marker. Until 2026-09-24 it carried
     # "platform_machine != 'ARM64'" on Windows, but that marker was random on
     # Windows ARM: Python reads the machine type from WMI (ARM64) and falls

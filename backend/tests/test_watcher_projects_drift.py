@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 import time
 from pathlib import Path
 
@@ -380,4 +381,61 @@ def test_shutdown_cancels_pending_debounce_timer(watcher_env, monkeypatch):
     assert drift_calls["n"] == 0, (
         f"Drift fired after shutdown; got {drift_calls['n']} calls. "
         f"Pending debounce Timer was not cancelled on shutdown."
+    )
+
+
+# ----- 12. The drain helper waits for a pass that already started --------
+
+
+def test_drain_waits_for_a_drift_pass_that_already_started(
+    watcher_env, monkeypatch
+):
+    """The drain helper must wait for a timer whose pass is still running.
+
+    The timer fires, clears the pending state, and only then opens the
+    search index and calls ``update_drifted_files``. On a slow CI machine
+    (Windows x86_64, PR #13, 2026-10-21) the index opened after the
+    tests' 0.6 s sleep. The drain saw nothing pending and returned, and
+    two tests read 0 drift calls. A slow index open makes that race
+    certain here.
+    """
+    from backend import cc_watcher
+    from backend import search_index as si
+
+    drift_calls = {"n": 0}
+    opened = threading.Event()
+
+    def _fake_drift(store=None, *, index=None):
+        drift_calls["n"] += 1
+        return 0
+
+    def _slow_index():
+        opened.set()
+        time.sleep(0.5)
+        return None
+
+    monkeypatch.setattr("backend.search_index.update_drifted_files", _fake_drift)
+    monkeypatch.setattr(si, "get_search_index", _slow_index)
+
+    handler = cc_watcher._build_projects_event_handler()
+    jsonl = _write_cc_jsonl(
+        watcher_env["claude_dir"],
+        "proj-A",
+        "c0000001-0000-0000-0000-000000000003",
+    )
+
+    class _FakeEvent:
+        def __init__(self, src_path, is_directory=False):
+            self.src_path = src_path
+            self.is_directory = is_directory
+
+    handler.on_modified(_FakeEvent(str(jsonl)))
+
+    # Settle signal: the timer fired and its pass is inside the slow open.
+    assert opened.wait(timeout=5.0), "the debounce timer never fired"
+    cc_watcher._drain_projects_drift_for_tests()
+
+    assert drift_calls["n"] == 1, (
+        f"the drain returned before the running pass called the drift "
+        f"function; got {drift_calls['n']} calls"
     )

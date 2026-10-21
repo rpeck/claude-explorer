@@ -8,7 +8,11 @@
 # Platforms (all free for public repositories):
 #   macos-latest     macOS, Apple Silicon (arm64)
 #   macos-15-intel   macOS, Intel (x86_64); GitHub retires it in August 2027
-#   ubuntu-latest    Linux, x86_64
+#   ubuntu-24.04     Linux, x86_64
+#   ubuntu-26.04     Linux, x86_64, the newest LTS. GitHub moves ubuntu-latest
+#                    to it between 2026-10-19 and 2026-11-19, so each job
+#                    names its version: the image changes only when we
+#                    choose.
 #   ubuntu-24.04-arm Linux, arm64
 #   windows-latest   Windows, x86_64 (Intel and AMD)
 #   windows-11-arm   Windows, ARM64 (Copilot+ PCs, Surface Pro X, Snapdragon X)
@@ -66,7 +70,8 @@ jobs:
         include:
           - { name: macOS arm64,    runner: macos-latest,     family: macos,   python: "3.13" }
           - { name: macOS x86_64,   runner: macos-15-intel,   family: macos,   python: "3.13" }
-          - { name: Linux x86_64,   runner: ubuntu-latest,    family: linux,   python: "3.13" }
+          - { name: Linux x86_64,   runner: ubuntu-24.04,     family: linux,   python: "3.13" }
+          - { name: Linux x86_64 Ubuntu 26.04, runner: ubuntu-26.04, family: linux, python: "3.13" }
           - { name: Linux arm64,    runner: ubuntu-24.04-arm, family: linux,   python: "3.13" }
           - { name: Windows x86_64, runner: windows-latest,   family: windows, python: "3.13" }
           # Windows ARM64 has no wheels for cryptography, httptools, Brotli or
@@ -80,10 +85,10 @@ jobs:
       FAMILY: ${{ matrix.family }}
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
 
       # ---------------------------------------------------------- macOS + Linux
       - name: Install claude-explorer (macOS, Linux)
@@ -394,7 +399,7 @@ jobs:
 
       - name: Upload server logs on failure
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: serve-logs-${{ matrix.runner }}
           path: serve.*.log
@@ -410,7 +415,7 @@ jobs:
         include:
           - { name: macOS arm64,    runner: macos-latest,     python: "3.13", xdist: "auto" }
           - { name: macOS x86_64,   runner: macos-15-intel,   python: "3.13", xdist: "auto" }
-          - { name: Linux x86_64,   runner: ubuntu-latest,    python: "3.13", xdist: "auto" }
+          - { name: Linux x86_64,   runner: ubuntu-24.04,     python: "3.13", xdist: "auto" }
           - { name: Linux arm64,    runner: ubuntu-24.04-arm, python: "3.13", xdist: "auto" }
           # Windows runs serially: the xdist controller hung at shutdown there.
           - { name: Windows x86_64, runner: windows-latest,   python: "3.13", xdist: "0" }
@@ -420,8 +425,10 @@ jobs:
           # user on 3.15 hit a PEP 765 SyntaxWarning, and the fresh
           # resolve brought WeasyPrint 70, which broke PDF images. The
           # "latest deps" jobs re-resolve (`uv sync --upgrade`) to see that.
-          - { name: Linux x86_64 py3.14,             runner: ubuntu-latest, python: "3.14", xdist: "auto" }
-          - { name: Linux x86_64 py3.15 latest deps, runner: ubuntu-latest, python: "3.15", xdist: "auto", upgrade: "--upgrade" }
+          # They run on the newest Ubuntu, so pytest also covers its PDF
+          # libraries.
+          - { name: Linux x86_64 Ubuntu 26.04 py3.14,             runner: ubuntu-26.04, python: "3.14", xdist: "auto" }
+          - { name: Linux x86_64 Ubuntu 26.04 py3.15 latest deps, runner: ubuntu-26.04, python: "3.15", xdist: "auto", upgrade: "--upgrade" }
           - { name: macOS arm64 py3.15 latest deps,  runner: macos-latest,  python: "3.15", xdist: "auto", upgrade: "--upgrade" }
 
     env:
@@ -434,9 +441,9 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Install uv
-        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
       - name: Sync dependencies
         # $UPGRADE is empty (locked versions) or --upgrade (newest versions).
         run: uv sync --extra dev --python "$PYSPEC" $UPGRADE

@@ -34,6 +34,9 @@ jobs:
        (github.event.action == 'opened' || github.event.action == 'synchronize'))
     steps:
       - name: "CLA Assistant"
+        # v2.6.1 is the newest release, and it still declares Node.js 20.
+        # The runner runs it on Node.js 24 and prints a deprecation
+        # warning. Update the pin when a Node.js 24 release comes out.
         uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08  # v2.6.1
         env:
           # The default GITHUB_TOKEN is scoped to this repo only and

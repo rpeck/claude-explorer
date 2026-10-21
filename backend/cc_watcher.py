@@ -451,6 +451,9 @@ def _resolve_search_drift_debounce() -> float:
 # drift scan re-stats every live path on its own).
 _drift_lock = threading.Lock()
 _drift_timer: threading.Timer | None = None
+# The last timer started, kept after it fires, so the test drain can wait
+# for a pass that is still running.
+_drift_last_timer: threading.Timer | None = None
 _drift_pending: set[Path] = set()
 _drift_shutdown = False
 
@@ -505,7 +508,7 @@ def _fire_drift_pass() -> None:
 
 def _schedule_drift(path: Path) -> None:
     """Queue a path for the debounced drift pass. Resets the timer."""
-    global _drift_timer
+    global _drift_timer, _drift_last_timer
     debounce = _resolve_search_drift_debounce()
     with _drift_lock:
         if _drift_shutdown:
@@ -518,6 +521,7 @@ def _schedule_drift(path: Path) -> None:
         # shutdown if `shutdown_projects_drift` somehow isn't called.
         _drift_timer.daemon = True
         _drift_timer.start()
+        _drift_last_timer = _drift_timer
 
 
 def _build_projects_event_handler():
@@ -732,11 +736,12 @@ def reset_projects_drift_for_tests() -> None:
 
     Production code MUST NOT call this.
     """
-    global _drift_timer, _drift_shutdown, _drift_pending
+    global _drift_timer, _drift_last_timer, _drift_shutdown, _drift_pending
     with _drift_lock:
         if _drift_timer is not None:
             _drift_timer.cancel()
             _drift_timer = None
+        _drift_last_timer = None
         _drift_pending = set()
         _drift_shutdown = False
 
@@ -749,6 +754,11 @@ def _drain_projects_drift_for_tests() -> None:
     window AGAIN after they've already waited for it (handles the
     race where the Timer scheduling thread hasn't quite woken yet).
 
+    It also waits for a timer that already fired: such a timer clears the
+    pending state first and only then runs the pass. On a slow machine the
+    drain once returned before that pass called the drift function, and a
+    test read 0 calls (Windows CI, 2026-10-21).
+
     Production code MUST NOT call this.
     """
     global _drift_timer
@@ -757,6 +767,9 @@ def _drain_projects_drift_for_tests() -> None:
         if _drift_timer is not None:
             _drift_timer.cancel()
             _drift_timer = None
+        started = _drift_last_timer
+    if started is not None and started is not threading.current_thread():
+        started.join(timeout=10.0)
     if had_pending:
         _fire_drift_pass()
 
