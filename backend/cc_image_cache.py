@@ -21,6 +21,7 @@ import asyncio
 import hashlib
 import logging
 import re
+import threading
 from pathlib import Path
 from typing import Callable
 
@@ -191,6 +192,7 @@ def warm_all_sessions(
     *,
     limit: int | None = None,
     progress: Callable[[dict], None] | None = None,
+    stop: threading.Event | None = None,
 ) -> dict:
     """Walk every Claude Code session JSONL on disk and copy referenced
     image-cache files into the permanent cache.
@@ -214,6 +216,10 @@ def warm_all_sessions(
             and at completion). Keys: ``sessions_walked``,
             ``sessions_with_markers``, ``files_cached``,
             ``sessions_failed``, ``total_sessions``.
+        stop: Optional cooperative-cancel flag. The lifespan sets it on
+            server shutdown; the walk checks it before each session and
+            returns early, so a long walk does not keep the process
+            alive after Quit.
 
     Returns:
         Dict with the same keys as the progress callback's last call.
@@ -240,6 +246,12 @@ def warm_all_sessions(
     }
 
     for i, jsonl_path in enumerate(sessions, start=1):
+        if stop is not None and stop.is_set():
+            log.info(
+                "warm_all_sessions: stopped at shutdown after %d of %d session(s)",
+                i - 1, total_sessions,
+            )
+            break
         state["sessions_walked"] = i
         try:
             data = read_claude_code_conversation(jsonl_path)
@@ -263,7 +275,9 @@ def warm_all_sessions(
     return state
 
 
-async def warm_all_sessions_async(*, limit: int | None = None) -> dict:
+async def warm_all_sessions_async(
+    *, limit: int | None = None, stop: threading.Event | None = None
+) -> dict:
     """Async wrapper for :func:`warm_all_sessions` that runs the
     blocking work in a thread so it doesn't stall the event loop.
 
@@ -275,7 +289,7 @@ async def warm_all_sessions_async(*, limit: int | None = None) -> dict:
     backend).
     """
     try:
-        state = await asyncio.to_thread(warm_all_sessions, limit=limit)
+        state = await asyncio.to_thread(warm_all_sessions, limit=limit, stop=stop)
     except Exception as exc:  # noqa: BLE001
         log.warning("warm_all_sessions_async aborted: %s", exc)
         return {"error": str(exc)}
