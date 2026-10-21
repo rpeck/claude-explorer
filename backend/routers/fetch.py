@@ -74,7 +74,15 @@ router = APIRouter(tags=["fetch"])
 # race between coroutines at the check; the streamer's ``finally`` block
 # clears the flag) and a Lock without explicit acquire/release was
 # misleading dead code (Council A1, 2026-05-21).
+#
+# The flag guards BOTH fetch routes: /fetch/refresh and /fetch/start (the
+# Details modal's "Fetch New" and "Full Refresh"). Two fetches at once ran
+# two read-merge-replace cycles on the same Cowork audit.jsonl (PR #8
+# review, 2026-10-21). The name stays for the tests and fixtures that
+# reset it.
 _refresh_in_progress: bool = False
+
+FETCH_IN_PROGRESS_DETAIL = "A fetch is already in progress."
 
 
 # Build-9: timeout the user has to complete login in the captured browser.
@@ -290,6 +298,7 @@ async def get_fetch_status() -> FetchStatus:
         output_dir=str(output_dir),
         existing_count=existing_count,
         credentials_age_days=credentials_age_days,
+        fetch_in_progress=_refresh_in_progress,
     )
 
 
@@ -786,6 +795,7 @@ async def force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     summary="Start a bulk fetch from Claude (Server-Sent Events stream)",
     responses={
         200: {"content": {"text/event-stream": {}}},
+        409: {"description": "A fetch or refresh is already in progress on this worker"},
         503: {"description": "Config file is corrupt; refuse to write to data_dir"},
     },
     # Layer 2: refuse when config corrupt. The gate fires before the
@@ -808,9 +818,26 @@ async def fetch_conversations(
     Args:
         incremental: If True, skip already-downloaded conversations
         limit: Max number of conversations to fetch
+
+    Returns 409 while any fetch or refresh runs on this worker.
     """
+    global _refresh_in_progress
+    if _refresh_in_progress:
+        raise HTTPException(status_code=409, detail=FETCH_IN_PROGRESS_DETAIL)
+    _refresh_in_progress = True
+
+    async def guarded() -> AsyncGenerator[str, None]:
+        global _refresh_in_progress
+        try:
+            async for frame in fetch_conversations_stream(
+                incremental=incremental, limit=limit
+            ):
+                yield frame
+        finally:
+            _refresh_in_progress = False
+
     return StreamingResponse(
-        fetch_conversations_stream(incremental=incremental, limit=limit),
+        guarded(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

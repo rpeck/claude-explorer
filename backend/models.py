@@ -480,6 +480,9 @@ class FetchStatus(BaseModel):
     output_dir: str
     existing_count: int
     credentials_age_days: int | None = None
+    #: True while a fetch or refresh runs. An ``EventSource`` cannot read
+    #: the 409 status, so the web page asks here why its stream failed.
+    fetch_in_progress: bool = False
 
 
 class FetchProgress(BaseModel):

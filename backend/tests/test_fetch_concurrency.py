@@ -168,3 +168,132 @@ async def test__get_fetch_refresh__second_concurrent_request__returns_409(
         f"Third (sequential) request should return 200 after the "
         f"flag clears; got {resp3.status_code}: {resp3.text}"
     )
+
+
+# ---------------------------------------------------------------------------
+# PR #8 review (2026-10-21): /fetch/start (the Details modal's "Fetch New"
+# and "Full Refresh") had no guard. Two read-merge-replace cycles could run
+# at once and race on the same audit.jsonl. Both routes now share one flag.
+# ---------------------------------------------------------------------------
+
+
+async def _within(coro, seconds: float = 3.0):
+    """Await ``coro`` or fail: a request that hangs is a failed guard."""
+    try:
+        return await asyncio.wait_for(coro, timeout=seconds)
+    except asyncio.TimeoutError:
+        pytest.fail("the request hung: a second fetch stream was opened")
+
+
+def _blocking_stream(started: asyncio.Event, release: asyncio.Event):
+    """A stand-in stream that does NOT clear the flag itself: the route must."""
+
+    async def stream(
+        incremental: bool = True, limit: int | None = None
+    ) -> AsyncGenerator[str, None]:
+        yield 'data: {"type": "start"}\n\n'
+        started.set()
+        await release.wait()
+        yield 'data: {"type": "complete"}\n\n'
+
+    return stream
+
+
+@pytest.mark.asyncio
+async def test__fetch_start__blocks_a_second_fetch_and_a_refresh__returns_409(
+    real_async_client,
+    _isolated_credentials_path,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+    monkeypatch.setattr(
+        fetch_mod, "fetch_conversations_stream", _blocking_stream(started, release)
+    )
+    monkeypatch.setattr(fetch_mod, "DEFAULT_OUTPUT_DIR", tmp_path / "conversations")
+
+    task1 = asyncio.create_task(real_async_client.get("/api/fetch/start"))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=3.0)
+
+        # Without the guard the second request opens a second stream that
+        # waits on ``release`` too: the timeout turns that hang into a failure.
+        second = await _within(real_async_client.get("/api/fetch/start?incremental=false"))
+        assert second.status_code == 409, second.text
+        assert "already in progress" in second.json()["detail"]
+
+        refresh = await _within(real_async_client.get("/api/fetch/refresh"))
+        assert refresh.status_code == 409, refresh.text
+
+        # The web page asks /fetch/status why its stream did not open.
+        status = await real_async_client.get("/api/fetch/status")
+        assert status.status_code == 200
+        assert status.json()["fetch_in_progress"] is True
+
+        assert not task1.done()
+    finally:
+        release.set()
+
+    first = await task1
+    assert first.status_code == 200
+    # The route cleared the flag when the stream ended.
+    assert fetch_mod._refresh_in_progress is False
+    status = await real_async_client.get("/api/fetch/status")
+    assert status.json()["fetch_in_progress"] is False
+
+    started.clear()
+    release.clear()
+    task3 = asyncio.create_task(real_async_client.get("/api/fetch/start"))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=3.0)
+    finally:
+        release.set()
+    assert (await task3).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test__fetch_refresh__in_flight__fetch_start_returns_409(
+    real_async_client,
+    _isolated_credentials_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def refresh_stream(
+        incremental: bool = True, limit: int | None = None
+    ) -> AsyncGenerator[str, None]:
+        try:
+            yield 'data: {"type": "start"}\n\n'
+            started.set()
+            await release.wait()
+            yield 'data: {"type": "complete"}\n\n'
+        finally:
+            fetch_mod._refresh_in_progress = False  # as the real streamer does
+
+    monkeypatch.setattr(fetch_mod, "refresh_pipeline_stream", refresh_stream)
+    fetch_calls: list[bool] = []
+
+    async def fetch_stream(
+        incremental: bool = True, limit: int | None = None
+    ) -> AsyncGenerator[str, None]:
+        fetch_calls.append(incremental)
+        yield 'data: {"type": "complete"}\n\n'
+
+    monkeypatch.setattr(fetch_mod, "fetch_conversations_stream", fetch_stream)
+
+    task1 = asyncio.create_task(real_async_client.get("/api/fetch/refresh"))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=3.0)
+        resp = await _within(real_async_client.get("/api/fetch/start"))
+        assert resp.status_code == 409, resp.text
+        assert fetch_calls == []  # the stream never started
+    finally:
+        release.set()
+    assert (await task1).status_code == 200
+
+    # Refresh finished: Fetch New works again.
+    resp = await real_async_client.get("/api/fetch/start")
+    assert resp.status_code == 200
+    assert fetch_calls == [True]
