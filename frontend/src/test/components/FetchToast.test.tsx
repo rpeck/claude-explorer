@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatProgressText } from '../../components/fetch/FetchToast'
+import { completeToastFor, formatProgressText } from '../../components/fetch/FetchToast'
 
 /**
  * Build-9 Bug 2: live progress feedback in the Refresh toast.
@@ -102,5 +102,35 @@ describe('formatProgressText (Bug 2)', () => {
     })
     // Trimmed to empty -> behave as if name absent.
     expect(out).toBe('Fetching 1/2…')
+  })
+})
+
+describe('completeToastFor (failed Cowork tasks, 2026-10-19)', () => {
+  // A Cowork task whose download kept failing used to end in a green
+  // "successfully" toast, so the user never learned that it was missing.
+
+  it('is a success when nothing failed', () => {
+    expect(
+      completeToastFor({ type: 'complete', message: 'Fetched 3 conversations.', cowork_tasks_failed: 0 }),
+    ).toEqual({ kind: 'success', message: 'Fetched 3 conversations.' })
+  })
+
+  it('is a warning when a Cowork task failed', () => {
+    const message =
+      'Fetched 0 conversations. 1 Cowork task could not be downloaded (Daily summary). The next Refresh tries it again.'
+    expect(completeToastFor({ type: 'complete', message, cowork_tasks_failed: 1 })).toEqual({
+      kind: 'warning',
+      message,
+    })
+  })
+
+  it('treats a missing count as no failures (older servers)', () => {
+    expect(completeToastFor({ type: 'complete', message: 'Done.' }).kind).toBe('success')
+  })
+
+  it('falls back to a default message', () => {
+    expect(completeToastFor({ type: 'complete', message: '' }, 'Refresh complete.').message).toBe(
+      'Refresh complete.',
+    )
   })
 })

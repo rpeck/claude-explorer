@@ -515,6 +515,10 @@ class FetchProgress(BaseModel):
     current: int = 0
     total: int = 0
     conversation_name: str | None = None
+    #: On ``complete``: Cowork tasks archived, and tasks whose download
+    #: failed. A failure makes the frontend show a warning toast.
+    cowork_tasks_fetched: int | None = None
+    cowork_tasks_failed: int | None = None
 
 
 class ForceRefetchResponse(BaseModel):

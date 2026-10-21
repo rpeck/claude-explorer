@@ -181,6 +181,8 @@ def test_fetch_new_in_details_modal_also_archives_tasks(
     assert complete == {
         "type": "complete",
         "message": "Fetched 0 conversations and 2 Cowork tasks successfully.",
+        "cowork_tasks_fetched": 2,
+        "cowork_tasks_failed": 0,
         "current": 0,
         "total": 0,
     }
@@ -236,3 +238,60 @@ def test_refresh_redownloads_a_conversation_the_server_updated(
 
     assert fetched == ["conv-1"]
     assert _frames(r.text)[-1]["message"] == "Fetched 1 conversations across 2 workspace(s)."
+
+
+# ---------------------------------------------------- failed tasks are shown
+#
+# PR #6 review (2026-10-19): a task whose events call kept failing was
+# counted in totals["failed"] but never reported. The progress frame showed
+# only "Fetching i/N...", and the complete message said "successfully", so
+# the task stayed missing, Refresh after Refresh, with no sign of it.
+
+
+def test_refresh_names_a_task_that_failed(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    FakeSessionsApi({ORG: _tasks()}, broken_sessions={"cse_01ExampleA_short"}).install(monkeypatch)
+
+    r = client.get("/api/fetch/refresh?incremental=true")
+
+    complete = _frames(r.text)[-1]
+    assert complete["type"] == "complete"
+    assert complete["cowork_tasks_fetched"] == 1
+    assert complete["cowork_tasks_failed"] == 1
+    assert complete["message"] == (
+        "Fetched 0 conversations and 1 Cowork task across 2 workspace(s). "
+        "1 Cowork task could not be downloaded (Daily summary). "
+        "The next Refresh tries it again."
+    )
+
+
+def test_fetch_new_does_not_report_success_when_a_task_failed(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    FakeSessionsApi(
+        {ORG: _tasks()}, broken_sessions={"cse_01ExampleA_short", "cse_01ExampleB_long"}
+    ).install(monkeypatch)
+    monkeypatch.setattr(
+        "backend.routers.fetch.ClaudeFetcher.save_index", lambda self, c, **kw: None
+    )
+
+    r = client.get("/api/fetch/start?incremental=true")
+
+    complete = _frames(r.text)[-1]
+    assert complete["cowork_tasks_fetched"] == 0
+    assert complete["cowork_tasks_failed"] == 2
+    assert "successfully" not in complete["message"]
+    assert complete["message"].startswith("No new conversations to fetch. 2 Cowork tasks could not")
+    assert "Editor configuration" in complete["message"] and "Daily summary" in complete["message"]
+
+
+def test_the_failure_note_lists_at_most_three_names() -> None:
+    from backend.routers.fetch import _remote_failures
+
+    totals = {"failed": 5, "failed_titles": ["A", "B", "C", "D", "E"]}
+    assert _remote_failures(totals) == (
+        " 5 Cowork tasks could not be downloaded (A, B, C and 2 more). "
+        "The next Refresh tries them again."
+    )
+    assert _remote_failures({"failed": 0, "failed_titles": []}) == ""
