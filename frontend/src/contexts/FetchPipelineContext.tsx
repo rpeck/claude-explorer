@@ -13,7 +13,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { invalidateAfterCapture, invalidateAfterFetch } from '@/lib/queryClient'
 import { api } from '@/lib/api'
 import { errorToast } from '@/lib/errorToast'
-import { completeToastFor, formatProgressText, type FetchProgress } from '@/components/fetch/FetchToast'
+import {
+  completeToastFor,
+  formatProgressText,
+  streamFailureMessage,
+  type FetchProgress,
+} from '@/components/fetch/FetchToast'
 
 /**
  * Build-9 Bug 1: lift the Refresh-pipeline state out of the Sidebar's
@@ -216,10 +221,16 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
         if (latestType === 'complete') {
           return
         }
-        showErrorByKind('Connection lost during refresh.', 'TRANSIENT', true)
-        setErrorMessage('Connection lost during refresh.')
-        setState('error')
         close()
+        // A 409 (a Fetch New from the Details modal runs) also lands here.
+        void streamFailureMessage(
+          latestType !== null,
+          'Connection lost during refresh.',
+        ).then((message) => {
+          showErrorByKind(message, 'TRANSIENT', true)
+          setErrorMessage(message)
+          setState('error')
+        })
       }
     },
     [openDetails, queryClient],

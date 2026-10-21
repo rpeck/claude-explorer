@@ -295,3 +295,73 @@ def test_the_failure_note_lists_at_most_three_names() -> None:
         "The next Refresh tries them again."
     )
     assert _remote_failures({"failed": 0, "failed_titles": []}) == ""
+
+
+# PR #8 review (2026-10-21): a task with nothing new to read was counted as
+# fetched on every Refresh ("and 1 Cowork task"), and its events were all
+# downloaded again each time.
+
+
+def test_refresh_does_not_count_a_task_whose_only_change_is_its_title(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tasks = _tasks()
+    api = FakeSessionsApi({ORG: tasks}).install(monkeypatch)
+    client.get("/api/fetch/refresh?incremental=true")
+    tasks[1].title = "Daily summary (renamed)"
+    tasks[1].updated_at = iso(300)
+    api.requests.clear()
+
+    r = client.get("/api/fetch/refresh?incremental=true")
+
+    complete = _frames(r.text)[-1]
+    assert complete["message"] == "Fetched 0 conversations across 2 workspace(s)."
+    assert complete["cowork_tasks_fetched"] == 0
+    store = ConversationStore(data_dir=env["out"], cowork_root=env["tmp"] / "no-local-cowork")
+    names = {c.name for c in store.list_conversations(source="CLAUDE_COWORK")}
+    assert "Daily summary (renamed)" in names
+
+
+def test_refresh_skips_a_task_with_only_transport_events(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fetcher.tests.ccr_fake import noise_event
+
+    quiet = FakeSession(
+        "cse_01Quiet", "Waiting for input",
+        [noise_event(1, "control_request"), noise_event(2, "keep_alive")],
+    )
+    api = FakeSessionsApi({ORG: [quiet]}).install(monkeypatch)
+    first = _frames(client.get("/api/fetch/refresh?incremental=true").text)[-1]
+    api.requests.clear()
+
+    second = _frames(client.get("/api/fetch/refresh?incremental=true").text)[-1]
+
+    assert first["cowork_tasks_fetched"] == 0
+    assert second["cowork_tasks_fetched"] == 0
+    assert not any("/events" in u for u in api.requests)
+
+
+def test_cowork_progress_frames_say_which_phase_they_belong_to(
+    client: TestClient, env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The chat phase counts across workspaces; the Cowork phase counts from
+    1 in each workspace. Without a phase field the toast seemed to jump back
+    from "Fetching 120/120" to "Fetching 1/18" (PR #8 review, 2026-10-21)."""
+    FakeSessionsApi(
+        {ORG: _tasks()}, list_status={PERSONAL: 500}, broken_sessions={"cse_01ExampleA_short"}
+    ).install(monkeypatch)
+
+    events = _frames(client.get("/api/fetch/refresh?incremental=true").text)
+
+    cowork = [
+        e for e in events if e["type"] == "progress" and "Cowork task" in e.get("message", "")
+    ]
+    # Two task frames, one failure frame, one "could not list" frame.
+    assert len(cowork) == 4, [e["message"] for e in cowork]
+    assert all(e.get("phase") == "cowork" for e in cowork), cowork
+    assert [(e["current"], e["total"]) for e in cowork if "Fetching Cowork task" in e["message"]] == [
+        (1, 2), (2, 2),
+    ]
+    others = [e for e in events if e not in cowork]
+    assert all("phase" not in e for e in others), others

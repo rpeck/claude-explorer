@@ -350,7 +350,8 @@ The sidebar **Refresh** button owns the full pipeline — capture + fetch — so
 - **Endpoint:** `GET /api/fetch/refresh?incremental=true` (SSE).
 - **Behavior:** if `~/.claude-explorer/credentials.json` is missing OR the fetch returns `401`/`403`/`cf-mitigated`, the backend invokes `fetcher.playwright_capture.capture_credentials` in-process. On success it persists creds (atomic write, `0o600`) and continues with an incremental fetch automatically.
 - **Capture is run at most once per request.** A post-capture fetch that still 401s emits a final `error` event — no retry loop.
-- **Concurrency:** module-level `_refresh_in_progress` flag plus `asyncio.Lock`. A second concurrent request returns `409 Conflict`. Frontend disables the button while running, so 409 is defense-in-depth.
+- **Concurrency:** one module-level flag, `_refresh_in_progress`, guards both `/fetch/refresh` and `/fetch/start`. A second fetch of either kind returns `409 Conflict`. Frontend disables the button while running, so 409 is defense-in-depth.
+  - The route sets the flag. `_FetchStreamResponse` clears it when the response ends, also when the client leaves before the first chunk. A `finally` in the stream alone left the flag set in that case, and every later fetch got 409.
 - **SSE event types:** `capture_start`, `capture_waiting_login` (heartbeat every 25s during the 5-min login wait), `capture_done`, `capture_error`, plus the existing `start`, `progress`, `complete`, `error`.
 - **Manual override:** the Details modal's "Full Refresh" and "Fetch New" buttons still hit `/fetch/start` directly with no auto-capture.
 - **Search is current at `complete`.** The backend re-indexes search before it emits `complete`. The frontend then calls `invalidateAfterFetch` (`frontend/src/lib/queryClient.ts`), which marks both the conversations and the search caches stale. A new fetch site must do both, or the Search Pane shows pre-fetch results.

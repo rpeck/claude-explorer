@@ -574,6 +574,15 @@ created_at}`.
 - The FetchDialog (Details modal) exposes manual **Full Refresh** and
   **Fetch New** actions that hit `/fetch/start` directly and do NOT
   auto-trigger capture.
+- Only one fetch runs at a time. While a Refresh or a `/fetch/start` fetch
+  runs, the server refuses a second one of either kind with HTTP 409. An
+  `EventSource` cannot read that status, so the page asks
+  `/fetch/status` (`fetch_in_progress`). The dialog or the toast then
+  shows "Another fetch is already running. Wait for it to finish, then
+  try again." instead of "Connection lost".
+- While the Cowork tasks download, the toast shows "Cowork task 3/18:
+  <title>". The Cowork step counts the tasks of each workspace from 1, so
+  it does not continue the "Fetching N/M" count of the chat phase.
 - Every fetch also archives the account's **remote Cowork tasks**:
   sessions that ran in Anthropic's cloud, listed in claude.ai under
   "Chats and tasks". `chat_conversations` does not list them, so an
@@ -581,6 +590,10 @@ created_at}`.
   under the **Claude Cowork** source filter, like local Cowork sessions.
   The `complete` message counts them ("Fetched 0 conversations and 18
   Cowork tasks across 2 workspace(s).").
+- The count includes only the tasks that brought new messages. A task
+  with only a new title gets the new title, but the count does not include
+  it. An incremental fetch skips a task only when its `updated_at` and its
+  `last_event_at` did not change.
 - **A Cowork task that fails to download is never hidden.** The `complete`
   message then names up to three failed tasks ("2 Cowork tasks could not
   be downloaded (A, B). The next Refresh tries them again."), and the final

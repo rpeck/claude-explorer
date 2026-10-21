@@ -310,6 +310,9 @@ export const api = {
     output_dir: string
     existing_count: number
     credentials_age_days: number | null
+    // True while a fetch or Refresh runs (a new one would get HTTP 409).
+    // Optional: older servers do not send it.
+    fetch_in_progress?: boolean
   }> => fetchJson('/fetch/status'),
 
   forceRefetchConversation: async (uuid: string): Promise<{ uuid: string; status: string; name: string }> => {

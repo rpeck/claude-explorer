@@ -33,8 +33,14 @@ index and UI render it unchanged::
 
 Each ``audit.jsonl`` line is the event payload plus ``_audit_timestamp``
 (the event's ``created_at``) and ``_sequence_num``. Incremental fetches read
-the highest ``_sequence_num`` back from the file, not from the sidecar, so a
-crash between the two writes can never duplicate events.
+the highest ``_sequence_num`` back from the file. The sidecar's
+``lastSequenceNum`` can only raise that append point (for events that were
+dropped), and the file is written first, so a crash between the two writes
+can never duplicate events.
+
+A session is unchanged when the sidecar records both the API's
+``updated_at`` and ``last_event_at``: the API can add events without
+changing ``updated_at``.
 
 Endpoints and headers were recorded from the claude.ai web app with
 Playwright on 2026-10-14.
@@ -52,6 +58,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import quote, urlencode
 
 from fetcher.atomic import atomic_replace
 from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
@@ -97,12 +104,40 @@ def remote_cowork_root(data_dir: Path) -> Path:
 
 @dataclass
 class RemoteFetchResult:
-    """Outcome of fetching one org's remote sessions."""
+    """Outcome of fetching one org's remote sessions.
+
+    ``fetched`` counts sessions that stored new events. A session that was
+    checked but brought nothing new to read counts as ``unchanged``.
+    """
 
     listed: int = 0
     fetched: int = 0
     unchanged: int = 0
     failed: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _StoredState:
+    """One session's state on disk (see ``RemoteCoworkFetcher._stored_state``)."""
+
+    has_audit: bool = False
+    #: Fetch events newer than this; ``None`` means the whole session.
+    after_seq: int | None = None
+    sidecar: dict | None = None
+
+    def is_current(self, session: dict) -> bool:
+        """True when the API reports no change since the last fetch."""
+        side = self.sidecar
+        if not self.has_audit or side is None:
+            return False
+        # Sidecars from before 2026-10-21 lack these keys: check them once.
+        if "apiLastEventAt" not in side or "lastSequenceNum" not in side:
+            return False
+        return (
+            side.get("apiUpdatedAt") is not None
+            and side.get("apiUpdatedAt") == session.get("updated_at")
+            and side.get("apiLastEventAt") == session.get("last_event_at")
+        )
 
 
 class RemoteCoworkFetcher:
@@ -152,13 +187,14 @@ class RemoteCoworkFetcher:
         seen_cursors: set[str] = set()
         cursor: str | None = None
         for _ in range(MAX_PAGES):
-            url = (
-                f"{CODE_SESSIONS_URL}?tags={REMOTE_COWORK_TAG}&limit={PAGE_LIMIT}"
-                "&include_trigger_sessions=true"
-            )
+            params: dict[str, Any] = {
+                "tags": REMOTE_COWORK_TAG,
+                "limit": PAGE_LIMIT,
+                "include_trigger_sessions": "true",
+            }
             if cursor:
-                url += f"&cursor={cursor}"
-            body = self._get_json(url, org_uuid)
+                params["cursor"] = cursor
+            body = self._get_json(f"{CODE_SESSIONS_URL}?{urlencode(params)}", org_uuid)
             page = body.get("data") or []
             added = 0
             for s in page:
@@ -189,9 +225,12 @@ class RemoteCoworkFetcher:
         seen_cursors: set[str] = set()
         cursor: str | None = None
         for _ in range(MAX_PAGES):
-            url = f"{CODE_SESSIONS_URL}/{session_id}/events?limit={PAGE_LIMIT}"
+            params: dict[str, Any] = {"limit": PAGE_LIMIT}
             if cursor:
-                url += f"&cursor={cursor}"
+                params["cursor"] = cursor
+            # The cursor is opaque (it may be base64 with + / =), and the id
+            # is quoted even though plan_org already checked it.
+            url = f"{CODE_SESSIONS_URL}/{quote(session_id, safe='')}/events?{urlencode(params)}"
             body = self._get_json(url, org_uuid)
             page = body.get("data") or []
             reached_known = False
@@ -233,19 +272,34 @@ class RemoteCoworkFetcher:
 
     def save_session(
         self, org_uuid: str, session: dict, new_events: list[dict], replace: bool
-    ) -> None:
+    ) -> int:
         """Write the session's ``audit.jsonl`` and sidecar.
 
         ``replace=False`` appends ``new_events`` to the existing file;
-        ``replace=True`` rewrites it from ``new_events`` alone.
+        ``replace=True`` rewrites it from ``new_events`` alone. Returns how
+        many lines ``new_events`` added to the file. Dropped payload types
+        and duplicates add none.
+
+        The sidecar always gets the session's current metadata (a new title,
+        say) and ``lastSequenceNum``, the highest sequence number fetched so
+        far, including events that were dropped.
         """
         session_id = session["id"]
         session_dir, sidecar_path = self._session_paths(org_uuid, session_id)
         session_dir.mkdir(parents=True, exist_ok=True)
         audit_path = session_dir / "audit.jsonl"
 
+        last_seq: int | None = None
+        if not replace:
+            last_seq = self._stored_state(org_uuid, session_id).after_seq
+        for ev in new_events:
+            seq = _seq(ev)
+            if seq is not None and (last_seq is None or seq > last_seq):
+                last_seq = seq
+
         lines: list[str] = []
         seen_uuids: set[str] = set()
+        added = 0
         if not replace and audit_path.exists():
             for raw in audit_path.read_text(encoding="utf-8").splitlines():
                 if not raw.strip():
@@ -268,35 +322,54 @@ class RemoteCoworkFetcher:
             if u:
                 seen_uuids.add(u)
             lines.append(json.dumps(line, ensure_ascii=False))
+            added += 1
 
+        # The audit file first, then the sidecar: a crash between the two
+        # leaves a sidecar that is behind, never ahead (see _stored_state).
         _atomic_write_text(audit_path, "\n".join(lines) + ("\n" if lines else ""))
         _atomic_write_text(
             sidecar_path,
-            json.dumps(_build_sidecar(org_uuid, session), indent=2, ensure_ascii=False),
+            json.dumps(
+                _build_sidecar(org_uuid, session, last_seq), indent=2, ensure_ascii=False
+            ),
         )
+        return added
 
-    def _stored_state(self, org_uuid: str, session_id: str) -> tuple[int | None, str | None]:
-        """(highest stored sequence_num, sidecar's API ``updated_at``)."""
+    def _stored_state(self, org_uuid: str, session_id: str) -> "_StoredState":
+        """What is on disk for one session.
+
+        ``after_seq`` is the append point: the highest ``_sequence_num`` in
+        ``audit.jsonl``, or the sidecar's ``lastSequenceNum`` when that is
+        higher (a session whose newest events were all dropped). The sidecar
+        counts only while the audit file exists: it is written second, so it
+        can lag the file but never lead it.
+        """
         session_dir, sidecar_path = self._session_paths(org_uuid, session_id)
         audit_path = session_dir / "audit.jsonl"
-        max_seq: int | None = None
-        if audit_path.exists():
+        state = _StoredState(has_audit=audit_path.exists())
+        if state.has_audit:
             for raw in audit_path.read_text(encoding="utf-8").splitlines():
                 try:
                     seq = json.loads(raw).get("_sequence_num")
                 except (json.JSONDecodeError, AttributeError):
                     continue
-                if isinstance(seq, int) and (max_seq is None or seq > max_seq):
-                    max_seq = seq
-        updated_at: str | None = None
+                if isinstance(seq, int) and (state.after_seq is None or seq > state.after_seq):
+                    state.after_seq = seq
         if sidecar_path.exists():
             try:
-                updated_at = json.loads(sidecar_path.read_text(encoding="utf-8")).get(
-                    "apiUpdatedAt"
-                )
-            except (OSError, json.JSONDecodeError, AttributeError):
-                updated_at = None
-        return max_seq, updated_at
+                sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                sidecar = None
+            if isinstance(sidecar, dict):
+                state.sidecar = sidecar
+                last = sidecar.get("lastSequenceNum")
+                if (
+                    state.has_audit
+                    and isinstance(last, int)
+                    and (state.after_seq is None or last > state.after_seq)
+                ):
+                    state.after_seq = last
+        return state
 
     # ------------------------------------------------------------ orchestration
 
@@ -305,8 +378,10 @@ class RemoteCoworkFetcher:
 
         Returns ``(work, unchanged)``. Each work item is ``(session,
         after_seq)``: fetch events newer than ``after_seq`` (``None`` means the
-        whole session). In incremental mode a session whose sidecar already
-        records the API's ``updated_at`` is unchanged and skipped.
+        whole session). In incremental mode a session is unchanged, and
+        skipped, when it is on disk and its sidecar records both the API's
+        ``updated_at`` and its ``last_event_at``. The API can add events
+        without changing ``updated_at``, so one of them is not enough.
         """
         work: list[tuple[dict, int | None]] = []
         unchanged = 0
@@ -320,22 +395,22 @@ class RemoteCoworkFetcher:
             if not self.incremental:
                 work.append((session, None))
                 continue
-            max_seq, stored_updated = self._stored_state(org_uuid, sid)
-            if (
-                max_seq is not None
-                and stored_updated is not None
-                and stored_updated == session.get("updated_at")
-            ):
+            state = self._stored_state(org_uuid, sid)
+            if state.is_current(session):
                 unchanged += 1
                 continue
-            work.append((session, max_seq))
+            work.append((session, state.after_seq))
         return work, unchanged
 
     def sync_session(self, org_uuid: str, session: dict, after_seq: int | None) -> int:
-        """Fetch and store one session's new events. Returns how many."""
+        """Fetch and store one session's new events.
+
+        Returns how many events were stored. ``0`` means nothing new to
+        read (only a new title, say, or only dropped payload types); the
+        metadata is saved anyway.
+        """
         events = self.fetch_events_after(org_uuid, session["id"], after_seq)
-        self.save_session(org_uuid, session, events, replace=after_seq is None)
-        return len(events)
+        return self.save_session(org_uuid, session, events, replace=after_seq is None)
 
     def sync_org(
         self,
@@ -354,14 +429,18 @@ class RemoteCoworkFetcher:
             if on_progress:
                 on_progress(title)
             try:
-                self.sync_session(org_uuid, session, after_seq)
+                stored = self.sync_session(org_uuid, session, after_seq)
             except Exception as exc:  # noqa: BLE001  one bad session must not stop the rest
                 log.warning(
                     "remote cowork: failed to fetch %s (%s): %s", session["id"], title, exc
                 )
                 result.failed.append(session["id"])
                 continue
-            result.fetched += 1
+            # Count a task as fetched only when it brought something to read.
+            if stored:
+                result.fetched += 1
+            else:
+                result.unchanged += 1
             if i < len(work) - 1:
                 time.sleep(self.delay)
         return result
@@ -413,12 +492,14 @@ def _epoch_ms(iso: str | None) -> int | None:
     return int(dt.timestamp() * 1000)
 
 
-def _build_sidecar(org_uuid: str, session: dict) -> dict:
+def _build_sidecar(org_uuid: str, session: dict, last_seq: int | None = None) -> dict:
     """Sidecar in the local Cowork shape, plus the fields only remote has.
 
     The reader uses ``sessionId`` (as the conversation uuid), ``title``,
     ``model``, ``cwd``, ``createdAt``/``lastActivityAt`` (epoch ms) and
-    ``isArchived``.
+    ``isArchived``. The incremental fetch uses ``apiUpdatedAt``,
+    ``apiLastEventAt`` and ``lastSequenceNum`` (the highest sequence number
+    fetched, stored or dropped).
     """
     config = session.get("config") or {}
     folders = (
@@ -443,6 +524,8 @@ def _build_sidecar(org_uuid: str, session: dict) -> dict:
         "environmentKind": session.get("environment_kind"),
         "tags": session.get("tags") or [],
         "apiUpdatedAt": session.get("updated_at"),
+        "apiLastEventAt": session.get("last_event_at"),
+        "lastSequenceNum": last_seq,
     }
 
 
