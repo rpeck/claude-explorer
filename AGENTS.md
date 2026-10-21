@@ -370,7 +370,11 @@ through `fetcher/remote_sessions.py`:
 - **Storage:** `<data_dir>/cowork-remote/<org>/remote_<id>/audit.jsonl` plus a
   sibling sidecar, in the local Cowork shape, so `backend/cowork_reader.py`,
   the store, and the search index read them unchanged
-  (`iter_cowork_session_dirs` / `find_cowork_session_dir`).
+  (`iter_cowork_session_dirs` / `find_cowork_session_dirs`).
+- **Workspace:** a remote task gets `organization_id` from the sidecar
+  `organizationId` (the `<org>` directory is the fallback), so the
+  workspace filter shows it. A local Cowork session keeps
+  `organization_id = None`.
 - **Incremental:** a session is skipped when its sidecar records the API's
   `updated_at`; otherwise only events newer than the highest
   `_sequence_num` in `audit.jsonl` are fetched and appended.

@@ -177,11 +177,26 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
         "error": sidecar.get("error") or None,
         # D10: aliased for the detail view's "Sandbox path" label.
         "sandbox_path": cwd,
-        # Cowork doesn't map ``<org>`` directory to a user-visible
-        # workspace (autonomous decision #4) — leave the legacy
-        # workspace fields unset.
-        "organization_id": None,
+        # D2: only a remote task has a workspace. See
+        # ``list_cowork_conversations``.
+        "organization_id": _remote_organization_id(session_dir, sidecar),
     }
+
+
+def _remote_organization_id(session_dir: Path, sidecar: dict) -> str | None:
+    """The workspace of a remote task, or ``None`` for a local session.
+
+    ``fetcher.remote_sessions`` writes each task under
+    ``<remote_root>/<org_uuid>/`` and records the same uuid as the sidecar
+    ``organizationId``. The directory name is the fallback when the sidecar
+    is missing or has no value.
+    """
+    if not session_dir.name.startswith(REMOTE_SESSION_PREFIX):
+        return None
+    org = sidecar.get("organizationId")
+    if isinstance(org, str) and org:
+        return org
+    return session_dir.parent.name or None
 
 
 # Canonical Claude compaction-prompt prefix the runtime injects after a
@@ -304,10 +319,17 @@ def list_cowork_conversations(
 
     D2: the deployment + org directory layers are flattened in the
     output — callers receive a single list of conversation dicts with
-    no deployment/org metadata leaking through. Cowork's ``<org>``
+    no deployment/org metadata leaking through. Local Cowork's ``<org>``
     directories reuse Claude Desktop's internal org UUIDs but don't
     map to user-facing workspaces, so we deliberately leave
-    ``organization_id`` unset on the conv dicts.
+    ``organization_id`` unset on local sessions.
+
+    Remote tasks are different: the fetcher downloads each task from one
+    workspace (the ``x-organization-uuid`` of the sessions API call) and
+    records that workspace uuid as the sidecar ``organizationId``. That is
+    the same uuid that the sidebar workspace filter uses for Desktop
+    conversations, so a remote task carries it as ``organization_id``.
+    Without it, a workspace filter hides every remote task.
 
     Returns ``[]`` (not raises) when neither root exists — a user
     without Cowork data installed must not see a crash.
