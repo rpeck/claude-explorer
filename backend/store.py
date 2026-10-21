@@ -873,13 +873,14 @@ class ConversationStore:
                     return data, jsonl_path
 
         # Finally check Cowork sessions, local (``local_<uuid>``) and remote
-        # (``remote_<id>``). ``find_cowork_session_dir`` checks one candidate
-        # per org dir, so this resolution is O(orgs), not O(sessions).
-        from .cowork_reader import find_cowork_session_dir, read_cowork_conversation
-        candidate = find_cowork_session_dir(
+        # (``remote_<id>``). ``find_cowork_session_dirs`` checks one candidate
+        # per org dir, so this resolution is O(orgs), not O(sessions). Try
+        # every copy: the first one can be empty or have no user turn while
+        # the list shows the row from another copy.
+        from .cowork_reader import find_cowork_session_dirs, read_cowork_conversation
+        for candidate in find_cowork_session_dirs(
             self.cowork_root, self.remote_cowork_root, uuid
-        )
-        if candidate is not None:
+        ):
             data = read_cowork_conversation(candidate)
             if data and data.get("uuid") == uuid:
                 return data, candidate / "audit.jsonl"

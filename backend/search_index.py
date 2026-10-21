@@ -2213,13 +2213,12 @@ def _file_path_for_conv(conv: dict[str, Any], data_dir: Path, claude_dir: Path) 
         # Settings directly. Drift detection on Cowork without a tagged
         # path can fall back to the next backstop poll, so a missing
         # session dir just returns None.
-        from .cowork_reader import find_cowork_session_dir, remote_cowork_root
-        session_dir = find_cowork_session_dir(
+        from .cowork_reader import find_cowork_session_dirs, remote_cowork_root
+        for session_dir in find_cowork_session_dirs(
             get_settings().claude_desktop_app_dir / "local-agent-mode-sessions",
             remote_cowork_root(data_dir),
             uuid,
-        )
-        if session_dir is not None:
+        ):
             candidate = session_dir / "audit.jsonl"
             if candidate.exists():
                 return candidate

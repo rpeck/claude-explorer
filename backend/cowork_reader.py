@@ -251,23 +251,30 @@ def iter_cowork_session_dirs(
     return out
 
 
-def find_cowork_session_dir(
+def find_cowork_session_dirs(
     cowork_root: Path | None, remote_root: Path | None, uuid: str
-) -> Path | None:
-    """The session directory for conversation ``uuid``, or ``None``.
+) -> list[Path]:
+    """Every session directory for conversation ``uuid``, in list order.
+
+    Usually there is one. The same session directory can exist under two
+    deployment or org directories, and one copy can be empty or have no
+    user turn. The list builds its row from a readable copy, so a caller
+    that opens the conversation must try each directory, not only the
+    first.
 
     Checks one candidate per org directory, so the cost is O(orgs), not
     O(sessions).
     """
+    out: list[Path] = []
     for org_dir in _subdirs_at_depth(cowork_root, 2):
         candidate = org_dir / f"{LOCAL_SESSION_PREFIX}{uuid}"
         if candidate.is_dir():
-            return candidate
+            out.append(candidate)
     for org_dir in _subdirs_at_depth(remote_root, 1):
         candidate = org_dir / f"{REMOTE_SESSION_PREFIX}{uuid}"
         if candidate.is_dir():
-            return candidate
-    return None
+            out.append(candidate)
+    return out
 
 
 def _subdirs_at_depth(root: Path | None, depth: int) -> list[Path]:
