@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
-import { invalidateAfterCapture, invalidateAfterFetch } from '@/lib/queryClient'
+import { invalidateAfterFetch } from '@/lib/queryClient'
 import { api } from '@/lib/api'
 import { errorToast } from '@/lib/errorToast'
 
@@ -268,7 +268,6 @@ export function useRefreshPipeline({ onOpenDetails }: UseRefreshPipelineOptions)
                 onClick: () => onOpenDetails(),
               },
             })
-            void invalidateAfterCapture(queryClient)
             break
           case 'start':
           case 'progress': {
