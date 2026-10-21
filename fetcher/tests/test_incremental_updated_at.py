@@ -72,6 +72,16 @@ def test_unparseable_timestamps_fall_back_to_inequality() -> None:
     assert needs_refetch("not-a-date", "not-a-date") is False
 
 
+def test_a_naive_timestamp_is_read_as_utc() -> None:
+    """Comparing an aware datetime with a naive one raised TypeError, which
+    failed the whole org's chat fetch (PR #8 review, 2026-10-21)."""
+    # Server newer than the local copy: fetch. Local copy newer: skip.
+    assert needs_refetch("2026-09-11T22:41:50Z", "2026-09-01T00:00:00") is True
+    assert needs_refetch("2026-09-01T00:00:00Z", "2026-09-11T22:41:50") is False
+    assert needs_refetch("2026-09-11T22:41:50", "2026-09-01T00:00:00+00:00") is True
+    assert needs_refetch("2026-09-11T22:41:50", "2026-09-11T22:41:50Z") is False
+
+
 # --- reading what is on disk ----------------------------------------------
 
 def test_local_updated_at_reads_stored_value(tmp_path: Path) -> None:
