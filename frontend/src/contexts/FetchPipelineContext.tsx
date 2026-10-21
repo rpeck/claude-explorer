@@ -54,6 +54,12 @@ interface FetchPipelineContextValue {
    * consumers don't need a separate prop drill.
    */
   openDetails: () => void
+  /**
+   * Close a running Refresh stream without a toast or a state change.
+   * Quit calls this before it replaces the app, so the server's graceful
+   * shutdown does not wait for the open stream.
+   */
+  closeStream: () => void
   closeDetails: () => void
   detailsOpen: boolean
 }
@@ -214,6 +220,20 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
     startRefreshRef.current = startRefresh
   }, [startRefresh])
 
+  const closeStream = useCallback(() => {
+    const source = sourceRef.current
+    if (!source) return
+    source.onmessage = null
+    source.onerror = null
+    source.close()
+    sourceRef.current = null
+  }, [])
+
+  // Quit unmounts the whole tree. A stream left open kept the server's
+  // graceful shutdown waiting, and its later onerror ran setState and an
+  // error toast in the unmounted tree.
+  useEffect(() => closeStream, [closeStream])
+
   const isRunning = state === 'running'
 
   // Project invariant #2 (CLAUDE.md "Performance Work"): every
@@ -230,6 +250,7 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
       reset,
       openDetails,
       closeDetails,
+      closeStream,
       detailsOpen,
     }),
     [
@@ -241,6 +262,7 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
       reset,
       openDetails,
       closeDetails,
+      closeStream,
       detailsOpen,
     ],
   )
