@@ -84,6 +84,36 @@ _refresh_in_progress: bool = False
 
 FETCH_IN_PROGRESS_DETAIL = "A fetch is already in progress."
 
+
+class _FetchStreamResponse(StreamingResponse):
+    """A fetch SSE response that clears ``_refresh_in_progress`` when it ends.
+
+    The route sets the flag before it returns this response, so the flag
+    must clear however the response ends. A ``finally`` in the stream is not
+    enough (2026-10-21):
+
+    - When the client leaves before the first chunk, Starlette never starts
+      the stream, so its ``finally`` never runs. Every later fetch and
+      Refresh then got 409 until a restart.
+    - When the client leaves mid-stream, the stream stays suspended until
+      Python finalizes it. Its ``finally`` could then clear the flag of a
+      newer fetch.
+
+    So close the stream here first, then clear the flag.
+    """
+
+    async def __call__(self, scope, receive, send) -> None:  # type: ignore[override]
+        global _refresh_in_progress
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            try:
+                aclose = getattr(self.body_iterator, "aclose", None)
+                if aclose is not None:
+                    await aclose()
+            finally:
+                _refresh_in_progress = False
+
 #: ``phase`` of the remote Cowork step's progress frames. Their
 #: ``current``/``total`` start again at 1 for each workspace, after the chat
 #: phase's cumulative counts, so the web page labels them "Cowork task N/M".
@@ -834,18 +864,9 @@ async def fetch_conversations(
         raise HTTPException(status_code=409, detail=FETCH_IN_PROGRESS_DETAIL)
     _refresh_in_progress = True
 
-    async def guarded() -> AsyncGenerator[str, None]:
-        global _refresh_in_progress
-        try:
-            async for frame in fetch_conversations_stream(
-                incremental=incremental, limit=limit
-            ):
-                yield frame
-        finally:
-            _refresh_in_progress = False
-
-    return StreamingResponse(
-        guarded(),
+    # _FetchStreamResponse clears the flag when the response ends.
+    return _FetchStreamResponse(
+        fetch_conversations_stream(incremental=incremental, limit=limit),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1528,12 +1549,11 @@ async def refresh_pipeline(
     """
     global _refresh_in_progress
     if _refresh_in_progress:
-        raise HTTPException(
-            status_code=409, detail="Refresh already in progress."
-        )
+        raise HTTPException(status_code=409, detail=FETCH_IN_PROGRESS_DETAIL)
     _refresh_in_progress = True
 
-    return StreamingResponse(
+    # _FetchStreamResponse clears the flag when the response ends.
+    return _FetchStreamResponse(
         refresh_pipeline_stream(incremental=incremental, limit=limit),
         media_type="text/event-stream",
         headers={

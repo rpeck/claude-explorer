@@ -118,7 +118,7 @@ async def test__get_fetch_refresh__second_concurrent_request__returns_409(
             f"{resp2.status_code}: {resp2.text}"
         )
         body2 = resp2.json()
-        assert "Refresh already in progress" in body2.get("detail", ""), (
+        assert "already in progress" in body2.get("detail", ""), (
             f"Expected canonical 409 detail per fetch.py:1097; "
             f"got {body2!r}"
         )
@@ -297,3 +297,100 @@ async def test__fetch_refresh__in_flight__fetch_start_returns_409(
     resp = await real_async_client.get("/api/fetch/start")
     assert resp.status_code == 200
     assert fetch_calls == [True]
+
+
+# ---------------------------------------------------------------------------
+# A client that leaves early must not keep the flag set (PR #6 follow-up,
+# 2026-10-21). The handler sets the flag, and before this fix only the
+# stream's own ``finally`` cleared it. When the browser left before the
+# first chunk, Starlette never started the stream, so that ``finally`` never
+# ran: every later fetch and Refresh got 409 until a restart.
+# ---------------------------------------------------------------------------
+
+
+def _scope() -> dict:
+    return {"type": "http", "asgi": {"spec_version": "2.4"}, "method": "GET", "path": "/"}
+
+
+async def _never_disconnects() -> dict:
+    await asyncio.sleep(3600)
+    return {"type": "http.disconnect"}
+
+
+def _send_failing_after(ok_messages: int):
+    """An ASGI ``send`` whose client goes away after ``ok_messages`` messages."""
+    sent: list[dict] = []
+
+    async def send(message: dict) -> None:
+        if len(sent) >= ok_messages:
+            raise OSError("client went away")
+        sent.append(message)
+
+    return send
+
+
+async def _open_route(route: str):
+    if route == "start":
+        return await fetch_mod.fetch_conversations(incremental=True, limit=None)
+    return await fetch_mod.refresh_pipeline(incremental=True, limit=None)
+
+
+async def _let_finalizers_run() -> None:
+    import gc
+
+    gc.collect()
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["start", "refresh"])
+async def test__client_leaves_before_the_first_chunk__flag_is_cleared(
+    route: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(fetch_mod, "_refresh_in_progress", False)
+    response = await _open_route(route)
+    assert fetch_mod._refresh_in_progress is True
+
+    # The response start already fails: the stream never starts.
+    with pytest.raises(Exception):
+        await response(_scope(), _never_disconnects, _send_failing_after(0))
+
+    assert fetch_mod._refresh_in_progress is False, (
+        "a client that left before the first chunk kept the fetch flag set"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["start", "refresh"])
+async def test__client_leaves_mid_stream__old_stream_never_clears_a_new_fetch_flag(
+    route: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def endless(
+        incremental: bool = True, limit: int | None = None
+    ) -> AsyncGenerator[str, None]:
+        try:
+            while True:
+                yield 'data: {"type": "progress"}\n\n'
+                await asyncio.sleep(0)
+        finally:
+            if route == "refresh":
+                fetch_mod._refresh_in_progress = False  # as the real streamer does
+
+    monkeypatch.setattr(fetch_mod, "fetch_conversations_stream", endless)
+    monkeypatch.setattr(fetch_mod, "refresh_pipeline_stream", endless)
+    monkeypatch.setattr(fetch_mod, "_refresh_in_progress", False)
+
+    response = await _open_route(route)
+    # The response start and one chunk go out, then the client leaves.
+    with pytest.raises(Exception):
+        await response(_scope(), _never_disconnects, _send_failing_after(2))
+    assert fetch_mod._refresh_in_progress is False
+
+    # A new fetch takes the flag. The abandoned stream, when Python
+    # finalizes it, must not clear it.
+    fetch_mod._refresh_in_progress = True
+    await _let_finalizers_run()
+    assert fetch_mod._refresh_in_progress is True, (
+        "the abandoned stream cleared the flag of a newer fetch"
+    )
