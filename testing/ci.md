@@ -8,22 +8,27 @@ Two workflows run automatically.
 
 | Workflow | Runners | What it proves |
 |---|---|---|
-| `test.yml` | `ubuntu-latest` | The Python suite, and Playwright in fixture mode |
-| `install-matrix.yml` | Six runners, listed below | The documented install, the CLI, Chromium, `serve`, the watcher, and the Python suite |
+| `test.yml` | `ubuntu-26.04` | The Python suite, and Playwright in fixture mode |
+| `install-matrix.yml` | Seven runners, listed below | The documented install, the CLI, Chromium, `serve`, the watcher, and the Python suite |
 
 ### The install matrix
 
-`install-matrix.yml` covers every platform that the README supports. All six
+`install-matrix.yml` covers every platform that the README supports. All its
 runners are free for public repositories.
 
 | Platform | Runner | Watcher supervisor |
 |---|---|---|
 | macOS arm64 | `macos-latest` | launchd |
 | macOS x86_64 | `macos-15-intel` | launchd |
-| Linux x86_64 | `ubuntu-latest` | systemd user unit |
+| Linux x86_64 | `ubuntu-24.04` | systemd user unit |
 | Linux arm64 | `ubuntu-24.04-arm` | systemd user unit |
 | Windows x86_64 | `windows-latest` | Task Scheduler |
 | Windows ARM64 | `windows-11-arm` | Task Scheduler |
+
+**Ubuntu 26.04 too.** The `install` job also runs on `ubuntu-26.04`, and the
+two Linux jobs for newer Pythons (below) run there. Every Linux job names its
+Ubuntu version. GitHub moves `ubuntu-latest` from 24.04 to 26.04 between
+2026-10-19 and 2026-11-19. With `ubuntu-latest`, a run could get either image.
 
 **When it runs:**
 
@@ -91,8 +96,8 @@ from the six main jobs in two ways:
 
 The three jobs:
 
-- **Linux, Python 3.14:** the locked versions.
-- **Linux, Python 3.15:** the newest versions (`uv sync --upgrade`).
+- **Linux (Ubuntu 26.04), Python 3.14:** the locked versions.
+- **Linux (Ubuntu 26.04), Python 3.15:** the newest versions (`uv sync --upgrade`).
 - **macOS arm64, Python 3.15:** the newest versions.
 
 Each `pytest` job also compiles the code with `-W error::SyntaxWarning`.
