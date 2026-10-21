@@ -411,3 +411,64 @@ def test_cli_rehydrate_builds_one_fetcher_per_org_with_that_org_as_primary(
         assert c["session_key"] == "sk-test"
         assert c["cf_bm"] == "cf_bm_value"
         assert c["cf_clearance"] == "cf_clearance_value"
+
+
+# ---------------------------------------------------------------------------
+# A failed fetch is a short message, not a traceback (2026-10-21).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (
+            "transient",
+            ["Could not reach claude.ai", "Check the network connection", "Failed to connect"],
+        ),
+        ("auth", ["claude.ai refused the saved credentials", "claude-explorer capture"]),
+        ("terminal", ["The fetch stopped", "HTTP 500 boom"]),
+    ],
+)
+def test_cli_fetch_error_is_a_short_message_not_a_traceback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error: str,
+    expected: list[str],
+) -> None:
+    """With no network, ``claude-explorer fetch`` printed a 30-line Python
+    traceback that ended in ``FetchTransientError``. Many users are not
+    developers."""
+    from fetcher.http_retry import FetchAuthError, FetchTerminalError, FetchTransientError
+
+    def _raise() -> None:
+        if error == "transient":
+            try:
+                raise OSError("curl: (7) Failed to connect to claude.ai:443")
+            except OSError as cause:
+                raise FetchTransientError(
+                    "Transport error after 3 attempts: curl: (7) Failed to connect to claude.ai:443"
+                ) from cause
+        if error == "auth":
+            raise FetchAuthError("HTTP 401")
+        raise FetchTerminalError("HTTP 500 boom")
+
+    class _FailingFetcher(_StubFetcher):
+        def run(self, **kwargs: Any) -> None:
+            _raise()
+
+    monkeypatch.setattr("fetcher.bulk_fetch.ClaudeFetcher", _FailingFetcher)
+    creds = tmp_path / "credentials.json"
+    _write_v2_creds(
+        creds,
+        session_key="sk-test",
+        orgs=[{"uuid": "org-A", "name": "Personal", "capabilities": ["chat"], "seen_in_response": True}],
+        primary="org-A",
+    )
+
+    result = _invoke_fetch(tmp_path, creds)
+
+    assert result.exit_code == 1, (result.output, result.exception)
+    assert isinstance(result.exception, SystemExit), repr(result.exception)
+    assert "Traceback" not in result.output
+    for text in expected:
+        assert text in result.output, (text, result.output)

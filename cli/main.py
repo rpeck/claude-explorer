@@ -132,7 +132,26 @@ def fetch(
         download_files=download_files,
     )
 
-    fetcher.run(limit=limit)
+    # Many users are not developers: a failed fetch is a short message
+    # with the next step, not a Python traceback. Each conversation is
+    # saved when it arrives, so the work before the error is kept.
+    from fetcher.http_retry import FetchAuthError, FetchTerminalError, FetchTransientError
+
+    try:
+        fetcher.run(limit=limit)
+    except FetchAuthError as exc:
+        raise click.ClickException(
+            "claude.ai refused the saved credentials. The session may have "
+            "expired. Run `claude-explorer capture` to capture them again."
+        ) from exc
+    except FetchTransientError as exc:
+        raise click.ClickException(
+            "Could not reach claude.ai. Check the network connection, then "
+            "run the command again. The conversations that arrived before "
+            f"the error are saved.\nDetails: {exc}"
+        ) from exc
+    except FetchTerminalError as exc:
+        raise click.ClickException(f"The fetch stopped: {exc}") from exc
 
 
 @main.command()
