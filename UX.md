@@ -636,11 +636,21 @@ fetches.
   workspace name if known, else "Signed in". The second line is the
   error message from `/api/account`, such as "Session expired. Click
   Refresh to sign in again."
+- **Credentials file corrupt** (`/api/account` answers 503): first line
+  "Account unavailable". The second line is the reason from the server,
+  such as "Credentials file is corrupt: … Re-run capture to refresh
+  credentials." Its `title` tooltip holds the full text. The request is
+  not retried, because the file does not fix itself.
 - **Freshness:** read from `GET /api/account`. The row is refetched when
-  a Refresh pipeline completes, because Refresh may have captured new
-  credentials for a different account.
-- **Loading / endpoint error:** the row keeps its height and shows no
-  text, so the footer does not shift.
+  Refresh captures new credentials, and again when a Refresh pipeline
+  completes, because the new credentials can belong to a different
+  account. The fetch after a capture can fail, so the capture alone
+  refetches the row.
+- **Failed lookup retry:** while the row shows a lookup failure, the app
+  asks again every 60 seconds, the interval at which the server retries
+  claude.ai. A successful lookup stops this.
+- **Loading / other endpoint error:** the row keeps its height and shows
+  no text, so the footer does not shift.
 
 ### Quit (power button)
 

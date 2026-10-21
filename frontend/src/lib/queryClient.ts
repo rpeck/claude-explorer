@@ -105,3 +105,10 @@ export function invalidateAfterFetch(qc: QueryClient): Promise<void> {
     qc.invalidateQueries({ queryKey: queryKeys.account }),
   ]).then(() => undefined)
 }
+
+// Call when a Refresh captured new credentials (`capture_done`). The fetch
+// that follows can still fail, and then no `complete` event comes; without
+// this, the badge kept showing the previous account.
+export function invalidateAfterCapture(qc: QueryClient): Promise<void> {
+  return qc.invalidateQueries({ queryKey: queryKeys.account })
+}
