@@ -108,90 +108,28 @@ def fetch(
         )
 
     from fetcher.bulk_fetch import ClaudeFetcher, load_credentials
+    from fetcher.credentials import CredentialsCorruptError, fetcher_credentials
 
-    # Resolve orgs + primary_org_id for the v2 multi-org ClaudeFetcher
-    # constructor. Three input modes are supported:
-    #
-    #   1. ``--session-key`` AND ``--org-id`` overrides (CI / power user):
-    #      synthesize a single-element orgs list with the override org as
-    #      primary; skip credentials.json entirely.
-    #   2. v2 credentials file with ``orgs`` array + ``primary_org_id``:
-    #      forward both straight through (multi-org capture/fetch path).
-    #   3. v1 (legacy) credentials file with flat ``org_id`` scalar:
-    #      treat the v1 org as a single-element orgs list with that org
-    #      as primary, mirroring ``fetcher.credentials._upgrade_v1_in_memory``.
-    #
-    # This logic is a faithful port of the working version in
-    # ``fetcher.bulk_fetch.main`` (deleted by Council A-BUG-2 to remove
-    # the drift hazard that caused the original cli.py crash). The
-    # ``ClaudeFetcher(..., org_id=org_id, ...)`` constructor call this
-    # block replaces was a stale v1 wiring that was never updated when
-    # multi-org shipped, and crashed every ``claude-explorer fetch`` run
-    # with ``TypeError: unexpected keyword argument 'org_id'`` (Council
-    # A-BUG-1; regression pinned by
-    # ``fetcher/tests/test_cli_fetch_wiring.py``).
-    cf_bm: str | None = None
-    cf_clearance: str | None = None
-    if session_key and org_id:
-        # Mode 1 — override path.
-        orgs = [
-            {
-                "uuid": org_id,
-                "name": None,
-                "capabilities": [],
-                "seen_in_response": False,
-            }
-        ]
-        primary = org_id
-    else:
-        creds = load_credentials(credentials)
-        session_key = session_key or creds.get("session_key")
-
-        # Multi-org-aware: prefer the orgs array if present (v2 schema).
-        # Fall back to the legacy scalar org_id (v1 file) so this code
-        # path works during the cowork-multi-org rollout window.
-        if "orgs" in creds and creds.get("orgs"):
-            # Mode 2 — v2.
-            orgs = list(creds["orgs"])
-            primary = creds.get("primary_org_id") or orgs[0]["uuid"]
-        else:
-            # Mode 3 — v1 (or --org-id override on top of v1 creds).
-            legacy_id = org_id or creds.get("org_id")
-            if not legacy_id:
-                raise click.ClickException(
-                    "Missing org_id. Run `claude-explorer capture` to "
-                    "refresh credentials."
-                )
-            orgs = [
-                {
-                    "uuid": legacy_id,
-                    "name": None,
-                    "capabilities": [],
-                    "seen_in_response": False,
-                }
-            ]
-            primary = legacy_id
-
-        cf_bm = creds.get("cf_bm")
-        cf_clearance = creds.get("cf_clearance")
-
-    if not session_key:
+    # ``--session-key`` plus ``--org-id`` need no credentials file. Otherwise
+    # the file gives the rest, and an override replaces its value.
+    # fetcher_credentials is the one conversion that every ClaudeFetcher
+    # caller uses: a private copy here crashed every run once (issue #1).
+    creds = {} if (session_key and org_id) else load_credentials(credentials)
+    try:
+        args = fetcher_credentials(creds, session_key=session_key, org_id=org_id)
+    except CredentialsCorruptError as exc:
         raise click.ClickException(
-            "Missing session_key. Run `claude-explorer capture` first."
-        )
+            f"{exc} Run `claude-explorer capture` to capture the credentials again."
+        ) from exc
 
     fetcher = ClaudeFetcher(
-        session_key=session_key,
-        orgs=orgs,
-        primary_org_id=primary,
+        **args.fetcher_kwargs(),
         output_dir=output_dir,
         files_dir=files_dir,
         delay=delay,
         incremental=incremental,
         verbose=verbose,
         download_files=download_files,
-        cf_bm=cf_bm,
-        cf_clearance=cf_clearance,
     )
 
     fetcher.run(limit=limit)
@@ -690,7 +628,7 @@ def rehydrate(
     from collections import defaultdict
 
     from fetcher.bulk_fetch import ClaudeFetcher
-    from fetcher.credentials import load_credentials
+    from fetcher.credentials import fetcher_credentials, load_credentials
 
     click.echo(f"Scanning {data_dir} for placeholder-affected conversations...")
 
@@ -763,24 +701,11 @@ def rehydrate(
     errors = 0
 
     for org_id, org_candidates in by_org.items():
-        # Build the orgs list for ClaudeFetcher (it requires its own
-        # primary_org_id to be one of the entries).
-        orgs_for_fetcher = [
-            {"uuid": o.get("uuid"), "name": o.get("name")}
-            for o in (creds.get("orgs") or [])
-        ]
-        if org_id not in {o["uuid"] for o in orgs_for_fetcher}:
-            # Fallback: synthesize a one-entry list. Matches the on-disk
-            # convention; the API only cares about the uuid in the URL.
-            orgs_for_fetcher = [{"uuid": org_id, "name": org_id}]
-
+        # This org is the primary. An org that the credentials do not list
+        # becomes the only org: the API only needs the uuid in the URL.
         fetcher = ClaudeFetcher(
-            session_key=creds["session_key"],
-            orgs=orgs_for_fetcher,
-            primary_org_id=org_id,
+            **fetcher_credentials(creds, org_id=org_id).fetcher_kwargs(),
             output_dir=data_dir,
-            cf_bm=creds.get("cf_bm"),
-            cf_clearance=creds.get("cf_clearance"),
             verbose=False,
         )
 

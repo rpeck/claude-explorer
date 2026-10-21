@@ -31,7 +31,11 @@ from fetcher.bulk_fetch import (
 )
 from fetcher.playwright_capture import capture_credentials
 from fetcher.remote_sessions import RemoteCoworkFetcher
-from fetcher.credentials import save_credentials
+from fetcher.credentials import (
+    CredentialsCorruptError,
+    fetcher_credentials,
+    save_credentials,
+)
 
 from ..deps import refuse_if_config_corrupt
 # Patch-safe SSE helpers extracted in Council A2 (2026-05-21). The heavier
@@ -524,39 +528,26 @@ async def fetch_conversations_stream(
             })
             return
 
-        session_key = creds.get("session_key")
-        org_id = creds.get("org_id")
-
-        if not session_key or not org_id:
+        try:
+            args = fetcher_credentials(creds)
+        except CredentialsCorruptError as exc:
             yield send_event({
                 "type": "error",
-                "message": "Invalid credentials file. Missing session_key or org_id.",
+                "message": f"Invalid credentials file. {exc}",
             })
             return
-
-        # cowork-multi-org C3: build a single-element orgs list from creds.
-        # The v2 creds schema carries an `orgs` array; the v1 schema only has
-        # the scalar `org_id`. Fall back to the latter during the migration
-        # window. The full multi-org SSE handler ships in C5.
-        primary = creds.get("primary_org_id") or org_id
-        if creds.get("orgs"):
-            orgs_list = list(creds["orgs"])
-        else:
-            orgs_list = [{"uuid": org_id, "name": None, "capabilities": [], "seen_in_response": False}]
+        primary = args.primary_org_id
+        orgs_list = args.orgs
 
         # Create fetcher
         fetcher = ClaudeFetcher(
-            session_key=session_key,
-            orgs=orgs_list,
-            primary_org_id=primary,
+            **args.fetcher_kwargs(),
             output_dir=DEFAULT_OUTPUT_DIR,
             files_dir=DEFAULT_FILES_DIR,
             delay=0.3,
             incremental=incremental,
             verbose=False,
             download_files=True,
-            cf_bm=creds.get("cf_bm"),
-            cf_clearance=creds.get("cf_clearance"),
         )
 
         # Ensure output directory exists
@@ -741,27 +732,18 @@ async def force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     except Exception:
         raise HTTPException(status_code=400, detail="No credentials. Run 'claude-explorer capture' first.")
 
-    session_key = creds.get("session_key")
-    org_id = creds.get("org_id")
-    if not session_key or not org_id:
-        raise HTTPException(status_code=400, detail="Invalid credentials file.")
-
-    primary = creds.get("primary_org_id") or org_id
-    orgs_list = list(creds["orgs"]) if creds.get("orgs") else [
-        {"uuid": org_id, "name": None, "capabilities": [], "seen_in_response": False}
-    ]
+    try:
+        args = fetcher_credentials(creds)
+    except CredentialsCorruptError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid credentials file. {exc}") from exc
     fetcher = ClaudeFetcher(
-        session_key=session_key,
-        orgs=orgs_list,
-        primary_org_id=primary,
+        **args.fetcher_kwargs(),
         output_dir=DEFAULT_OUTPUT_DIR,
         files_dir=DEFAULT_FILES_DIR,
         delay=0.0,
         incremental=False,
         verbose=False,
         download_files=True,
-        cf_bm=creds.get("cf_bm"),
-        cf_clearance=creds.get("cf_clearance"),
     )
 
     DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -947,28 +929,19 @@ async def _fetch_phase_stream(
         yield ("fatal", f"No credentials: {exc}")
         return
 
-    session_key = creds.get("session_key")
-    org_id = creds.get("org_id")
-    if not session_key or not org_id:
-        yield ("fatal", "Invalid credentials file. Missing session_key or org_id.")
+    try:
+        args = fetcher_credentials(creds)
+    except CredentialsCorruptError as exc:
+        yield ("fatal", f"Invalid credentials file. {exc}")
         return
-
-    primary = creds.get("primary_org_id") or org_id
-    orgs_list = list(creds["orgs"]) if creds.get("orgs") else [
-        {"uuid": org_id, "name": None, "capabilities": [], "seen_in_response": False}
-    ]
     fetcher = ClaudeFetcher(
-        session_key=session_key,
-        orgs=orgs_list,
-        primary_org_id=primary,
+        **args.fetcher_kwargs(),
         output_dir=DEFAULT_OUTPUT_DIR,
         files_dir=DEFAULT_FILES_DIR,
         delay=0.3,
         incremental=incremental,
         verbose=False,
         download_files=True,
-        cf_bm=creds.get("cf_bm"),
-        cf_clearance=creds.get("cf_clearance"),
     )
 
     DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

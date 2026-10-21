@@ -298,3 +298,116 @@ def test_cli_fetch_v1_credentials_upgrades_to_single_org(
     assert orgs[0]["uuid"] == "v1-org-uuid"
     assert _StubFetcher.last_kwargs.get("primary_org_id") == "v1-org-uuid"
     assert _StubFetcher.last_kwargs.get("session_key") == "sk-v1"
+
+
+# ---------------------------------------------------------------------------
+# Issue #1 follow-up (2026-10-21): the CLI uses fetcher_credentials too.
+# ---------------------------------------------------------------------------
+
+
+def _invoke_fetch(tmp_path: Path, creds: Path, *extra: str):
+    return CliRunner().invoke(
+        main,
+        [
+            "fetch",
+            "--credentials", str(creds),
+            "--output-dir", str(tmp_path / "out"),
+            "--files-dir", str(tmp_path / "files"),
+            "--no-download-files",
+            "--limit", "1",
+            *extra,
+        ],
+    )
+
+
+def test_cli_fetch_org_id_override_selects_that_org_from_a_v2_file(
+    tmp_path: Path,
+    _patch_fetcher: None,
+) -> None:
+    """``--org-id`` says "overrides credentials file". With a v2 file it
+    was ignored: the fetch used the file's primary org."""
+    creds = tmp_path / "credentials.json"
+    orgs = [
+        {"uuid": "org-A", "name": "Personal", "capabilities": ["chat"], "seen_in_response": True},
+        {"uuid": "org-B", "name": "Work", "capabilities": ["chat"], "seen_in_response": True},
+    ]
+    _write_v2_creds(creds, session_key="sk-test", orgs=orgs, primary="org-A")
+
+    result = _invoke_fetch(tmp_path, creds, "--org-id", "org-B")
+
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert _StubFetcher.last_kwargs["primary_org_id"] == "org-B"
+    assert _StubFetcher.last_kwargs["orgs"] == orgs
+
+
+def test_cli_fetch_unusable_v2_file_is_a_clear_error_not_a_traceback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A primary org that is not in ``orgs`` made ClaudeFetcher raise a bare
+    ValueError, which the CLI printed as a traceback."""
+    creds = tmp_path / "credentials.json"
+    _write_v2_creds(
+        creds,
+        session_key="sk-test",
+        orgs=[{"uuid": "org-A", "name": "Personal", "capabilities": [], "seen_in_response": True}],
+        primary="org-Z",
+    )
+
+    result = _invoke_fetch(tmp_path, creds)
+
+    assert result.exit_code == 1, (result.output, result.exception)
+    assert isinstance(result.exception, SystemExit), repr(result.exception)
+    assert "org-Z" in result.output
+    assert "claude-explorer capture" in result.output
+
+
+def test_cli_rehydrate_builds_one_fetcher_per_org_with_that_org_as_primary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``rehydrate`` also builds ClaudeFetcher from the credentials."""
+    calls: list[dict] = []
+
+    class _RecordingFetcher:
+        def __init__(self, **kwargs: Any) -> None:
+            calls.append(kwargs)
+
+        def fetch_conversation(self, _uuid: str) -> None:
+            return None  # upstream-gone: nothing to save
+
+    monkeypatch.setattr("fetcher.bulk_fetch.ClaudeFetcher", _RecordingFetcher)
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+
+    data_dir = tmp_path / "conversations"
+    placeholder = "This block is not supported on your current device yet."
+    for org, uuid in (("org-B", "conv-b"), ("org-Z", "conv-z")):
+        path = data_dir / "by-org" / org / f"{uuid}.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({
+            "uuid": uuid,
+            "name": uuid,
+            "chat_messages": [{"text": placeholder, "content": []}],
+        }))
+
+    creds = tmp_path / "credentials.json"
+    orgs = [
+        {"uuid": "org-A", "name": "Personal", "capabilities": ["chat"], "seen_in_response": True},
+        {"uuid": "org-B", "name": "Work", "capabilities": ["chat"], "seen_in_response": True},
+    ]
+    _write_v2_creds(creds, session_key="sk-test", orgs=orgs, primary="org-A")
+
+    result = CliRunner().invoke(
+        main, ["rehydrate", "--data-dir", str(data_dir), "--credentials", str(creds)]
+    )
+
+    assert result.exit_code == 0, (result.output, result.exception)
+    by_primary = {c["primary_org_id"]: c for c in calls}
+    assert set(by_primary) == {"org-B", "org-Z"}
+    # A listed org keeps the full orgs list; an unlisted org is the only org.
+    assert [o["uuid"] for o in by_primary["org-B"]["orgs"]] == ["org-A", "org-B"]
+    assert [o["uuid"] for o in by_primary["org-Z"]["orgs"]] == ["org-Z"]
+    for c in calls:
+        assert c["session_key"] == "sk-test"
+        assert c["cf_bm"] == "cf_bm_value"
+        assert c["cf_clearance"] == "cf_clearance_value"

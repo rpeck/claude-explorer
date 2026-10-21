@@ -385,7 +385,9 @@ through `fetcher/remote_sessions.py`:
   stubs `RemoteCoworkFetcher._get_json`; `fetcher/tests/ccr_fake.py` is a
   fake of the API with its real paging.
 
-If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_capture_phase_stream`, `_fetch_phase_stream`, and `refresh_pipeline_stream` async generators) and `frontend/src/components/fetch/FetchToast.tsx` (the `useRefreshPipeline` hook) together — the SSE event schema is shared.
+If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_capture_phase_stream`, `_fetch_phase_stream`, and `refresh_pipeline_stream` async generators) and the two web-page consumers of the stream together — the SSE event schema is shared. The consumers are `frontend/src/contexts/FetchPipelineContext.tsx` (Refresh) and `frontend/src/components/fetch/FetchDialog.tsx` (Fetch New, Full Refresh); `frontend/src/components/fetch/FetchToast.tsx` holds their shared text helpers.
+
+**One credentials conversion.** Every caller that builds a `ClaudeFetcher` gets its credential arguments from `fetcher.credentials.fetcher_credentials`: the three fetch routes, `claude-explorer fetch`, and `claude-explorer rehydrate`. Do not write another copy. Five private copies drifted apart: one passed a removed `org_id=` keyword and crashed every `claude-explorer fetch` (issue #1), and the routes refused a v2 file without the legacy `org_id` mirror.
 
 ## Development Setup
 
