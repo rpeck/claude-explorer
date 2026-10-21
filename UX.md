@@ -225,6 +225,24 @@ An `aria-live="polite"` region announces "Match N of M" each time the
 active match changes (Cmd+G, Cmd+Shift+G, Enter, click on a result). The
 region is visually `sr-only` but reachable to screen readers.
 
+### A hit inside a tool call or a tool result
+
+Every search hit is navigable, from the user or from Claude. Claude Code
+stores tool results as user rows, so a "You" hit can be a tool result.
+
+- **Show Tools off (the default):** the active hit's bubble shows ONLY the
+  tool blocks that hold the match, expanded, with the match highlighted.
+  The other tool blocks stay hidden, and the **Show Tools** setting does
+  not change. When the search is cleared, the revealed blocks hide again.
+- **Show Tools on:** the tool blocks that hold the match expand. The
+  others stay as they are.
+- A tool-only message stays in the Conversation Pane while it holds the
+  active hit, so the click can scroll to it.
+- If no tool block holds the query text (the server's search stems
+  words, so "running" can match "run"), the bubble shows all its tool
+  blocks, so it is not empty.
+- Code: `frontend/src/components/search/toolReveal.ts`.
+
 ---
 
 ## 5. Sidebar dim (out-of-scope rows)

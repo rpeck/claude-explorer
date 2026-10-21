@@ -234,3 +234,37 @@ describe('computeVisibleMessages — order + mixed', () => {
     expect(result).toEqual([])
   })
 })
+
+describe('computeVisibleMessages — the active search hit (2026-10-21)', () => {
+  // A click on a search hit inside a tool-only message did nothing while
+  // tool calls were hidden: the filter dropped the message, so the pane had
+  // no element for it. The active-match message now stays in the list.
+  const toolOnly = makeMessage({
+    uuid: 'tool-only',
+    content: [{ type: 'tool_result', content: [{ type: 'text', text: 'boom' }] }],
+  })
+  const other = makeMessage({
+    uuid: 'other-tool-only',
+    content: [{ type: 'tool_use', name: 'Bash', input: { command: 'ls' } }],
+  })
+
+  it('keeps the active-match message although tool calls are hidden', () => {
+    const out = computeVisibleMessages([toolOnly, other], {
+      showPrelude: true,
+      showToolCalls: false,
+      compactMarkerUuids: NO_COMPACT_MARKERS,
+      revealUuid: 'tool-only',
+    })
+    expect(out.map((m) => m.uuid)).toEqual(['tool-only'])
+  })
+
+  it('drops it again when no hit is active', () => {
+    const out = computeVisibleMessages([toolOnly, other], {
+      showPrelude: true,
+      showToolCalls: false,
+      compactMarkerUuids: NO_COMPACT_MARKERS,
+      revealUuid: null,
+    })
+    expect(out).toEqual([])
+  })
+})

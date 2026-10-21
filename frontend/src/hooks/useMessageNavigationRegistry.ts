@@ -54,6 +54,9 @@ interface UseMessageNavigationRegistryArgs {
   showPrelude: boolean
   /** Whether tool-only messages render. Filters the registry. */
   showToolCalls: boolean
+  /** The active search hit's message (2026-10-21): registered although
+   *  tool calls are hidden, like `computeVisibleMessages`. */
+  revealUuid?: string | null
   /** Active focus area. Selection auto-scroll only fires when 'detail'. */
   focusArea: FocusArea
   /** Owned by ConversationPage; uuid → DOM node lookup for scrollIntoView. */
@@ -78,6 +81,7 @@ export function useMessageNavigationRegistry({
   visibleMessages,
   showPrelude,
   showToolCalls,
+  revealUuid = null,
   focusArea,
   messageRefs,
   virtualizer,
@@ -112,6 +116,7 @@ export function useMessageNavigationRegistry({
       const messageInfos: MessageInfo[] = conversation.messages
         .filter((msg) => {
           if (!showPrelude && msg.is_prelude) return false
+          if (revealUuid && msg.uuid === revealUuid) return true
           return messageHasVisibleContent(msg, showToolCalls)
         })
         .map((msg) => ({
@@ -123,7 +128,7 @@ export function useMessageNavigationRegistry({
     return () => {
       setMessages([])
     }
-  }, [conversation?.messages, showToolCalls, showPrelude, setMessages, setMessagesAndPinSelection])
+  }, [conversation?.messages, showToolCalls, showPrelude, revealUuid, setMessages, setMessagesAndPinSelection])
 
   // 3) Auto-scroll to selected message.
   //

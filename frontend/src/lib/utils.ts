@@ -144,12 +144,17 @@ export function computeVisibleMessages(
      *  for non-CC / show-on call sites. The conversation view passes
      *  true when the user unchecks "Show Compactions". */
     hideCompactSummaries?: boolean
+    /** The message of the active search hit (2026-10-21). It stays in
+     *  the list although tool calls are hidden, because its bubble then
+     *  shows the tool block that holds the match (`toolReveal.ts`). */
+    revealUuid?: string | null
   },
 ): Message[] {
   const hide = opts.hideCompactSummaries === true
   return messages.filter((m) => {
     if (!opts.showPrelude && m.is_prelude) return false
     if (opts.compactMarkerUuids.has(m.uuid)) return !hide
+    if (opts.revealUuid && m.uuid === opts.revealUuid) return true
     return messageHasVisibleContent(m, opts.showToolCalls)
   })
 }

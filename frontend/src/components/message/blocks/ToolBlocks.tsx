@@ -4,14 +4,17 @@ import { Button } from '@/components/ui/button'
 import { useCopyFeedback } from '@/hooks/useCopyFeedback'
 import { errorToast } from '@/lib/errorToast'
 import type { ContentBlock } from '@/lib/types'
+import { HighlightedText } from '@/components/HighlightedText'
 
 interface ToolUseBlockProps {
   name: string
   input: unknown
   forceExpanded?: boolean
+  /** The active search query: its matches get `<mark>` highlights. */
+  searchQuery?: string
 }
 
-export function ToolUseBlock({ name, input, forceExpanded }: ToolUseBlockProps) {
+export function ToolUseBlock({ name, input, forceExpanded, searchQuery = '' }: ToolUseBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const { copied, trigger } = useCopyFeedback()
 
@@ -41,7 +44,9 @@ export function ToolUseBlock({ name, input, forceExpanded }: ToolUseBlockProps) 
         ) : (
           <ChevronRight className="h-4 w-4" />
         )}
-        <span>Tool: {name}</span>
+        <span>
+          Tool: <HighlightedText text={name} query={searchQuery} />
+        </span>
       </button>
       {expanded && (
         <div className="relative border-t border-amber-200 dark:border-amber-800">
@@ -58,7 +63,7 @@ export function ToolUseBlock({ name, input, forceExpanded }: ToolUseBlockProps) 
             )}
           </Button>
           <pre className="overflow-x-auto p-3 text-xs text-amber-900 dark:text-amber-100">
-            {inputJson}
+            <HighlightedText text={inputJson} query={searchQuery} />
           </pre>
         </div>
       )}
@@ -69,9 +74,11 @@ export function ToolUseBlock({ name, input, forceExpanded }: ToolUseBlockProps) 
 interface ToolResultBlockProps {
   content: ContentBlock[]
   forceExpanded?: boolean
+  /** The active search query: its matches get `<mark>` highlights. */
+  searchQuery?: string
 }
 
-export function ToolResultBlock({ content, forceExpanded }: ToolResultBlockProps) {
+export function ToolResultBlock({ content, forceExpanded, searchQuery = '' }: ToolResultBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const expanded = forceExpanded || isExpanded
@@ -107,7 +114,7 @@ export function ToolResultBlock({ content, forceExpanded }: ToolResultBlockProps
       {expanded && (
         <div className="border-t border-zinc-200 p-3 dark:border-zinc-700">
           <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300">
-            {textContent}
+            <HighlightedText text={textContent} query={searchQuery} />
           </pre>
         </div>
       )}

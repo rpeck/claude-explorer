@@ -336,6 +336,10 @@ export function ConversationPage() {
       ),
     [conversation?.compact_markers],
   )
+  // 2026-10-21: the active search hit's message stays visible although
+  // tool calls are hidden; its bubble then shows only the tool block
+  // that holds the match (components/search/toolReveal.ts).
+  const revealUuid = deferredSearchQuery.trim() ? activeMatchUuid : null
   const visibleMessages = useMemo(() => {
     if (!conversation?.messages) return []
     return computeVisibleMessages(conversation.messages, {
@@ -343,8 +347,9 @@ export function ConversationPage() {
       showToolCalls,
       compactMarkerUuids: allCompactMarkerUuidSet,
       hideCompactSummaries: hideCompactMarkers,
+      revealUuid,
     })
-  }, [conversation?.messages, showPrelude, showToolCalls, allCompactMarkerUuidSet, hideCompactMarkers])
+  }, [conversation?.messages, showPrelude, showToolCalls, allCompactMarkerUuidSet, hideCompactMarkers, revealUuid])
 
   // Virtualization (2026-05-23, the load-bearing perf fix) — see
   // PLANS/PERFORMANCE_BASELINE_2026-05-23.md. Pre-fix shape
@@ -576,6 +581,7 @@ export function ConversationPage() {
     visibleMessages,
     showPrelude,
     showToolCalls,
+    revealUuid,
     focusArea,
     messageRefs,
     virtualizer,
