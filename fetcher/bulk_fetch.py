@@ -156,7 +156,9 @@ def needs_refetch(
 
     Timestamps are parsed before comparison, because the same instant can be
     written as ``...Z`` or ``...+00:00`` and those do not compare equal as
-    strings. Values that will not parse fall back to plain inequality.
+    strings. A timestamp without a zone is read as UTC: comparing it with an
+    aware one raised TypeError and failed the whole org's fetch. Values that
+    will not parse fall back to plain inequality.
     """
     if not local_updated_at:
         return True
@@ -164,11 +166,15 @@ def needs_refetch(
         # Nothing to compare against, so we cannot prove the copy is current.
         return True
     try:
-        return datetime.fromisoformat(server_updated_at) > datetime.fromisoformat(
-            local_updated_at
-        )
-    except ValueError:
+        return _parse_utc(server_updated_at) > _parse_utc(local_updated_at)
+    except (ValueError, TypeError):
         return server_updated_at != local_updated_at
+
+
+def _parse_utc(value: str) -> datetime:
+    """Parse an ISO 8601 timestamp; one without a zone is taken as UTC."""
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
 class TransientHTTPError(Exception):

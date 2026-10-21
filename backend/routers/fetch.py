@@ -74,7 +74,50 @@ router = APIRouter(tags=["fetch"])
 # race between coroutines at the check; the streamer's ``finally`` block
 # clears the flag) and a Lock without explicit acquire/release was
 # misleading dead code (Council A1, 2026-05-21).
+#
+# The flag guards BOTH fetch routes: /fetch/refresh and /fetch/start (the
+# Details modal's "Fetch New" and "Full Refresh"). Two fetches at once ran
+# two read-merge-replace cycles on the same Cowork audit.jsonl (PR #8
+# review, 2026-10-21). The name stays for the tests and fixtures that
+# reset it.
 _refresh_in_progress: bool = False
+
+FETCH_IN_PROGRESS_DETAIL = "A fetch is already in progress."
+
+
+class _FetchStreamResponse(StreamingResponse):
+    """A fetch SSE response that clears ``_refresh_in_progress`` when it ends.
+
+    The route sets the flag before it returns this response, so the flag
+    must clear however the response ends. A ``finally`` in the stream is not
+    enough (2026-10-21):
+
+    - When the client leaves before the first chunk, Starlette never starts
+      the stream, so its ``finally`` never runs. Every later fetch and
+      Refresh then got 409 until a restart.
+    - When the client leaves mid-stream, the stream stays suspended until
+      Python finalizes it. Its ``finally`` could then clear the flag of a
+      newer fetch.
+
+    So close the stream here first, then clear the flag.
+    """
+
+    async def __call__(self, scope, receive, send) -> None:  # type: ignore[override]
+        global _refresh_in_progress
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            try:
+                aclose = getattr(self.body_iterator, "aclose", None)
+                if aclose is not None:
+                    await aclose()
+            finally:
+                _refresh_in_progress = False
+
+#: ``phase`` of the remote Cowork step's progress frames. Their
+#: ``current``/``total`` start again at 1 for each workspace, after the chat
+#: phase's cumulative counts, so the web page labels them "Cowork task N/M".
+COWORK_PHASE = "cowork"
 
 
 # Build-9: timeout the user has to complete login in the captured browser.
@@ -290,6 +333,7 @@ async def get_fetch_status() -> FetchStatus:
         output_dir=str(output_dir),
         existing_count=existing_count,
         credentials_age_days=credentials_age_days,
+        fetch_in_progress=_refresh_in_progress,
     )
 
 
@@ -374,6 +418,7 @@ async def _remote_cowork_stream(
                 "message": f"[{org_name}] Could not list Cowork tasks: {exc}",
                 "current": 0,
                 "total": 0,
+                "phase": COWORK_PHASE,
             })
             continue
 
@@ -385,9 +430,10 @@ async def _remote_cowork_stream(
                 "current": i,
                 "total": len(work),
                 "conversation_name": title,
+                "phase": COWORK_PHASE,
             })
             try:
-                await loop.run_in_executor(
+                stored = await loop.run_in_executor(
                     None, remote.sync_session, org_uuid, session, after_seq
                 )
             except Exception as exc:  # noqa: BLE001
@@ -401,9 +447,13 @@ async def _remote_cowork_stream(
                     "message": f"Error fetching Cowork task {title}: {exc}",
                     "current": i,
                     "total": len(work),
+                    "phase": COWORK_PHASE,
                 })
             else:
-                totals["fetched"] = totals.get("fetched", 0) + 1
+                # Only a task with new events counts. A new title alone, or
+                # only dropped transport events, is saved but not "fetched".
+                if stored:
+                    totals["fetched"] = totals.get("fetched", 0) + 1
             for frame in _drain_retry_events(fetcher):
                 yield frame
             if i < len(work):
@@ -783,6 +833,7 @@ async def force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     summary="Start a bulk fetch from Claude (Server-Sent Events stream)",
     responses={
         200: {"content": {"text/event-stream": {}}},
+        409: {"description": "A fetch or refresh is already in progress on this worker"},
         503: {"description": "Config file is corrupt; refuse to write to data_dir"},
     },
     # Layer 2: refuse when config corrupt. The gate fires before the
@@ -805,8 +856,16 @@ async def fetch_conversations(
     Args:
         incremental: If True, skip already-downloaded conversations
         limit: Max number of conversations to fetch
+
+    Returns 409 while any fetch or refresh runs on this worker.
     """
-    return StreamingResponse(
+    global _refresh_in_progress
+    if _refresh_in_progress:
+        raise HTTPException(status_code=409, detail=FETCH_IN_PROGRESS_DETAIL)
+    _refresh_in_progress = True
+
+    # _FetchStreamResponse clears the flag when the response ends.
+    return _FetchStreamResponse(
         fetch_conversations_stream(incremental=incremental, limit=limit),
         media_type="text/event-stream",
         headers={
@@ -1490,12 +1549,11 @@ async def refresh_pipeline(
     """
     global _refresh_in_progress
     if _refresh_in_progress:
-        raise HTTPException(
-            status_code=409, detail="Refresh already in progress."
-        )
+        raise HTTPException(status_code=409, detail=FETCH_IN_PROGRESS_DETAIL)
     _refresh_in_progress = True
 
-    return StreamingResponse(
+    # _FetchStreamResponse clears the flag when the response ends.
+    return _FetchStreamResponse(
         refresh_pipeline_stream(incremental=incremental, limit=limit),
         media_type="text/event-stream",
         headers={

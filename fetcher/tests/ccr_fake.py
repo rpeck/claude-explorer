@@ -110,6 +110,9 @@ class FakeSession:
     status: str = "active"
     model: str = "claude-opus-5-5"
     folder: str | None = "/Users/someone/Source/a-project-with-a-long-name"
+    #: The live API can advance ``last_event_at`` (new events) without
+    #: touching ``updated_at``. ``None`` means "same as ``updated_at``".
+    last_event_at: str | None = None
 
     def summary(self) -> dict:
         return {
@@ -118,7 +121,7 @@ class FakeSession:
             "status": self.status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-            "last_event_at": self.updated_at,
+            "last_event_at": self.last_event_at or self.updated_at,
             "environment_kind": "anthropic_cloud",
             "tags": ["cowork-remote", "product:cowork-remote"],
             "config": {"model": self.model, "origin": "desktop_app"},

@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { completeToastFor, formatProgressText } from '../../components/fetch/FetchToast'
+import { describe, it, expect, vi } from 'vitest'
+import {
+  FETCH_BUSY_MESSAGE,
+  completeToastFor,
+  formatProgressText,
+  streamFailureMessage,
+} from '../../components/fetch/FetchToast'
 
 /**
  * Build-9 Bug 2: live progress feedback in the Refresh toast.
@@ -132,5 +137,87 @@ describe('completeToastFor (failed Cowork tasks, 2026-10-19)', () => {
     expect(completeToastFor({ type: 'complete', message: '' }, 'Refresh complete.').message).toBe(
       'Refresh complete.',
     )
+  })
+})
+
+describe('formatProgressText for the Cowork phase (PR #8 review, 2026-10-21)', () => {
+  // The chat phase counts across all workspaces ("Fetching 120/120"). The
+  // Cowork phase counts per workspace from 1. Shown with the same words,
+  // the toast seemed to jump back from 120/120 to 1/18.
+
+  it('names the phase when a frame has phase "cowork"', () => {
+    expect(
+      formatProgressText({
+        type: 'progress',
+        message: '[Work] Fetching Cowork task: Daily summary',
+        current: 1,
+        total: 18,
+        conversation_name: 'Daily summary',
+        phase: 'cowork',
+      }),
+    ).toBe('Cowork task 1/18: Daily summary')
+  })
+
+  it('names the phase without a title too', () => {
+    expect(
+      formatProgressText({
+        type: 'progress',
+        message: 'Error fetching Cowork task Daily summary: HTTP 500',
+        current: 3,
+        total: 18,
+        phase: 'cowork',
+      }),
+    ).toBe('Cowork task 3/18…')
+  })
+
+  it('shows the message of a Cowork frame without counts', () => {
+    expect(
+      formatProgressText({
+        type: 'progress',
+        message: '[Work] Could not list Cowork tasks: HTTP 500',
+        current: 0,
+        total: 0,
+        phase: 'cowork',
+      }),
+    ).toBe('[Work] Could not list Cowork tasks: HTTP 500')
+  })
+
+  it('keeps "Fetching N/M" for chat frames', () => {
+    expect(
+      formatProgressText({ type: 'progress', message: 'x', current: 120, total: 120, conversation_name: 'Chat' }),
+    ).toBe('Fetching 120/120: Chat')
+  })
+})
+
+describe('streamFailureMessage (409 from a second fetch, 2026-10-21)', () => {
+  // An EventSource cannot read the HTTP status of a refused stream.
+
+  it('names a running fetch when the stream never opened', async () => {
+    const msg = await streamFailureMessage(false, 'Connection lost during fetch', async () => ({
+      fetch_in_progress: true,
+    }))
+    expect(msg).toBe(FETCH_BUSY_MESSAGE)
+  })
+
+  it('keeps the fallback when no fetch runs', async () => {
+    const msg = await streamFailureMessage(false, 'Connection lost during fetch', async () => ({
+      fetch_in_progress: false,
+    }))
+    expect(msg).toBe('Connection lost during fetch')
+  })
+
+  it('keeps the fallback when the stream had already delivered events', async () => {
+    const status = vi.fn(async () => ({ fetch_in_progress: true }))
+    expect(await streamFailureMessage(true, 'Connection lost during refresh.', status)).toBe(
+      'Connection lost during refresh.',
+    )
+    expect(status).not.toHaveBeenCalled()
+  })
+
+  it('keeps the fallback when the status call fails (server down)', async () => {
+    const msg = await streamFailureMessage(false, 'Connection lost during fetch', async () => {
+      throw new Error('offline')
+    })
+    expect(msg).toBe('Connection lost during fetch')
   })
 })

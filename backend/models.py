@@ -480,6 +480,9 @@ class FetchStatus(BaseModel):
     output_dir: str
     existing_count: int
     credentials_age_days: int | None = None
+    #: True while a fetch or refresh runs. An ``EventSource`` cannot read
+    #: the 409 status, so the web page asks here why its stream failed.
+    fetch_in_progress: bool = False
 
 
 class FetchProgress(BaseModel):
@@ -519,6 +522,10 @@ class FetchProgress(BaseModel):
     #: failed. A failure makes the frontend show a warning toast.
     cowork_tasks_fetched: int | None = None
     cowork_tasks_failed: int | None = None
+    #: ``"cowork"`` on the remote Cowork step's progress frames. Their
+    #: ``current``/``total`` count the tasks of one workspace from 1, not
+    #: the chat phase's cumulative counts.
+    phase: Literal["cowork"] | None = None
 
 
 class ForceRefetchResponse(BaseModel):
