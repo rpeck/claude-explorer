@@ -672,7 +672,8 @@ class ConversationStore:
             for cached in list(_cowork_summary_cache):
                 if cached not in live and any(cached.is_relative_to(r) for r in roots):
                     del _cowork_summary_cache[cached]
-        return out
+        # One row per uuid, as list_cowork_conversations gives search/export.
+        return cowork_reader.newest_per_uuid(out)
 
     def list_conversations(
         self,
@@ -876,14 +877,24 @@ class ConversationStore:
         # (``remote_<id>``). ``find_cowork_session_dirs`` checks one candidate
         # per org dir, so this resolution is O(orgs), not O(sessions). Try
         # every copy: the first one can be empty or have no user turn while
-        # the list shows the row from another copy.
-        from .cowork_reader import find_cowork_session_dirs, read_cowork_conversation
+        # the list shows the row from another copy. Of two readable copies,
+        # open the newest, which is the one the list shows (newest_per_uuid).
+        from .cowork_reader import (
+            find_cowork_session_dirs,
+            read_cowork_conversation,
+            updated_at_key,
+        )
+        found: tuple[dict[str, Any], Path] | None = None
         for candidate in find_cowork_session_dirs(
             self.cowork_root, self.remote_cowork_root, uuid
         ):
             data = read_cowork_conversation(candidate)
-            if data and data.get("uuid") == uuid:
-                return data, candidate / "audit.jsonl"
+            if not data or data.get("uuid") != uuid:
+                continue
+            if found is None or updated_at_key(data) > updated_at_key(found[0]):
+                found = (data, candidate)
+        if found is not None:
+            return found[0], found[1] / "audit.jsonl"
 
         return None, None
 

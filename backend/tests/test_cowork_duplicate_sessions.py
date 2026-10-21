@@ -10,9 +10,11 @@ Cowork list cache):
    conversation (built from the good copy) but opening it returned 404.
 2. Remote tasks had ``organization_id = None`` although their sidecar
    records ``organizationId``, so a workspace filter hid every remote task.
+3. The list did not deduplicate Cowork sessions by uuid. One remote task
+   written under two org directories gave two sidebar rows with one uuid.
 
 Directory iteration order is not defined, so each duplicate test runs with
-the good copy in each of the two directories.
+the good (or newer) copy in each of the two directories.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from backend import store as store_mod
+from backend.cowork_reader import list_cowork_conversations
 from backend.store import ConversationStore
 from backend.tests.test_store_cowork_integration import (
     HAPPY_SESSION_DIR,
@@ -212,3 +215,72 @@ def test_search_index_repairs_remote_tasks_indexed_without_a_workspace(tmp_path:
     assert orgs[REMOTE_ID] == ORG_A
     assert msg_orgs == {ORG_A}
     assert not orgs[LOCAL_UUID]
+
+
+# ----- 3. One row per uuid, the newest copy wins ---------------------------
+
+
+@pytest.mark.parametrize("newer_org", [ORG_A, ORG_B])
+def test_full_content_list_keeps_one_copy_of_a_duplicated_remote_task(
+    tmp_path: Path, newer_org: str
+) -> None:
+    data_dir = tmp_path / "data"
+    older_org = ORG_B if newer_org == ORG_A else ORG_A
+    _write_remote(data_dir, older_org, "2026-10-02T10:00:00Z", "Older copy")
+    _write_remote(data_dir, newer_org, "2026-10-05T10:00:00Z", "Newer copy")
+
+    convs = list_cowork_conversations(tmp_path / "no-local-cowork", data_dir / "cowork-remote")
+
+    assert [c["uuid"] for c in convs] == [REMOTE_ID]
+    assert convs[0]["name"] == "Newer copy"
+    assert convs[0]["organization_id"] == newer_org
+
+
+@pytest.mark.parametrize("newer_org", [ORG_A, ORG_B])
+def test_sidebar_list_keeps_one_copy_of_a_duplicated_remote_task(
+    tmp_path: Path, newer_org: str
+) -> None:
+    store = _store(tmp_path)
+    older_org = ORG_B if newer_org == ORG_A else ORG_A
+    _write_remote(store.data_dir, older_org, "2026-10-02T10:00:00Z", "Older copy")
+    _write_remote(store.data_dir, newer_org, "2026-10-05T10:00:00Z", "Newer copy")
+
+    for attempt in ("cold", "from the cache"):
+        rows = store.list_conversations(source="CLAUDE_COWORK")
+        assert [r.uuid for r in rows] == [REMOTE_ID], attempt
+        assert rows[0].name == "Newer copy", attempt
+        assert rows[0].organization_id == newer_org, attempt
+
+    # Search and export read the full sessions; they see one copy too.
+    raw = store.get_all_conversations_raw(source="CLAUDE_COWORK")
+    assert [c["uuid"] for c in raw] == [REMOTE_ID]
+    assert raw[0]["name"] == "Newer copy"
+
+    # Opening the row shows the copy that the list shows.
+    detail = store.get_conversation(REMOTE_ID)
+    assert detail is not None and detail.name == "Newer copy"
+
+
+@pytest.mark.parametrize("newer_deployment", ["d_first", "d_second"])
+def test_sidebar_list_keeps_one_copy_of_a_duplicated_local_session(
+    tmp_path: Path, newer_deployment: str
+) -> None:
+    cowork_root = tmp_path / "local-agent-mode-sessions"
+    text = "\n".join(_happy_lines()) + "\n"
+    for deployment in ("d_first", "d_second"):
+        session_dir = _write_local(cowork_root, deployment, text)
+        sidecar_path = session_dir.with_suffix(".json")
+        sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        # 2025-10-05 vs 2025-10-02 10:00 UTC, as epoch ms.
+        sidecar["lastActivityAt"] = (
+            1_759_658_400_000 if deployment == newer_deployment else 1_759_399_200_000
+        )
+        sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+    store = _store(tmp_path, cowork_root)
+
+    rows = store.list_conversations(source="CLAUDE_COWORK")
+    assert [r.uuid for r in rows] == [LOCAL_UUID]
+    assert rows[0].name == f"Copy in {newer_deployment}"
+
+    detail = store.get_conversation(LOCAL_UUID)
+    assert detail is not None and detail.name == f"Copy in {newer_deployment}"

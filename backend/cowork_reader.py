@@ -346,7 +346,43 @@ def list_cowork_conversations(
             continue
         if conv:
             out.append(conv)
-    return out
+    return newest_per_uuid(out)
+
+
+_OLDEST = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def updated_at_key(conv: dict) -> datetime:
+    """``conv["updated_at"]`` as an aware datetime, for "newest" comparisons.
+
+    A missing or unparseable value sorts as the oldest.
+    """
+    value = conv.get("updated_at")
+    if not isinstance(value, str) or not value:
+        return _OLDEST
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return _OLDEST
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def newest_per_uuid(convs: list[dict]) -> list[dict]:
+    """One conversation per uuid: the copy with the newest ``updated_at``.
+
+    The same session can exist in two org or deployment directories (one
+    remote task written under two orgs, or one local session under two
+    deployments). Without this, the sidebar shows two rows with one uuid.
+    On a tie the first copy wins. The output keeps the order in which each
+    uuid first appears.
+    """
+    best: dict[str, dict] = {}
+    for conv in convs:
+        uuid = conv.get("uuid") or ""
+        kept = best.get(uuid)
+        if kept is None or updated_at_key(conv) > updated_at_key(kept):
+            best[uuid] = conv
+    return list(best.values())
 
 
 # ---------------------------------------------------------------------------
