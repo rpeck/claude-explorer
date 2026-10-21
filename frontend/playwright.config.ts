@@ -37,6 +37,14 @@ const REPO_ROOT = path.resolve(__dirname, '..')
  * watcher — are disabled via env vars so the `git diff --quiet
  * backend/tests/fixtures` freshness check in CI stays green.
  */
+
+// Dedicated ports. Locally, reuseExistingServer reuses any server on these
+// ports, and 8765 and 5173 are the ports of the installed app and of
+// `npm run dev`. On 2026-10-21 the tests reused the installed app, with the
+// developer's real archive, so the suite tested an older release.
+const E2E_API_PORT = 18765
+const E2E_WEB_PORT = 15173
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -46,7 +54,7 @@ export default defineConfig({
   timeout: 60_000,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${E2E_WEB_PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -74,9 +82,9 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'uv run uvicorn backend.main:app --port 8765',
+      command: `uv run uvicorn backend.main:app --port ${E2E_API_PORT}`,
       cwd: REPO_ROOT,
-      url: 'http://localhost:8765/api/health',
+      url: `http://localhost:${E2E_API_PORT}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       stdout: 'pipe',
@@ -115,8 +123,10 @@ export default defineConfig({
       },
     },
     {
-      command: 'npm run dev',
-      url: 'http://localhost:5173',
+      command: `npm run dev -- --port ${E2E_WEB_PORT} --strictPort`,
+      url: `http://localhost:${E2E_WEB_PORT}`,
+      // vite.config.ts proxies /api to this backend.
+      env: { CLAUDE_EXPLORER_API_URL: `http://localhost:${E2E_API_PORT}` },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

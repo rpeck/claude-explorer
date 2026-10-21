@@ -57,6 +57,8 @@ from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
 
 from .config import get_settings, migrate_legacy_data_dir, read_env  # noqa: E402
 from .host_guard import HostGuardMiddleware  # noqa: E402
+# The single source of truth for the release (pyproject.toml reads it too).
+from mcp_server import __version__  # noqa: E402
 from .routers import account, conversations, search, export, config, fetch, bookmarks, orgs, files, preferences, shutdown, watcher_health  # noqa: E402
 
 
@@ -948,7 +950,7 @@ def install_request_timing_middleware(app: FastAPI) -> None:
 app = FastAPI(
     title="Claude Explorer",
     description="API for browsing and exporting Claude Desktop conversations",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -1024,7 +1026,7 @@ async def api_info():
     """
     return {
         "name": "Claude Explorer",
-        "version": "0.1.0",
+        "version": __version__,
         "docs": "/docs",
     }
 
@@ -1125,7 +1127,7 @@ else:
     async def _root_json() -> dict:
         return {
             "name": "Claude Explorer",
-            "version": "0.1.0",
+            "version": __version__,
             "docs": "/docs",
             "ui": "not bundled — install from PyPI or run `npm run build` in frontend/",
         }

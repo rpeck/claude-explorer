@@ -389,6 +389,16 @@ source of truth.
 
 ---
 
+### The About section
+
+The last section of the Settings page.
+
+- **Version:** "Version 1.1.6". It comes from `version` on `/api/config`,
+  which is `mcp_server.__version__`. A user can see which release runs,
+  for example after `uv tool upgrade`. A server from before 2026-10-21
+  sends no version; then the line is not shown.
+- **View on GitHub:** links to `https://github.com/rpeck/claude-explorer`.
+
 ## 11. Image fallback + auto-reload
 
 Inline images go through one fallback layer before showing the

@@ -431,6 +431,10 @@ export interface AppConfig {
   // while this is non-null, so users need to know the path of the
   // file to fix.
   config_corrupt_reason: string | null
+  // The installed release (`mcp_server.__version__`), shown in the
+  // Settings page's About section. Optional: servers before 2026-10-21
+  // do not send it.
+  version?: string
 }
 
 export interface AppConfigStats extends AppConfig {

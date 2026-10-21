@@ -57,6 +57,7 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -83,11 +84,13 @@ __all__ = [
     "LOCK_TIMEOUT_SECONDS",
     # Types
     "CredentialsV2",
+    "FetcherCredentials",
     "OrgRef",
     # Exceptions
     "CredentialsCorruptError",
     "LockContentionError",
     # Pure functions
+    "fetcher_credentials",
     "resolve_primary_org_id",
     # Reads
     "load_credentials",
@@ -244,6 +247,104 @@ def resolve_primary_org_id(
         return sorted(chat_capable)[0]
 
     return sorted(o["uuid"] for o in orgs)[0]
+
+
+# ---------------------------------------------------------------------------
+# ClaudeFetcher arguments (canonical)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FetcherCredentials:
+    """The credential arguments of ``fetcher.bulk_fetch.ClaudeFetcher``."""
+
+    session_key: str
+    orgs: list[dict]
+    primary_org_id: str
+    cf_bm: str | None
+    cf_clearance: str | None
+
+    def fetcher_kwargs(self) -> dict:
+        """Keyword arguments for ``ClaudeFetcher(**...)``."""
+        return {
+            "session_key": self.session_key,
+            "orgs": list(self.orgs),
+            "primary_org_id": self.primary_org_id,
+            "cf_bm": self.cf_bm,
+            "cf_clearance": self.cf_clearance,
+        }
+
+
+def _synthetic_org(uuid: str) -> dict:
+    return {"uuid": uuid, "name": None, "capabilities": [], "seen_in_response": False}
+
+
+def fetcher_credentials(
+    creds: dict,
+    *,
+    session_key: str | None = None,
+    org_id: str | None = None,
+) -> FetcherCredentials:
+    """Turn loaded credentials, plus optional overrides, into fetcher arguments.
+
+    Every caller that builds a ``ClaudeFetcher`` uses this function. Five
+    callers once had their own copies of this conversion, and the copies
+    drifted: ``claude-explorer fetch`` crashed on a stale ``org_id=``
+    keyword (issue #1), and the web routes refused a v2 file without the
+    legacy ``org_id`` mirror. Callers keep their own loader and their own
+    way to report an error.
+
+    ``creds`` is a v2 dict, a v1 dict (``session_key`` plus a flat
+    ``org_id``), or ``{}`` when the overrides give everything.
+
+    - ``session_key`` replaces the file's session key.
+    - ``org_id`` selects that org as the primary. An org that is not in the
+      file's ``orgs`` becomes the only org.
+
+    Raises:
+        CredentialsCorruptError: with a message for the user, when no
+            session key or no usable org is available.
+    """
+    key = session_key or creds.get("session_key")
+    if not isinstance(key, str) or not key:
+        raise CredentialsCorruptError("The credentials have no session_key.")
+
+    raw_orgs = creds.get("orgs") or []
+    if not isinstance(raw_orgs, list):
+        raise CredentialsCorruptError("The credentials field 'orgs' is not a list.")
+    for i, org in enumerate(raw_orgs):
+        if not isinstance(org, dict) or not isinstance(org.get("uuid"), str) or not org["uuid"]:
+            raise CredentialsCorruptError(f"orgs[{i}] in the credentials has no uuid.")
+    orgs = [dict(o) for o in raw_orgs]
+    uuids = {o["uuid"] for o in orgs}
+
+    if org_id:
+        if org_id not in uuids:
+            orgs = [_synthetic_org(org_id)]
+        primary = org_id
+    elif orgs:
+        # ``org_id`` is the v2 file's legacy mirror of ``primary_org_id``.
+        stated = creds.get("primary_org_id") or creds.get("org_id")
+        if stated and stated not in uuids:
+            raise CredentialsCorruptError(
+                f"The primary org {stated!r} is not one of the orgs in the "
+                f"credentials ({', '.join(sorted(uuids))})."
+            )
+        primary = stated or resolve_primary_org_id(orgs)  # type: ignore[arg-type]
+    elif creds.get("org_id"):
+        # v1: one flat org_id.
+        primary = creds["org_id"]
+        orgs = [_synthetic_org(primary)]
+    else:
+        raise CredentialsCorruptError("The credentials name no org (no orgs and no org_id).")
+
+    return FetcherCredentials(
+        session_key=key,
+        orgs=orgs,
+        primary_org_id=primary,
+        cf_bm=creds.get("cf_bm"),
+        cf_clearance=creds.get("cf_clearance"),
+    )
 
 
 # ---------------------------------------------------------------------------
