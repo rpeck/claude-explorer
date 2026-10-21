@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { invalidateAfterFetch } from '@/lib/queryClient'
 import { api } from '@/lib/api'
 import { errorToast } from '@/lib/errorToast'
-import { formatProgressText, type FetchProgress } from '@/components/fetch/FetchToast'
+import { completeToastFor, formatProgressText, type FetchProgress } from '@/components/fetch/FetchToast'
 
 /**
  * Build-9 Bug 1: lift the Refresh-pipeline state out of the Sidebar's
@@ -174,15 +174,24 @@ export function FetchPipelineProvider({ children }: { children: ReactNode }) {
             })
             break
           }
-          case 'complete':
-            toast.success(data.message || 'Refresh complete.', {
-              id: toastId,
-              duration: 5000,
-            })
+          case 'complete': {
+            // A Cowork task that failed to download makes this a warning,
+            // never a green "success" (completeToastFor).
+            const done = completeToastFor(data, 'Refresh complete.')
+            if (done.kind === 'warning') {
+              toast.warning(done.message, {
+                id: toastId,
+                duration: 15000,
+                action: { label: 'Details', onClick: () => openDetails() },
+              })
+            } else {
+              toast.success(done.message, { id: toastId, duration: 5000 })
+            }
             void invalidateAfterFetch(queryClient)
             setState('complete')
             close()
             break
+          }
           case 'error':
             showErrorByKind(
               data.message || 'Refresh failed.',

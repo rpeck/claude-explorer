@@ -217,6 +217,12 @@ test.describe('Refresh toast: live progress text (Bug 2)', () => {
     const toast = page.locator('[data-sonner-toast][data-type="warning"]')
     await expect(toast).toBeVisible({ timeout: 5000 })
     await expect(toast).toContainText('could not be downloaded (Daily summary)')
-    await expect(toast.getByRole('button', { name: 'Details' })).toBeVisible()
+
+    // Details opens the fetch dialog, whose result box is amber, not green.
+    await toast.getByRole('button', { name: 'Details' }).click()
+    const result = page.getByTestId('fetch-result-warning')
+    await expect(result).toBeVisible()
+    await expect(result).toContainText('Fetch finished, but some Cowork tasks failed')
+    await expect(result).toContainText('could not be downloaded (Daily summary)')
   })
 });
