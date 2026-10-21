@@ -27,6 +27,10 @@ export interface FetchProgress {
   // Bug B: present on `type:"error"` events.
   kind?: ErrorKind
   retryable?: boolean
+  // Present on `type:"complete"` events: Cowork tasks archived, and tasks
+  // whose download failed (backend/routers/fetch.py:_remote_fields).
+  cowork_tasks_fetched?: number
+  cowork_tasks_failed?: number
 }
 
 // Build-9 Bug 2: maximum visible chars for the per-conversation name suffix
@@ -58,6 +62,21 @@ export function formatProgressText(data: FetchProgress): string {
     return `Fetching ${current}/${total}…`
   }
   return data.message || 'Fetching…'
+}
+
+/**
+ * Which toast a `complete` event gets. A Cowork task that failed to download
+ * makes it a warning: a green "successfully" toast once hid such failures,
+ * Refresh after Refresh (PR #6 review, 2026-10-19). Exported for unit tests.
+ */
+export function completeToastFor(
+  data: FetchProgress,
+  fallback: string = 'Fetch complete.',
+): { kind: 'success' | 'warning'; message: string } {
+  const message = data.message || fallback
+  return (data.cowork_tasks_failed ?? 0) > 0
+    ? { kind: 'warning', message }
+    : { kind: 'success', message }
 }
 
 interface UseFetchToastOptions {
@@ -100,10 +119,16 @@ export function useFetchToast({ onOpenDetails }: UseFetchToastOptions) {
         latestProgress = data
 
         if (data.type === 'complete') {
-          toast.success(data.message || 'Fetch complete.', {
-            id: toastId,
-            duration: 5000,
-          })
+          const done = completeToastFor(data, 'Fetch complete.')
+          if (done.kind === 'warning') {
+            toast.warning(done.message, {
+              id: toastId,
+              duration: 15000,
+              action: { label: 'Details', onClick: () => onOpenDetails() },
+            })
+          } else {
+            toast.success(done.message, { id: toastId, duration: 5000 })
+          }
           void invalidateAfterFetch(queryClient)
           eventSource.close()
           sourceRef.current = null
@@ -285,14 +310,21 @@ export function useRefreshPipeline({ onOpenDetails }: UseRefreshPipelineOptions)
             })
             break
           }
-          case 'complete':
-            toast.success(data.message || 'Refresh complete.', {
-              id: toastId,
-              duration: 5000,
-            })
+          case 'complete': {
+            const done = completeToastFor(data, 'Refresh complete.')
+            if (done.kind === 'warning') {
+              toast.warning(done.message, {
+                id: toastId,
+                duration: 15000,
+                action: { label: 'Details', onClick: () => onOpenDetails() },
+              })
+            } else {
+              toast.success(done.message, { id: toastId, duration: 5000 })
+            }
             void invalidateAfterFetch(queryClient)
             close()
             break
+          }
           case 'error':
             showErrorByKind(
               data.message || 'Refresh failed.',

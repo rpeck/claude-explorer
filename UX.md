@@ -581,6 +581,11 @@ created_at}`.
   under the **Claude Cowork** source filter, like local Cowork sessions.
   The `complete` message counts them ("Fetched 0 conversations and 18
   Cowork tasks across 2 workspace(s).").
+- **A Cowork task that fails to download is never hidden.** The `complete`
+  message then names up to three failed tasks ("2 Cowork tasks could not
+  be downloaded (A, B). The next Refresh tries them again."), and the final
+  toast is a **warning** with a **Details** button, shown for 15 seconds,
+  instead of the green success toast.
 - Incremental fetches re-download a conversation whose server
   `updated_at` is newer than the local copy, not only conversations
   missing from disk.

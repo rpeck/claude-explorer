@@ -187,4 +187,36 @@ test.describe('Refresh toast: live progress text (Bug 2)', () => {
     // Final state should be success.
     await expect(toast).toContainText(/Fetched 1 conversations/i, { timeout: 5000 });
   });
+
+  test('a failed Cowork task turns the final toast into a warning with Details', async ({ page }) => {
+    // A task whose download kept failing used to end in a green
+    // "successfully" toast (PR #6 review, 2026-10-19).
+    const message =
+      'Fetched 0 conversations and 1 Cowork task across 1 workspace(s). ' +
+      '1 Cowork task could not be downloaded (Daily summary). The next Refresh tries it again.'
+    await page.route('**/api/fetch/refresh*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body:
+          'data: {"type":"start","message":"Fetching conversation list...","current":0,"total":0}\n\n' +
+          `data: ${JSON.stringify({
+            type: 'complete',
+            message,
+            cowork_tasks_fetched: 1,
+            cowork_tasks_failed: 1,
+            current: 0,
+            total: 0,
+          })}\n\n`,
+      })
+    })
+
+    await withNetRetry(page, () => page.goto('/'))
+    await clickRefresh(page)
+
+    const toast = page.locator('[data-sonner-toast][data-type="warning"]')
+    await expect(toast).toBeVisible({ timeout: 5000 })
+    await expect(toast).toContainText('could not be downloaded (Daily summary)')
+    await expect(toast.getByRole('button', { name: 'Details' })).toBeVisible()
+  })
 });

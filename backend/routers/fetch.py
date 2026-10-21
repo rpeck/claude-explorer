@@ -4,7 +4,7 @@ import json
 import asyncio
 import logging
 import time
-from typing import AsyncGenerator, Literal
+from typing import Any, AsyncGenerator, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -332,7 +332,7 @@ async def _remote_cowork_stream(
     fetcher: ClaudeFetcher,
     orgs: list[tuple[str, str]],
     incremental: bool,
-    totals: dict[str, int],
+    totals: dict[str, Any],
 ) -> AsyncGenerator[str, None]:
     """Archive remote Cowork sessions (cloud tasks) for each org.
 
@@ -341,7 +341,8 @@ async def _remote_cowork_stream(
     all. See ``fetcher.remote_sessions``.
 
     Yields SSE ``progress`` frames and adds the number of tasks fetched to
-    ``totals["fetched"]`` and failures to ``totals["failed"]``. This step is
+    ``totals["fetched"]``, failures to ``totals["failed"]``, and the failed
+    tasks' titles to ``totals["failed_titles"]``. This step is
     additive: an org without access to the sessions API (401/403/404) is
     skipped quietly, and any other error is reported as progress, never as
     a stream error, so it cannot fail a chat fetch that succeeded.
@@ -394,6 +395,7 @@ async def _remote_cowork_stream(
                     "remote cowork: fetching task %s failed: %s", session.get("id"), exc
                 )
                 totals["failed"] = totals.get("failed", 0) + 1
+                totals.setdefault("failed_titles", []).append(title)
                 yield _send_event({
                     "type": "progress",
                     "message": f"Error fetching Cowork task {title}: {exc}",
@@ -413,12 +415,43 @@ async def _remote_cowork_stream(
             )
 
 
-def _remote_summary(totals: dict[str, int]) -> str:
+def _remote_summary(totals: dict[str, Any]) -> str:
     """`` and N Cowork tasks`` for the ``complete`` message, or ``""``."""
     n = totals.get("fetched", 0)
     if not n:
         return ""
     return f" and {n} Cowork task{'s' if n != 1 else ''}"
+
+
+def _remote_failures(totals: dict[str, Any]) -> str:
+    """The failed-tasks note for the ``complete`` message, or ``""``.
+
+    A task that keeps failing must not hide behind "successfully": the
+    note names up to three of them and says that Refresh tries again
+    (PR #6 review, 2026-10-19).
+    """
+    n = totals.get("failed", 0)
+    if not n:
+        return ""
+    titles = list(totals.get("failed_titles") or [])
+    shown = ", ".join(titles[:3])
+    if len(titles) > 3:
+        shown = f"{', '.join(titles[:3])} and {len(titles) - 3} more"
+    which = f" ({shown})" if shown else ""
+    task = "task" if n == 1 else "tasks"
+    pronoun = "it" if n == 1 else "them"
+    return (
+        f" {n} Cowork {task} could not be downloaded{which}. "
+        f"The next Refresh tries {pronoun} again."
+    )
+
+
+def _remote_fields(totals: dict[str, Any]) -> dict[str, int]:
+    """Counts for the ``complete`` event, so the UI can warn about failures."""
+    return {
+        "cowork_tasks_fetched": totals.get("fetched", 0),
+        "cowork_tasks_failed": totals.get("failed", 0),
+    }
 
 
 async def fetch_conversations_stream(
@@ -532,7 +565,7 @@ async def fetch_conversations_stream(
             "total": total,
         })
 
-        remote_totals: dict[str, int] = {"fetched": 0, "failed": 0}
+        remote_totals: dict[str, Any] = {"fetched": 0, "failed": 0, "failed_titles": []}
         primary_name = next(
             (o.get("name") for o in orgs_list if o.get("uuid") == primary), None
         ) or primary[:8]
@@ -543,13 +576,18 @@ async def fetch_conversations_stream(
             ):
                 yield frame
             await _reindex_search_after_fetch()
+            failures = _remote_failures(remote_totals)
+            if remote_totals["fetched"]:
+                message = (
+                    f"Fetched 0 conversations{_remote_summary(remote_totals)}"
+                    + (f".{failures}" if failures else " successfully.")
+                )
+            else:
+                message = f"No new conversations to fetch.{failures}"
             yield send_event({
                 "type": "complete",
-                "message": (
-                    "No new conversations to fetch."
-                    if not remote_totals["fetched"]
-                    else f"Fetched 0 conversations{_remote_summary(remote_totals)} successfully."
-                ),
+                "message": message,
+                **_remote_fields(remote_totals),
                 "current": 0,
                 "total": 0,
             })
@@ -613,12 +651,14 @@ async def fetch_conversations_stream(
             yield frame
         await _reindex_search_after_fetch()
 
+        failures = _remote_failures(remote_totals)
         yield send_event({
             "type": "complete",
             "message": (
-                f"Fetched {fetched_count} conversations"
-                f"{_remote_summary(remote_totals)} successfully."
+                f"Fetched {fetched_count} conversations{_remote_summary(remote_totals)}"
+                + (f".{failures}" if failures else " successfully.")
             ),
+            **_remote_fields(remote_totals),
             "current": total,
             "total": total,
         })
@@ -1224,7 +1264,7 @@ async def _fetch_phase_stream(
         yield (bucket, msg)
         return
 
-    remote_totals: dict[str, int] = {"fetched": 0, "failed": 0}
+    remote_totals: dict[str, Any] = {"fetched": 0, "failed": 0, "failed_titles": []}
     async for frame in _remote_cowork_stream(
         fetcher,
         [(r["org_id"], r["name"]) for r in successful],
@@ -1240,9 +1280,9 @@ async def _fetch_phase_stream(
             "type": "complete",
             "message": (
                 f"Fetched {fetched_count} conversations{_remote_summary(remote_totals)} "
-                f"across {len(org_results)} workspace(s)."
+                f"across {len(org_results)} workspace(s).{_remote_failures(remote_totals)}"
             ),
-            "cowork_tasks_fetched": remote_totals["fetched"],
+            **_remote_fields(remote_totals),
             "current": cumulative_total,
             "total": cumulative_total,
             "orgs": org_results,
