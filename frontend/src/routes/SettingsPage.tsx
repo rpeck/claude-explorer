@@ -285,8 +285,11 @@ export function SettingsPage() {
               <p>
                 <strong className="text-zinc-900 dark:text-zinc-100">Claude Explorer</strong> - Browse and export your Claude conversations
               </p>
+              {config?.version && (
+                <p data-testid="about-version">Version {config.version}</p>
+              )}
               <a
-                href="https://github.com/anthropics/claude-explorer"
+                href="https://github.com/rpeck/claude-explorer"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400"

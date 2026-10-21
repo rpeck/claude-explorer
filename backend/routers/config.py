@@ -6,6 +6,7 @@ from ..deps import get_store
 from ..models import AppConfig, AppConfigStats
 from ..config import get_settings
 from ..store import ConversationStore
+from mcp_server import __version__
 
 router = APIRouter(tags=["config"])
 
@@ -58,6 +59,7 @@ def get_config() -> AppConfig:
     return AppConfig(
         data_dir=str(settings.data_dir),
         config_corrupt_reason=settings.config_corrupt_reason,
+        version=__version__,
     )
 
 
@@ -78,4 +80,5 @@ async def get_config_stats(
     return AppConfigStats(
         data_dir=str(settings.data_dir),
         conversation_count=store.count_conversations(),
+        version=__version__,
     )

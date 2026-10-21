@@ -447,6 +447,9 @@ class AppConfig(BaseModel):
     # read works without a key-existence check. External API
     # consumers that ignore unknown fields are unaffected.
     config_corrupt_reason: str | None = None
+    #: The installed release (``mcp_server.__version__``), for the Settings
+    #: page's About section.
+    version: str
 
 
 class AppConfigStats(AppConfig):
