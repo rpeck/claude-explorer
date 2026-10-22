@@ -7,6 +7,10 @@ interface ContentBlockListProps {
   content: ContentBlock[]
   showToolCalls: boolean
   expandAll?: boolean
+  /** Indexes of the tool blocks that hold the active search hit
+   *  (2026-10-21). They render, expanded, even when tool calls are
+   *  hidden. */
+  revealedToolBlocks?: readonly number[]
   ccImageEntries: CcImageEntries
   onOpenCcImage: (index: number) => void
   searchQuery?: string
@@ -21,6 +25,7 @@ export function ContentBlockList({
   content,
   showToolCalls,
   expandAll,
+  revealedToolBlocks,
   ccImageEntries,
   onOpenCcImage,
   searchQuery,
@@ -34,6 +39,7 @@ export function ContentBlockList({
           blockIndex={index}
           showToolCalls={showToolCalls}
           expandAll={expandAll}
+          revealed={revealedToolBlocks?.includes(index) ?? false}
           ccImageEntries={ccImageEntries}
           onOpenCcImage={onOpenCcImage}
           searchQuery={searchQuery}
@@ -48,6 +54,8 @@ interface ContentBlockRendererProps {
   blockIndex: number
   showToolCalls: boolean
   expandAll?: boolean
+  /** This tool block holds the active search hit: render it, expanded. */
+  revealed?: boolean
   ccImageEntries: CcImageEntries
   onOpenCcImage: (index: number) => void
   searchQuery?: string
@@ -67,6 +75,7 @@ export function ContentBlockRenderer({
   blockIndex,
   showToolCalls,
   expandAll,
+  revealed = false,
   ccImageEntries,
   onOpenCcImage,
   searchQuery,
@@ -83,12 +92,21 @@ export function ContentBlockRenderer({
         />
       )
     case 'tool_use':
-      return showToolCalls ? (
-        <ToolUseBlock name={block.name || ''} input={block.input} forceExpanded={expandAll} />
+      return showToolCalls || revealed ? (
+        <ToolUseBlock
+          name={block.name || ''}
+          input={block.input}
+          forceExpanded={expandAll || revealed}
+          searchQuery={searchQuery}
+        />
       ) : null
     case 'tool_result':
-      return showToolCalls ? (
-        <ToolResultBlock content={block.content || []} forceExpanded={expandAll} />
+      return showToolCalls || revealed ? (
+        <ToolResultBlock
+          content={block.content || []}
+          forceExpanded={expandAll || revealed}
+          searchQuery={searchQuery}
+        />
       ) : null
     case 'image': {
       // Claude Code embeds images as inline content blocks of shape

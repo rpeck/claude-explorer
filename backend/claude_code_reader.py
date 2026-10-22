@@ -408,7 +408,9 @@ def list_claude_code_conversations(
             conv["subagents"] = subagents
             conversations.append(conv)
 
-    # CC `--resume` writes the same internal sessionId across multiple
+    # Since 2026-10-21 each file's uuid is its file name, so this collapse
+    # no longer merges anything; it stays as a guard against duplicate
+    # uuids. History: CC `--resume` writes the same internal sessionId across multiple
     # JSONL files (original + continuation, distinct stems). Both files
     # produce conv dicts with the SAME `uuid` (sessionId-derived), so
     # downstream consumers see duplicates: the sidebar renders two rows

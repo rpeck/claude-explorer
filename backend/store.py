@@ -794,22 +794,14 @@ class ConversationStore:
         # wrapper was added in a prior refactor. See
         # PLANS/PERFORMANCE_PHASE_2.md §Workstream C1.
         #
-        # Two-pass lookup (2026-05-18):
-        #   Pass A (fast): try `jsonl_path.stem == uuid` and confirm the
-        #   internal sessionId also matches. Catches the common case
-        #   where CC named the file by its own session id.
-        #
-        #   Pass B (fallback): scan all CC files via the summary cache
-        #   and match on the internal `sessionId`. Required because a
-        #   "continued session" file's filename stem can differ from
-        #   its internal sessionId — e.g. file `816c6dbf-….jsonl` whose
-        #   first user entry has sessionId `908533b6-…`. The sidebar
-        #   LIST endpoint reports the INTERNAL sessionId (since
-        #   ``read_conversation_summary_fast`` returns
-        #   ``first_user.get('sessionId', jsonl_path.stem)``), so the
-        #   user clicks a sidebar row with uuid X and we MUST find the
-        #   file whose internal sessionId equals X — not the file
-        #   whose FILENAME equals X. Without Pass B, those clicks 404.
+        # Lookup. Since 2026-10-21 a Claude Code conversation's uuid is its
+        # file name (``cc_message_transforms.cc_session_uuid``), so Pass A
+        # finds every conversation that the list advertises. Before that,
+        # the uuid came from the first user row's ``sessionId``, and a
+        # continued session's file (whose first rows are copied from the
+        # session it continues) needed Pass B, which matched on the summary
+        # uuid. Pass B and the final scan now only run for a uuid that no
+        # file has, and then return 404.
         cc_files = list(discover_jsonl_files(self.claude_dir))
 
         for jsonl_path in cc_files:

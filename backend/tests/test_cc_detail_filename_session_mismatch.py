@@ -17,9 +17,8 @@ Reproduces the bug surfaced by `/code-audit` on the live corpus:
 
 Bidirectional pair:
 
-  * `test_detail_finds_cc_session_by_internal_sessionid` — seeds the
-    failing case from the live corpus exactly. Must return 200 + the
-    real conversation body.
+  * `test_detail_uses_the_file_name_not_the_internal_sessionid` — since
+    2026-10-21 the file name is the uuid (see that test's docstring).
 
   * `test_detail_404s_when_no_file_has_matching_sessionid` — the
     fallback must NOT silently return some other conversation. A
@@ -114,25 +113,26 @@ def cc_mismatch_data_dir(tmp_path, monkeypatch):
     cfg.get_settings.cache_clear()  # type: ignore[attr-defined]
 
 
-def test_detail_finds_cc_session_by_internal_sessionid(cc_mismatch_data_dir):
-    """The bug case: filename stem ≠ internal sessionId. The detail
-    endpoint MUST find the file by walking internal sessionIds, not
-    just by filename match.
+def test_detail_uses_the_file_name_not_the_internal_sessionid(cc_mismatch_data_dir):
+    """Since 2026-10-21 a Claude Code conversation's uuid is its file name.
 
-    Before the fix, GET /api/conversations/{internal_sessionid} returned
-    404 because the only file with that sessionId had a different
-    filename, so the filename-stem lookup missed it.
+    The live case behind this file (``124418da-….jsonl`` whose first user
+    row carries ``816c6dbf-…``) is a continued session: 8,778 of its rows
+    carry ``124418da``, and only 6 rows were copied from ``816c6dbf``,
+    which has its own file. Naming the file by the copied row hid one of
+    the two sessions. Now the list and the detail view both use the file
+    name, and the copied row's id opens nothing.
     """
     client = TestClient(app)
-    req_uuid = cc_mismatch_data_dir["mismatch_session_id"]
-    r = client.get(f"/api/conversations/{req_uuid}")
-    assert r.status_code == 200, (
-        f"detail endpoint must find the session by internal sessionId, "
-        f"not just filename stem. Got {r.status_code}: {r.text[:300]}"
-    )
+    stem = cc_mismatch_data_dir["mismatch_path"].stem
+    r = client.get(f"/api/conversations/{stem}")
+    assert r.status_code == 200, r.text[:300]
     body = r.json()
-    assert body["uuid"] == req_uuid
+    assert body["uuid"] == stem
     assert body["name"] == "Mismatched session"
+
+    internal = cc_mismatch_data_dir["mismatch_session_id"]
+    assert client.get(f"/api/conversations/{internal}").status_code == 404
 
 
 def test_detail_404s_when_no_file_has_matching_sessionid(cc_mismatch_data_dir):

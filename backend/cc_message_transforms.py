@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 from .agent_session_io import (  # noqa: F401  re-export
     _convert_entry_to_message,
@@ -45,6 +46,20 @@ from .agent_session_io import (  # noqa: F401  re-export
     _merge_entries_to_message,
 )
 from .parsing import _parse_iso_opt
+
+
+def cc_session_uuid(jsonl_path: Path) -> str:
+    """The conversation uuid of a Claude Code session file: its file name.
+
+    Claude Code names each file after its own session id. A continued
+    session's file can start with rows that carry the id of the session
+    it continues, so the first row's ``sessionId`` named the wrong
+    session: two files claimed one uuid, the list hid one of them, and
+    search hits opened the other file (2026-10-21,
+    ``backend/tests/test_cc_continued_session_identity.py``). Every reader
+    and the search index use this function.
+    """
+    return jsonl_path.stem
 
 
 # Local-command boilerplate collapse (V1 polish, 2026-05-12):
@@ -671,8 +686,7 @@ def _extract_conversation_metadata(entries: list[dict], jsonl_path) -> dict:
 
     # Get metadata from first user entry (has cwd, version, etc.)
     first_user_entry = user_entries[0] if user_entries else {}
-    first_entry = entries[0] if entries else {}
-    session_id = first_user_entry.get("sessionId") or first_entry.get("sessionId") or jsonl_path.stem
+    session_id = cc_session_uuid(jsonl_path)
     cwd = first_user_entry.get("cwd", "")
     git_branch = first_user_entry.get("gitBranch", "")
     version = first_user_entry.get("version", "")

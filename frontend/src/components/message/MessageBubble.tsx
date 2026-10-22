@@ -13,6 +13,7 @@ import { errorToast } from '@/lib/errorToast'
 import type { Message } from '@/lib/types'
 import { collectCcImages } from './blocks/imageCollection'
 import { ContentBlockList } from './blocks/ContentBlockRenderer'
+import { revealedToolBlockIndexes } from '@/components/search/toolReveal'
 
 interface MessageBubbleProps {
   message: Message
@@ -107,7 +108,15 @@ function MessageBubbleImpl({
     }
   }
 
-  const hasVisibleContent = messageHasVisibleContent(message, showToolCalls)
+  // 2026-10-21: a search hit inside a tool block. Only the active-match
+  // bubble gets a searchQuery, so only that bubble reveals and expands
+  // the tool blocks that hold the match (see toolReveal.ts).
+  const revealedToolBlocks = useMemo(
+    () => revealedToolBlockIndexes(message, searchQuery),
+    [message, searchQuery],
+  )
+  const hasVisibleContent =
+    messageHasVisibleContent(message, showToolCalls) || revealedToolBlocks.length > 0
   const imageFiles = dedupeImageFiles(message)
   const hasImages = imageFiles.length > 0
   const hasToolBlocks = message.content.some((b) => b.type === 'tool_use' || b.type === 'tool_result')
@@ -286,6 +295,7 @@ function MessageBubbleImpl({
               content={message.content}
               showToolCalls={showToolCalls && !bubbleToolsCollapsed}
               expandAll={expandAllTools}
+              revealedToolBlocks={revealedToolBlocks}
               ccImageEntries={ccImageEntries}
               onOpenCcImage={onOpenCcImage}
               searchQuery={searchQuery}
