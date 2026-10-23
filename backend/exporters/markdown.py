@@ -19,7 +19,6 @@ from ._shared import (
     filter_tool_placeholders,
     format_timestamp,
     message_has_visible_content,
-    render_compact_indicator,
     render_compact_summary_markdown,
     sanitize_filename,
 )

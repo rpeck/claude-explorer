@@ -8,8 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 import io
 
-logger = logging.getLogger(__name__)
-
 from ..deps import get_store
 from ..store import ConversationStore
 from ..export import (
@@ -19,6 +17,8 @@ from ..export import (
     create_markdown_zip,
     sanitize_filename,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["export"])
 
@@ -183,7 +183,7 @@ async def export_pdf(
                 "Try exporting as Markdown instead."
             ),
         )
-    except RuntimeError as e:
+    except RuntimeError:
         # Council code-review B1 (2026-05-21): do NOT leak raw
         # exception text to the client. WeasyPrint RuntimeError
         # messages frequently embed local file paths

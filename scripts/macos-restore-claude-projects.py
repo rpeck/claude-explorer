@@ -259,7 +259,7 @@ def main() -> int:
     if since:
         print(f"Backup cutoff:      {since.isoformat(sep=' ')} (newer-only)")
     else:
-        print(f"Backup cutoff:      none (scanning all backups)")
+        print("Backup cutoff:      none (scanning all backups)")
     print()
 
     # Find TM root

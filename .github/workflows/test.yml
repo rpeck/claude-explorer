@@ -42,6 +42,10 @@ jobs:
       - name: Sync Python deps
         run: uv sync --extra dev
 
+      # 42 findings had piled up because nothing ran ruff (2026-10-23).
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
       - name: Backend pytest
         run: uv run pytest backend/tests/ --tb=short
 

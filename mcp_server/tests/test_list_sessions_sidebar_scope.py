@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import inspect
 
-import pytest
 
 from mcp_server.server import list_sessions
 

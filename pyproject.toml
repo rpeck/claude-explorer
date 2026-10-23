@@ -82,6 +82,10 @@ dev = [
     "pytest-xdist>=3.5",
     "respx>=0.21",
     "pypdf>=4.0",
+    # CI runs `ruff check .` (test.yml); a lint finding fails the Python job.
+    # Pinned to one minor line: ruff 0.17 changed the default rules and
+    # reports 409 more findings. Upgrade it in its own change.
+    "ruff>=0.15.4,<0.16",
 ]
 
 # ----- Hatchling build configuration ------------------------------------------

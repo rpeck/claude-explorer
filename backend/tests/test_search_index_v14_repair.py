@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
 
 
 def _make_broken_v14_db(path) -> None:

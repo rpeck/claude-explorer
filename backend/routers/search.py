@@ -19,7 +19,7 @@ identical kwargs — only the transport differs.
 
 import asyncio
 import logging
-from typing import Any, Callable, Literal
+from typing import Callable, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field

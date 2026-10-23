@@ -63,7 +63,6 @@ Why per-route bypass (chosen) rather than global off-loop gzip:
 from __future__ import annotations
 
 import asyncio
-import time
 
 import httpx
 import pytest

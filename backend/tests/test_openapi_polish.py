@@ -26,7 +26,6 @@ The test is designed to fail-build: a new route added without a
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -174,7 +173,6 @@ def test_every_json_route_documents_a_response_schema(client: TestClient) -> Non
     that regression.
     """
     openapi = client.get("/openapi.json").json()
-    schemas = openapi.get("components", {}).get("schemas", {})
     missing: list[str] = []
     for path, method, op in _all_route_operations(openapi):
         if path in NON_JSON_RESPONSE_PATHS or path in INFRA_NO_RESPONSE_MODEL:
@@ -209,7 +207,7 @@ def test_every_json_route_documents_a_response_schema(client: TestClient) -> Non
             )
     assert not missing, (
         "Council B6: the following JSON routes do not document a response "
-        f"schema (response_model= missing):\n  - "
+        "schema (response_model= missing):\n  - "
         + "\n  - ".join(missing)
         + "\n\nFix: add `response_model=<Model>` to the @router.<verb>(...) "
         "decorator. If the route legitimately returns non-JSON (SSE, file "

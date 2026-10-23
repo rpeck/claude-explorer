@@ -16,7 +16,6 @@ platform-detection subprocess.
 
 from __future__ import annotations
 
-import os
 import subprocess
 from unittest.mock import patch
 

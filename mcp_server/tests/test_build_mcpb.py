@@ -159,10 +159,6 @@ def test_bundle_does_not_ship_forbidden_modules(
     catches a regression here.
     """
 
-    forbidden_files = {
-        "main.py",  # backend/main.py specifically — we have server/main.py at top of bundle but not server/backend/main.py
-    }
-
     server_dir = built_bundle / "server"
     backend_dir = server_dir / "backend"
     if backend_dir.exists():

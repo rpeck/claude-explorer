@@ -63,15 +63,14 @@ from typing import Literal, TypedDict
 
 import portalocker
 
-log = logging.getLogger(__name__)
-
-
+from fetcher.atomic import atomic_replace
 # Canonically defined in fetcher.paths; re-exported so backend imports
 # (`from fetcher.credentials import DEFAULT_CREDENTIALS_PATH`) and
 # tests patching `fetcher.credentials.DEFAULT_CREDENTIALS_PATH` continue
 # to work. See backend/tests/conftest.py for the multi-site patch fixture.
-from fetcher.paths import DEFAULT_CREDENTIALS_PATH  # noqa: E402
-from fetcher.atomic import atomic_replace
+from fetcher.paths import DEFAULT_CREDENTIALS_PATH
+
+log = logging.getLogger(__name__)
 
 # Public API surface. Kept explicit so that Pyright/Mypy treat the
 # re-exported ``DEFAULT_CREDENTIALS_PATH`` as intentional public API,

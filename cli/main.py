@@ -23,6 +23,24 @@ from pathlib import Path
 
 import click
 
+# Watcher install/uninstall machinery lives in cli.watcher (promoted
+# alongside cli.main on 2026-05-21 per council A1-CLI-LAYER). The
+# re-imports here let the install_watcher Click command body dispatch
+# on sys.platform and call _install_macos / _install_linux /
+# _install_windows by bare name. Test files import
+# _build_launchd_plist and _LAUNCHD_LABEL directly from cli.watcher
+# now (migrated in the same A1-CLI-LAYER commit).
+from cli.watcher import (  # noqa: F401  (re-exported)
+    _LAUNCHD_LABEL,
+    _build_launchd_plist,
+    _install_linux,
+    _install_macos,
+    _install_windows,
+    _uninstall_linux,
+    _uninstall_macos,
+    _uninstall_windows,
+)
+
 
 @click.group()
 @click.version_option(package_name="claude-explorer", prog_name="claude-explorer")
@@ -823,24 +841,6 @@ def warm_cc_cache(limit: int | None) -> None:
     if state["sessions_failed"]:
         click.echo(f"  sessions failed to read: {state['sessions_failed']}", err=True)
 
-
-# Watcher install/uninstall machinery lives in cli.watcher (promoted
-# alongside cli.main on 2026-05-21 per council A1-CLI-LAYER). The
-# re-imports here let the install_watcher Click command body dispatch
-# on sys.platform and call _install_macos / _install_linux /
-# _install_windows by bare name. Test files import
-# _build_launchd_plist and _LAUNCHD_LABEL directly from cli.watcher
-# now (migrated in the same A1-CLI-LAYER commit).
-from cli.watcher import (  # noqa: F401  (re-exported)
-    _LAUNCHD_LABEL,
-    _build_launchd_plist,
-    _install_linux,
-    _install_macos,
-    _install_windows,
-    _uninstall_linux,
-    _uninstall_macos,
-    _uninstall_windows,
-)
 
 
 @main.command("install-watcher")

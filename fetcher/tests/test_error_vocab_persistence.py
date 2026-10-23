@@ -12,9 +12,8 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
-from fetcher.bulk_fetch import ClaudeFetcher, FetchAuthError, FetchTransientError
+from fetcher.bulk_fetch import ClaudeFetcher, FetchAuthError
 
 
 PERSONAL = "ae24ae66-4622-48e7-b4b3-1ab2c49f933d"

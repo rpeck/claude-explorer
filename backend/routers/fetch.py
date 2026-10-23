@@ -44,7 +44,6 @@ from ..deps import refuse_if_config_corrupt
 # ``DEFAULT_*``) that 60+ tests patch at the router's dotted path.
 from ..fetch_pipeline import (
     _drain_retry_events,
-    _is_session_expired_error,
     _send_event,
 )
 
