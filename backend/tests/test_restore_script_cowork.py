@@ -16,7 +16,6 @@ against a synthetic Time Machine snapshot under tmp_path. They pin:
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path

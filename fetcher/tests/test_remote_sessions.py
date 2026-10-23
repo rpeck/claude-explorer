@@ -607,3 +607,52 @@ def test_get_json_without_an_http_client_refuses(tmp_path: Path, monkeypatch) ->
     _real_get_json(monkeypatch)
     with pytest.raises(RuntimeError, match="no HTTP client"):
         RemoteCoworkFetcher(None, tmp_path).list_sessions(ORG)
+
+
+# ----- Workspace names (2026-10-23) ----------------------------------------
+# The sidecar recorded only organizationId, so grouping the list by
+# workspace showed "Workspace (11111111)" for every remote task.
+
+
+def test_the_sidecar_records_the_workspace_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    FakeSessionsApi({ORG: [FakeSession("cse_01Named", "Notes", conversation_events(1, 2))]}).install(monkeypatch)
+    fetcher = RemoteCoworkFetcher(
+        lambda *a, **k: None, tmp_path, incremental=True, delay=0, org_names={ORG: "Acme Research"}
+    )
+    fetcher.sync_org(ORG)
+    assert _sidecar(tmp_path, "cse_01Named")["organizationName"] == "Acme Research"
+
+
+def test_an_unknown_workspace_name_is_recorded_as_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    FakeSessionsApi({ORG: [FakeSession("cse_01NoName", "Notes", conversation_events(1, 2))]}).install(monkeypatch)
+    _fetcher(tmp_path).sync_org(ORG)
+    sidecar = _sidecar(tmp_path, "cse_01NoName")
+    assert "organizationName" in sidecar and sidecar["organizationName"] is None
+
+
+def test_a_sidecar_without_the_workspace_name_is_checked_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tasks fetched before 2026-10-23 get the name on the next fetch,
+    with one cheap incremental check, then count as unchanged."""
+    session = FakeSession("cse_01Older", "Notes", conversation_events(1, 3))
+    api = FakeSessionsApi({ORG: [session]}).install(monkeypatch)
+    _fetcher(tmp_path).sync_org(ORG)
+    path = tmp_path / "cowork-remote" / ORG / "remote_cse_01Older.json"
+    legacy = json.loads(path.read_text(encoding="utf-8"))
+    legacy.pop("organizationName")
+    path.write_text(json.dumps(legacy), encoding="utf-8")
+    api.requests.clear()
+
+    named = RemoteCoworkFetcher(
+        lambda *a, **k: None, tmp_path, incremental=True, delay=0, org_names={ORG: "Acme Research"}
+    )
+    first = named.sync_org(ORG)
+    assert first.fetched == 0
+    assert len(api.event_requests("cse_01Older")) == 1
+    assert _sidecar(tmp_path, "cse_01Older")["organizationName"] == "Acme Research"
+    api.requests.clear()
+
+    second = named.sync_org(ORG)
+    assert (second.fetched, second.unchanged) == (0, 1)
+    assert api.event_requests("cse_01Older") == []

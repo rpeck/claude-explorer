@@ -489,8 +489,17 @@ export const test = base.extend<Fixtures>({
       // failure instead of silently leaking to whatever backend is
       // running on :8765. This is the load-bearing safety net for the
       // whole mock-data-conversion plan.
+      //
+      // The guard is on only after the last route below is registered.
+      // An open page sends requests during the registration, and such a
+      // request reached the guard before its own route existed: it got a
+      // 500 and the console gate failed the test (keyboard-nav-smoke,
+      // 2026-10-23). Until then a request goes on to the network, as if
+      // mockBackend was not called yet.
       // -----------------------------------------------------------------
+      let guardOn = false
       await page.route('**/api/**', (route: Route) => {
+        if (!guardOn) return route.fallback()
         const req = route.request()
         console.error(
           `[mockBackend] Unmocked API call leaked through: ${req.method()} ${req.url()}`,
@@ -794,6 +803,7 @@ export const test = base.extend<Fixtures>({
       if (opts.extraRoutes) {
         await opts.extraRoutes(page)
       }
+      guardOn = true
     }
     // eslint-disable-next-line react-hooks/rules-of-hooks -- safe: Playwright fixture API `use(value)`, not React.use(). The eslint plugin pattern-matches on the bare name.
     await use(fn)

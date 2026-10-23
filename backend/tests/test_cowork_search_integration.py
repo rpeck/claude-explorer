@@ -14,7 +14,6 @@ Pins the behavioral contract that:
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 
@@ -106,9 +105,6 @@ def test_cowork_dispatch_does_not_invoke_cc_reader(
     # Drop the index so build_full_index has work to do on a re-run.
     index.clear_all()
 
-    calls: list[Path] = []
-    original = si._load_conversation_at
-
     # Wrap _load_conversation_at to observe what source-tagged paths
     # it sees — the Cowork audit.jsonl MUST NOT trigger a CC-reader
     # call inside the function.
@@ -130,3 +126,7 @@ def test_cowork_dispatch_does_not_invoke_cc_reader(
 
     audit_calls = [p for p in cc_reader_calls if p.name == "audit.jsonl"]
     assert audit_calls == []
+    # Not vacuous: the rebuild did index the Cowork session, through its
+    # own reader (2026-10-23; the test only checked the CC reader before).
+    rows = index.query("COWORK_FIXTURE_HELLO_XYZ", limit=10)
+    assert {row["conv_uuid"] for row in rows} == {"aaaa1111-2222-3333-4444-555566667777"}

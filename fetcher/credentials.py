@@ -63,15 +63,14 @@ from typing import Literal, TypedDict
 
 import portalocker
 
-log = logging.getLogger(__name__)
-
-
+from fetcher.atomic import atomic_replace
 # Canonically defined in fetcher.paths; re-exported so backend imports
 # (`from fetcher.credentials import DEFAULT_CREDENTIALS_PATH`) and
 # tests patching `fetcher.credentials.DEFAULT_CREDENTIALS_PATH` continue
 # to work. See backend/tests/conftest.py for the multi-site patch fixture.
-from fetcher.paths import DEFAULT_CREDENTIALS_PATH  # noqa: E402
-from fetcher.atomic import atomic_replace
+from fetcher.paths import DEFAULT_CREDENTIALS_PATH
+
+log = logging.getLogger(__name__)
 
 # Public API surface. Kept explicit so that Pyright/Mypy treat the
 # re-exported ``DEFAULT_CREDENTIALS_PATH`` as intentional public API,
@@ -408,7 +407,7 @@ def load_credentials(path: Path = DEFAULT_CREDENTIALS_PATH) -> CredentialsV2:
         raise FileNotFoundError(f"credentials file not found: {path}")
 
     try:
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
     except json.JSONDecodeError as e:
         raise CredentialsCorruptError(f"failed to parse {path}: {e}") from e
@@ -516,7 +515,7 @@ def _unlocked_save(creds: CredentialsV2, path: Path) -> None:
         atomic_replace(bak, prev_bak)
 
     # Step 2: write new payload to .tmp + fsync, restrict perms.
-    with open(tmp, "w") as f:
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(creds, f, indent=2)
         f.flush()
         os.fsync(f.fileno())

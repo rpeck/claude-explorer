@@ -194,12 +194,8 @@ def isolated_fetch_dirs(
     files_dir = tmp_path / "files"
     out_dir.mkdir(parents=True, exist_ok=True)
     files_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(
-        "backend.routers.fetch.DEFAULT_OUTPUT_DIR", out_dir, raising=True
-    )
-    monkeypatch.setattr(
-        "backend.routers.fetch.DEFAULT_FILES_DIR", files_dir, raising=True
-    )
+    monkeypatch.setattr("backend.routers.fetch.fetch_output_dir", lambda _v=out_dir: _v)
+    monkeypatch.setattr("backend.routers.fetch.fetch_files_dir", lambda _v=files_dir: _v)
     return out_dir, files_dir
 
 

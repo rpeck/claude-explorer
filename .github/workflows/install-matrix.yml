@@ -504,4 +504,15 @@ jobs:
       - name: Run the Python suite
         # Never pipe this through tail: a pipeline reports the last stage's
         # status and turns a failure into a pass. TESTING.md §0.
-        run: uv run pytest backend/tests fetcher/tests mcp_server/tests -q -n "$XDIST"
+        #
+        # A crash must name its test (2026-10-23: one Windows ARM64 run died
+        # with "Segmentation fault" and no test name or traceback). The
+        # fault handler dumps every thread's stack from interpreter start,
+        # and a serial run (-n 0) prints each test id before the test runs,
+        # so the last line names the crashing test. -o faulthandler_timeout
+        # dumps the stacks of a test that hangs for 15 minutes.
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          if [ "$XDIST" = "0" ]; then report=-v; else report=-q; fi
+          uv run pytest backend/tests fetcher/tests mcp_server/tests "$report" -n "$XDIST" -o faulthandler_timeout=900

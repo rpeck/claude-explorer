@@ -83,4 +83,32 @@ describe('FetchDialog when another fetch runs (409)', () => {
     expect(await screen.findByText('Connection lost during fetch')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText(FETCH_BUSY_MESSAGE)).not.toBeInTheDocument())
   })
+
+})
+
+// 2026-10-23: a Fetch New stream outlived the dialog. When another tab's
+// Quit replaces this app with the stopped screen, the dialog unmounts: the
+// open stream delayed the server's graceful shutdown, and its later onerror
+// ran setState in the unmounted tree.
+describe('FetchDialog closes its stream when it unmounts', () => {
+  it('closes the stream and drops its handlers', async () => {
+    server.use(http.get('/api/fetch/status', () => HttpResponse.json(statusBody(false))))
+    const source = new FakeEventSource()
+    vi.spyOn(api, 'startFetch').mockReturnValue(source as unknown as EventSource)
+    const view = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <FetchPipelineProvider>
+          <FetchDialog isOpen onClose={() => {}} />
+        </FetchPipelineProvider>
+      </QueryClientProvider>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Fetch New' }))
+    expect(source.closed).toBe(false)
+
+    view.unmount()
+
+    expect(source.closed).toBe(true)
+    expect(source.onmessage).toBeNull()
+    expect(source.onerror).toBeNull()
+  })
 })

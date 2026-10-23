@@ -672,7 +672,9 @@ async def lifespan(app: FastAPI):
             # attribute (not a `from … import` at the top of the
             # function) so tests that `patch(...)._read_summaries_parallel`
             # actually see the patched version.
-            fresh = ccr._read_summaries_parallel(misses)
+            # The shutdown flag (see executor_stop above): a Quit during a
+            # first fill waits for one chunk, not for every summary.
+            fresh = ccr._read_summaries_parallel(misses, stop=executor_stop)
             cache.upsert_many(fresh, stat_index)
             elapsed = time.monotonic() - t0
             print(

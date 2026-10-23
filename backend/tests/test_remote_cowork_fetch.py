@@ -66,8 +66,8 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     out = tmp_path / "conversations"
     out.mkdir()
     monkeypatch.setattr("backend.routers.fetch.DEFAULT_CREDENTIALS_PATH", creds)
-    monkeypatch.setattr("backend.routers.fetch.DEFAULT_OUTPUT_DIR", out)
-    monkeypatch.setattr("backend.routers.fetch.DEFAULT_FILES_DIR", tmp_path / "files")
+    monkeypatch.setattr("backend.routers.fetch.fetch_output_dir", lambda _v=out: _v)
+    monkeypatch.setattr("backend.routers.fetch.fetch_files_dir", lambda _v=tmp_path / "files": _v)
     # The chat API has nothing for this account: the reported situation.
     monkeypatch.setattr("backend.routers.fetch.ClaudeFetcher.fetch_conversation_list", lambda self: [])
     monkeypatch.setattr("backend.routers.fetch.asyncio.sleep", _no_sleep)

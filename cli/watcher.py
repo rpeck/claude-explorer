@@ -179,7 +179,7 @@ def _write_watcher_launcher(scan_interval: float) -> Path:
     )
     launcher = _watcher_launcher_path()
     launcher.parent.mkdir(parents=True, exist_ok=True)
-    launcher.write_text(body)
+    launcher.write_text(body, encoding="utf-8")
     return launcher
 
 
@@ -228,7 +228,7 @@ def _install_macos(python_bin: str, interval: float) -> None:
     plist = _launchd_plist_path()
     plist_body = _build_launchd_plist(python_bin, interval)
     plist.parent.mkdir(parents=True, exist_ok=True)
-    plist.write_text(plist_body)
+    plist.write_text(plist_body, encoding="utf-8")
     click.echo(f"Wrote {plist}")
     # Reload to pick up changes if already loaded.
     subprocess.run(
@@ -281,7 +281,7 @@ def _install_linux(python_bin: str, interval: float) -> None:
     click.echo(f"Wrote {launcher}")
     unit_body = _build_systemd_unit(python_bin, launcher, str(Path.cwd()))
     unit.parent.mkdir(parents=True, exist_ok=True)
-    unit.write_text(unit_body)
+    unit.write_text(unit_body, encoding="utf-8")
     click.echo(f"Wrote {unit}")
 
     # Reload + enable + start.

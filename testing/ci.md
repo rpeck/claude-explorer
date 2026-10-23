@@ -85,6 +85,10 @@ these items:
 - On Windows, the job runs the tests serially with `-n 0`. The reasons:
   - On Windows, the xdist controller hung at shutdown.
   - On Windows, parallel runs hid order-dependent failures.
+- A crash names its test. The step sets `PYTHONFAULTHANDLER=1`, so a
+  segfault dumps every thread's stack. A serial run also uses `-v`, which
+  prints each test id before the test runs. On 2026-10-23, a Windows ARM64
+  run died with only "Segmentation fault", and neither was set.
 
 **Three more `pytest` jobs test newer Pythons.** A user install can differ
 from the six main jobs in two ways:

@@ -81,7 +81,7 @@ def strip_toc(text: str) -> str:
 
 def strip_anchors(text: str) -> str:
     return "\n".join(
-        l for l in text.split("\n") if not re.match(r'^\s*<a id="[^"]*">\s*</a>\s*$', l)
+        line for line in text.split("\n") if not re.match(r'^\s*<a id="[^"]*">\s*</a>\s*$', line)
     )
 
 
@@ -145,8 +145,8 @@ def main() -> int:
     print(f"✓ wrote {out_html}  (fallback: open in browser -> copy)")
     print(f"    images -> absolute raw URLs : {n_img}")
     print(f"    relative .md links          : {n_map} mapped to Medium, {n_strip} stripped to text")
-    print(f"    TOC + <a id> anchors        : removed")
-    print(f"\n  Paste into a new Medium story; Medium fetches every absolute-URL image.")
+    print("    TOC + <a id> anchors        : removed")
+    print("\n  Paste into a new Medium story; Medium fetches every absolute-URL image.")
     return 0
 
 

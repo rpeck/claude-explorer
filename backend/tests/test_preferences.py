@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
-import stat
 import threading
 
 import pytest
@@ -173,12 +171,15 @@ def test__patch_preferences__os_replace_fails__original_byte_identical_no_tmp_le
     original_bytes = prefs_file.read_bytes()
 
     # Boom: any subsequent write raises before the atomic swap commits.
-    import backend.routers.preferences as prefs_mod
+    # The route writes through fetcher.atomic.atomic_replace, which calls
+    # os.replace. Patch it there (it used to go through an otherwise unused
+    # `import os` in the route module).
+    import fetcher.atomic as atomic_mod
 
     def _boom(_src, _dst):
         raise OSError("simulated kernel-level rename failure")
 
-    monkeypatch.setattr(prefs_mod.os, "replace", _boom)
+    monkeypatch.setattr(atomic_mod.os, "replace", _boom)
 
     # Starlette's TestClient defaults to ``raise_server_exceptions=True``, so
     # an OSError inside the route handler propagates out of ``client.patch``

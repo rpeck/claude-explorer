@@ -31,7 +31,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
 
-from ..config import get_settings
+from ..config import files_dir_for, get_settings
 
 from fetcher.credentials import (
     DEFAULT_CREDENTIALS_PATH,
@@ -382,10 +382,7 @@ def _attachments_root() -> Path:
     we fall back to ``data_dir / "files"`` so older test layouts still
     work.
     """
-    data_dir = get_settings().data_dir
-    if data_dir.name == "conversations":
-        return data_dir.parent / "files"
-    return data_dir / "files"
+    return files_dir_for(get_settings().data_dir)
 
 
 @router.get(

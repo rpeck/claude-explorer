@@ -211,7 +211,7 @@ async def test__fetch_start__blocks_a_second_fetch_and_a_refresh__returns_409(
     monkeypatch.setattr(
         fetch_mod, "fetch_conversations_stream", _blocking_stream(started, release)
     )
-    monkeypatch.setattr(fetch_mod, "DEFAULT_OUTPUT_DIR", tmp_path / "conversations")
+    monkeypatch.setattr(fetch_mod, "fetch_output_dir", lambda _v=tmp_path / "conversations": _v)
 
     task1 = asyncio.create_task(real_async_client.get("/api/fetch/start"))
     try:

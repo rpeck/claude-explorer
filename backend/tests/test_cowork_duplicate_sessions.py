@@ -284,3 +284,24 @@ def test_sidebar_list_keeps_one_copy_of_a_duplicated_local_session(
 
     detail = store.get_conversation(LOCAL_UUID)
     assert detail is not None and detail.name == f"Copy in {newer_deployment}"
+
+
+def test_a_remote_task_carries_its_workspace_name(tmp_path: Path) -> None:
+    """2026-10-23: the list groups by organization_name. Remote tasks had
+    none, so they showed as "Workspace (aaaaaaaa)"."""
+    from backend.cowork_reader import read_cowork_conversation
+
+    data_dir = tmp_path / "data"
+    remote_dir = _write_remote(data_dir, ORG_A, "2026-10-05T10:00:00Z", "Task in A")
+    sidecar_path = remote_dir.parent / f"{remote_dir.name}.json"
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    sidecar["organizationName"] = "Acme Research"
+    sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+    conv = read_cowork_conversation(remote_dir)
+    assert conv["organization_name"] == "Acme Research"
+
+    cowork_root = tmp_path / "local-agent-mode-sessions"
+    cowork_root.mkdir()
+    (row,) = _store(tmp_path, cowork_root).list_conversations(source="CLAUDE_COWORK")
+    assert row.organization_name == "Acme Research"

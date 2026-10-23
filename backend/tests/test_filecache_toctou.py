@@ -82,7 +82,6 @@ def test_get_or_load_skips_cache_when_file_mutates_during_read(
     # Use a 1-second offset so mtime is observably different on
     # platforms with low-resolution mtime (HFS+, ext3).
     import os
-    import time
 
     new_content = '{"v": "new"}'
     p.write_text(new_content)

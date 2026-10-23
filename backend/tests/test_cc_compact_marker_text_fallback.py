@@ -25,7 +25,6 @@ counts as a compaction.
 
 from __future__ import annotations
 
-import pytest
 
 
 CANONICAL_PREFIX = (

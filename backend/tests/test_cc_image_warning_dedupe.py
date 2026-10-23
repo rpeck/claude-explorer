@@ -22,7 +22,6 @@ This file flips both contracts via TDD-strict RED → GREEN.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 

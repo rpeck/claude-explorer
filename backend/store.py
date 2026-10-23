@@ -470,7 +470,7 @@ class ConversationStore:
     def _load_conversation_uncached(path: Path) -> dict[str, Any] | None:
         """Plain disk-backed loader, called by FileCache on cache miss."""
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             return None

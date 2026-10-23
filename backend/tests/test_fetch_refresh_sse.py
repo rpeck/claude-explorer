@@ -74,12 +74,8 @@ def _refresh_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         "backend.routers.fetch.DEFAULT_CREDENTIALS_PATH", creds, raising=True
     )
-    monkeypatch.setattr(
-        "backend.routers.fetch.DEFAULT_OUTPUT_DIR", out, raising=True
-    )
-    monkeypatch.setattr(
-        "backend.routers.fetch.DEFAULT_FILES_DIR", files, raising=True
-    )
+    monkeypatch.setattr("backend.routers.fetch.fetch_output_dir", lambda _v=out: _v)
+    monkeypatch.setattr("backend.routers.fetch.fetch_files_dir", lambda _v=files: _v)
     yield {"creds": creds, "out": out}
 
 

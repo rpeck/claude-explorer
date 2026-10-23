@@ -23,6 +23,24 @@ from pathlib import Path
 
 import click
 
+# Watcher install/uninstall machinery lives in cli.watcher (promoted
+# alongside cli.main on 2026-05-21 per council A1-CLI-LAYER). The
+# re-imports here let the install_watcher Click command body dispatch
+# on sys.platform and call _install_macos / _install_linux /
+# _install_windows by bare name. Test files import
+# _build_launchd_plist and _LAUNCHD_LABEL directly from cli.watcher
+# now (migrated in the same A1-CLI-LAYER commit).
+from cli.watcher import (  # noqa: F401  (re-exported)
+    _LAUNCHD_LABEL,
+    _build_launchd_plist,
+    _install_linux,
+    _install_macos,
+    _install_windows,
+    _uninstall_linux,
+    _uninstall_macos,
+    _uninstall_windows,
+)
+
 
 @click.group()
 @click.version_option(package_name="claude-explorer", prog_name="claude-explorer")
@@ -35,14 +53,14 @@ def main() -> None:
 @click.option(
     "--output-dir",
     type=click.Path(path_type=Path),
-    default=Path.home() / ".claude-explorer" / "conversations",
-    help="Where to save JSON files",
+    default=None,
+    help="Where to save JSON files (default: the data directory that the app reads)",
 )
 @click.option(
     "--files-dir",
     type=click.Path(path_type=Path),
-    default=Path.home() / ".claude-explorer" / "files",
-    help="Where to save downloaded files (images, PDFs)",
+    default=None,
+    help="Where to save downloaded files (images, PDFs; default: next to the data directory)",
 )
 @click.option(
     "--credentials",
@@ -66,8 +84,8 @@ def main() -> None:
 @click.option("--limit", type=int, help="Max conversations to fetch")
 @click.option("--verbose", is_flag=True, help="Show detailed output")
 def fetch(
-    output_dir: Path,
-    files_dir: Path,
+    output_dir: Path | None,
+    files_dir: Path | None,
     credentials: Path,
     session_key: str | None,
     org_id: str | None,
@@ -109,6 +127,16 @@ def fetch(
 
     from fetcher.bulk_fetch import ClaudeFetcher, load_credentials
     from fetcher.credentials import CredentialsCorruptError, fetcher_credentials
+
+    # Write to the data directory that the app reads (CLAUDE_EXPLORER_DATA_DIR
+    # or config.json can move it). A fixed ~/.claude-explorer/conversations
+    # default fetched into a folder that the app never read (2026-10-23).
+    from backend.config import files_dir_for
+
+    if output_dir is None:
+        output_dir = settings.data_dir
+    if files_dir is None:
+        files_dir = files_dir_for(output_dir)
 
     # ``--session-key`` plus ``--org-id`` need no credentials file. Otherwise
     # the file gives the rest, and an override replaces its value.
@@ -597,8 +625,8 @@ _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."
 @click.option(
     "--data-dir",
     type=click.Path(path_type=Path, file_okay=False),
-    default=Path.home() / ".claude-explorer" / "conversations",
-    help="Where conversations live.",
+    default=None,
+    help="Where conversations live (default: the data directory that the app reads).",
 )
 @click.option(
     "--credentials",
@@ -618,7 +646,7 @@ _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."
     help="List candidates without re-fetching.",
 )
 def rehydrate(
-    data_dir: Path,
+    data_dir: Path | None,
     credentials: Path,
     limit: int | None,
     dry_run: bool,
@@ -649,6 +677,10 @@ def rehydrate(
     from fetcher.bulk_fetch import ClaudeFetcher
     from fetcher.credentials import fetcher_credentials, load_credentials
 
+    from backend.config import files_dir_for, get_settings
+
+    if data_dir is None:
+        data_dir = get_settings().data_dir
     click.echo(f"Scanning {data_dir} for placeholder-affected conversations...")
 
     # Discover the on-disk layout (by-org/<org>/<uuid>.json or flat <uuid>.json).
@@ -664,7 +696,7 @@ def rehydrate(
     candidates: list[dict] = []
     for path in candidate_paths:
         try:
-            raw = path.read_text()
+            raw = path.read_text(encoding="utf-8")
         except OSError:
             continue
         if _PLACEHOLDER_TEXT not in raw:
@@ -725,6 +757,7 @@ def rehydrate(
         fetcher = ClaudeFetcher(
             **fetcher_credentials(creds, org_id=org_id).fetcher_kwargs(),
             output_dir=data_dir,
+            files_dir=files_dir_for(data_dir),
             verbose=False,
         )
 
@@ -808,24 +841,6 @@ def warm_cc_cache(limit: int | None) -> None:
     if state["sessions_failed"]:
         click.echo(f"  sessions failed to read: {state['sessions_failed']}", err=True)
 
-
-# Watcher install/uninstall machinery lives in cli.watcher (promoted
-# alongside cli.main on 2026-05-21 per council A1-CLI-LAYER). The
-# re-imports here let the install_watcher Click command body dispatch
-# on sys.platform and call _install_macos / _install_linux /
-# _install_windows by bare name. Test files import
-# _build_launchd_plist and _LAUNCHD_LABEL directly from cli.watcher
-# now (migrated in the same A1-CLI-LAYER commit).
-from cli.watcher import (  # noqa: F401  (re-exported)
-    _LAUNCHD_LABEL,
-    _build_launchd_plist,
-    _install_linux,
-    _install_macos,
-    _install_windows,
-    _uninstall_linux,
-    _uninstall_macos,
-    _uninstall_windows,
-)
 
 
 @main.command("install-watcher")
@@ -1011,7 +1026,7 @@ def install_app(dest: Path | None, uninstall: bool, port: int | None) -> None:
     if port is None:
         port = saved_port() or app_launcher.DEFAULT_PORT
     port_path().parent.mkdir(parents=True, exist_ok=True)
-    port_path().write_text(f"{port}\n")
+    port_path().write_text(f"{port}\n", encoding="utf-8")
 
     if os_name == "darwin":
         installed = app_launcher.build_app(

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -71,6 +71,20 @@ export function FetchDialog({ isOpen, onClose }: FetchDialogProps) {
   const [existingCount, setExistingCount] = useState(0)
   const [progress, setProgress] = useState<LegacyFetchProgress | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const sourceRef = useRef<EventSource | null>(null)
+
+  // 2026-10-23: close the Fetch New stream when the dialog unmounts (for
+  // example when another tab's Quit replaces the app). An open stream
+  // kept the server's graceful shutdown waiting, and its later onerror
+  // ran setState in the unmounted tree. Same rule as FetchPipelineContext.
+  useEffect(() => () => {
+    const source = sourceRef.current
+    if (!source) return
+    source.onmessage = null
+    source.onerror = null
+    source.close()
+    sourceRef.current = null
+  }, [])
 
   // Check status when dialog opens.
   // react-doctor-disable-next-line react-doctor/no-cascading-set-state,react-doctor/no-adjust-state-on-prop-change -- Phase 2: (1) setState calls land on a promise resolution AFTER render, no synchronous cascade; useReducer with a 'status-checked' dispatch is the right long-term fix but requires the React 19 useQuery migration (queryClient.fetchQuery on /fetch/status) first. (2) The "check-status-on-open" lifecycle is deliberate; the dialog mirrors live pipeline state via FetchPipelineContext subscription above, and this fetch hydrates the snapshot when the dialog opens fresh. Keying the Dialog would break pipeline-mirroring + controlled-open.
@@ -97,6 +111,7 @@ export function FetchDialog({ isOpen, onClose }: FetchDialogProps) {
     setErrorMessage('')
 
     const eventSource = api.startFetch(incremental)
+    sourceRef.current = eventSource
     let receivedEvents = false
 
     eventSource.onmessage = (event) => {
@@ -108,12 +123,14 @@ export function FetchDialog({ isOpen, onClose }: FetchDialogProps) {
         if (data.type === 'complete') {
           setState('complete')
           eventSource.close()
+          sourceRef.current = null
           // Invalidate the conversation list and search caches
           void invalidateAfterFetch(queryClient)
         } else if (data.type === 'error') {
           setState('error')
           setErrorMessage(data.message)
           eventSource.close()
+          sourceRef.current = null
         }
       } catch (err) {
         console.error('Failed to parse SSE event:', err)
@@ -122,6 +139,7 @@ export function FetchDialog({ isOpen, onClose }: FetchDialogProps) {
 
     eventSource.onerror = () => {
       eventSource.close()
+      sourceRef.current = null
       // A 409 (another fetch runs) also lands here: name it if so.
       void streamFailureMessage(receivedEvents, 'Connection lost during fetch').then(
         (message) => {
