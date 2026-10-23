@@ -55,6 +55,7 @@ Threading:
 
 from __future__ import annotations
 
+import functools
 import logging
 import sqlite3
 import threading
@@ -454,6 +455,31 @@ def translate_query(user_query: str) -> str:
     return " AND ".join(parts)
 
 
+def _tracked_read(method):
+    """Count a read method as in progress, so close() can wait for it.
+
+    The read connections are per thread, but close() closes them all
+    (Windows keeps the file locked while any is open). Without this
+    count, close() could close a connection while another thread was
+    inside a query on it (2026-10-23).
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._activity:
+            if self._closed:
+                raise sqlite3.ProgrammingError("SearchIndex is closed")
+            self._active_reads += 1
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            with self._activity:
+                self._active_reads -= 1
+                self._activity.notify_all()
+
+    return wrapper
+
+
 class SearchIndex:
     """A single SQLite/FTS5 file-backed inverted index.
 
@@ -527,6 +553,10 @@ class SearchIndex:
             check_same_thread=False,
         )
         self._write_lock = threading.Lock()
+        # close() support: reads in progress, and whether close() ran.
+        self._activity = threading.Condition()
+        self._active_reads = 0
+        self._closed = False
 
         # Configure WAL + sensible pragmas. Done on the write connection
         # but applies to the whole database file.
@@ -1303,6 +1333,7 @@ class SearchIndex:
                     "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
                 )
 
+    @_tracked_read
     def needs_update(self, file_path: Path, current_mtime: float) -> bool:
         """True if the file isn't indexed or its mtime has changed since.
 
@@ -1323,6 +1354,7 @@ class SearchIndex:
         # mtime collision.
         return float(row[0]) != float(current_mtime)
 
+    @_tracked_read
     def list_indexed_paths(self) -> list[Path]:
         """All paths currently recorded in ``indexed_files``.
 
@@ -1334,6 +1366,7 @@ class SearchIndex:
         cur = conn.execute("SELECT path FROM indexed_files")
         return [Path(row[0]) for row in cur.fetchall()]
 
+    @_tracked_read
     def _read_indexed_files_map(self) -> dict[str, float]:
         """Snapshot of every ``indexed_files`` row as ``{path: mtime}``.
 
@@ -1371,6 +1404,7 @@ class SearchIndex:
 
     # ----- query -----------------------------------------------------
 
+    @_tracked_read
     def query(
         self,
         user_query: str,
@@ -1605,6 +1639,7 @@ class SearchIndex:
 
         return " AND ".join(clauses), params, use_allowed_join
 
+    @_tracked_read
     def query_with_snippets(
         self,
         user_query: str,
@@ -1731,6 +1766,7 @@ class SearchIndex:
             for row in cur.fetchall()
         ]
 
+    @_tracked_read
     def query_with_full_body(
         self,
         user_query: str,
@@ -1817,6 +1853,7 @@ class SearchIndex:
             for row in cur.fetchall()
         ]
 
+    @_tracked_read
     def count_matches(
         self,
         user_query: str,
@@ -1869,6 +1906,7 @@ class SearchIndex:
         row = cur.fetchone()
         return int(row[0]) if row else 0
 
+    @_tracked_read
     def title_match_snippets(
         self,
         user_query: str,
@@ -2009,6 +2047,7 @@ class SearchIndex:
             }
         return out
 
+    @_tracked_read
     def title_match_uuids(
         self,
         needle: str,
@@ -2170,11 +2209,23 @@ class SearchIndex:
         created. Waiting for thread death is not good enough: Windows keeps
         the database file locked while any connection is open, so a leftover
         reader blocks deletion of the file and of its directory.
+
+        So it must not close a connection that another thread is using
+        (2026-10-23): it marks the index closed (new reads raise
+        ``sqlite3.ProgrammingError``), waits for the reads in progress, and
+        takes the write lock, which waits for a write in progress. It does
+        not hold the write lock while it waits for readers, so a read that
+        needs the write lock cannot deadlock it.
         """
-        try:
-            self._write_conn.close()
-        except sqlite3.Error:
-            pass
+        with self._activity:
+            self._closed = True
+            self._activity.wait_for(lambda: self._active_reads == 0, timeout=30)
+
+        with self._write_lock:
+            try:
+                self._write_conn.close()
+            except sqlite3.Error:
+                pass
 
         with self._read_conns_lock:
             conns, self._read_conns = self._read_conns, []
