@@ -79,6 +79,8 @@ const LONG_HOP_VIEWPORT_MULTIPLE = 1.5
 // on 15K+ message conversations without yanking the user mid-read.
 const CORRECTION_SCHEDULE_MS = [250, 500, 500] as const
 const CORRECTION_THRESHOLD_PX = 100
+/** Present on the scroll container while a correction chain runs. */
+export const SETTLING_ATTR = 'data-scroll-settling'
 
 /**
  * Scroll a message bubble into the center of its message-stream
@@ -117,6 +119,10 @@ export function scrollBubbleIntoView(element: HTMLElement, forceInstant = false)
     block: 'center',
   })
 
+  // Settle signal (2026-10-22): set while a correction can still move
+  // the scroll position. e2e tests wait for it to go away; a fixed delay
+  // raced the correction chain on slow CI runners.
+  container.setAttribute(SETTLING_ATTR, '')
   scheduleCorrections(myToken, element, container, 0)
 }
 
@@ -139,16 +145,31 @@ function scheduleCorrections(
   container: HTMLElement,
   stepIdx: number,
 ): void {
-  if (stepIdx >= CORRECTION_SCHEDULE_MS.length) return
+  if (stepIdx >= CORRECTION_SCHEDULE_MS.length) {
+    settled(token, container)
+    return
+  }
   window.setTimeout(() => {
+    // A newer scroll owns the mark now: leave it.
     if (token !== scrollToken) return
-    if (!document.body.contains(element)) return
+    if (!document.body.contains(element)) {
+      settled(token, container)
+      return
+    }
     const r = element.getBoundingClientRect()
     const c = container.getBoundingClientRect()
     const off = (r.top + r.height / 2) - (c.top + c.height / 2)
     if (Math.abs(off) > CORRECTION_THRESHOLD_PX) {
       element.scrollIntoView({ behavior: 'auto', block: 'center' })
       scheduleCorrections(token, element, container, stepIdx + 1)
+    } else {
+      settled(token, container)
     }
   }, CORRECTION_SCHEDULE_MS[stepIdx])
+}
+
+/** End of a correction chain: remove the settle mark, unless a newer
+ *  scroll started its own chain. */
+function settled(token: number, container: HTMLElement): void {
+  if (token === scrollToken) container.removeAttribute(SETTLING_ATTR)
 }
