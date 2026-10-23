@@ -156,6 +156,14 @@ await page.route('**/api/preferences', (route, req) => {
 })
 ```
 
+### The `mockBackend` catch-all starts last
+
+The shared `mockBackend` answers an unmocked `/api/*` request with a 500, so that a leak fails the test. This catch-all starts only after `mockBackend` registers its last route.
+
+- An open page sends requests while `mockBackend` registers its routes. Until the end of the registration, such a request goes on to the network.
+- Before 2026-10-23 the catch-all started first. A request sent during the registration got a 500, and the console gate failed the test. `keyboard-nav-smoke.spec.ts` failed this way in about 1 of 4 runs at 8 workers.
+- `mock-backend-registration.spec.ts` holds the registration open and sends a request in that time.
+
 ## 5.15 · E2E tests MUST assert zero unexpected console errors / warnings
 
 A Playwright e2e test that asserts only on DOM state is half-blind. The same is true for a Playwright MCP investigation.
