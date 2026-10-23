@@ -289,4 +289,56 @@ describe('scrollBubbleIntoView — distance-gated scroll + supersession', () => 
     vi.advanceTimersByTime(2000)
     expect(scrollIntoViewSpy).toHaveBeenCalledTimes(2)
   })
+
+  // Settle signal (2026-10-22). The container carries
+  // `data-scroll-settling` while a correction can still move the scroll
+  // position. A test that scrolls away before the chain ends gets yanked
+  // back by a pending correction; e2e tests wait for this mark to go
+  // away instead of guessing a fixed delay.
+  describe('data-scroll-settling', () => {
+    it('is set while corrections are pending and removed when the target is centered', () => {
+      const { container, target } = setupContainerAndTarget(460) // center 500: centered
+      scrollBubbleIntoView(target as HTMLElement)
+      expect(container.hasAttribute('data-scroll-settling')).toBe(true)
+
+      vi.advanceTimersByTime(250)
+      expect(container.hasAttribute('data-scroll-settling')).toBe(false)
+    })
+
+    it('stays set while the chain keeps correcting, and is removed after the last step', () => {
+      const { container, target } = setupContainerAndTarget(3000) // far off: every check corrects
+      scrollBubbleIntoView(target as HTMLElement)
+
+      vi.advanceTimersByTime(250)
+      expect(container.hasAttribute('data-scroll-settling')).toBe(true)
+      vi.advanceTimersByTime(500)
+      expect(container.hasAttribute('data-scroll-settling')).toBe(true)
+      vi.advanceTimersByTime(500)
+      // The last scheduled step ran; nothing can move the scroll any more.
+      vi.advanceTimersByTime(1000)
+      expect(container.hasAttribute('data-scroll-settling')).toBe(false)
+    })
+
+    it('a superseded chain does not remove the mark of the newer chain', () => {
+      const first = setupContainerAndTarget(460)
+      scrollBubbleIntoView(first.target as HTMLElement)
+      vi.advanceTimersByTime(100)
+
+      const second = document.createElement('div')
+      first.container.appendChild(second)
+      stubRect(second, { top: 3000, height: 80 }) // far off: keeps correcting
+      scrollBubbleIntoView(second as HTMLElement)
+
+      vi.advanceTimersByTime(150) // the first chain's 250 ms check
+      expect(first.container.hasAttribute('data-scroll-settling')).toBe(true)
+    })
+
+    it('is removed when the target leaves the document', () => {
+      const { container, target } = setupContainerAndTarget(3000)
+      scrollBubbleIntoView(target as HTMLElement)
+      target.remove()
+      vi.advanceTimersByTime(250)
+      expect(container.hasAttribute('data-scroll-settling')).toBe(false)
+    })
+  })
 })

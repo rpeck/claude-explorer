@@ -98,6 +98,17 @@ const searchResults: SearchResult[] = [{
   ],
 }]
 
+/**
+ * Wait until no scroll correction is pending (`data-scroll-settling`,
+ * set by `scrollBubbleIntoView`). A fixed delay raced the correction
+ * chain on slow CI runners (2026-10-22).
+ */
+async function waitForScrollSettled(page: Page) {
+  await expect(page.getByTestId('message-stream')).not.toHaveAttribute('data-scroll-settling', {
+    timeout: 10000,
+  })
+}
+
 async function mockSearch(page: Page, results: SearchResult[]) {
   await page.route('**/api/search**', (route) => {
     route.fulfill({
@@ -156,6 +167,16 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
 
     const hitCard = page.getByRole('button', { name: new RegExp(NEEDLE) }).first()
     await expect(hitCard).toBeVisible()
+    const lateTarget = page.locator(`[data-message-uuid="${messages[LATE_TARGET_IDX].uuid}"]`)
+
+    // The auto-promote scroll must finish before the reset below: on
+    // slow CI runners a pending scroll moved back to the target after
+    // the reset (2026-10-22), so the click had nothing to scroll and no
+    // scrollend fired. The ring proves that scrollBubbleIntoView ran
+    // (both navigation paths add it in the same task); then wait for
+    // its correction chain to end.
+    await expect(lateTarget).toHaveClass(/ring-yellow-400/, { timeout: 10000 })
+    await waitForScrollSettled(page)
 
     // SearchPanel auto-promotes on type and already scrolled to the
     // target. Reset to top so the click path has real work to do.
@@ -163,7 +184,6 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
       const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
       if (stream) stream.scrollTo({ top: 0, behavior: 'auto' })
     })
-    const lateTarget = page.locator(`[data-message-uuid="${messages[LATE_TARGET_IDX].uuid}"]`)
     await expect(lateTarget).not.toBeInViewport()
 
     // ─── PHANTOM-INSIDE-ROW INJECTION ──────────────────────────────
@@ -217,6 +237,7 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
         // measured height — mirrors a lazy-image decode inside the
         // bubble in production.
         chosen.appendChild(phantom)
+        ;(window as unknown as { __heightAtInjection?: number }).__heightAtInjection = stream.scrollHeight
         ;(window as unknown as { __phantomInjectedAt?: number }).__phantomInjectedAt = performance.now()
       }
       // Fire 80 ms after scrollend — well inside the 250 ms first
@@ -258,28 +279,40 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
         'no rows below the target or the data-index discovery failed.',
     ).toBe(true)
 
-    // ─── ASSERTION 2: post-correction landing within ±100 px ───────
+    // ─── ASSERTION 2: the target ends within ±100 px of center ─────
     //
-    // 1500 ms after click: full correction chain (250+750+1250 cumulative
-    // = 1250 ms after scrollend, give 250 ms slack) has completed.
-    // Target must be within ±100 px of viewport center.
-    await page.waitForTimeout(1450)
+    // Rows are absolutely positioned, so the grown row moves the target
+    // only after the virtualizer measures it again: wait for that (the
+    // stream grows by the 4000 px phantom). Then the target must come
+    // back to the center. Both waits check page state, not a fixed delay:
+    // the correction chain and the virtualizer run late on slow runners.
+    await page.waitForFunction(
+      () => {
+        const w = window as unknown as { __heightAtInjection?: number }
+        const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
+        return !!stream && w.__heightAtInjection !== undefined && stream.scrollHeight >= w.__heightAtInjection + 3000
+      },
+      undefined,
+      { timeout: 10000 },
+    )
+    const landingDistancePx = () =>
+      page.evaluate((uuid) => {
+        const target = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null
+        const container = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
+        if (!target || !container) return Number.POSITIVE_INFINITY
+        const t = target.getBoundingClientRect()
+        const c = container.getBoundingClientRect()
+        return Math.abs((t.top + t.height / 2) - (c.top + c.height / 2))
+      }, messages[LATE_TARGET_IDX].uuid)
 
-    const landingDistancePx = await page.evaluate((uuid) => {
-      const target = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null
-      const container = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
-      if (!target || !container) return Number.POSITIVE_INFINITY
-      const t = target.getBoundingClientRect()
-      const c = container.getBoundingClientRect()
-      return Math.abs((t.top + t.height / 2) - (c.top + c.height / 2))
-    }, messages[LATE_TARGET_IDX].uuid)
-
-    expect(
-      landingDistancePx,
-      `target bubble must land within ±100 px of container center after the ` +
-        `post-settle correction chain absorbs the mid-scroll row-growth, ` +
-        `was ${landingDistancePx} px off`,
-    ).toBeLessThanOrEqual(100)
+    await expect
+      .poll(landingDistancePx, {
+        timeout: 10000,
+        message:
+          'target bubble must land within ±100 px of container center after the ' +
+          'post-settle correction chain absorbs the mid-scroll row-growth',
+      })
+      .toBeLessThanOrEqual(100)
 
     await expect(lateTarget).toBeInViewport()
   })
@@ -338,6 +371,15 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
     await searchInput.fill(NEEDLE)
     await expect(page.locator('text=/of\\s+2\\s+matches/')).toBeVisible({ timeout: 10000 })
 
+    // The auto-promote scroll must finish before the reset below: on
+    // slow CI runners a pending scroll moved back to the target after
+    // the reset (2026-10-22), so the click had nothing to scroll and no
+    // scrollend fired. The ring proves that scrollBubbleIntoView ran
+    // (both navigation paths add it in the same task); then wait for
+    // its correction chain to end.
+    await expect(page.locator(`[data-message-uuid="${twoHitMessages[earlyIdx].uuid}"]`)).toHaveClass(/ring-yellow-400/, { timeout: 10000 })
+    await waitForScrollSettled(page)
+
     // Auto-navigate already moved us to the first hit. Reset to top so
     // the click path on the LATE hit has real distance to scroll.
     await page.evaluate(() => {
@@ -352,18 +394,21 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
     await page.waitForTimeout(50)
     await hits.nth(0).click()  // early — supersedes late's pending correction
 
-    await page.waitForTimeout(1500)
-
-    // EARLY target must land within ±100px of center.
-    const earlyDistancePx = await page.evaluate((uuid) => {
-      const target = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null
-      const container = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
-      if (!target || !container) return Number.POSITIVE_INFINITY
-      const t = target.getBoundingClientRect()
-      const c = container.getBoundingClientRect()
-      return Math.abs((t.top + t.height / 2) - (c.top + c.height / 2))
-    }, twoHitMessages[earlyIdx].uuid)
-
-    expect(earlyDistancePx, `early target must land within ±100px of center (no stale-correction yank), was ${earlyDistancePx}px off`).toBeLessThanOrEqual(100)
+    // EARLY target must end within ±100px of center (no stale-correction
+    // yank). Poll the page state instead of sampling after a fixed delay.
+    await expect
+      .poll(
+        () =>
+          page.evaluate((uuid) => {
+            const target = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null
+            const container = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
+            if (!target || !container) return Number.POSITIVE_INFINITY
+            const t = target.getBoundingClientRect()
+            const c = container.getBoundingClientRect()
+            return Math.abs((t.top + t.height / 2) - (c.top + c.height / 2))
+          }, twoHitMessages[earlyIdx].uuid),
+        { timeout: 10000, message: 'early target must land within ±100px of center (no stale-correction yank)' },
+      )
+      .toBeLessThanOrEqual(100)
   })
 })
