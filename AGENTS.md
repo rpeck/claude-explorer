@@ -128,7 +128,9 @@ Download all conversations from Claude using captured credentials.
 ```
 Options:
   --output-dir PATH               Where to save JSON files
-                                  (default: ~/.claude-explorer/conversations)
+                                  (default: the data directory that the app reads,
+                                  ~/.claude-explorer/conversations unless
+                                  CLAUDE_EXPLORER_DATA_DIR or config.json moves it)
   --credentials PATH              Path to credentials file
                                   (default: ~/.claude-explorer/credentials.json)
   --session-key TEXT              Session key (overrides credentials file)

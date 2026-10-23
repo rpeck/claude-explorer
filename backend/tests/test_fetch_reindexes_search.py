@@ -75,8 +75,8 @@ def fetch_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     out = tmp_path / "conversations"
     out.mkdir()
     monkeypatch.setattr("backend.routers.fetch.DEFAULT_CREDENTIALS_PATH", creds)
-    monkeypatch.setattr("backend.routers.fetch.DEFAULT_OUTPUT_DIR", out)
-    monkeypatch.setattr("backend.routers.fetch.DEFAULT_FILES_DIR", tmp_path / "files")
+    monkeypatch.setattr("backend.routers.fetch.fetch_output_dir", lambda _v=out: _v)
+    monkeypatch.setattr("backend.routers.fetch.fetch_files_dir", lambda _v=tmp_path / "files": _v)
 
     async def fail_capture(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
         raise AssertionError("capture must not run with valid credentials")

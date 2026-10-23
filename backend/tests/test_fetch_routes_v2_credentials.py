@@ -52,8 +52,8 @@ def constructed(monkeypatch: pytest.MonkeyPatch, tmp_path) -> list[dict]:
 
     monkeypatch.setattr(fetch_router, "load_credentials", lambda _path: _v2_without_mirror())
     monkeypatch.setattr(fetch_router, "ClaudeFetcher", _StubFetcher)
-    monkeypatch.setattr(fetch_router, "DEFAULT_OUTPUT_DIR", tmp_path / "conversations")
-    monkeypatch.setattr(fetch_router, "DEFAULT_FILES_DIR", tmp_path / "files")
+    monkeypatch.setattr(fetch_router, "fetch_output_dir", lambda _v=tmp_path / "conversations": _v)
+    monkeypatch.setattr(fetch_router, "fetch_files_dir", lambda _v=tmp_path / "files": _v)
     return calls
 
 

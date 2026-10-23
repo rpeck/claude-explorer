@@ -4,6 +4,7 @@ import json
 import asyncio
 import logging
 import time
+from pathlib import Path
 from typing import Any, AsyncGenerator, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,8 +18,6 @@ from fastapi.responses import StreamingResponse
 from fetcher.bulk_fetch import (
     ClaudeFetcher,
     DEFAULT_CREDENTIALS_PATH,
-    DEFAULT_FILES_DIR,
-    DEFAULT_OUTPUT_DIR,
     FetchAuthError,
     FetchTerminalError,
     FetchTransientError,
@@ -37,6 +36,7 @@ from fetcher.credentials import (
     save_credentials,
 )
 
+from ..config import files_dir_for, get_settings
 from ..deps import refuse_if_config_corrupt
 # Patch-safe SSE helpers extracted in Council A2 (2026-05-21). The heavier
 # pipeline functions stay in this module because their bodies reference
@@ -87,6 +87,23 @@ router = APIRouter(tags=["fetch"])
 _refresh_in_progress: bool = False
 
 FETCH_IN_PROGRESS_DETAIL = "A fetch is already in progress."
+
+
+def fetch_output_dir() -> Path:
+    """Where fetched conversations land: the data directory that the app reads.
+
+    Read at request time from ``Settings.data_dir``, which
+    ``CLAUDE_EXPLORER_DATA_DIR`` or ``config.json`` can move. Until
+    2026-10-23 the routes wrote to the fixed
+    ``~/.claude-explorer/conversations``, so with a custom data directory a
+    Refresh fetched into a folder that the app never reads.
+    """
+    return get_settings().data_dir
+
+
+def fetch_files_dir() -> Path:
+    """Where fetched attachments land (see ``config.files_dir_for``)."""
+    return files_dir_for(fetch_output_dir())
 
 
 class _FetchStreamResponse(StreamingResponse):
@@ -312,7 +329,7 @@ def classify_fetch_error(error_msg: str) -> str:
 async def get_fetch_status() -> FetchStatus:
     """Check if credentials are available and get current state."""
     credentials_path = DEFAULT_CREDENTIALS_PATH
-    output_dir = DEFAULT_OUTPUT_DIR
+    output_dir = fetch_output_dir()
 
     has_credentials = credentials_path.exists()
 
@@ -398,7 +415,7 @@ async def _remote_cowork_stream(
     loop = asyncio.get_running_loop()
     remote = RemoteCoworkFetcher(
         getattr(fetcher, "_get", None),
-        DEFAULT_OUTPUT_DIR,
+        fetch_output_dir(),
         incremental=incremental,
         delay=0.3,
     )
@@ -542,8 +559,8 @@ async def fetch_conversations_stream(
         # Create fetcher
         fetcher = ClaudeFetcher(
             **args.fetcher_kwargs(),
-            output_dir=DEFAULT_OUTPUT_DIR,
-            files_dir=DEFAULT_FILES_DIR,
+            output_dir=fetch_output_dir(),
+            files_dir=fetch_files_dir(),
             delay=0.3,
             incremental=incremental,
             verbose=False,
@@ -551,7 +568,7 @@ async def fetch_conversations_stream(
         )
 
         # Ensure output directory exists
-        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        fetch_output_dir().mkdir(parents=True, exist_ok=True)
 
         # Get existing UUIDs if incremental — scoped to the primary org's
         # subdir under the new layout. C3 is single-org so this is exactly
@@ -738,15 +755,15 @@ async def force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
         raise HTTPException(status_code=400, detail=f"Invalid credentials file. {exc}") from exc
     fetcher = ClaudeFetcher(
         **args.fetcher_kwargs(),
-        output_dir=DEFAULT_OUTPUT_DIR,
-        files_dir=DEFAULT_FILES_DIR,
+        output_dir=fetch_output_dir(),
+        files_dir=fetch_files_dir(),
         delay=0.0,
         incremental=False,
         verbose=False,
         download_files=True,
     )
 
-    DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    fetch_output_dir().mkdir(parents=True, exist_ok=True)
 
     try:
         full_conv = fetcher.fetch_conversation(uuid)
@@ -936,15 +953,15 @@ async def _fetch_phase_stream(
         return
     fetcher = ClaudeFetcher(
         **args.fetcher_kwargs(),
-        output_dir=DEFAULT_OUTPUT_DIR,
-        files_dir=DEFAULT_FILES_DIR,
+        output_dir=fetch_output_dir(),
+        files_dir=fetch_files_dir(),
         delay=0.3,
         incremental=incremental,
         verbose=False,
         download_files=True,
     )
 
-    DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    fetch_output_dir().mkdir(parents=True, exist_ok=True)
 
     # cowork-multi-org C5: cross-org dedup via existing_pairs.
     existing_pairs: set[tuple[str, str]] = set()

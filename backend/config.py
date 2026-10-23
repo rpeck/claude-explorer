@@ -36,6 +36,19 @@ def canonical_home_dir() -> Path:
     return Path.home() / CANONICAL_HOME_DIR_NAME
 
 
+def files_dir_for(data_dir: Path) -> Path:
+    """Where attachments live for a given conversations data directory.
+
+    The default layout puts ``conversations/`` and ``files/`` side by side
+    under ``~/.claude-explorer/``. Any other data directory keeps its
+    ``files/`` inside it. The fetchers write here and the attachments
+    route reads here, so both must use this one rule.
+    """
+    if data_dir.name == "conversations":
+        return data_dir.parent / "files"
+    return data_dir / "files"
+
+
 def legacy_home_dir() -> Path:
     """Return ``~/.claude-exporter/`` (the pre-V1 app dir)."""
     return Path.home() / LEGACY_HOME_DIR_NAME

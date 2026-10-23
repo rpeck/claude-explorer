@@ -55,12 +55,8 @@ def isolated_creds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def isolated_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     out = tmp_path / "conversations"
     out.mkdir()
-    monkeypatch.setattr(
-        "backend.routers.fetch.DEFAULT_OUTPUT_DIR", out, raising=True
-    )
-    monkeypatch.setattr(
-        "backend.routers.fetch.DEFAULT_FILES_DIR", tmp_path / "files", raising=True
-    )
+    monkeypatch.setattr("backend.routers.fetch.fetch_output_dir", lambda _v=out: _v)
+    monkeypatch.setattr("backend.routers.fetch.fetch_files_dir", lambda _v=tmp_path / "files": _v)
     return out
 
 

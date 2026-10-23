@@ -35,14 +35,14 @@ def main() -> None:
 @click.option(
     "--output-dir",
     type=click.Path(path_type=Path),
-    default=Path.home() / ".claude-explorer" / "conversations",
-    help="Where to save JSON files",
+    default=None,
+    help="Where to save JSON files (default: the data directory that the app reads)",
 )
 @click.option(
     "--files-dir",
     type=click.Path(path_type=Path),
-    default=Path.home() / ".claude-explorer" / "files",
-    help="Where to save downloaded files (images, PDFs)",
+    default=None,
+    help="Where to save downloaded files (images, PDFs; default: next to the data directory)",
 )
 @click.option(
     "--credentials",
@@ -66,8 +66,8 @@ def main() -> None:
 @click.option("--limit", type=int, help="Max conversations to fetch")
 @click.option("--verbose", is_flag=True, help="Show detailed output")
 def fetch(
-    output_dir: Path,
-    files_dir: Path,
+    output_dir: Path | None,
+    files_dir: Path | None,
     credentials: Path,
     session_key: str | None,
     org_id: str | None,
@@ -109,6 +109,16 @@ def fetch(
 
     from fetcher.bulk_fetch import ClaudeFetcher, load_credentials
     from fetcher.credentials import CredentialsCorruptError, fetcher_credentials
+
+    # Write to the data directory that the app reads (CLAUDE_EXPLORER_DATA_DIR
+    # or config.json can move it). A fixed ~/.claude-explorer/conversations
+    # default fetched into a folder that the app never read (2026-10-23).
+    from backend.config import files_dir_for
+
+    if output_dir is None:
+        output_dir = settings.data_dir
+    if files_dir is None:
+        files_dir = files_dir_for(output_dir)
 
     # ``--session-key`` plus ``--org-id`` need no credentials file. Otherwise
     # the file gives the rest, and an override replaces its value.
@@ -597,8 +607,8 @@ _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."
 @click.option(
     "--data-dir",
     type=click.Path(path_type=Path, file_okay=False),
-    default=Path.home() / ".claude-explorer" / "conversations",
-    help="Where conversations live.",
+    default=None,
+    help="Where conversations live (default: the data directory that the app reads).",
 )
 @click.option(
     "--credentials",
@@ -618,7 +628,7 @@ _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."
     help="List candidates without re-fetching.",
 )
 def rehydrate(
-    data_dir: Path,
+    data_dir: Path | None,
     credentials: Path,
     limit: int | None,
     dry_run: bool,
@@ -649,6 +659,10 @@ def rehydrate(
     from fetcher.bulk_fetch import ClaudeFetcher
     from fetcher.credentials import fetcher_credentials, load_credentials
 
+    from backend.config import files_dir_for, get_settings
+
+    if data_dir is None:
+        data_dir = get_settings().data_dir
     click.echo(f"Scanning {data_dir} for placeholder-affected conversations...")
 
     # Discover the on-disk layout (by-org/<org>/<uuid>.json or flat <uuid>.json).
@@ -725,6 +739,7 @@ def rehydrate(
         fetcher = ClaudeFetcher(
             **fetcher_credentials(creds, org_id=org_id).fetcher_kwargs(),
             output_dir=data_dir,
+            files_dir=files_dir_for(data_dir),
             verbose=False,
         )
 
