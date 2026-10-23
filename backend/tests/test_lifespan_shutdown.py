@@ -127,7 +127,7 @@ async def test_shutdown_completes_under_500ms_with_inflight_summary_fill(
 
     started = asyncio.Event()
 
-    def _very_slow(misses: list[Path]) -> dict[Path, dict | None]:
+    def _very_slow(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
         # Signal that we're inside the to_thread, then block. The
         # outer asyncio task awaiting this to_thread future will be
         # cancelled on lifespan exit; the future is abandoned and
@@ -204,7 +204,7 @@ async def test_shutdown_does_not_leak_cancellederror(
 
     started = [False]
 
-    def _slow(misses: list[Path]) -> dict[Path, dict | None]:
+    def _slow(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
         started[0] = True
         time.sleep(5.0)
         return {}
@@ -333,7 +333,7 @@ async def test_no_background_tasks_leaked_after_shutdown(
         "message": {"role": "user", "content": "x"},
     }) + "\n")
 
-    def _slow(misses: list[Path]) -> dict[Path, dict | None]:
+    def _slow(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
         time.sleep(5.0)
         return {}
 

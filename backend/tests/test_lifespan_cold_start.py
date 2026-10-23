@@ -147,7 +147,7 @@ async def test_eager_fill_task_runs_once_with_full_path_set(
 
     call_args: list[list[Path]] = []
 
-    def _spy(misses: list[Path]) -> dict[Path, dict | None]:
+    def _spy(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
         call_args.append(list(misses))
         # Return realistic shape so upsert_many is exercised too.
         return {p: {"uuid": p.stem, "name": p.stem} for p in misses}
@@ -237,7 +237,7 @@ async def test_eager_fill_task_is_non_blocking(
 
     call_count = 0
 
-    def _slow(misses: list[Path]) -> dict[Path, dict | None]:
+    def _slow(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
         nonlocal call_count
         call_count += 1
         time.sleep(2.0)
@@ -303,7 +303,7 @@ async def test_eager_fill_respects_disable_env_var(
 
         count = 0
 
-        def _spy(misses: list[Path]) -> dict[Path, dict | None]:
+        def _spy(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
             nonlocal count
             count += 1
             return {p: {"uuid": p.stem} for p in misses}
@@ -495,7 +495,7 @@ async def test_shutdown_cancels_eager_fill_cleanly(
 
     call_count = 0
 
-    def _very_slow(misses: list[Path]) -> dict[Path, dict | None]:
+    def _very_slow(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
         nonlocal call_count
         call_count += 1
         time.sleep(30.0)  # way longer than the test will wait
@@ -562,7 +562,7 @@ async def test_eager_fill_processpool_shutdown_does_not_orphan_workers(
         time.sleep(seconds)
         return os.getpid()
 
-    def _fake_parallel(misses: list[Path]) -> dict[Path, dict | None]:
+    def _fake_parallel(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
         """Spawn a ProcessPoolExecutor identical to the real one,
         run a sleeping child, return its pid for the parent to
         verify it exits cleanly."""

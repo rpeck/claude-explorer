@@ -13,6 +13,7 @@ Features:
 
 import logging
 import os
+import threading
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -93,9 +94,14 @@ logger = logging.getLogger(__name__)
 # on macOS) starts being amortized; at 1,000 misses it's the difference
 # between 1.8s (process pool) and 5.6s (sequential).
 _PROCESS_POOL_THRESHOLD = 50
+#: Paths per process-pool map() call: 8 workers x chunksize 20. The stop
+#: flag is checked between calls.
+_STOP_CHECK_CHUNK = 160
 
 
-def _read_summaries_parallel(paths: list[Path]) -> dict[Path, dict[str, Any] | None]:
+def _read_summaries_parallel(
+    paths: list[Path], stop: "threading.Event | None" = None,
+) -> dict[Path, dict[str, Any] | None]:
     """Run :func:`read_conversation_summary_fast` across paths concurrently.
 
     Returns a dict keyed by the input ``Path``; the value is either the
@@ -123,25 +129,38 @@ def _read_summaries_parallel(paths: list[Path]) -> dict[Path, dict[str, Any] | N
         ThreadPoolExecutor pass. Worst case the cold-install
         benchmark gets slow; warm-path latency is unaffected because
         the warm path doesn't hit this function at all.
+
+    ``stop`` (2026-10-23): the lifespan's shutdown flag. The paths are read
+    in chunks, and the flag is checked between chunks, so a Quit during a
+    first fill waits for one chunk, not for every summary. The chunks
+    that finished are returned.
     """
-    if not paths:
+    if not paths or (stop is not None and stop.is_set()):
         return {}
 
     if len(paths) < _PROCESS_POOL_THRESHOLD:
-        return {p: read_conversation_summary_fast(p) for p in paths}
+        out_seq: dict[Path, dict[str, Any] | None] = {}
+        for p in paths:
+            if stop is not None and stop.is_set():
+                break
+            out_seq[p] = read_conversation_summary_fast(p)
+        return out_seq
 
     # ProcessPoolExecutor.map preserves input order, which we don't
     # strictly need (we key by Path), but it also chunks more
     # efficiently than submit-per-task. chunksize=20 keeps the
     # per-process work meaningful without starving the pool.
     try:
+        done: dict[Path, dict[str, Any] | None] = {}
         with ProcessPoolExecutor(max_workers=8) as executor:
-            results = list(
-                executor.map(
-                    read_conversation_summary_fast, paths, chunksize=20,
-                )
-            )
-        return dict(zip(paths, results))
+            for start in range(0, len(paths), _STOP_CHECK_CHUNK):
+                chunk = paths[start:start + _STOP_CHECK_CHUNK]
+                done.update(zip(chunk, executor.map(
+                    read_conversation_summary_fast, chunk, chunksize=20,
+                )))
+                if stop is not None and stop.is_set():
+                    break
+        return done
     except Exception:  # noqa: BLE001
         # ProcessPoolExecutor failure modes are platform-specific
         # (sandboxed Python without fork, frozen executable that
@@ -162,6 +181,10 @@ def _read_summaries_parallel(paths: list[Path]) -> dict[Path, dict[str, Any] | N
             for p in paths
         }
         for future in as_completed(future_to_path):
+            if stop is not None and stop.is_set():
+                for f in future_to_path:
+                    f.cancel()
+                break
             path = future_to_path[future]
             try:
                 out[path] = future.result()
