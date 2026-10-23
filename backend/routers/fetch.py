@@ -87,6 +87,8 @@ router = APIRouter(tags=["fetch"])
 _refresh_in_progress: bool = False
 
 FETCH_IN_PROGRESS_DETAIL = "A fetch is already in progress."
+#: Shown by the web page as is (the re-fetch button's error toast).
+FETCH_BUSY_USER_MESSAGE = "Another fetch is already running. Wait for it to finish, then try again."
 
 
 def fetch_output_dir() -> Path:
@@ -744,6 +746,20 @@ async def force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     Useful when a Desktop-side rename or content change needs to propagate
     without a full --full-refresh.
     """
+    # 2026-10-23: the same one-fetch rule as Refresh and /fetch/start. Two
+    # writers could otherwise save the same conversation file at once.
+    global _refresh_in_progress
+    if _refresh_in_progress:
+        raise HTTPException(status_code=409, detail=FETCH_BUSY_USER_MESSAGE)
+    _refresh_in_progress = True
+    try:
+        return await _force_refetch_conversation(uuid)
+    finally:
+        _refresh_in_progress = False
+
+
+async def _force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
+    """The re-fetch itself; the route above holds the one-fetch flag."""
     try:
         creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
     except Exception:
