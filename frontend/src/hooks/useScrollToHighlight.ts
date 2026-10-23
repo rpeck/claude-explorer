@@ -42,6 +42,7 @@ import type { SetURLSearchParams } from 'react-router'
 import type { Message, ConversationDetail } from '@/lib/types'
 import type { FocusArea, MessageInfo } from '@/contexts/KeyboardNavigationContext'
 import { scrollBubbleIntoView } from '@/lib/scrollBubbleIntoView'
+import { consumeStaleUrlHighlight, isStaleUrlHighlight } from '@/lib/searchNavigation'
 
 interface UseScrollToHighlightArgs {
   highlightMessageId: string | null
@@ -89,6 +90,26 @@ export function useScrollToHighlight({
   // react-doctor-disable-next-line react-doctor/no-cascading-set-state -- Phase 2: multi-stage scroll-to-highlight orchestration (focus area, message index, scroll position, ring flash, URL cleanup). The setState calls fire across multiple promise/rAF boundaries, NOT in a single render. useReducer would force consolidation that loses the timing semantics — each stage is meaningful on its own commit boundary (e.g. setSelectedMessageIndex commits before the rAF poll starts so the bubble's `isKeyboardSelected` is true when querySelector finds it).
   useEffect(() => {
     if (!highlightMessageId || !conversation || isLoading) return
+    // 2026-10-23: a newer search jump already moved on. Skip this
+    // highlight and remove it from the URL, or it would scroll back to
+    // the older hit (lib/searchNavigation.ts).
+    const dropStale = () => {
+      consumeStaleUrlHighlight()
+      setSearchParams((prev) => {
+        if (prev.get('highlight') !== highlightMessageId && prev.get('m') !== highlightMessageId) {
+          return prev
+        }
+        const next = new URLSearchParams(prev)
+        next.delete('highlight')
+        next.delete('m')
+        next.delete('focus')
+        return next
+      }, { replace: true })
+    }
+    if (isStaleUrlHighlight(highlightMessageId)) {
+      dropStale()
+      return
+    }
     // Focus the detail pane and select the highlighted message
     setFocusArea('detail')
     const msgIdx = messages.findIndex((m) => m.uuid === highlightMessageId)
@@ -113,6 +134,11 @@ export function useScrollToHighlight({
     const POLL_BUDGET_MS = 600
     const tryFindAndApply = () => {
       if (cancelled) return
+      // A newer search jump may start while this poll waits for the mount.
+      if (isStaleUrlHighlight(highlightMessageId)) {
+        dropStale()
+        return
+      }
       const element = document.querySelector<HTMLElement>(
         `[data-message-uuid="${highlightMessageId}"]`,
       )

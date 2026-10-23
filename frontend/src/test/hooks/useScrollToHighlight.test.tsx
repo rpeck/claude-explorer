@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useScrollToHighlight } from '../../hooks/useScrollToHighlight';
+import { beginSearchNavigation, __resetSearchNavigationForTests } from '@/lib/searchNavigation';
 import type { Message, ConversationDetail } from '@/lib/types';
 import type { Virtualizer } from '@tanstack/react-virtual';
 import type { SetURLSearchParams } from 'react-router';
@@ -218,5 +219,52 @@ describe('useScrollToHighlight', () => {
       })
     );
     expect(scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  // 2026-10-23: the newest search jump wins. A `?highlight=` that an older
+  // search jump set must not scroll after a newer jump.
+  describe('a highlight from an older search jump', () => {
+    beforeEach(() => __resetSearchNavigationForTests());
+
+    function run(highlight: string) {
+      renderHook(() =>
+        useScrollToHighlight({
+          highlightMessageId: highlight,
+          conversation: makeConversation(),
+          isLoading: false,
+          setSearchParams,
+          setFocusArea,
+          messages: [makeMsg('early'), makeMsg('late')],
+          setSelectedMessageIndex,
+          visibleMessages: [makeMsg('early'), makeMsg('late')],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          virtualizer: { scrollToIndex } as any,
+          isJsdom: false,
+          shouldFocusOnHighlight: true,
+          scheduleHighlightClear,
+        })
+      );
+    }
+
+    it('is skipped: no scroll, no selection, and the URL loses it', () => {
+      beginSearchNavigation('late'); // URL path
+      beginSearchNavigation(null); // newer fast-path jump
+      run('late');
+
+      expect(scrollToIndex).not.toHaveBeenCalled();
+      expect(setSelectedMessageIndex).not.toHaveBeenCalled();
+      expect(setSearchParams).toHaveBeenCalledTimes(1);
+      const update = setSearchParams.mock.calls[0][0] as (p: URLSearchParams) => URLSearchParams;
+      const next = update(new URLSearchParams('highlight=late&focus=0&pin=conv:x'));
+      expect(next.get('highlight')).toBeNull();
+      expect(next.get('focus')).toBeNull();
+      expect(next.get('pin')).toBe('conv:x');
+    });
+
+    it('from the newest jump still scrolls', () => {
+      beginSearchNavigation('late');
+      run('late');
+      expect(scrollToIndex).toHaveBeenCalledWith(1, { align: 'center' });
+    });
   });
 });

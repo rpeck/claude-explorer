@@ -50,6 +50,7 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { KeyboardNavigationProvider, useKeyboardNavigation } from '@/contexts/KeyboardNavigationContext'
 import { useNavigateToMatch } from '@/components/search/navigateToMatch'
+import { isStaleUrlHighlight, __resetSearchNavigationForTests } from '@/lib/searchNavigation'
 import type { SearchMatch } from '@/contexts/SearchPanelContext'
 
 const CONV_A = '00000000-0000-0000-0000-000000000aaa'
@@ -336,6 +337,29 @@ describe('useNavigateToMatch — A1 two-tier with silent-bail bug fixed', () => 
 
     expect(clickSpy).not.toHaveBeenCalled()
     expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1)
+
+    document.body.removeChild(bubble)
+  })
+
+  // 2026-10-23: the newest search jump wins (lib/searchNavigation.ts).
+  it('a fast-path jump makes the URL highlight of an older jump stale', () => {
+    __resetSearchNavigationForTests()
+    const bubble = document.createElement('div')
+    bubble.setAttribute('data-message-uuid', MSG_X)
+    document.body.appendChild(bubble)
+    const { Wrapper } = makeWrapper(CONV_A, [
+      { uuid: MSG_X, sender: 'assistant' },
+      { uuid: 'msg-late', sender: 'human' },
+    ])
+    const { result } = renderHook(() => useNavigateToMatch(), { wrapper: Wrapper })
+
+    // Older jump: its bubble is not mounted, so it takes the URL path.
+    act(() => result.current(makeMatch({ conversationUuid: CONV_A, messageUuid: 'msg-late' })))
+    expect(isStaleUrlHighlight('msg-late')).toBe(false)
+
+    // Newer jump: mounted bubble, fast path.
+    act(() => result.current(makeMatch({ conversationUuid: CONV_A, messageUuid: MSG_X })))
+    expect(isStaleUrlHighlight('msg-late')).toBe(true)
 
     document.body.removeChild(bubble)
   })

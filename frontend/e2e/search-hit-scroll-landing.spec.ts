@@ -411,4 +411,66 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
       )
       .toBeLessThanOrEqual(100)
   })
+
+  test('the newest jump wins on a slow machine (two hits 50 ms apart, 4x CPU)', async ({
+    page,
+    mockBackend,
+  }) => {
+    // 2026-10-23: the late click took the URL path (?highlight=late); the
+    // early click 50 ms later took the fast path, which does not touch the
+    // URL. On a slow machine, useScrollToHighlight processed ?highlight=late
+    // after that and scrolled back to the older hit: 24 of 30 runs at 4x
+    // CPU. Each jump now starts a search navigation, and a ?highlight= from
+    // an older one is dropped (lib/searchNavigation.ts).
+    const earlyIdx = 50
+    const twoHitMessages: Message[] = Array.from({ length: TOTAL_MESSAGES }, (_, i) =>
+      i === earlyIdx || i === LATE_TARGET_IDX ? makeTargetMessage(i) : makeFillerMessage(i),
+    )
+    const hit = (i: number) => ({
+      message_uuid: twoHitMessages[i].uuid,
+      sender: twoHitMessages[i].sender,
+      snippet: `the ${NEEDLE} lives here.`,
+      match_start: 4,
+      match_end: 15,
+      created_at: twoHitMessages[i].created_at,
+    })
+    await mockBackend({ conversations: [summary], details: { [CONV_UUID]: makeDetail(summary, twoHitMessages) } })
+    await mockSearch(page, [{
+      conversation_uuid: CONV_UUID,
+      conversation_name: summary.name,
+      conversation_updated_at: summary.updated_at,
+      conversation_created_at: summary.created_at,
+      project_name: null,
+      matching_messages: [hit(earlyIdx), hit(LATE_TARGET_IDX)],
+    }])
+    await page.setViewportSize({ width: 1024, height: 900 })
+    await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: 4 })
+
+    await withNetRetry(page, () => page.goto(`/conversations/${CONV_UUID}`))
+    await expect(page.locator('[data-message-uuid="m-0000"]')).toBeVisible()
+    await page.keyboard.press('Meta+k')
+    await page.locator('input[placeholder="Search messages..."]').fill(NEEDLE)
+    await expect(page.locator('text=/of\\s+2\\s+matches/')).toBeVisible({ timeout: 20000 })
+    const early = page.locator(`[data-message-uuid="${twoHitMessages[earlyIdx].uuid}"]`)
+    await expect(early).toHaveClass(/ring-yellow-400/, { timeout: 20000 })
+    await waitForScrollSettled(page)
+    await page.evaluate(() => {
+      const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
+      if (stream) stream.scrollTo({ top: 0, behavior: 'auto' })
+    })
+
+    const hits = page.getByRole('button', { name: new RegExp(NEEDLE) })
+    await hits.nth(1).click() // late: URL path
+    await page.waitForTimeout(50)
+    await hits.nth(0).click() // early: the newer jump
+
+    // End state: no jump is pending. Either the URL highlight was used and
+    // cleared (after 2 s), or it was dropped as stale; and no correction
+    // runs.
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('highlight'), { timeout: 20000 })
+      .toBeNull()
+    await waitForScrollSettled(page)
+    await expect(early, 'the older, slower jump moved the view back to its hit').toBeInViewport()
+  })
 })
