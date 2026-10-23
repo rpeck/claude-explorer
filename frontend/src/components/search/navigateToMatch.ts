@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryClient'
 import { api } from '@/lib/api'
 import { scrollBubbleIntoView } from '@/lib/scrollBubbleIntoView'
+import { beginSearchNavigation } from '@/lib/searchNavigation'
 import { useKeyboardNavigation } from '@/contexts/KeyboardNavigationContext'
 import type { SearchMatch } from '@/contexts/SearchPanelContext'
 
@@ -111,6 +112,9 @@ export function useNavigateToMatch() {
             // Distance-gated scroll + post-settle correction. See
             // `scrollBubbleIntoView` docstring for the 15K-msg
             // layout-shift bug this fixes.
+            // The newest jump wins: an older jump's pending ?highlight=
+            // is now stale (lib/searchNavigation.ts).
+            beginSearchNavigation(null)
             scrollBubbleIntoView(element)
             element.classList.add('ring-2', 'ring-yellow-400', 'ring-offset-2')
             // 2026-05-23: when the caller asks for focus (user-initiated
@@ -180,6 +184,7 @@ export function useNavigateToMatch() {
       // `/conversations/<uuid>?highlight=<msg>` into the address bar)
       // — they still get focus on the bubble.
       const focusSuffix = focus ? '' : '&focus=0'
+      beginSearchNavigation(hasRealMessage ? match.messageUuid : null)
       navigate(
         `/conversations/${match.conversationUuid}${
           hasRealMessage

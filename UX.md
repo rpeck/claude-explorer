@@ -261,6 +261,12 @@ A jump to a search hit centers the hit, then re-checks the position at
 - The same demonstrated focus keeps a later search refetch (for example
   a Show Compactions toggle) from jumping back to the first match.
 - Cmd+G, a new query, or another conversation starts navigation again.
+- **The newest search jump wins.** A jump either scrolls straight to a
+  rendered bubble, or sets `?highlight=` and scrolls once the bubble
+  renders. A `?highlight=` that an older jump set is dropped when a newer
+  jump starts (`lib/searchNavigation.ts`). Before 2026-10-23, on a slow
+  machine, two jumps 50 ms apart could end on the older hit. A pasted
+  link or a bookmark is not a search jump, so it always works.
 
 ---
 
