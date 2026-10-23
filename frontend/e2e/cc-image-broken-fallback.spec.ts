@@ -194,7 +194,17 @@ test.describe('CC image broken-image fallback (manual finding 2026-05-04)', () =
     const messageScope = page.locator('[data-message-uuid="cc-marker-retry"]')
     const tile = messageScope.locator('[data-cc-image-marker]')
     await expect(tile).toBeVisible({ timeout: 5000 })
-    await expect(tile.locator('img')).toBeVisible({ timeout: 5000 })
+    // Wait until the image has really LOADED. A failed <img> is visible
+    // too (the browser draws its broken-image icon), so toBeVisible()
+    // passed in the window after the first 404 and before the component
+    // sent its retry; then `calls` was still 1 (2026-10-22, a full-suite
+    // flake). Only the retry can load it: the first request always 404s.
+    await expect
+      .poll(
+        () => tile.locator('img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0),
+        { timeout: 10000, message: 'the cache-busted retry must load the image' },
+      )
+      .toBe(true)
     await expect(
       messageScope.locator('[data-cc-image-marker][data-cc-image-broken]'),
     ).toHaveCount(0)
