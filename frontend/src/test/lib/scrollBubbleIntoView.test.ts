@@ -24,6 +24,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   scrollBubbleIntoView,
+  cancelScrollCorrections,
   __resetScrollToken,
 } from '@/lib/scrollBubbleIntoView'
 
@@ -339,6 +340,32 @@ describe('scrollBubbleIntoView — distance-gated scroll + supersession', () => 
       target.remove()
       vi.advanceTimersByTime(250)
       expect(container.hasAttribute('data-scroll-settling')).toBe(false)
+    })
+  })
+
+  // User focus cancels pending corrections (2026-10-23). A click on a
+  // bubble right after a search jump was undone: the jump's pending
+  // correction scrolled back to the search hit 250 ms later.
+  describe('cancelScrollCorrections', () => {
+    it('stops a pending correction and removes the settle mark', () => {
+      const { container, target } = setupContainerAndTarget(3000) // far off: would correct
+      scrollBubbleIntoView(target as HTMLElement)
+      expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1)
+
+      cancelScrollCorrections()
+      expect(container.hasAttribute('data-scroll-settling')).toBe(false)
+
+      vi.advanceTimersByTime(2000)
+      expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not block the next navigation', () => {
+      const { container, target } = setupContainerAndTarget(3000)
+      cancelScrollCorrections()
+      scrollBubbleIntoView(target as HTMLElement)
+      expect(container.hasAttribute('data-scroll-settling')).toBe(true)
+      vi.advanceTimersByTime(250)
+      expect(scrollIntoViewSpy).toHaveBeenCalledTimes(2) // initial + correction
     })
   })
 })

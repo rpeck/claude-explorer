@@ -18,6 +18,7 @@ import { useFilters } from '@/contexts/FilterContext'
 import { applyActiveFilter } from '@/lib/filterEngine'
 import { usePreferences } from '@/hooks/usePreferences'
 import type { SearchResult, SnippetFragment, SortField, SortOrder } from '@/lib/types'
+import { cancelScrollCorrections } from '@/lib/scrollBubbleIntoView'
 
 export interface SearchMatch {
   conversationUuid: string
@@ -339,6 +340,10 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
 
   const markDemonstratedFocus = useCallback((uuid: string | null) => {
     demonstratedFocusUuidRef.current = uuid
+    // 2026-10-23: the user's click or manual scroll also ends any pending
+    // correction of the previous search jump, which would otherwise
+    // scroll back to the hit and undo the user's choice.
+    if (uuid !== null) cancelScrollCorrections()
   }, [])
 
   const clearDemonstratedFocus = useCallback(() => {
