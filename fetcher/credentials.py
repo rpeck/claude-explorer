@@ -408,7 +408,7 @@ def load_credentials(path: Path = DEFAULT_CREDENTIALS_PATH) -> CredentialsV2:
         raise FileNotFoundError(f"credentials file not found: {path}")
 
     try:
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
     except json.JSONDecodeError as e:
         raise CredentialsCorruptError(f"failed to parse {path}: {e}") from e
@@ -516,7 +516,7 @@ def _unlocked_save(creds: CredentialsV2, path: Path) -> None:
         atomic_replace(bak, prev_bak)
 
     # Step 2: write new payload to .tmp + fsync, restrict perms.
-    with open(tmp, "w") as f:
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(creds, f, indent=2)
         f.flush()
         os.fsync(f.fileno())

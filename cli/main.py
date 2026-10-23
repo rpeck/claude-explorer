@@ -678,7 +678,7 @@ def rehydrate(
     candidates: list[dict] = []
     for path in candidate_paths:
         try:
-            raw = path.read_text()
+            raw = path.read_text(encoding="utf-8")
         except OSError:
             continue
         if _PLACEHOLDER_TEXT not in raw:
@@ -1026,7 +1026,7 @@ def install_app(dest: Path | None, uninstall: bool, port: int | None) -> None:
     if port is None:
         port = saved_port() or app_launcher.DEFAULT_PORT
     port_path().parent.mkdir(parents=True, exist_ok=True)
-    port_path().write_text(f"{port}\n")
+    port_path().write_text(f"{port}\n", encoding="utf-8")
 
     if os_name == "darwin":
         installed = app_launcher.build_app(

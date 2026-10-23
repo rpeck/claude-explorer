@@ -92,7 +92,7 @@ def _read_version() -> str:
     """Read ``mcp_server.__version__`` without importing the whole
     package (which would pull every backend dep on first import)."""
 
-    init_py = (REPO_ROOT / "mcp_server" / "__init__.py").read_text()
+    init_py = (REPO_ROOT / "mcp_server" / "__init__.py").read_text(encoding="utf-8")
     for line in init_py.splitlines():
         line = line.strip()
         if line.startswith("__version__"):

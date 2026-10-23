@@ -759,7 +759,7 @@ class ClaudeFetcher:
         org_dir = self.output_dir / "by-org" / self.current_org["uuid"]
         org_dir.mkdir(parents=True, exist_ok=True)
         path = org_dir / f"{uuid}.json"
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(conversation, f, indent=2)
 
         self._log(f"Saved {path}")
@@ -809,7 +809,7 @@ class ClaudeFetcher:
         index_path = self.output_dir / "_index.json"
         if index_path.exists():
             try:
-                with open(index_path) as f:
+                with open(index_path, encoding="utf-8") as f:
                     prior = json.load(f)
                 if prior.get("schema_version") == 2:
                     for entry in prior.get("orgs", []):
@@ -873,7 +873,7 @@ class ClaudeFetcher:
         # entry intact rather than promoting to a fake 'ok'.
         self.output_dir.mkdir(parents=True, exist_ok=True)
         tmp = index_path.with_suffix(".json.tmp")
-        with open(tmp, "w") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(index, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
@@ -1339,7 +1339,7 @@ def load_credentials(credentials_path: Path) -> dict:
         )
 
     try:
-        with open(credentials_path) as f:
+        with open(credentials_path, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         raise click.ClickException(

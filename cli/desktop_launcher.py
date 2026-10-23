@@ -62,7 +62,7 @@ def port_path() -> Path:
 
 def saved_port() -> int | None:
     try:
-        port = int(port_path().read_text().strip())
+        port = int(port_path().read_text(encoding="utf-8").strip())
     except (OSError, ValueError):
         return None
     return port if 0 < port < 65536 else None
@@ -199,7 +199,7 @@ def start_server(port: int) -> subprocess.Popen:
         kwargs["start_new_session"] = True
     with open(log_path(), "ab") as log:
         proc = subprocess.Popen(serve_command(port), stdout=log, **kwargs)
-    pid_path().write_text(f"{proc.pid}\n{port}\n")
+    pid_path().write_text(f"{proc.pid}\n{port}\n", encoding="utf-8")
     return proc
 
 
@@ -240,7 +240,7 @@ def _start_failed_message() -> str:
 
 def _read_pid_file() -> tuple[int, int] | None:
     try:
-        pid_text, port_text = pid_path().read_text().split()[:2]
+        pid_text, port_text = pid_path().read_text(encoding="utf-8").split()[:2]
         return int(pid_text), int(port_text)
     except (OSError, ValueError):
         return None

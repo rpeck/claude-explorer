@@ -37,7 +37,7 @@ def release_workflow() -> dict:
     """
 
     yaml = pytest.importorskip("yaml")
-    return yaml.safe_load(RELEASE_YML.read_text())
+    return yaml.safe_load(RELEASE_YML.read_text(encoding="utf-8"))
 
 
 def test_release_yaml_parses(release_workflow: dict) -> None:

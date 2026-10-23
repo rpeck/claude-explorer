@@ -203,7 +203,7 @@ def migrate_to_v2(
                 "started_at": datetime.now(timezone.utc).isoformat(),
                 "command": lock_command,
             }
-            lock_path.write_text(json.dumps(metadata, indent=2))
+            lock_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         except OSError:
             # Lock metadata is diagnostic-only; failing to write it must not
             # abort migration.
@@ -253,7 +253,7 @@ def _do_migrate(
 
     for path in candidates:
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             errors.append({"path": str(path), "error": f"read failed: {e}"})
@@ -303,7 +303,7 @@ def _do_migrate(
                 # Atomic write of the mutated file at the target location,
                 # then unlink the source.
                 tmp = target_path.with_suffix(".json.tmp")
-                with open(tmp, "w") as f:
+                with open(tmp, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)
                     f.flush()
                     os.fsync(f.fileno())
@@ -337,7 +337,7 @@ def _do_migrate(
         "total_moved": moved_count,
     }
     try:
-        log_path.write_text(json.dumps(log_data, indent=2))
+        log_path.write_text(json.dumps(log_data, indent=2), encoding="utf-8")
     except OSError as e:
         log.warning("migrate_to_v2: could not write migration log: %s", e)
 
