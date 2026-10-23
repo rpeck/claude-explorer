@@ -168,6 +168,19 @@ function scheduleCorrections(
   }, CORRECTION_SCHEDULE_MS[stepIdx])
 }
 
+/**
+ * Stop every pending correction (2026-10-23). Call it when the user shows
+ * where they want to be (a click on a bubble, a manual wheel or touch
+ * scroll): a pending correction for the previous search jump would
+ * otherwise scroll back to that hit and undo the user's choice.
+ */
+export function cancelScrollCorrections(): void {
+  scrollToken++
+  document
+    .querySelectorAll(`${SCROLL_CONTAINER_SELECTOR}[${SETTLING_ATTR}]`)
+    .forEach((el) => el.removeAttribute(SETTLING_ATTR))
+}
+
 /** End of a correction chain: remove the settle mark, unless a newer
  *  scroll started its own chain. */
 function settled(token: number, container: HTMLElement): void {

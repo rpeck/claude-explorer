@@ -217,6 +217,47 @@ async function streamTotalHeight(page: Page): Promise<number> {
 }
 
 test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', () => {
+  test('a bubble click right after a search jump is not undone by a pending correction', async ({
+    page,
+    mockBackend,
+  }) => {
+    // 2026-10-23: the jump's scrollBubbleIntoView schedules corrections
+    // (250/500/500 ms) that re-center the hit. A click on another bubble
+    // inside that window scrolled the clicked bubble into view, and then a
+    // correction scrolled back to the hit, about 1000 px away. This was
+    // the cause of the full-suite flake of the next test. A click
+    // demonstrates focus, so it now cancels the pending corrections.
+    await mockBackend({ conversations: [summary], details: { [CONV_UUID]: detail } })
+    await mockSearch(page, searchResults)
+    await page.setViewportSize({ width: 1024, height: 900 })
+    await withNetRetry(page, () => page.goto(`/conversations/${CONV_UUID}`))
+    await expect(page.locator('[data-message-uuid="m-0000"]')).toBeVisible()
+
+    await page.keyboard.press('Meta+k')
+    const searchInput = page.locator('input[placeholder="Search messages..."]')
+    await searchInput.fill(NEEDLE)
+    const firstHit = page.locator(`[data-message-uuid="${messages[HIT_INDICES[0]].uuid}"]`)
+    // The ring appears in the same task as scrollBubbleIntoView: the
+    // correction chain has just started.
+    await expect(firstHit).toHaveClass(/ring-yellow-400/, { timeout: 10000 })
+
+    // Act inside the correction window: no wait.
+    await page.keyboard.press('Escape')
+    const clickedUuid = 'm-0085'
+    const clicked = page.locator(`[data-message-uuid="${clickedUuid}"]`)
+    await clicked.click()
+
+    // Every pending correction has run or was cancelled.
+    await expect(page.getByTestId('message-stream')).not.toHaveAttribute('data-scroll-settling', {
+      timeout: 10000,
+    })
+    await expect(clicked).toBeInViewport()
+    expect(
+      await distancePxFromCenter(page, clickedUuid),
+      'the clicked bubble must stay near the center: a pending correction scrolled back to the search hit',
+    ).toBeLessThan(800)
+  })
+
   test('after bubble click, toggling Show Compactions OFF does NOT yank viewer to first match', async ({
     page,
     mockBackend,

@@ -248,6 +248,20 @@ stores tool results as user rows, so a "You" hit can be a tool result.
   blocks, so it is not empty.
 - Code: `frontend/src/components/search/toolReveal.ts`.
 
+### The user's click or scroll wins over a search jump
+
+A jump to a search hit centers the hit, then re-checks the position at
+250, 750, and 1250 ms and re-centers it if a row above changed height
+(`scrollBubbleIntoView`). The user's own action ends those re-checks:
+
+- **A click on a bubble, or a manual wheel or touch scroll**, records
+  "demonstrated focus" (`markDemonstratedFocus`). It also cancels the
+  pending re-checks. Before 2026-10-23, a click within about a second
+  of a jump was undone: a re-check scrolled back to the hit.
+- The same demonstrated focus keeps a later search refetch (for example
+  a Show Compactions toggle) from jumping back to the first match.
+- Cmd+G, a new query, or another conversation starts navigation again.
+
 ---
 
 ## 5. Sidebar dim (out-of-scope rows)
