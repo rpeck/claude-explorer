@@ -11,6 +11,7 @@ default-encoding access then raises.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import textwrap
@@ -21,6 +22,19 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 
 
+def _child_env(tmp_path: Path) -> dict[str, str]:
+    """The real environment, with the home directory in ``tmp_path``.
+
+    Windows needs the real environment: without ``SYSTEMROOT`` the import
+    of ``asyncio`` fails (WinError 10106), and ``Path.home()`` reads
+    ``USERPROFILE``, not ``HOME``. The ``PYTHON*`` variables go, because
+    ``PYTHONUTF8`` or ``PYTHONWARNINGS`` could change what the child checks.
+    """
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PYTHON")}
+    env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), PYTHONPATH=str(REPO))
+    return env
+
+
 def _run_strict(code: str, tmp_path: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-X", "warn_default_encoding", "-W", "error::EncodingWarning", "-c", textwrap.dedent(code)],
@@ -28,7 +42,7 @@ def _run_strict(code: str, tmp_path: Path) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         encoding="utf-8",
-        env={"PATH": "", "HOME": str(tmp_path), "PYTHONPATH": str(REPO)},
+        env=_child_env(tmp_path),
         timeout=120,
     )
 
