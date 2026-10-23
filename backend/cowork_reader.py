@@ -180,7 +180,22 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
         # D2: only a remote task has a workspace. See
         # ``list_cowork_conversations``.
         "organization_id": _remote_organization_id(session_dir, sidecar),
+        # 2026-10-23: the list groups by name; without it a remote task
+        # showed as "Workspace (<uuid prefix>)".
+        "organization_name": _remote_organization_name(session_dir, sidecar),
     }
+
+
+def _remote_organization_name(session_dir: Path, sidecar: dict) -> str | None:
+    """The workspace name of a remote task (sidecar ``organizationName``).
+
+    ``None`` for a local session, and for a task fetched before the name
+    was recorded; the next fetch adds it.
+    """
+    if not session_dir.name.startswith(REMOTE_SESSION_PREFIX):
+        return None
+    name = sidecar.get("organizationName")
+    return name if isinstance(name, str) and name else None
 
 
 def _remote_organization_id(session_dir: Path, sidecar: dict) -> str | None:

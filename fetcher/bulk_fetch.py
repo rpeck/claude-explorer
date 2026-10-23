@@ -1033,7 +1033,11 @@ class ClaudeFetcher:
         Returns the number of tasks fetched.
         """
         remote = RemoteCoworkFetcher(
-            self._get, self.output_dir, incremental=self.incremental, delay=self.delay
+            self._get,
+            self.output_dir,
+            incremental=self.incremental,
+            delay=self.delay,
+            org_names={o["uuid"]: o.get("name") for o in self.orgs},
         )
         total = 0
         for org_uuid in org_uuids:

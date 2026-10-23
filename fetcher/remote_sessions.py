@@ -130,8 +130,9 @@ class _StoredState:
         side = self.sidecar
         if not self.has_audit or side is None:
             return False
-        # Sidecars from before 2026-10-21 lack these keys: check them once.
-        if "apiLastEventAt" not in side or "lastSequenceNum" not in side:
+        # Sidecars from before 2026-10-21 lack the first two keys, and from
+        # before 2026-10-23 the workspace name: check them once.
+        if "apiLastEventAt" not in side or "lastSequenceNum" not in side or "organizationName" not in side:
             return False
         return (
             side.get("apiUpdatedAt") is not None
@@ -154,11 +155,15 @@ class RemoteCoworkFetcher:
         output_dir: Path,
         incremental: bool = True,
         delay: float = 0.3,
+        org_names: dict[str, str | None] | None = None,
     ) -> None:
         self._http_get = http_get
         self.root = remote_cowork_root(output_dir)
         self.incremental = incremental
         self.delay = delay
+        #: Workspace names by org uuid, recorded in each sidecar so the list
+        #: can group remote tasks by name (2026-10-23).
+        self.org_names: dict[str, str | None] = dict(org_names or {})
 
     # ------------------------------------------------------------------ HTTP
 
@@ -330,7 +335,9 @@ class RemoteCoworkFetcher:
         _atomic_write_text(
             sidecar_path,
             json.dumps(
-                _build_sidecar(org_uuid, session, last_seq), indent=2, ensure_ascii=False
+                _build_sidecar(org_uuid, session, last_seq, self.org_names.get(org_uuid)),
+                indent=2,
+                ensure_ascii=False,
             ),
         )
         return added
@@ -492,7 +499,9 @@ def _epoch_ms(iso: str | None) -> int | None:
     return int(dt.timestamp() * 1000)
 
 
-def _build_sidecar(org_uuid: str, session: dict, last_seq: int | None = None) -> dict:
+def _build_sidecar(
+    org_uuid: str, session: dict, last_seq: int | None = None, org_name: str | None = None,
+) -> dict:
     """Sidecar in the local Cowork shape, plus the fields only remote has.
 
     The reader uses ``sessionId`` (as the conversation uuid), ``title``,
@@ -520,6 +529,7 @@ def _build_sidecar(org_uuid: str, session: dict, last_seq: int | None = None) ->
         "isArchived": session.get("status") == "archived",
         "remote": True,
         "organizationId": org_uuid,
+        "organizationName": org_name,
         "origin": config.get("origin"),
         "environmentKind": session.get("environment_kind"),
         "tags": session.get("tags") or [],

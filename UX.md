@@ -676,6 +676,10 @@ doesn't shift mid-stream when a second org appears.
   only the conversations of that workspace.
 - A remote Cowork task belongs to the workspace that Refresh fetched it
   from. Its sidecar records that workspace as `organizationId`.
+- The list groups a remote task under its workspace **name**, which the
+  fetch records in the task's sidecar (`organizationName`). A task fetched
+  before 2026-10-23 gets the name at the next Refresh; until then it shows
+  as "Workspace (<uuid prefix>)".
 - A local Cowork session has no workspace. Claude Desktop stores it under
   an internal org directory that does not match a workspace. Thus, the
   list shows local Cowork sessions only when "All workspaces" is

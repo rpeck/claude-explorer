@@ -419,6 +419,7 @@ async def _remote_cowork_stream(
         fetch_output_dir(),
         incremental=incremental,
         delay=0.3,
+        org_names=dict(orgs),
     )
     for org_uuid, org_name in orgs:
         try:
