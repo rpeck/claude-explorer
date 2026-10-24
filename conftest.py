@@ -9,14 +9,31 @@ POSIX when the same thread happens to be collected earlier.
 
 from __future__ import annotations
 
+import gc
 import os
 import threading
+
+import pytest
 
 # The backend answers only loopback Host names (backend/host_guard.py).
 # Starlette's TestClient sends "Host: testserver", and the httpx ASGI clients
 # in backend/tests use "test". Set here, at the root, because mcp_server/tests
 # also calls the backend app.
 os.environ.setdefault("CLAUDE_EXPLORER_ALLOWED_HOSTS", "testserver,test")
+
+
+@pytest.fixture(autouse=True)
+def _collect_garbage_after_each_test():
+    """Collect garbage at the end of each test.
+
+    pyproject.toml turns ResourceWarning into an error (2026-10-23). The
+    warning fires when garbage collection finds an unclosed connection,
+    file, or socket. Without this, collection ran at random times, and the
+    error failed whatever test ran then. Now it fails the teardown of the
+    test that leaked. It costs about 4 s for the suite.
+    """
+    yield
+    gc.collect()
 
 
 def pytest_sessionfinish(session, exitstatus):

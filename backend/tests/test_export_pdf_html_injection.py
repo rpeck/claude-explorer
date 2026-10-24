@@ -42,7 +42,13 @@ from backend.models import ConversationDetail
 
 
 def _body(response) -> bytes:
-    return response.read()
+    # Read, then close. WeasyPrint closes a response that it fetches itself;
+    # any other caller must close it. Python 3.14 warns about an unclosed
+    # urllib response (the data: URL case).
+    try:
+        return response.read()
+    finally:
+        response.close()
 
 
 def _make_conv(name: str = "Test", model: str = "claude-3-5-sonnet") -> ConversationDetail:

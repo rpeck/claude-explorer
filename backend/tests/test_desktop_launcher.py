@@ -129,10 +129,22 @@ def launcher_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     port = _free_port()
     started: list[subprocess.Popen] = []
+    # Keep each server that the launcher starts. The launcher lets go of
+    # it on purpose (the server outlives `open`), and a Popen that goes
+    # away while its process runs raises a ResourceWarning.
+    real_start = desktop_launcher.start_server
+
+    def start_and_keep(p: int) -> subprocess.Popen:
+        proc = real_start(p)
+        started.append(proc)
+        return proc
+
+    monkeypatch.setattr(desktop_launcher, "start_server", start_and_keep)
     yield port, started
     for proc in started:
         if proc.poll() is None:
             proc.kill()
+        proc.wait()
     desktop_launcher.stop_recorded_server()
 
 

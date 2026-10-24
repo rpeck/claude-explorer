@@ -187,11 +187,14 @@ def test_search_index_flags_cowork_compaction_row_as_summary(tmp_path, monkeypat
 
     # Row-level check: the compaction summary message must be tagged.
     import sqlite3
-    rows = sqlite3.connect(str(idx_path)).execute(
-        "SELECT message_uuid, is_compaction_summary FROM messages "
-        "WHERE conv_uuid = ? ORDER BY message_uuid",
-        (conv["uuid"],),
-    ).fetchall()
+    from contextlib import closing
+
+    with closing(sqlite3.connect(str(idx_path))) as conn:
+        rows = conn.execute(
+            "SELECT message_uuid, is_compaction_summary FROM messages "
+            "WHERE conv_uuid = ? ORDER BY message_uuid",
+            (conv["uuid"],),
+        ).fetchall()
     by_uuid = {r[0]: r[1] for r in rows}
     assert by_uuid.get("u-compact") == 1, (
         f"compaction summary row must be tagged 1; got {by_uuid!r}"

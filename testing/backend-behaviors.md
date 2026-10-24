@@ -274,6 +274,15 @@ def test_get_config(client):
 - Filter only the specific warnings that you consciously decided to accept.
 - Add a comment that explains the reason for each filter.
 
+**Deprecations of FastAPI and WeasyPrint fail the suite.** Neither has an upper bound in `pyproject.toml`, and `uv tool install` takes the newest release. So an API that a release removes breaks every fresh install. WeasyPrint 70 did that once, and FastAPI deprecated `ORJSONResponse` in 0.135.
+
+**A leak fails the test that made it.** `pyproject.toml` sets `error::ResourceWarning`. Python hides this warning by default; on 2026-10-23, `-W default` showed 361 of them.
+
+- The root `conftest.py` collects garbage after each test. So the warning fails the teardown of the test that leaked, and not some later test.
+- `with sqlite3.connect(path) as conn:` commits, but it does not close. Write `with closing(sqlite3.connect(path)) as conn, conn:`. `test_resource_cleanup.py` rejects the bare form.
+- A `SearchIndex` or `SummaryCache` that a test makes closes after the test (an autouse fixture in `backend/tests/conftest.py`).
+- Keep each `Popen` until its process has exited. Kill it, then call `wait()`.
+
 ## 5.11 · Pydantic / FastAPI specifics
 
 **Strict input validation.** Input models should declare `model_config = ConfigDict(extra='forbid')`.

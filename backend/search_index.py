@@ -61,6 +61,7 @@ import sqlite3
 import threading
 import time
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Literal
 
@@ -389,7 +390,9 @@ def fts5_available() -> bool:
     is missing, the caller MUST fall back to linear scan.
     """
     try:
-        with sqlite3.connect(":memory:") as conn:
+        # closing(): a sqlite3 connection as a context manager only commits;
+        # it does not close.
+        with closing(sqlite3.connect(":memory:")) as conn:
             conn.execute("CREATE VIRTUAL TABLE _probe USING fts5(c)")
         return True
     except sqlite3.OperationalError:

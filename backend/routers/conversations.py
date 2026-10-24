@@ -3,7 +3,6 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import ORJSONResponse
 
 from ..deps import get_store
 from ..models import (
@@ -11,12 +10,13 @@ from ..models import (
     ConversationListItem,
     ConversationTree,
 )
+from ..responses import OrjsonResponse
 from ..store import ConversationStore
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
-# ORJSONResponse on the list endpoint cuts serialization of the ~1 MB
+# OrjsonResponse on the list endpoint cuts serialization of the ~1 MB
 # sidebar payload from ~500 ms (Pydantic-via-stdlib-json) to ~30 ms.
 # orjson handles datetimes natively, so the response models need no
 # special shape handling.
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 @router.get(
     "",
     response_model=list[ConversationListItem],
-    response_class=ORJSONResponse,
+    response_class=OrjsonResponse,
     summary="List conversations with optional filtering, sorting, and search",
 )
 async def list_conversations(
@@ -95,21 +95,21 @@ async def list_conversations(
 @router.get(
     "/{uuid}",
     response_model=ConversationDetail,
-    response_class=ORJSONResponse,
+    response_class=OrjsonResponse,
     summary="Get a single conversation, optionally on a specific branch",
 )
 async def get_conversation(
     uuid: str,
     leaf: str | None = Query(None, description="Override active branch leaf UUID"),
     store: ConversationStore = Depends(get_store),
-) -> ORJSONResponse:
+) -> OrjsonResponse:
     """Get a single conversation by UUID, optionally on a specific branch.
 
     W3+W4 (2026-05-23): the route bypasses FastAPI's default Pydantic
-    encoder by returning ``ORJSONResponse(content=cached_dict)``
+    encoder by returning ``OrjsonResponse(content=cached_dict)``
     directly. The dict cache in :func:`backend.store.get_conversation_dict`
     saves the ~186 ms Pydantic rebuild on warm hits, AND the
-    ORJSONResponse layer saves the ~70 ms stdlib-json encode.
+    OrjsonResponse layer saves the ~70 ms stdlib-json encode.
 
     ``response_model=ConversationDetail`` is kept ON THE DECORATOR
     purely for OpenAPI schema generation — FastAPI skips its serialization
@@ -118,7 +118,7 @@ async def get_conversation(
     conversation = store.get_conversation_dict(uuid, leaf_override=leaf)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return ORJSONResponse(content=conversation)
+    return OrjsonResponse(content=conversation)
 
 
 @router.get(

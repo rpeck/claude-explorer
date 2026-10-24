@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import time
+import threading
 from unittest.mock import patch
 
 import httpx
@@ -40,6 +40,9 @@ import pytest
 
 from backend.routers.search import search as search_get_handler
 from backend.routers.search import search_post as search_post_handler
+
+# Bounds only a failing run: in parallel the barrier opens at once.
+BARRIER_TIMEOUT_SEC = 10.0
 
 # --------------------------------------------------------------------------- #
 # Structural — handler signature contract                                     #
@@ -109,71 +112,47 @@ async def test_three_concurrent_searches_run_in_parallel(
     requirement: two browser tabs (or any two concurrent clients) must
     not block each other while searching.
 
-    Methodology — discriminating signal:
-      * Monkeypatch ``backend.routers.search.search_conversations`` to
-        ``time.sleep(SLOW_SEARCH_SEC)``. This mimics the worst-case
-        blocking shape of the real function (sync sqlite + regex work).
+    Methodology: a barrier, not a clock (2026-10-23).
+      * Monkeypatch ``backend.routers.search.search_conversations`` with a
+        sync stand-in that waits at ``threading.Barrier(3)``.
       * Fire THREE concurrent ``/api/search`` requests via
         ``asyncio.gather``.
-      * Assert the total wall time is closer to a SINGLE slow-search
-        (parallel) than to 3x slow-search (serialized).
+      * In parallel (threadpool), all three reach the barrier and it opens
+        at once. Serialized (sync work on the event loop), only one request
+        can wait at a time: the barrier times out and breaks, and every
+        request fails.
+
+    The pass does not depend on timing. The barrier timeout bounds only
+    how long a failing run takes. The test used to assert that three
+    1-second sleeps finished in under 2.0 s; a slow runner took 2.11 s.
 
     Why three concurrent (not "search + health"):
       A single search + a single health-check is NOT discriminating —
       the trivial health endpoint can return early via loop mechanics
       that don't actually prove the search isn't blocking. THREE
-      concurrent same-handler hits is the cleanest probe: under
-      blocking, wall time is 3× SLOW_SEARCH_SEC; under threadpool
-      off-loading, wall time is ~1× SLOW_SEARCH_SEC (all three slept in
-      parallel on separate threadpool slots).
-
-    Timing budget (council decision, 2026-05-22):
-      * SLOW_SEARCH_SEC = 1.0 — long enough to make the
-        parallel/serial distinction obvious, short enough that the
-        test runs in ~1s.
-      * Pass threshold: total <= 2.0s (1× sleep + generous overhead).
-      * Fail threshold (regression): total ~= 3.0s (serialized loop).
-
-      Generous budget chosen to be flake-resistant on loaded CI: the
-      gap between "parallel" (~1s) and "serial" (~3s) is 2 full
-      seconds, so a 2.0s ceiling catches the regression but tolerates
-      threadpool startup overhead on a hot runner.
+      concurrent same-handler hits is the cleanest probe.
     """
     from backend.models import SearchResponse
 
-    SLOW_SEARCH_SEC = 1.0
-    PASS_THRESHOLD = 2.0  # 1× sleep + overhead; serial would be ~3.0s
+    barrier = threading.Barrier(3, timeout=BARRIER_TIMEOUT_SEC)
 
-    def _slow_search(*_args, **_kwargs):
-        """Stand-in that mimics the sync-blocking shape of the real
-        ``search_conversations``. Must be sync (not async) because the
-        bug under test is sync work on the asyncio loop.
-        """
-        time.sleep(SLOW_SEARCH_SEC)
+    def _search_that_needs_company(*_args, **_kwargs):
+        """Sync, like the real ``search_conversations``: the bug under
+        test is sync work on the asyncio loop."""
+        barrier.wait()
         return SearchResponse()
 
-    with patch("backend.routers.search.search_conversations", side_effect=_slow_search):
-        start = time.perf_counter()
+    with patch("backend.routers.search.search_conversations", side_effect=_search_that_needs_company):
         responses = await asyncio.gather(
             real_async_client.get("/api/search", params={"q": "a"}),
             real_async_client.get("/api/search", params={"q": "b"}),
             real_async_client.get("/api/search", params={"q": "c"}),
+            return_exceptions=True,
         )
-        elapsed = time.perf_counter() - start
 
-        # All three must succeed.
-        for i, resp in enumerate(responses):
-            assert resp.status_code == 200, (
-                f"concurrent search #{i} failed: {resp.status_code} {resp.text}"
-            )
-
-        # The headline assertion: parallel, not serial.
-        assert elapsed < PASS_THRESHOLD, (
-            f"3 concurrent /api/search requests took {elapsed:.2f}s "
-            f"(per-request slow=`{SLOW_SEARCH_SEC}s`). Expected ~{SLOW_SEARCH_SEC}s "
-            f"if requests run in parallel via threadpool, "
-            f"~{3 * SLOW_SEARCH_SEC}s if the event loop is blocked. "
-            f"Pass threshold is {PASS_THRESHOLD}s. The event loop is "
-            f"likely blocked — check that search route handlers are "
-            f"'def' (not 'async def') so FastAPI off-threads them."
-        )
+    statuses = [getattr(r, "status_code", repr(r)) for r in responses]
+    assert statuses == [200, 200, 200], (
+        f"3 concurrent /api/search requests did not all reach the search at "
+        f"once: {statuses}. The event loop is likely blocked: check that the "
+        f"search handlers off-thread search_conversations."
+    )

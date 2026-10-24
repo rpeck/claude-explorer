@@ -1,4 +1,4 @@
-"""W3+W4 — Cached model_dump dict + ORJSONResponse on /api/conversations/<uuid>.
+"""W3+W4 — Cached model_dump dict + OrjsonResponse on /api/conversations/<uuid>.
 
 Per the 2026-05-23 LLM Council decision record, the conv detail route's
 warm-hit cost was dominated by:
@@ -10,7 +10,7 @@ warm-hit cost was dominated by:
 
 Synergy: cache the OUTPUT of ``model_dump(mode='json')`` keyed by
 (uuid, path, mtime). On warm hits, the route returns
-``ORJSONResponse(content=cached_dict)`` which bypasses both Pydantic
+``OrjsonResponse(content=cached_dict)`` which bypasses both Pydantic
 rebuild AND FastAPI's encoder, dropping straight into orjson's C-level
 serialization.
 
@@ -22,12 +22,12 @@ Contracts pinned:
       cache → next call rebuilds.
   T3: ``leaf_override`` is NEVER cached — every call with a non-None
       leaf_override produces a freshly-built dict.
-  T4: The route returns ``ORJSONResponse`` (the response_class), not
+  T4: The route returns ``OrjsonResponse`` (the response_class), not
       the default JSONResponse.
 
 The mutability concern (the cached dict is shared across requests) is
 addressed by: (a) treating the dict as immutable contract-wise and
-(b) the route returns it directly to ORJSONResponse which serializes
+(b) the route returns it directly to OrjsonResponse which serializes
 without mutation.
 """
 
@@ -193,10 +193,9 @@ def test_get_conversation_dict_returns_none_for_unknown_uuid(tmp_path):
 
 @pytest.mark.asyncio
 async def test_route_returns_orjson_response_with_cached_dict_body(tmp_path, monkeypatch):
-    """T4: The /api/conversations/<uuid> route returns an ORJSONResponse
+    """T4: The /api/conversations/<uuid> route returns an OrjsonResponse
     (bypassing FastAPI's default Pydantic encoder)."""
-    from fastapi.responses import ORJSONResponse
-
+    from backend.responses import OrjsonResponse
     from backend.routers.conversations import get_conversation
 
     uuid = "00000000-0000-0000-0000-000000000004"
@@ -207,8 +206,25 @@ async def test_route_returns_orjson_response_with_cached_dict_body(tmp_path, mon
     store = ConversationStore(data_dir=tmp_path, claude_dir=empty_claude)
     response = await get_conversation(uuid, leaf=None, store=store)
 
-    assert isinstance(response, ORJSONResponse), (
-        f"Expected ORJSONResponse, got {type(response).__name__}. "
-        f"The W3 route refactor should return ORJSONResponse directly."
+    assert isinstance(response, OrjsonResponse), (
+        f"Expected OrjsonResponse, got {type(response).__name__}. "
+        f"The W3 route refactor should return OrjsonResponse directly."
     )
     assert response.status_code == 200
+
+
+def test_orjson_response_gives_the_same_bytes_as_fastapis_deprecated_class() -> None:
+    """backend.responses.OrjsonResponse replaced FastAPI's ORJSONResponse
+    (deprecated, 2026-10-23). The wire bytes must not change."""
+    import warnings
+    from datetime import UTC, datetime
+
+    from fastapi.responses import ORJSONResponse
+
+    from backend.responses import OrjsonResponse
+
+    sample = {"when": datetime(2026, 10, 23, 12, 0, tzinfo=UTC), 7: "int key", "text": "café 😀", "n": [1, 2.5, None]}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        expected = ORJSONResponse(content=sample).body
+    assert OrjsonResponse(content=sample).body == expected
