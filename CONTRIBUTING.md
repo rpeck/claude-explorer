@@ -27,7 +27,8 @@ These commands work in bash, zsh, and PowerShell, except where a note says other
 
 ## Code style
 
-- Python: PEP 8 with type hints. Run `uv run ruff check .` before you push. CI fails on any ruff finding.
+- Before you commit, run `uv run python scripts/check.py`. It runs the same checks as CI. `python3 scripts/check.py --install-hooks` turns on a pre-commit hook that refuses a commit that no green run covers.
+- Python: PEP 8 with type hints. CI fails on any ruff finding.
   - Ruff is pinned to one minor line in `pyproject.toml`. To upgrade it, fix every new finding, or turn off a rule in `[tool.ruff.lint]` with a reason. Do not hide the findings with a pin.
 - TypeScript: strict mode, `tsc --noEmit` clean, eslint via vite-plugin; prefer functional components.
 - Testing discipline: see [TESTING.md](./TESTING.md) for the black-box / spec-driven rules, Playwright "deterministic settle barrier" pattern, and the pre-flight checklist.

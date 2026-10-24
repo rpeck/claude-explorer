@@ -42,18 +42,35 @@ jobs:
       - name: Sync Python deps
         run: uv sync --extra dev
 
-      # 42 findings had piled up because nothing ran ruff (2026-10-23).
-      - name: Lint (ruff)
-        run: uv run ruff check .
+      # Every job runs a section of scripts/check.py, the same list that the
+      # pre-commit hook and a local run use, so CI and the local checks
+      # cannot drift apart (2026-10-24). This section: ruff, compileall,
+      # pytest, and the serial (wall-clock) tests.
+      - name: Checks (scripts/check.py --only python)
+        run: uv run python scripts/check.py --only python
 
-      - name: Backend pytest
-        run: uv run pytest backend/tests/ --tb=short
+  frontend:
+    name: Frontend (tsc, eslint, vitest, React Doctor)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0  # React Doctor reports only new errors: it diffs against main
 
-      - name: Fetcher pytest
-        run: uv run pytest fetcher/tests/ --tb=short
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: MCP server pytest
-        run: uv run pytest mcp_server/tests/ --tb=short
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      # Until 2026-10-24 no CI job ran vitest, tsc, eslint, or React Doctor.
+      - name: Checks (scripts/check.py --only frontend)
+        run: python3 scripts/check.py --only frontend
 
   e2e:
     name: Playwright (fixture mode)
@@ -101,25 +118,16 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
-      - name: Verify fixtures are up to date
-        run: |
-          # The fixture generator is deterministic — re-running it must
-          # produce byte-identical files. Catch out-of-date fixtures
-          # (or accidental hand-edits) before the e2e suite even runs.
-          uv run python scripts/generate_e2e_fixtures.py
-          if ! git diff --quiet backend/tests/fixtures; then
-            echo "::error::Fixtures are out of date. Run 'uv run python scripts/generate_e2e_fixtures.py' and commit the result."
-            git diff backend/tests/fixtures
-            exit 1
-          fi
-
-      - name: Playwright e2e (fixture mode)
-        working-directory: frontend
-        # playwright.config.ts now starts a real FastAPI backend in
-        # fixture mode alongside Vite (see the webServer array there).
-        # CLAUDE_EXPLORER_DATA_DIR + CLAUDE_DIR + CLAUDE_DESKTOP_APP_DIR
-        # + the DISABLE_* flags are all injected via webServer[0].env.
-        run: npx playwright test --reporter=line
+      # The e2e section of scripts/check.py:
+      # 1. The fixture generator is deterministic, so a new run must leave
+      #    backend/tests/fixtures unchanged. That catches out-of-date or
+      #    hand-edited fixtures before the e2e suite runs.
+      # 2. Playwright. playwright.config.ts starts a real FastAPI backend in
+      #    fixture mode beside Vite (its webServer array injects
+      #    CLAUDE_EXPLORER_DATA_DIR, CLAUDE_DIR, CLAUDE_DESKTOP_APP_DIR, and
+      #    the DISABLE_* flags).
+      - name: Checks (scripts/check.py --only e2e)
+        run: uv run python scripts/check.py --only e2e
 
       - name: Upload Playwright report on failure
         if: failure()

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuse a commit whose checked files are not the content of a green run of
+# scripts/check.py. Turn it on with: python3 scripts/check.py --install-hooks
+for py in python3 python; do
+  if command -v "$py" >/dev/null 2>&1; then
+    exec "$py" scripts/check.py --verify-staged
+  fi
+done
+echo "pre-commit: no python3 or python on PATH to run scripts/check.py --verify-staged" >&2
+exit 1
