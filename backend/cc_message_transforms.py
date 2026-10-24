@@ -36,7 +36,7 @@ already-parsed dicts.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .agent_session_io import (  # noqa: F401  re-export
@@ -670,8 +670,8 @@ def _extract_conversation_metadata(entries: list[dict], jsonl_path) -> dict:
         if (parsed := _parse_iso_opt(e.get("timestamp"))) is not None
     ]
 
-    created_at = min(all_timestamps) if all_timestamps else datetime.now(timezone.utc)
-    updated_at = max(all_timestamps) if all_timestamps else datetime.now(timezone.utc)
+    created_at = min(all_timestamps) if all_timestamps else datetime.now(UTC)
+    updated_at = max(all_timestamps) if all_timestamps else datetime.now(UTC)
 
     # Fallback name from first real (non-system) user message
     if not name and user_entries:

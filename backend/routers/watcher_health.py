@@ -22,7 +22,6 @@ from fetcher.install_hints import watcher_install_hint
 
 from ..watcher_status import invalidate_cache, is_watcher_installed
 
-
 router = APIRouter()
 
 

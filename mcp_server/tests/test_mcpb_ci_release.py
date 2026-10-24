@@ -23,7 +23,6 @@ import pathlib
 
 import pytest
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 RELEASE_YML = REPO_ROOT / ".github" / "workflows" / "release.yml"
 

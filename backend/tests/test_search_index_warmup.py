@@ -161,8 +161,8 @@ async def test_lifespan_fts5_warm_respects_disable_env_var(
 ) -> None:
     """T2: env var CLAUDE_EXPLORER_DISABLE_FTS5_WARM=1 disables the
     warmup queries. Bidirectional differential check."""
-    from backend.main import app
     from backend.config import get_settings as gs
+    from backend.main import app
 
     async def _trial(disabled: bool) -> int:
         gs.cache_clear()

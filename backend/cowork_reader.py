@@ -39,8 +39,10 @@ from __future__ import annotations
 import json
 import logging
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
+from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
 
 from .agent_session_io import (
     _get_message_key,
@@ -49,8 +51,6 @@ from .agent_session_io import (
     parse_jsonl_file,
 )
 from .compact_prefixes import is_compaction_prefix_text
-from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
-
 
 log = logging.getLogger(__name__)
 
@@ -364,7 +364,7 @@ def list_cowork_conversations(
     return newest_per_uuid(out)
 
 
-_OLDEST = datetime.min.replace(tzinfo=timezone.utc)
+_OLDEST = datetime.min.replace(tzinfo=UTC)
 
 
 def updated_at_key(conv: dict) -> datetime:
@@ -379,7 +379,7 @@ def updated_at_key(conv: dict) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return _OLDEST
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def newest_per_uuid(convs: list[dict]) -> list[dict]:
@@ -486,6 +486,6 @@ def _iso_from_epoch_ms(value) -> str | None:
     if not value:
         return None
     try:
-        return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc).isoformat()
+        return datetime.fromtimestamp(int(value) / 1000, tz=UTC).isoformat()
     except (TypeError, ValueError, OSError):
         return None

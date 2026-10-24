@@ -23,10 +23,11 @@ Backend caches at a glance (Cache landscape, 2026-05-18):
 import logging
 import threading
 from collections import OrderedDict
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import orjson
 
@@ -321,7 +322,7 @@ def parse_jsonl_fast(path: Path) -> list[dict]:
                     entries.append(entry)
                 except orjson.JSONDecodeError:
                     pass
-    except (OSError, IOError):
+    except OSError:
         pass
     return entries
 
@@ -344,7 +345,7 @@ def parse_jsonl_fast_limited(path: Path, max_lines: int = 30) -> list[dict]:
                     pass
                 if lines_read >= max_lines:
                     break
-    except (OSError, IOError):
+    except OSError:
         pass
     return entries
 

@@ -64,6 +64,7 @@ from typing import Literal, TypedDict
 import portalocker
 
 from fetcher.atomic import atomic_replace
+
 # Canonically defined in fetcher.paths; re-exported so backend imports
 # (`from fetcher.credentials import DEFAULT_CREDENTIALS_PATH`) and
 # tests patching `fetcher.credentials.DEFAULT_CREDENTIALS_PATH` continue

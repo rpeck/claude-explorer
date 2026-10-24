@@ -93,7 +93,6 @@ from pathlib import Path
 from .cc_image_cache import copy_marker_image_to_cache
 from .config import get_settings, read_env
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -171,7 +170,7 @@ def handle_one_path(path: Path) -> bool:
     sess = path.parent.name
     try:
         copy_marker_image_to_cache(str(path), sess)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("watcher: failed to cache %s", path)
         # Don't add to _seen so a transient error retries next pass.
         return False
@@ -222,7 +221,7 @@ def scan_once() -> int:
                 logger.info(
                     "search index drift pass: re-indexed %d file(s)", updated
                 )
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("watcher: search-index drift pass failed")
 
     # Summary-cache drift pass. Walks every CC session JSONL on
@@ -240,11 +239,12 @@ def scan_once() -> int:
     # image-cache or search-index passes.
     try:
         import os
-        from backend.summary_cache import get_summary_cache
+
         from backend.claude_code_reader import (
             _read_summaries_parallel,
             discover_jsonl_files,
         )
+        from backend.summary_cache import get_summary_cache
 
         cache = get_summary_cache()
         if cache is not None:
@@ -264,7 +264,7 @@ def scan_once() -> int:
 
             # Drop rows whose underlying files have disappeared.
             cleaned = cache.delete_missing(
-                {str(p) for p in stat_index.keys()}
+                {str(p) for p in stat_index}
             )
 
             # Re-read only the drifted files (mtime or size mismatch).
@@ -286,7 +286,7 @@ def scan_once() -> int:
                     "summary cache drift pass: dropped %d stale row(s)",
                     cleaned,
                 )
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("watcher: summary-cache drift pass failed")
 
     return handled
@@ -324,7 +324,7 @@ def _build_event_handler():
         def _handle(self, src: str) -> None:
             try:
                 handle_one_path(Path(src))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception("watcher event handler failed for %s", src)
 
         def on_created(self, event) -> None:  # type: ignore[no-untyped-def]
@@ -363,7 +363,7 @@ def _try_start_observer():
     # will populate it on first paste / tool result.
     try:
         root.mkdir(parents=True, exist_ok=True)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "CC image watcher: failed to create %s; events disabled", root,
         )
@@ -379,7 +379,7 @@ def _try_start_observer():
     observer.schedule(handler, str(root), recursive=True)
     try:
         observer.start()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "CC image watcher: Observer failed to start; falling back "
             "to pure polling",
@@ -500,7 +500,7 @@ def _fire_drift_pass() -> None:
         # startup, idx.is_ready() is virtually always True; we still
         # call so the cleanup pass for deleted JSONLs runs.
         si.update_drifted_files(ConversationStore(), index=idx)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "search-index drift pass failed (event-driven path)"
         )
@@ -542,7 +542,7 @@ def _build_projects_event_handler():
                 return
             try:
                 _schedule_drift(path)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception(
                     "projects event handler failed to schedule drift for %s", src,
                 )
@@ -584,7 +584,7 @@ def _try_start_projects_observer():
     root = _live_projects_root()
     try:
         root.mkdir(parents=True, exist_ok=True)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "search-index watcher: failed to create %s; projects-dir "
             "events disabled", root,
@@ -601,7 +601,7 @@ def _try_start_projects_observer():
     observer.schedule(handler, str(root), recursive=True)
     try:
         observer.start()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "search-index watcher: Observer failed to start; falling "
             "back to backstop-poll-only search freshness",
@@ -634,7 +634,7 @@ def _build_cowork_event_handler():
                 return
             try:
                 _schedule_drift(path)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception(
                     "cowork event handler failed to schedule drift for %s",
                     src,
@@ -679,7 +679,7 @@ def _try_start_cowork_observer():
     root = _live_cowork_root()
     try:
         root.mkdir(parents=True, exist_ok=True)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "search-index watcher: failed to create %s; cowork-dir "
             "events disabled", root,
@@ -696,7 +696,7 @@ def _try_start_cowork_observer():
     observer.schedule(handler, str(root), recursive=True)
     try:
         observer.start()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "search-index watcher: cowork Observer failed to start; "
             "falling back to backstop-poll-only freshness for Cowork",
@@ -804,7 +804,7 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
     # are captured even if events would have missed them on launch.
     try:
         scan_once()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("CC image watcher initial scan failed")
 
     observer = _try_start_observer()
@@ -827,11 +827,11 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                 )
                 # If we exit the wait without TimeoutError, stop_event was set.
                 break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             try:
                 scan_once()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception("CC image watcher backstop scan failed")
     except asyncio.CancelledError:
         # Lifespan teardown (or any caller) called ``task.cancel()``.
@@ -878,21 +878,21 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
             if observer is not None:
                 try:
                     observer.stop()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     logger.exception(
                         "CC image watcher Observer stop failed during cancel"
                     )
             if projects_observer is not None:
                 try:
                     projects_observer.stop()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     logger.exception(
                         "search-index watcher Observer stop failed during cancel"
                     )
             if cowork_observer is not None:
                 try:
                     cowork_observer.stop()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     logger.exception(
                         "search-index watcher cowork Observer stop failed during cancel"
                     )
@@ -903,7 +903,7 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                     try:
                         observer.stop()
                         observer.join(timeout=join_timeout)
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         logger.exception(
                             "CC image watcher Observer shutdown failed"
                         )
@@ -911,7 +911,7 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                     try:
                         projects_observer.stop()
                         projects_observer.join(timeout=join_timeout)
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         logger.exception(
                             "search-index watcher projects Observer shutdown failed"
                         )
@@ -919,7 +919,7 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                     try:
                         cowork_observer.stop()
                         cowork_observer.join(timeout=join_timeout)
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         logger.exception(
                             "search-index watcher cowork Observer shutdown failed"
                         )
@@ -933,7 +933,7 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                 # after the debounce-timer cleanup below.
                 cancelled = True
                 raise
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception(
                     "CC image watcher: asyncio.to_thread observer shutdown failed"
                 )

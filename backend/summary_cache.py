@@ -71,13 +71,13 @@ import logging
 import sqlite3
 import threading
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import orjson
 
 from .search_index import default_index_path, fts5_available
-
 
 logger = logging.getLogger(__name__)
 
@@ -193,10 +193,9 @@ class SummaryCache:
         re-create idempotently here. ``CREATE IF NOT EXISTS`` is
         cheap and matches the policy used for the other tables.
         """
-        with self._write_lock:
-            with self._write_conn:
-                self._write_conn.execute(
-                    """
+        with self._write_lock, self._write_conn:
+            self._write_conn.execute(
+                """
                     CREATE TABLE IF NOT EXISTS conversation_summaries (
                         path TEXT PRIMARY KEY,
                         mtime REAL NOT NULL,
@@ -205,15 +204,15 @@ class SummaryCache:
                         cached_at REAL NOT NULL
                     )
                     """
-                )
-                self._write_conn.execute(
-                    """
+            )
+            self._write_conn.execute(
+                """
                     CREATE TABLE IF NOT EXISTS conversation_summaries_meta (
                         key TEXT PRIMARY KEY,
                         value TEXT NOT NULL
                     )
                     """
-                )
+            )
 
     # ----- read connections ------------------------------------------
 
@@ -262,14 +261,13 @@ class SummaryCache:
         if stored == current_version:
             return False
 
-        with self._write_lock:
-            with self._write_conn:
-                self._write_conn.execute("DELETE FROM conversation_summaries")
-                self._write_conn.execute(
-                    "INSERT OR REPLACE INTO conversation_summaries_meta "
-                    "(key, value) VALUES (?, ?)",
-                    (_LOGIC_VERSION_KEY, current_version),
-                )
+        with self._write_lock, self._write_conn:
+            self._write_conn.execute("DELETE FROM conversation_summaries")
+            self._write_conn.execute(
+                "INSERT OR REPLACE INTO conversation_summaries_meta "
+                "(key, value) VALUES (?, ?)",
+                (_LOGIC_VERSION_KEY, current_version),
+            )
         logger.info(
             "summary_cache: logic version changed (%s -> %s); cache wiped",
             stored, current_version,

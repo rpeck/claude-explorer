@@ -74,7 +74,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # NEEDLE tokens
 # ---------------------------------------------------------------------------
@@ -294,6 +293,5 @@ def write_cc_jsonl(path: Path, entries: list[dict[str, Any]]) -> Path:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in entries)
     return path

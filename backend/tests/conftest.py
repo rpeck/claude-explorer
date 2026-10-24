@@ -67,15 +67,15 @@ _bootstrap_macos_dyld_for_weasyprint()
 # router) loads native libgobject/libpango/libcairo via CFFI at import time,
 # and macOS SIP strips DYLD_* env vars from `uv run` subprocess invocations,
 # so we must set DYLD_FALLBACK_LIBRARY_PATH in-process before any WeasyPrint
-# import is triggered. ruff E402 is silenced here intentionally; do not
-# reorder these lines.
-import httpx  # noqa: E402
-import pytest  # noqa: E402
-from fastapi import FastAPI  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-from httpx import ASGITransport  # noqa: E402
+# import is triggered. Ruff's default rules do not include E402 (import
+# not at the top); do not move these imports above the bootstrap call.
+import httpx
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from httpx import ASGITransport
 
-from backend.main import app  # noqa: E402
+from backend.main import app
 
 
 def _weasyprint_available() -> bool:
@@ -593,6 +593,7 @@ def _block_real_search_index_path(monkeypatch) -> Iterator[None]:
     should need this).
     """
     import os
+
     from backend import search_index as si
 
     live_dir = os.path.expanduser("~/.claude-explorer")

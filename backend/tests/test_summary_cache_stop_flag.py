@@ -31,10 +31,10 @@ class _InProcessPool:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def __enter__(self) -> "_InProcessPool":
+    def __enter__(self) -> _InProcessPool:
         return self
 
-    def __exit__(self, *exc: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         return None
 
     def map(self, fn, items, chunksize: int = 1):

@@ -13,20 +13,20 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
 import re
+import threading
 import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from ..models import ConversationDetail, ContentBlock, Message
+from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
 from ._shared import (
     CC_IMAGE_MARKER_RE,
     _dedupe_image_files,
     _guess_mime,
-    _is_excludable_marker,
     _is_compact_summary_message,
+    _is_excludable_marker,
     _resolve_attachment_path,
     escape_html,
     filter_tool_placeholders,
@@ -34,7 +34,6 @@ from ._shared import (
     message_has_visible_content,
     render_compact_summary_html,
 )
-
 
 log = logging.getLogger(__name__)
 
@@ -634,16 +633,16 @@ def create_pdf(
 
 
 __all__ = [
-    "_TRANSPARENT_1x1_PNG",
+    "_ATTACHMENTS_PATH_RE",
     "_CC_IMAGE_PATH_RE",
     "_FILES_PROXY_PATH_RE",
-    "_ATTACHMENTS_PATH_RE",
-    "_image_html",
-    "_rewrite_cc_image_markers_to_html",
-    "_render_image_block_html",
-    "render_content_block_html",
-    "conversation_to_html",
-    "_resolve_cc_image_path",
+    "_TRANSPARENT_1x1_PNG",
     "_build_pdf_url_fetcher",
+    "_image_html",
+    "_render_image_block_html",
+    "_resolve_cc_image_path",
+    "_rewrite_cc_image_markers_to_html",
+    "conversation_to_html",
     "create_pdf",
+    "render_content_block_html",
 ]

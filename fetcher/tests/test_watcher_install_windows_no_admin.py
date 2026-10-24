@@ -58,7 +58,7 @@ def test_install_windows_does_not_request_elevation(
             self.stdout = ""
             self.stderr = ""
 
-    def _fake_run(cmd, *args, **kwargs):  # noqa: ANN001
+    def _fake_run(cmd, *args, **kwargs):
         calls.append(list(cmd))
         return _FakeCompleted()
 

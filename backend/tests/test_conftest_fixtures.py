@@ -21,7 +21,6 @@ import pytest
 
 from backend.tests.conftest import collect_sse_data_events
 
-
 # ---------------------------------------------------------------------------
 # isolated_data_dir
 # ---------------------------------------------------------------------------
@@ -262,7 +261,6 @@ def test_reset_refresh_flag_clears_on_setup_and_teardown() -> None:
     """
 
     import backend.routers.fetch as fetch_mod
-
     from backend.tests.conftest import _reset_refresh_flag_body
 
     # Pre-poison the flag to simulate a leak from a prior test.

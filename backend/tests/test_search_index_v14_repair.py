@@ -22,7 +22,6 @@ from __future__ import annotations
 import sqlite3
 
 
-
 def _make_broken_v14_db(path) -> None:
     """Construct the exact corrupted state observed on the user's machine:
 

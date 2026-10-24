@@ -196,6 +196,7 @@ async def test_route_returns_orjson_response_with_cached_dict_body(tmp_path, mon
     """T4: The /api/conversations/<uuid> route returns an ORJSONResponse
     (bypassing FastAPI's default Pydantic encoder)."""
     from fastapi.responses import ORJSONResponse
+
     from backend.routers.conversations import get_conversation
 
     uuid = "00000000-0000-0000-0000-000000000004"

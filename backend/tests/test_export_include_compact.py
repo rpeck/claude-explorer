@@ -26,7 +26,7 @@ Verified across the markdown, PDF (HTML source), and bundle exporters.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -45,7 +45,6 @@ from backend.models import (
     ConversationDetail,
     Message,
 )
-
 
 SUMMARY_BODY_MANUAL = (
     "Manual compact summary covering the user's auth-module refactor and "
@@ -75,8 +74,8 @@ def _msg(
         sender=sender,  # type: ignore[arg-type]
         text=text,
         content=[ContentBlock(type="text", text=text)] if text else [],
-        created_at=datetime(2026, 4, 1, 11, 0, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 4, 1, 11, 0, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 4, 1, 11, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 1, 11, 0, 0, tzinfo=UTC),
         is_command_marker=is_command_marker,
         slash_command=slash_command,
     )
@@ -129,8 +128,8 @@ def _conv_with_compacts() -> ConversationDetail:
         name="Test conversation with /compact",
         summary="",
         model="claude-sonnet-4-6",
-        created_at=datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 4, 1, 12, 1, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 4, 1, 10, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 1, 12, 1, 0, tzinfo=UTC),
         message_count=len(messages),
         human_message_count=sum(1 for m in messages if m.sender == "human"),
         source="CLAUDE_CODE",
@@ -436,6 +435,7 @@ def test_route_export_markdown_threads_include_compact() -> None:
     """The /export/markdown route accepts include_compact and threads it
     to conversation_to_markdown."""
     from fastapi.testclient import TestClient
+
     from backend.main import app
 
     conv = _conv_with_compacts()
@@ -482,8 +482,9 @@ def test_route_export_markdown_threads_include_compact() -> None:
 
 def test_route_export_markdown_bundle_threads_include_compact(tmp_path) -> None:
     from fastapi.testclient import TestClient
-    from backend.main import app
+
     from backend.deps import get_store
+    from backend.main import app
 
     conv = _conv_with_compacts()
 
@@ -522,8 +523,9 @@ def test_route_export_markdown_bundle_threads_include_compact(tmp_path) -> None:
 
 def test_route_export_all_markdown_threads_include_compact() -> None:
     from fastapi.testclient import TestClient
-    from backend.main import app
+
     from backend.deps import get_store
+    from backend.main import app
 
     conv = _conv_with_compacts()
 
@@ -573,8 +575,9 @@ def test_route_export_pdf_threads_include_compact(include_compact: bool) -> None
     end-to-end here (slow + DYLD-sensitive); instead monkeypatch
     create_pdf to capture the kwarg flow."""
     from fastapi.testclient import TestClient
-    from backend.main import app
+
     from backend.deps import get_store
+    from backend.main import app
     from backend.routers import export as export_router
 
     conv = _conv_with_compacts()

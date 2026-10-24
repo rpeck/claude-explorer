@@ -29,7 +29,6 @@ import re
 from .cc_message_transforms import _get_message_text
 from .compact_prefixes import is_compaction_prefix_text
 
-
 _COMPACT_LOOKAHEAD = 8
 _COMPACT_COMMAND_NAME = "<command-name>/compact</command-name>"
 _COMPACT_ARGS_RE = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)

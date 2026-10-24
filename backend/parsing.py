@@ -46,8 +46,7 @@ Deliberate behavior preserved from the pre-refactor implementations
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +82,7 @@ def _parse_iso_opt(dt_str: str | None) -> datetime | None:
             dt_str = dt_str[:-1] + "+00:00"
         dt = datetime.fromisoformat(dt_str)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, AttributeError, TypeError):
         return None
@@ -108,4 +107,4 @@ def parse_datetime(dt_str: str | None) -> datetime:
     if result is not None:
         return result
     logger.debug("parse_datetime fallback to now(utc) for input %r", dt_str)
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

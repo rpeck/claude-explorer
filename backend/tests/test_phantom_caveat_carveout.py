@@ -28,7 +28,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 from backend.claude_code_reader import (
     read_claude_code_conversation,
     read_conversation_summary_fast,
@@ -39,8 +38,7 @@ def _write_jsonl(path: Path, entries: list[dict]) -> None:
     """Write a list of dicts as a JSONL file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in entries)
 
 
 def _user_entry(

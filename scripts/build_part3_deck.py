@@ -14,6 +14,7 @@ Out:  dist/part3-deck/slide-NN.png  +  "LinkedIn/Part 3 announcement deck.pdf"
 from __future__ import annotations
 
 import os
+
 from PIL import Image, ImageDraw, ImageFont
 
 # ---------------------------------------------------------------------------

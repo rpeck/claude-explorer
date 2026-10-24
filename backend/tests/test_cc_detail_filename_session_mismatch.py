@@ -28,19 +28,19 @@ Bidirectional pair:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.cache import _conversation_cache
 from backend import config as cfg
+from backend.cache import _conversation_cache
 from backend.main import app
 
 
 def _cc_jsonl_lines(session_id: str, name: str) -> list[dict]:
     """Build minimal CC JSONL entries with the given internal sessionId."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     return [
         {
             "type": "user",

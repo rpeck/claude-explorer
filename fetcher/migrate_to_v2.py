@@ -57,23 +57,23 @@ import logging
 import os
 import re
 import shutil
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 import portalocker
 
+from fetcher.atomic import atomic_replace
 from fetcher.credentials import (
-    CredentialsCorruptError,
     DEFAULT_CREDENTIALS_PATH,
+    CredentialsCorruptError,
     LockContentionError,
     load_credentials,
 )
-from fetcher.atomic import atomic_replace
+
 # Canonically defined in fetcher.paths (Council A5-PATHS); re-export
 # preserves backward-compat for any external caller.
 from fetcher.paths import DEFAULT_DATA_DIR
-
 
 log = logging.getLogger(__name__)
 
@@ -198,7 +198,7 @@ def migrate_to_v2(
             metadata = {
                 "pid": os.getpid(),
                 "hostname": os.uname().nodename if hasattr(os, "uname") else "unknown",
-                "started_at": datetime.now(timezone.utc).isoformat(),
+                "started_at": datetime.now(UTC).isoformat(),
                 "command": lock_command,
             }
             lock_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -328,7 +328,7 @@ def _do_migrate(
     log_path = data_dir / MIGRATION_LOG
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_data = {
-        "migrated_at": datetime.now(timezone.utc).isoformat(),
+        "migrated_at": datetime.now(UTC).isoformat(),
         "moves": moves,
         "errors": errors,
         "total_candidates": total,

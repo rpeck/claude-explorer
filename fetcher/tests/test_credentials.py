@@ -20,14 +20,13 @@ import pytest
 
 from fetcher.credentials import (
     CredentialsCorruptError,
-    OrgRef,
     CredentialsV2,
+    OrgRef,
     load_credentials,
     merge_orgs_and_save,
     save_credentials,
     wipe_credentials,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

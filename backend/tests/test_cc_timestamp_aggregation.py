@@ -24,21 +24,20 @@ rather than substituting ``now``.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from backend.cc_agent_reader import _extract_agent_metadata
 from backend.cc_message_transforms import _extract_conversation_metadata
 
-
 _OLD_TIMESTAMP_STR = "2024-06-01T12:00:00Z"
-_OLD_TIMESTAMP = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+_OLD_TIMESTAMP = datetime(2024, 6, 1, 12, 0, 0, tzinfo=UTC)
 _NEWER_TIMESTAMP_STR = "2024-06-02T13:00:00Z"
-_NEWER_TIMESTAMP = datetime(2024, 6, 2, 13, 0, 0, tzinfo=timezone.utc)
+_NEWER_TIMESTAMP = datetime(2024, 6, 2, 13, 0, 0, tzinfo=UTC)
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _close_to_now(dt: datetime, tolerance_seconds: int = 30) -> bool:

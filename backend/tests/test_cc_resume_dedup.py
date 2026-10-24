@@ -78,8 +78,7 @@ def _cc_entry(
 def _write_jsonl(path: Path, entries: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        for e in entries:
-            f.write(json.dumps(e) + "\n")
+        f.writelines(json.dumps(e) + "\n" for e in entries)
 
 
 @pytest.fixture(autouse=True)

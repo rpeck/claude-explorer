@@ -44,12 +44,11 @@ import pytest
 
 from backend.search import _extract_searchable_text
 from backend.search_index import (
-    SearchIndex,
     SCHEMA_VERSION,
+    SearchIndex,
     fts5_available,
     reset_search_index_for_tests,
 )
-
 
 # ----- _extract_searchable_text: NEGATIVE (argless excluded) ----------------
 

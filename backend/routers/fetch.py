@@ -1,11 +1,12 @@
 """Fetch router - trigger Claude Desktop conversation fetch from frontend."""
 
-import json
 import asyncio
+import json
 import logging
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -16,8 +17,8 @@ from fastapi.responses import StreamingResponse
 # (``uv run``, editable install, or repo-root invocation). The previous
 # ``sys.path.insert`` hack was removed in Council A2 (2026-05-21).
 from fetcher.bulk_fetch import (
-    ClaudeFetcher,
     DEFAULT_CREDENTIALS_PATH,
+    ClaudeFetcher,
     FetchAuthError,
     FetchTerminalError,
     FetchTransientError,
@@ -28,16 +29,17 @@ from fetcher.bulk_fetch import (
     migrate_legacy_error_code,
     needs_refetch,
 )
-from fetcher.playwright_capture import capture_credentials
-from fetcher.remote_sessions import RemoteCoworkFetcher
 from fetcher.credentials import (
     CredentialsCorruptError,
     fetcher_credentials,
     save_credentials,
 )
+from fetcher.playwright_capture import capture_credentials
+from fetcher.remote_sessions import RemoteCoworkFetcher
 
 from ..config import files_dir_for, get_settings
 from ..deps import refuse_if_config_corrupt
+
 # Patch-safe SSE helpers extracted in Council A2 (2026-05-21). The heavier
 # pipeline functions stay in this module because their bodies reference
 # names (``ClaudeFetcher``, ``load_credentials``, ``capture_credentials``,
@@ -53,7 +55,7 @@ from ..fetch_pipeline import (
 # to own so existing test imports (``from backend.routers.fetch import
 # FetchProgress``) keep working — see TESTING.md §5.12 on the
 # attribute-patch idiom.
-from ..models import FetchProgress, FetchStatus, ForceRefetchResponse  # noqa: F401  re-export
+from ..models import FetchProgress, FetchStatus, ForceRefetchResponse
 
 __all__ = [
     "FetchProgress",  # re-export for backward-compat test imports
@@ -387,7 +389,7 @@ async def _reindex_search_after_fetch() -> None:
 
     try:
         updated = await asyncio.to_thread(_run)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("search re-index after fetch failed")
         return
     if updated:
@@ -918,7 +920,7 @@ async def _run_capture_with_keepalive(
                 )
                 yield {"_result": result}
                 return
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 waited += CAPTURE_KEEPALIVE_SECONDS
                 yield _send_event(
                     {

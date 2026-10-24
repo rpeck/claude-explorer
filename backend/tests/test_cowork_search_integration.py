@@ -19,12 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from backend.store import ConversationStore
 from backend.search_index import (
     SearchIndex,
     build_full_index,
 )
-
+from backend.store import ConversationStore
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "cowork"
 HAPPY_DEPLOYMENT = FIXTURE_ROOT / "d_deployment1"

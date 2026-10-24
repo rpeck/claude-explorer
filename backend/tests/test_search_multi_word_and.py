@@ -37,7 +37,6 @@ from backend.search import (
 from backend.store import ConversationStore
 from backend.tests import builders as B
 
-
 # ----- helpers ----------------------------------------------------
 # Conversation builders moved to ``backend.tests.builders`` (C4 in
 # PLANS/2026.05.18-test-hardening.md).

@@ -37,7 +37,7 @@ import json
 import os
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -46,8 +46,7 @@ from backend.cache import clear_cache
 from backend.search import _search_via_index, _search_via_linear_scan
 from backend.store import ConversationStore
 
-
-_BASE_TIME = datetime(2026, 1, 1, tzinfo=timezone.utc)
+_BASE_TIME = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def _bench_skip() -> bool:

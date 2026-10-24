@@ -33,7 +33,7 @@ Allowlist for spec-driven authoring (TESTING.md §1):
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 
@@ -181,7 +181,7 @@ async def _within(coro, seconds: float = 3.0):
     """Await ``coro`` or fail: a request that hangs is a failed guard."""
     try:
         return await asyncio.wait_for(coro, timeout=seconds)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         pytest.fail("the request hung: a second fetch stream was opened")
 
 

@@ -31,13 +31,13 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
 
-from ..config import files_dir_for, get_settings
-
 from fetcher.credentials import (
     DEFAULT_CREDENTIALS_PATH,
     CredentialsCorruptError,
     load_credentials,
 )
+
+from ..config import files_dir_for, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -311,7 +311,7 @@ def get_cc_image(path: str = Query(..., description="Absolute path under ~/.clau
             from ..cc_image_cache import copy_marker_image_to_cache
 
             copy_marker_image_to_cache(str(candidate), candidate.parent.name)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("lazy cc-image cache copy failed for %s", candidate)
         # CWE-732: bail out before FileResponse opens the file so a
         # 0o000-mode (or otherwise unreadable) cache entry surfaces as a

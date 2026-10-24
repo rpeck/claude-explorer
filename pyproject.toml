@@ -83,9 +83,10 @@ dev = [
     "respx>=0.21",
     "pypdf>=4.0",
     # CI runs `ruff check .` (test.yml); a lint finding fails the Python job.
-    # Pinned to one minor line: ruff 0.17 changed the default rules and
-    # reports 409 more findings. Upgrade it in its own change.
-    "ruff>=0.15.4,<0.16",
+    # Pinned to one minor line: a new minor line can change the default
+    # rules (0.17 added 566 findings). Upgrade it in its own change, and
+    # fix or configure every new finding; do not pin it away.
+    "ruff>=0.17.2,<0.18",
 ]
 
 # ----- Hatchling build configuration ------------------------------------------
@@ -189,3 +190,8 @@ filterwarnings = [
     "error::pytest.PytestUnraisableExceptionWarning",
     "error::DeprecationWarning:weasyprint",
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares dependencies as `param = Depends(fn)` defaults. FastAPI
+# calls `Depends` once, at import, by design (B008 is a false positive).
+extend-immutable-calls = ["fastapi.Depends", "fastapi.params.Depends"]

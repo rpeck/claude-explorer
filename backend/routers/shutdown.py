@@ -36,7 +36,7 @@ router = APIRouter()
 ACTION_HEADER_VALUE = "shutdown"
 
 
-def _origin_allowed(origin: str | None, host: str | None) -> bool:  # noqa: ARG001
+def _origin_allowed(origin: str | None, host: str | None) -> bool:
     """True if the browser's Origin names an allowed host.
 
     ``host`` is accepted only to keep the call site obvious; it is not used,

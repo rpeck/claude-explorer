@@ -28,7 +28,6 @@ from fastapi.testclient import TestClient
 
 from fetcher.credentials import save_credentials
 
-
 PERSONAL = "ae24ae66-4622-48e7-b4b3-1ab2c49f933d"
 COWORK = "0c0c170b-1234-5678-90ab-cdef00000000"
 

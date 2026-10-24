@@ -23,13 +23,11 @@ Locked-in behavior (preserved from the pre-refactor implementations):
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-import backend.parsing as parsing
-from backend import claude_code_reader, store
-
+from backend import claude_code_reader, parsing, store
 
 _NOW_TOLERANCE = timedelta(seconds=5)
 
@@ -38,7 +36,7 @@ def _is_close_to_now_utc(dt: datetime) -> bool:
     """True if ``dt`` is tz-aware UTC and within _NOW_TOLERANCE of now."""
     if dt.tzinfo is None:
         return False
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return abs(now - dt) <= _NOW_TOLERANCE
 
 
@@ -80,7 +78,7 @@ def test_parse_datetime_naive_iso_gets_utc_tagged():
     assert result.day == 15
     assert result.hour == 10
     assert result.minute == 30
-    assert result.tzinfo is timezone.utc
+    assert result.tzinfo is UTC
 
 
 def test_parse_datetime_explicit_non_utc_offset_preserved():
@@ -234,7 +232,7 @@ def test_parse_iso_opt_naive_input_gets_utc_tagged():
     """Naive ISO input is tagged with ``timezone.utc`` (never returns naive)."""
     result = parsing._parse_iso_opt("2025-01-15T10:30:00")
     assert isinstance(result, datetime)
-    assert result.tzinfo is timezone.utc
+    assert result.tzinfo is UTC
 
 
 def test_parse_iso_opt_with_microseconds():

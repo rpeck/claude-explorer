@@ -31,12 +31,11 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 
 # Use the same lifespan-fixture pattern as test_lifespan_cold_start.
 # `asyncio_mode = "auto"` in pyproject.toml.
@@ -93,7 +92,7 @@ def warm_corpus(
     # 15.6 ms. Then "top 5" was an arbitrary tie order, and the test
     # failed on the Windows ARM runner. Set each mtime explicitly, one
     # day apart, to match the timestamps.
-    base = datetime(2026, 5, 1, 12, tzinfo=timezone.utc).timestamp()
+    base = datetime(2026, 5, 1, 12, tzinfo=UTC).timestamp()
     for i in range(10):
         path = proj / f"sess-{i:04d}.jsonl"
         _write_jsonl(
@@ -190,6 +189,7 @@ async def test_lifespan_filecache_warm_is_non_blocking(
     successful warm-call count (T1 already pins that).
     """
     import time
+
     from backend.main import app
 
     def _slow(self, uuid):
@@ -224,8 +224,8 @@ async def test_lifespan_filecache_warm_respects_disable_env_var(
     so the differential catches both the "env var ignored" and the
     "warm task missing" failure modes.
     """
-    from backend.main import app
     from backend.config import get_settings as gs
+    from backend.main import app
 
     async def _trial(disabled: bool) -> int:
         gs.cache_clear()

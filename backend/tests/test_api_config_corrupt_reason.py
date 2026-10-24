@@ -26,12 +26,11 @@ import json
 from pathlib import Path
 
 import pytest
-
-from backend.tests._platform_home import patch_home
 from fastapi.testclient import TestClient
 
 from backend import config
 from backend.main import app
+from backend.tests._platform_home import patch_home
 
 
 @pytest.fixture

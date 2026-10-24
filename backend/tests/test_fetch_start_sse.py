@@ -41,7 +41,6 @@ import pytest
 from backend.routers.fetch import SESSION_EXPIRED_MESSAGE
 from backend.tests.conftest import collect_sse_data_events
 
-
 # ---------------------------------------------------------------------------
 # Test creds + FakeFetcher (HTTP-boundary mock per CLAUDE-TESTING 5.2)
 # ---------------------------------------------------------------------------

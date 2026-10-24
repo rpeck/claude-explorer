@@ -28,7 +28,6 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-
 # Routes that legitimately have no JSON response_model (file
 # downloads, SSE streams). They still need a `summary=`.
 NON_JSON_RESPONSE_PATHS: set[str] = {

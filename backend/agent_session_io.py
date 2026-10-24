@@ -20,7 +20,7 @@ Cowork reader (see ``PLANS/2026.05.24-SUPPORT-COWORK-SESSIONS.md``).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -109,7 +109,7 @@ def _merge_entries_to_message(entries: list[dict]) -> dict | None:
 
     text = "\n".join(text_parts)
 
-    timestamp = first_entry.get("timestamp", datetime.now(timezone.utc).isoformat())
+    timestamp = first_entry.get("timestamp", datetime.now(UTC).isoformat())
 
     # Use first entry's uuid as the message uuid (for parent chain)
     # Use first entry's parentUuid to link to previous message
@@ -155,7 +155,7 @@ def _convert_entry_to_message(entry: dict) -> dict | None:
         text = ""
         content_blocks = []
 
-    timestamp = entry.get("timestamp", datetime.now(timezone.utc).isoformat())
+    timestamp = entry.get("timestamp", datetime.now(UTC).isoformat())
 
     return {
         "uuid": entry.get("uuid", ""),

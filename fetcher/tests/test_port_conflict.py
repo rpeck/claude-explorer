@@ -45,7 +45,7 @@ def _fake_explorer() -> Iterator[int]:
     """An HTTP server that answers ``/api/config`` like Claude Explorer."""
 
     class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             status = 200 if self.path == "/api/config" else 404
             self.send_response(status)
             self.send_header("Content-Length", "2")

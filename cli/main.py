@@ -46,7 +46,6 @@ from cli.watcher import (  # noqa: F401  (re-exported)
 @click.version_option(package_name="claude-explorer", prog_name="claude-explorer")
 def main() -> None:
     """Claude Explorer - Export and browse your Claude conversations."""
-    pass
 
 
 @main.command()
@@ -125,13 +124,12 @@ def fetch(
             )
         )
 
-    from fetcher.bulk_fetch import ClaudeFetcher, load_credentials
-    from fetcher.credentials import CredentialsCorruptError, fetcher_credentials
-
     # Write to the data directory that the app reads (CLAUDE_EXPLORER_DATA_DIR
     # or config.json can move it). A fixed ~/.claude-explorer/conversations
     # default fetched into a folder that the app never read (2026-10-23).
     from backend.config import files_dir_for
+    from fetcher.bulk_fetch import ClaudeFetcher, load_credentials
+    from fetcher.credentials import CredentialsCorruptError, fetcher_credentials
 
     if output_dir is None:
         output_dir = settings.data_dir
@@ -163,7 +161,11 @@ def fetch(
     # Many users are not developers: a failed fetch is a short message
     # with the next step, not a Python traceback. Each conversation is
     # saved when it arrives, so the work before the error is kept.
-    from fetcher.http_retry import FetchAuthError, FetchTerminalError, FetchTransientError
+    from fetcher.http_retry import (
+        FetchAuthError,
+        FetchTerminalError,
+        FetchTransientError,
+    )
 
     try:
         fetcher.run(limit=limit)
@@ -241,9 +243,9 @@ def _capture_via_browser(output: Path, timeout: int) -> None:
             f"Run: {playwright_install_hint()}"
         )
 
-    from fetcher.playwright_capture import capture_credentials
-    from fetcher.install_hints import playwright_install_hint
     from fetcher.credentials import save_credentials
+    from fetcher.install_hints import playwright_install_hint
+    from fetcher.playwright_capture import capture_credentials
 
     click.echo("=" * 60)
     click.echo("  Claude Credential Capture (Browser)")
@@ -674,10 +676,9 @@ def rehydrate(
     import time
     from collections import defaultdict
 
+    from backend.config import files_dir_for, get_settings
     from fetcher.bulk_fetch import ClaudeFetcher
     from fetcher.credentials import fetcher_credentials, load_credentials
-
-    from backend.config import files_dir_for, get_settings
 
     if data_dir is None:
         data_dir = get_settings().data_dir

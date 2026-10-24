@@ -28,9 +28,9 @@ def load_rows() -> list[dict]:
     return rows
 
 
-_SLASH_CMD = re.compile(r"^<command-(name|message|args)>.*?</command-\1>", re.S)
+_SLASH_CMD = re.compile(r"^<command-(name|message|args)>.*?</command-\1>", re.DOTALL)
 _INTERRUPT = re.compile(r"^\[Request interrupted by user\]")
-_CONTINUE_CMD = re.compile(r"^(please\s+)?(continue|commit this\.?)$", re.I)
+_CONTINUE_CMD = re.compile(r"^(please\s+)?(continue|commit this\.?)$", re.IGNORECASE)
 
 
 def is_real_prompt(summary: str) -> bool:

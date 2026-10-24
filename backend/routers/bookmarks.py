@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -174,7 +174,7 @@ async def create_bookmark(payload: BookmarkCreate) -> Bookmark:
         conversation_id=payload.conversation_id,
         message_uuid=payload.message_uuid,
         source=payload.source,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
         note=payload.note,
         snippet=payload.snippet[:140],
     )
@@ -221,4 +221,3 @@ async def delete_bookmark(bookmark_id: str) -> None:
     if len(next_list) == len(bookmarks):
         raise HTTPException(status_code=404, detail="Bookmark not found")
     _write_all(next_list)
-    return None

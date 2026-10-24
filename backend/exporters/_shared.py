@@ -239,7 +239,7 @@ def _is_compact_summary_message(
 
 def render_compact_indicator(
     message: Message,
-    compact_marker_by_uuid: "dict[str, CompactMarker]",
+    compact_marker_by_uuid: dict[str, CompactMarker],
 ) -> str | None:
     """Return a one-line marker indicator if ``message`` is an
     ``isCompactSummary`` row for a known marker; else return None.
@@ -274,7 +274,7 @@ def render_compact_indicator(
 
 def render_compact_summary_markdown(
     message: Message,
-    compact_marker_by_uuid: "dict[str, CompactMarker]",
+    compact_marker_by_uuid: dict[str, CompactMarker],
 ) -> str | None:
     """Render the rich Markdown block for a /compact summary message
     when ``include_compact=True``. Returns None if ``message`` is not
@@ -334,7 +334,7 @@ def render_compact_summary_markdown(
 
 def render_compact_summary_html(
     message: Message,
-    compact_marker_by_uuid: "dict[str, CompactMarker]",
+    compact_marker_by_uuid: dict[str, CompactMarker],
 ) -> str | None:
     """HTML mirror of :func:`render_compact_summary_markdown`. Returns
     None if ``message`` is not a known summary marker.
@@ -497,25 +497,25 @@ def _resolve_attachment_path(conv_uuid: str, file_uuid: str, variant: str) -> Pa
 
 
 __all__ = [
-    "MarkdownDialect",
-    "TOOL_PLACEHOLDER",
-    "TOOL_PLACEHOLDER_MOBILE_ARTIFACT",
-    "TOOL_PLACEHOLDERS",
     "CC_IMAGE_MARKER_RE",
-    "sanitize_filename",
-    "format_timestamp",
-    "escape_html",
-    "_guess_mime",
-    "filter_tool_placeholders",
-    "_is_excludable_marker",
-    "_is_compact_summary_message",
-    "render_compact_indicator",
-    "render_compact_summary_markdown",
-    "render_compact_summary_html",
+    "TOOL_PLACEHOLDER",
+    "TOOL_PLACEHOLDERS",
+    "TOOL_PLACEHOLDER_MOBILE_ARTIFACT",
+    "MarkdownDialect",
     "_dedupe_image_files",
     "_dedupe_non_image_files",
-    "message_has_visible_content",
+    "_guess_mime",
+    "_is_compact_summary_message",
+    "_is_excludable_marker",
     "_resolve_attachment_path",
+    "escape_html",
+    "filter_tool_placeholders",
+    "format_timestamp",
+    "message_has_visible_content",
+    "render_compact_indicator",
+    "render_compact_summary_html",
+    "render_compact_summary_markdown",
+    "sanitize_filename",
 ]
 
 

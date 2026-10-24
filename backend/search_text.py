@@ -21,7 +21,6 @@ byte-for-byte.
 import re
 from typing import Any
 
-
 # Placeholder pattern used by Claude Desktop when a content block (tool call,
 # canvas widget, etc.) can't be rendered in the current client. Mirrors the
 # frontend's filter in frontend/src/lib/utils.ts (filterToolPlaceholders): when

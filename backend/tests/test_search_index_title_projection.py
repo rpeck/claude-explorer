@@ -42,7 +42,6 @@ import pytest
 
 from backend import search_index as si
 
-
 # ----- helpers (mirror the conv-builder shape used elsewhere in tests) ----
 
 
@@ -378,11 +377,10 @@ def test_open_backfills_projection_when_messages_have_orphan_rows(tmp_path):
     )
     # Sneakily delete the projection row for c2 to simulate the dev
     # race — same as if c2 had been upserted by the old (v9) code.
-    with idx._write_lock:
-        with idx._write_conn:
-            idx._write_conn.execute(
-                "DELETE FROM conversations WHERE conv_uuid = ?", ("c2",)
-            )
+    with idx._write_lock, idx._write_conn:
+        idx._write_conn.execute(
+            "DELETE FROM conversations WHERE conv_uuid = ?", ("c2",)
+        )
     idx.close()
 
     # Re-open. The open should detect the drift and backfill.

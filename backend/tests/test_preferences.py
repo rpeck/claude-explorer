@@ -33,8 +33,8 @@ def client_with_prefs(tmp_path, monkeypatch):
     cfg.get_settings.cache_clear()
 
     # Reload routers + app so the new env var/data_dir is picked up.
-    from backend import main as backend_main
     import backend.routers.preferences as prefs_router
+    from backend import main as backend_main
     importlib.reload(prefs_router)
     importlib.reload(backend_main)
 

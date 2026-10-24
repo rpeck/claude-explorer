@@ -40,7 +40,6 @@ import shutil
 import subprocess
 import sys
 
-
 log = logging.getLogger(__name__)
 
 
@@ -75,7 +74,7 @@ def is_watcher_installed() -> bool:
         # Garbage override: fall through to platform probe.
     try:
         return _platform_check()
-    except Exception:  # noqa: BLE001
+    except Exception:
         log.debug(
             "Watcher-install probe raised; treating as not installed",
             exc_info=True,

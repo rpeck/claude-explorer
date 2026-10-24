@@ -139,8 +139,8 @@ async def test_eager_fill_task_runs_once_with_full_path_set(
 ) -> None:
     """Test 1: the eager-fill task runs exactly once during lifespan
     startup, with the full set of JSONL paths the app discovers."""
-    from backend.main import app
     from backend.claude_code_reader import discover_jsonl_files
+    from backend.main import app
 
     expected_paths = set(discover_jsonl_files(cold_start_claude_dir))
     assert len(expected_paths) == 3, "fixture sanity check"
@@ -182,8 +182,8 @@ async def test_eager_fill_task_populates_summary_cache(
 ) -> None:
     """Test 2: after lifespan startup the cache has rows for every path
     the eager-fill discovered. A subsequent `get_many` call returns them."""
-    from backend.main import app
     from backend.claude_code_reader import discover_jsonl_files
+    from backend.main import app
     from backend.summary_cache import get_summary_cache
 
     paths = list(discover_jsonl_files(cold_start_claude_dir))
@@ -284,8 +284,8 @@ async def test_eager_fill_respects_disable_env_var(
     assert the differential: enabled → ≥1 call, disabled → 0 calls.
     A no-op implementation would fail the enabled trial.
     """
-    from backend.main import app
     from backend.config import get_settings as gs
+    from backend.main import app
 
     async def _trial(disabled: bool) -> int:
         # Re-isolate the in-process state so each trial sees a clean
@@ -550,6 +550,7 @@ async def test_eager_fill_processpool_shutdown_does_not_orphan_workers(
     sleeps just long enough to be running when shutdown fires.
     """
     from concurrent.futures import ProcessPoolExecutor
+
     from backend.main import app
 
     child_pids: list[int] = []

@@ -43,24 +43,37 @@ _bootstrap_macos_dyld_for_weasyprint()
 # libcairo via CFFI at import time. Without the DYLD bootstrap, that import
 # raises ``OSError: cannot load library 'libgobject-2.0-0'`` and the PDF
 # export route returns 500. Do not reorder.
-import asyncio  # noqa: E402
-import logging  # noqa: E402
-import re  # noqa: E402
-import threading  # noqa: E402
-from contextlib import asynccontextmanager  # noqa: E402
-from pathlib import Path  # noqa: E402
+import asyncio
+import logging
+import re
+import threading
+from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.responses import FileResponse  # noqa: E402
-from fastapi.staticfiles import StaticFiles  # noqa: E402
-from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 
-from .config import get_settings, migrate_legacy_data_dir, read_env  # noqa: E402
-from .host_guard import HostGuardMiddleware  # noqa: E402
 # The single source of truth for the release (pyproject.toml reads it too).
-from mcp_server import __version__  # noqa: E402
-from .routers import account, conversations, search, export, config, fetch, bookmarks, orgs, files, preferences, shutdown, watcher_health  # noqa: E402
+from mcp_server import __version__
 
+from .config import get_settings, migrate_legacy_data_dir, read_env
+from .host_guard import HostGuardMiddleware
+from .routers import (
+    account,
+    bookmarks,
+    config,
+    conversations,
+    export,
+    fetch,
+    files,
+    orgs,
+    preferences,
+    search,
+    shutdown,
+    watcher_health,
+)
 
 # Exact-match pattern for the conversation-detail route.
 # Matches /api/conversations/<uuid-like-string> but NOT /tree or any other
@@ -173,8 +186,8 @@ async def _lifespan_migration_task(data_dir, credentials_path) -> None:
       * Cancellation by the lifespan teardown is honored.
     """
     from fetcher.migrate_to_v2 import (
-        LockContentionError,
         MIGRATION_SENTINEL,
+        LockContentionError,
         migrate_to_v2,
     )
 
@@ -280,7 +293,7 @@ async def _cancel_background_tasks(background_tasks: list[asyncio.Task]) -> None
                     "Background task %s raised during shutdown: %r",
                     task.get_name(), result,
                 )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         still_running = [
             t.get_name() for t in background_tasks if not t.done()
         ]
@@ -320,12 +333,12 @@ async def lifespan(app: FastAPI):
         log.info("Skipping lifespan migration (CLAUDE_EXPLORER_SKIP_MIGRATION=1).")
         _migration_state["status"] = "skipped"
     else:
+        from fetcher.credentials import DEFAULT_CREDENTIALS_PATH
         from fetcher.migrate_to_v2 import (
-            LockContentionError,
             MIGRATION_SENTINEL,
+            LockContentionError,
             migrate_to_v2,
         )
-        from fetcher.credentials import DEFAULT_CREDENTIALS_PATH
 
         sentinel_path = settings.data_dir / MIGRATION_SENTINEL
         if sentinel_path.exists():
@@ -370,7 +383,7 @@ async def lifespan(app: FastAPI):
     try:
         from .watcher_logging import log_watcher_status
         log_watcher_status()
-    except Exception:  # noqa: BLE001
+    except Exception:
         log.debug("log_watcher_status failed; ignoring", exc_info=True)
 
     # Spawn the CC image-cache watcher. Polls ~/.claude/image-cache/
@@ -601,8 +614,8 @@ async def lifespan(app: FastAPI):
     # the metadata path falls back to the legacy sequential reader if
     # the cache module returns None.
     try:
-        from backend.summary_cache import get_summary_cache
         from backend.claude_code_reader import LOGIC_VERSION
+        from backend.summary_cache import get_summary_cache
 
         summary_cache = get_summary_cache()
         if summary_cache is not None:
@@ -644,6 +657,7 @@ async def lifespan(app: FastAPI):
         def _sync_build_summary_cache() -> None:
             import os
             import time
+
             from backend import claude_code_reader as ccr
             from backend.summary_cache import get_summary_cache
 
@@ -746,10 +760,11 @@ async def lifespan(app: FastAPI):
                     pass
 
             try:
-                from backend.summary_cache import get_summary_cache
+                import os as _os
+
                 from backend.claude_code_reader import discover_jsonl_files
                 from backend.store import ConversationStore
-                import os as _os
+                from backend.summary_cache import get_summary_cache
 
                 cache = get_summary_cache()
                 if cache is None:

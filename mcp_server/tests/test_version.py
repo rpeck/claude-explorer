@@ -21,7 +21,6 @@ from importlib.metadata import version as _pkg_version
 
 import mcp_server
 
-
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][\w.]+)?$")
 
 

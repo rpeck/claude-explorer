@@ -340,7 +340,7 @@ def test__build_error_event__preserves_extra_fields_after_validation() -> None:
     assert event["type"] == "error"
     assert event["kind"] == "TRANSIENT"
     assert event["retryable"] is True
-    assert "message" in event and event["message"]
+    assert event.get("message")
 
     auth_event = _build_error_event("AUTH", "401")
     assert auth_event["kind"] == "AUTH"

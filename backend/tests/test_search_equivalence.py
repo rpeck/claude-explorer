@@ -32,7 +32,6 @@ from backend.search import (
 from backend.store import ConversationStore
 from backend.tests import builders as B
 
-
 # ----- fixtures ---------------------------------------------------
 # Conversation/message builders moved to ``backend.tests.builders``
 # (PLANS/2026.05.18-test-hardening.md C4). The previous inline

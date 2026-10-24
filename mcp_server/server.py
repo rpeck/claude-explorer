@@ -17,13 +17,11 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from fastmcp import FastMCP
-
-from mcp_server import __version__
 
 from backend.config import Settings
 from backend.export import (
@@ -33,6 +31,7 @@ from backend.export import (
 from backend.models import ContentBlock, ConversationDetail, Message
 from backend.search import search_conversations
 from backend.store import ConversationStore
+from mcp_server import __version__
 
 # ---------------------------------------------------------------------------
 # Server setup
@@ -252,7 +251,7 @@ def _build_outline(
         append_from = 0
 
     # Upsert session_files record first (FK parent must exist before children)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     conn.execute(
         "INSERT OR REPLACE INTO session_files "
         "(session_id, file_path, file_mtime, leaf_message_uuid, "

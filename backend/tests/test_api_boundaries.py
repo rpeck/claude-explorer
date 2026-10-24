@@ -24,7 +24,6 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 
-
 # ---------------------------------------------------------------------------
 # M1 — files.py glob-meta reject
 # ---------------------------------------------------------------------------

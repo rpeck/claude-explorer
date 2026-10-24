@@ -47,7 +47,6 @@ import pytest
 
 from backend import search_index as si
 
-
 # Two unique, FTS5-friendly tokens. Single words, no punctuation, no
 # accidental subword overlap with anything else in the index.
 _TEXT_ONLY_TOKEN = "alphafoxtrot"  # MUST live only in a `text` block

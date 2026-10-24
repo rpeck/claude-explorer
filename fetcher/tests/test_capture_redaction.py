@@ -29,7 +29,6 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-
 # A long fake key that we can grep for in CLI output. The shape
 # matches a real key (prefix + entropy) but is obviously test data.
 _FAKE_SESSION_KEY = "sk-ant-sid01-AAAAAAAAAAAAAAAAAAAA-BBBBBBBBBB-CCCC"

@@ -36,7 +36,6 @@ import pytest
 from backend import search_index as si
 from backend.store import ConversationStore
 
-
 # ----- fixtures ----------------------------------------------------
 
 

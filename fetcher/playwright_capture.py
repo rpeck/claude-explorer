@@ -30,23 +30,22 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
-from playwright.async_api import async_playwright, Page, BrowserContext
+from playwright.async_api import BrowserContext, Page, async_playwright
 
-from fetcher.install_hints import playwright_install_hint  # noqa: F401  re-export
 from fetcher.credentials import (
+    DEFAULT_CREDENTIALS_PATH,
     CredentialsCorruptError,
     CredentialsV2,
-    DEFAULT_CREDENTIALS_PATH,
     OrgRef,
     load_credentials,
     resolve_primary_org_id,
     save_credentials,
 )
-
+from fetcher.install_hints import playwright_install_hint  # noqa: F401  re-export
 
 log = logging.getLogger(__name__)
 
@@ -282,7 +281,7 @@ async def capture_credentials(
                     if not logged_in:
                         click.echo("Login was not completed.", err=True)
                         return None
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     click.echo(f"Login timed out after {timeout} seconds.", err=True)
                     return None
             else:
@@ -313,7 +312,7 @@ async def capture_credentials(
                 session_key=session_key,
                 cf_bm=cookies.get("cf_bm"),
                 cf_clearance=cookies.get("cf_clearance"),
-                captured_at=datetime.now(timezone.utc).isoformat(),
+                captured_at=datetime.now(UTC).isoformat(),
                 orgs=orgs,
             )
             return creds

@@ -24,12 +24,11 @@ import pytest
 
 from fetcher.credentials import CredentialsV2, save_credentials
 from fetcher.migrate_to_v2 import (
-    LockContentionError,
-    MIGRATION_SENTINEL,
     MIGRATION_LOG,
+    MIGRATION_SENTINEL,
+    LockContentionError,
     migrate_to_v2,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

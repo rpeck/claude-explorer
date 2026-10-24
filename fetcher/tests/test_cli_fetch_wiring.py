@@ -438,7 +438,11 @@ def test_cli_fetch_error_is_a_short_message_not_a_traceback(
     """With no network, ``claude-explorer fetch`` printed a 30-line Python
     traceback that ended in ``FetchTransientError``. Many users are not
     developers."""
-    from fetcher.http_retry import FetchAuthError, FetchTerminalError, FetchTransientError
+    from fetcher.http_retry import (
+        FetchAuthError,
+        FetchTerminalError,
+        FetchTransientError,
+    )
 
     def _raise() -> None:
         if error == "transient":

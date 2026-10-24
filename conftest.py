@@ -19,7 +19,7 @@ import threading
 os.environ.setdefault("CLAUDE_EXPLORER_ALLOWED_HOSTS", "testserver,test")
 
 
-def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ARG001
+def pytest_sessionfinish(session, exitstatus):
     """Name any non-daemon thread still alive when the session ends."""
     lingering = [
         t

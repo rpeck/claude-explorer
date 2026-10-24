@@ -30,9 +30,7 @@ def _escapes(finalbody: list[ast.stmt]) -> list[ast.stmt]:
     def visit(node: ast.AST, in_loop: bool) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             return  # a nested scope may use control flow freely
-        if isinstance(node, ast.Return):
-            found.append(node)
-        elif isinstance(node, (ast.Break, ast.Continue)) and not in_loop:
+        if isinstance(node, ast.Return) or isinstance(node, (ast.Break, ast.Continue)) and not in_loop:
             found.append(node)
         loop = isinstance(node, (ast.For, ast.AsyncFor, ast.While))
         for child in ast.iter_child_nodes(node):

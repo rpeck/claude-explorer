@@ -224,9 +224,9 @@ def test_cc_image_404_for_missing_path(tmp_path, monkeypatch):
 # section-banner blocks, and the imports here are scoped to the proxy
 # 404-fallback section that follows. Moving them to the top would split
 # their definition from the tests that consume them.
-import logging  # noqa: E402
+import logging
 
-from backend.tests._security_helpers import attachments_root_for  # noqa: E402
+from backend.tests._security_helpers import attachments_root_for
 
 _FALLBACK_PNG = b"\x89PNG\r\n\x1a\nLOCAL-CACHE-FIXTURE-BYTES-XYZ"
 _TEST_ORG = "ae24ae66-4622-48e7-b4b3-1ab2c49f933d"
@@ -380,12 +380,11 @@ def test__proxy__upstream_unreachable_local_fallback__emits_observability_log(
     cache_dir.mkdir(parents=True)
     (cache_dir / "thumbnail.png").write_bytes(_FALLBACK_PNG)
 
-    with caplog.at_level(logging.INFO, logger="backend.routers.files"):
-        with patch(
-            "curl_cffi.requests.get",
-            side_effect=OSError("Network is unreachable"),
-        ):
-            resp = client.get(f"/api/{_TEST_ORG}/files/{_TEST_FILE}/thumbnail")
+    with caplog.at_level(logging.INFO, logger="backend.routers.files"), patch(
+        "curl_cffi.requests.get",
+        side_effect=OSError("Network is unreachable"),
+    ):
+        resp = client.get(f"/api/{_TEST_ORG}/files/{_TEST_FILE}/thumbnail")
     assert resp.status_code == 200, (
         "fallback must succeed for the log assertion to be meaningful"
     )

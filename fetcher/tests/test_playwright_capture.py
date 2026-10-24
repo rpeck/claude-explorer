@@ -21,7 +21,7 @@ from fetcher.playwright_capture import get_orgs
 class _BoomURL:
     """Property that raises when accessed — simulates a torn Page object."""
 
-    def __get__(self, instance, owner):  # noqa: D401
+    def __get__(self, instance, owner):
         raise RuntimeError("simulated page.url access failure")
 
 

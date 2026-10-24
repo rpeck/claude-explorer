@@ -17,7 +17,7 @@ Install it with ``FakeSessionsApi.install(monkeypatch)``, which replaces
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -33,7 +33,7 @@ class FakeHTTPError(Exception):
         self.response = type("Resp", (), {"status_code": status})()
 
 
-BASE = datetime(2026, 10, 6, 19, 0, tzinfo=timezone.utc)
+BASE = datetime(2026, 10, 6, 19, 0, tzinfo=UTC)
 
 
 def iso(minutes: int) -> str:
@@ -152,7 +152,7 @@ class FakeSessionsApi:
         self.list_page_size = list_page_size
         self.requests: list[str] = []
 
-    def install(self, monkeypatch: pytest.MonkeyPatch) -> "FakeSessionsApi":
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> FakeSessionsApi:
         api = self
 
         def _get_json(_self, url: str, org_uuid: str) -> dict:

@@ -30,6 +30,7 @@ THEN (the manual, Medium-side steps)
 Re-run any time the source changes; output is regenerated.
 """
 from __future__ import annotations
+
 import os
 import re
 import subprocess

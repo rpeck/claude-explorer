@@ -33,14 +33,15 @@ continue to resolve.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import orjson
 
 from .cc_jsonl_io import DEFAULT_CLAUDE_DIR, parse_jsonl_file
-from .parsing import _parse_iso_opt, parse_datetime as _parse_datetime
+from .parsing import _parse_iso_opt
+from .parsing import parse_datetime as _parse_datetime
 
 
 def read_agent_summary_fast(agent_path: Path) -> tuple[str | None, dict | None]:
@@ -88,7 +89,7 @@ def read_agent_summary_fast(agent_path: Path) -> tuple[str | None, dict | None]:
 
                 if lines_read >= max_lines:
                     break
-    except (OSError, IOError):
+    except OSError:
         return None, None
 
     if not first_user:
@@ -122,7 +123,7 @@ def read_agent_summary_fast(agent_path: Path) -> tuple[str | None, dict | None]:
     created_at = _parse_datetime(first_timestamp)
     try:
         mtime = agent_path.stat().st_mtime
-        updated_at = datetime.fromtimestamp(mtime, tz=timezone.utc)
+        updated_at = datetime.fromtimestamp(mtime, tz=UTC)
     except OSError:
         updated_at = created_at
 
@@ -209,8 +210,8 @@ def _extract_agent_metadata(entries: list[dict], agent_path: Path) -> dict:
         if (parsed := _parse_iso_opt(e.get("timestamp"))) is not None
     ]
 
-    created_at = min(all_timestamps) if all_timestamps else datetime.now(timezone.utc)
-    updated_at = max(all_timestamps) if all_timestamps else datetime.now(timezone.utc)
+    created_at = min(all_timestamps) if all_timestamps else datetime.now(UTC)
+    updated_at = max(all_timestamps) if all_timestamps else datetime.now(UTC)
 
     # Get name from first user message
     name = f"Agent {agent_id}"

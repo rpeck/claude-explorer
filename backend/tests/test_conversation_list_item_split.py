@@ -25,12 +25,12 @@ specification this file is implementing.
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from backend.main import app
-
 
 # ---------------------------------------------------------------------------
 # Fixture helpers
@@ -337,7 +337,7 @@ def test_pydantic_projection_is_loss_tolerant():
     ``model_validate(..., from_attributes=True)``. The projection must
     succeed, drop the three excluded fields, and preserve the rest.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from backend.models import ConversationListItem, ConversationSummary
 
@@ -346,8 +346,8 @@ def test_pydantic_projection_is_loss_tolerant():
         name="Projection test",
         summary="this should be dropped",
         model="claude-sonnet-4-6",
-        created_at=datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 4, 1, 11, 0, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 4, 1, 10, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 1, 11, 0, 0, tzinfo=UTC),
         is_starred=True,
         message_count=42,
         human_message_count=21,

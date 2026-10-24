@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import inspect
 
-
 from mcp_server.server import list_sessions
 
 
@@ -175,6 +174,7 @@ def test_mcp_source_filter_matches_api_search_source_filter(mcp_data):
     `search_conversations()` internals for the common-subset of filters.
     """
     from fastapi.testclient import TestClient
+
     from backend.main import app
 
     # Plant one Desktop + one CC with the needle in both.

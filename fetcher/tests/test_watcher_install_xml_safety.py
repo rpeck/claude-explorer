@@ -36,7 +36,7 @@ from pathlib import Path
 
 import pytest
 
-from cli.watcher import _build_launchd_plist, _LAUNCHD_LABEL
+from cli.watcher import _LAUNCHD_LABEL, _build_launchd_plist
 
 
 def _parse_plist(plist_xml: str) -> ET.Element:

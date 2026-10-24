@@ -33,13 +33,12 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from fetcher.credentials import (
-    CredentialsCorruptError,
     DEFAULT_CREDENTIALS_PATH,
+    CredentialsCorruptError,
     load_credentials,
 )
 
 from ..models import Org, OrgsResponse
-
 
 log = logging.getLogger(__name__)
 

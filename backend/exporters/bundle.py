@@ -15,15 +15,15 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from ..models import ConversationDetail, ContentBlock, Message
+from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
 from ._shared import (
     CC_IMAGE_MARKER_RE,
     MarkdownDialect,
     _dedupe_image_files,
     _dedupe_non_image_files,
-    _is_excludable_marker,
     _is_compact_summary_message,
+    _is_excludable_marker,
     _resolve_attachment_path,
     filter_tool_placeholders,
     format_timestamp,
@@ -381,7 +381,7 @@ def create_markdown_bundle(
             if block.type == "image" and block.source:
                 src = block.source
                 # Pydantic ContentBlock.source is `dict | None`; cast safely.
-                source_dict: dict[str, Any] = src if isinstance(src, dict) else getattr(src, "model_dump", lambda: {})()
+                source_dict: dict[str, Any] = src if isinstance(src, dict) else getattr(src, "model_dump", dict)()
                 if source_dict.get("type") == "base64" and source_dict.get("data"):
                     media = source_dict.get("media_type") or "image/png"
                     suffix = "." + (media.split("/")[-1] or "png")
@@ -468,12 +468,12 @@ def create_markdown_bundle(
 
 
 __all__ = [
-    "_image_marker_path_is_safe",
-    "_markdown_image_ref",
-    "_markdown_attachment_ref",
-    "_resolve_bundle_attachment_path",
     "_bundle_block_to_markdown",
     "_bundle_message_to_markdown",
+    "_image_marker_path_is_safe",
+    "_markdown_attachment_ref",
+    "_markdown_image_ref",
     "_maybe_bundle_marker",
+    "_resolve_bundle_attachment_path",
     "create_markdown_bundle",
 ]

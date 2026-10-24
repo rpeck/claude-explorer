@@ -11,19 +11,17 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 # mitmproxy is a dependency on every platform (no marker since 2026-09-24),
 # so import it plainly. A skip here once hid 17 tests on Windows ARM, where
 # the old marker made the install random. A missing mitmproxy must fail.
-import mitmproxy  # noqa: F401,E402
+import mitmproxy  # noqa: F401
+import pytest
 
 from fetcher.credentials import load_credentials
 from fetcher.mitmproxy_addon import (
     ClaudeCredentialCapture,
     _is_organizations_endpoint,
 )
-
 
 # ---------------------------------------------------------------------------
 # URL match regex (NEW2-P1-α adjacent)

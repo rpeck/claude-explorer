@@ -8,9 +8,9 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Literal
 
-from .config import get_settings
-from .parsing import parse_datetime as _parse_datetime  # noqa: F401  (re-export; backend.search imports _parse_datetime from this module)
 from .claude_code_reader import (
+    _load_conversation_cached,
+    discover_jsonl_files,
     list_claude_code_conversations,
     # Re-exported so existing tests that patch
     # ``backend.store.read_claude_code_conversation`` keep their
@@ -20,19 +20,18 @@ from .claude_code_reader import (
     # patch store.py-side as a belt-and-suspenders measure want
     # this symbol to exist).
     read_claude_code_conversation,  # noqa: F401  (re-export for tests)
-    _load_conversation_cached,
-    discover_jsonl_files,
 )
+from .config import get_settings
 from .models import (
-    ConversationSummary,
+    ContentBlock,
     ConversationDetail,
+    ConversationSummary,
     ConversationTree,
     Message,
     MessageNode,
-    ContentBlock,
     SubagentSummary,
 )
-
+from .parsing import parse_datetime as _parse_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -813,8 +812,8 @@ class ConversationStore:
         # Pass B: scan via summary cache (warm: in-memory bulk SELECT;
         # cold: misses repopulate as a side effect — acceptable since
         # detail-page misses are user-driven, not bulk).
-        from .summary_cache import get_summary_cache
         from .cc_jsonl_io import read_conversation_summary_fast
+        from .summary_cache import get_summary_cache
 
         summary_cache = get_summary_cache()
         stat_index: dict[Path, Any] = {}

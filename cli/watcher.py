@@ -47,7 +47,6 @@ from pathlib import Path
 
 import click
 
-
 # Cross-platform unit/job identifiers. Same logical name ("claude-explorer
 # CC image-cache watcher"), spelled in each OS's idiomatic style:
 _LAUNCHD_LABEL = "com.claude-explorer.cc-watcher"

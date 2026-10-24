@@ -18,7 +18,6 @@ import pytest
 
 from backend import search_index as si
 
-
 # ----- fixtures --------------------------------------------------------
 
 

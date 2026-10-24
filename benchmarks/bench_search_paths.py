@@ -25,10 +25,11 @@ import statistics
 import sys
 import time
 
+from backend.search import _search_via_index, _search_via_linear_scan
+from backend.search_index import get_search_index
+
 # Ensure we use the canonical data dir without env shenanigans.
 from backend.store import ConversationStore
-from backend.search import _search_via_linear_scan, _search_via_index
-from backend.search_index import get_search_index
 
 
 def time_call(fn, *args, **kwargs) -> float:

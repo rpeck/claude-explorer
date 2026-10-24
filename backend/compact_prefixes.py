@@ -33,7 +33,6 @@ quotes the prefix mid-text does not false-positive.
 
 from __future__ import annotations
 
-
 # Hard-coded so it travels with the leaf module — zero imports keeps
 # this safe to import from anywhere (cowork reader, search infra, tests).
 COMPACTION_TITLE_PREFIX = (

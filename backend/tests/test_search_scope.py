@@ -15,9 +15,9 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.main import app
-from backend.cache import _conversation_cache
 from backend import config as cfg
+from backend.cache import _conversation_cache
+from backend.main import app
 
 
 def _conv(uuid: str, name: str, *, project_path: str | None = None, source: str = "CLAUDE_AI", text: str = "needle in haystack"):

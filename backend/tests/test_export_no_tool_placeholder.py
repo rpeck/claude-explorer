@@ -33,7 +33,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-
 TOOL_PLACEHOLDER = "This block is not supported on your current device yet."
 
 
@@ -79,7 +78,8 @@ def isolated_data_dir(monkeypatch, tmp_path):
     claude_dir.mkdir()
     monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
 
-    from backend import config as cfg, cache
+    from backend import cache
+    from backend import config as cfg
 
     cfg.get_settings.cache_clear()  # type: ignore[attr-defined]
     cache.clear_cache()

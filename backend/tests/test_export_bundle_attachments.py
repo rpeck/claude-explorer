@@ -18,14 +18,13 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from backend.export import create_markdown_bundle
 from backend.models import ConversationDetail, Message
-
 
 CONV_UUID = "11111111-2222-3333-4444-555555555555"
 FILE_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -40,8 +39,8 @@ def _make_conv_with_pdf_file() -> ConversationDetail:
         sender="human",
         text="See attached spec.",
         content=[],
-        created_at=datetime(2026, 5, 6, 10, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 6, 10, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=UTC),
         files=[
             {
                 "file_kind": "document",
@@ -55,8 +54,8 @@ def _make_conv_with_pdf_file() -> ConversationDetail:
         uuid=CONV_UUID,
         name="Bundle attachments test",
         model="claude-sonnet-4-6",
-        created_at=datetime(2026, 5, 6, 9, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 6, 9, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=UTC),
         message_count=1,
         human_message_count=1,
         messages=[msg],
@@ -178,8 +177,8 @@ def test_files_v2_pdf_attachment_bundled(attachments_data_dir: Path) -> None:
         sender="human",
         text="See attached spec.",
         content=[],
-        created_at=datetime(2026, 5, 6, 10, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 6, 10, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=UTC),
         files_v2=[
             {
                 "file_kind": "document",
@@ -195,8 +194,8 @@ def test_files_v2_pdf_attachment_bundled(attachments_data_dir: Path) -> None:
         uuid=CONV_UUID,
         name="Bundle attachments v2",
         model="claude-sonnet-4-6",
-        created_at=datetime(2026, 5, 6, 9, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 6, 9, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 5, 6, 10, 0, tzinfo=UTC),
         message_count=1,
         human_message_count=1,
         messages=[msg],

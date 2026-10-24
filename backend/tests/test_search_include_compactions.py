@@ -50,7 +50,6 @@ from backend.search import (
     search_conversations,
 )
 
-
 # ----- fixtures --------------------------------------------------------
 
 

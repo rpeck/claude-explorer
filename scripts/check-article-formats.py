@@ -27,6 +27,7 @@ Files in KNOWN_PENDING are skipped with a loud warning (a WIP part whose images
 are not in the repo yet). Empty that set before publishing those parts.
 """
 from __future__ import annotations
+
 import argparse
 import glob
 import os
