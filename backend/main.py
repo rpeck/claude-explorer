@@ -750,7 +750,7 @@ async def lifespan(app: FastAPI):
                     await summary_cache_task
                 except asyncio.CancelledError:
                     raise
-                except Exception:
+                except Exception:  # noqa: BLE001, S110 — the summary fill logs its own failure; warm from what the cache has
                     # Summary fill failure is logged separately; we
                     # still try to warm from whatever IS in the
                     # cache.

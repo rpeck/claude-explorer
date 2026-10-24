@@ -385,39 +385,37 @@ def test_progress_callback_invoked(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0,
+    reason="root can read a mode-000 file, so the read does not fail",
+)
 def test_sentinel_only_after_full_completion(tmp_path: Path) -> None:
-    """If the migration encounters any error, the sentinel is NOT touched.
+    """If the migration fails on one file, the sentinel is NOT touched.
 
-    Simulate a failure by making one file unreadable mid-loop. The sentinel
-    must not appear, and the migration_log must record the partial state.
+    Make one file unreadable. The migration must finish without raising,
+    move the readable file, record the failed one in the migration log,
+    and leave the sentinel absent.
+
+    2026-10-23: the test accepted any exception and any outcome ("Either
+    swallow internally or raise — both acceptable"), so a crash for an
+    unrelated reason passed too. It now asserts what the migration does.
     """
     data_dir = tmp_path / "data"
     creds_path = _setup_creds(tmp_path)
-    _write_legacy_conv(data_dir, "11111111-2222-3333-4444-555555555555", source="CLAUDE_AI")
+    good = "11111111-2222-3333-4444-555555555555"
+    _write_legacy_conv(data_dir, good, source="CLAUDE_AI")
     p2 = _write_legacy_conv(data_dir, "22222222-2222-3333-4444-555555555555", source="CLAUDE_AI")
 
-    # Make p2 unreadable
     os.chmod(p2, 0o000)
-
     try:
-        # Migration should record the partial state but NOT touch the sentinel.
-        try:
-            migrate_to_v2(data_dir=data_dir, credentials_path=creds_path)
-        except Exception:
-            pass  # Either swallow internally or raise — both acceptable
+        migrate_to_v2(data_dir=data_dir, credentials_path=creds_path)
     finally:
         os.chmod(p2, 0o644)
 
-    sentinel = data_dir / MIGRATION_SENTINEL
-    # The sentinel should NOT exist if any file failed.
-    # (Implementation may decide to still create sentinel if all UUID files
-    # were processed and only "unknown" non-UUID failed; but our test
-    # explicitly fails a UUID file, so sentinel must be absent.)
-    if sentinel.exists():
-        # If sentinel exists despite failure, the migration_log should at
-        # least record the error.
-        log = json.loads((data_dir / MIGRATION_LOG).read_text())
-        assert log.get("errors"), "if sentinel set despite failure, errors must be logged"
+    assert not (data_dir / MIGRATION_SENTINEL).exists()
+    log = json.loads((data_dir / MIGRATION_LOG).read_text(encoding="utf-8"))
+    assert [Path(e["path"]).name for e in log["errors"]] == [p2.name]
+    assert [m["uuid"] for m in log["moves"]] == [good]
 
 
 def test_no_legacy_files_no_sentinel_change_needed(tmp_path: Path) -> None:

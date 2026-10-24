@@ -167,7 +167,7 @@ def real_search_index(watcher_env, tmp_path, monkeypatch):
         si._search_index = prior
         try:
             idx.close()
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110 — teardown is best-effort
             pass
 
 

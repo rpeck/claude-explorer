@@ -109,7 +109,7 @@ def test_concurrent_patches_dont_corrupt(client_with_prefs):
         try:
             r = client.patch("/api/preferences", json={"data": {key: f"v-{key}"}})
             assert r.status_code == 200, r.text
-        except Exception as e:  # pragma: no cover - reported via list
+        except Exception as e:  # pragma: no cover - reported via list  # noqa: BLE001 — the main thread reports every error
             errors.append(e)
 
     threads = [threading.Thread(target=patch_one, args=(k,)) for k in keys]

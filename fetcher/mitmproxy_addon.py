@@ -144,7 +144,7 @@ class ClaudeCredentialCapture:
             if not body:
                 return
             data = json.loads(body)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — any decode failure is logged; capture continues
             log.warning(
                 "organizations response decode failed "
                 "(content-encoding=%r, content-type=%r, content-length=%r): %s",

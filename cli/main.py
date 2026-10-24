@@ -527,7 +527,7 @@ def serve(host: str, port: int, reload: bool) -> None:
                 "  permanent image-cache data loss during backend downtime.\n",
                 err=True,
             )
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110 — detection is best-effort; never fail serve over the hint
         # Detection is best-effort; never fail `serve` over the hint.
         pass
 

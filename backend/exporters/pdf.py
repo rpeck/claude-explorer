@@ -451,7 +451,7 @@ def _resolve_cc_image_path(abs_path: str) -> Path | None:
     # Fallback to the permanent cache. Mirrors backend.routers.files.get_cc_image.
     try:
         from ..cc_image_cache import cache_dir
-    except Exception:  # pragma: no cover — defensive
+    except ImportError:  # pragma: no cover — defensive
         return None
     sess = candidate.parent.name
     n = candidate.stem

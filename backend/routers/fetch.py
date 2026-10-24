@@ -542,7 +542,7 @@ async def fetch_conversations_stream(
         # Load credentials
         try:
             creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
-        except Exception:
+        except Exception:  # noqa: BLE001 — any unreadable credentials file means: run capture
             yield send_event({
                 "type": "error",
                 "message": "No credentials found. Run 'claude-explorer capture' first.",
@@ -682,7 +682,7 @@ async def fetch_conversations_stream(
                         None, fetcher.save_conversation, full_conv
                     )
                     fetched_count += 1
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — every fetch failure is classified into an SSE event
                 error_msg = str(e)
                 lowered = error_msg.lower()
                 if "401" in error_msg or "403" in error_msg or "cf-mitigated" in lowered:
@@ -725,7 +725,7 @@ async def fetch_conversations_stream(
             "total": total,
         })
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — any failure becomes the stream's error event
         yield send_event({
             "type": "error",
             "message": classify_fetch_error(str(e)),
@@ -764,7 +764,7 @@ async def _force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     """The re-fetch itself; the route above holds the one-fetch flag."""
     try:
         creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
-    except Exception:
+    except Exception:  # noqa: BLE001 — any unreadable credentials file means: run capture
         raise HTTPException(status_code=400, detail="No credentials. Run 'claude-explorer capture' first.")
 
     try:
@@ -823,7 +823,7 @@ async def _force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
         detail = CONVERSATION_GONE_MESSAGE
         try:
             org_list = fetcher.fetch_conversation_list()
-        except Exception:
+        except Exception:  # noqa: BLE001 — an optional probe; keep the generic message
             # If we can't even pull the list, stick with the generic message.
             org_list = None
         # Heuristic: only switch to the cross-workspace message when the
@@ -937,7 +937,7 @@ async def _run_capture_with_keepalive(
                 yield ": ping\n\n"
         result = await capture_task
         yield {"_result": result}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — the caller reports any capture failure
         capture_task.cancel()
         yield {"_error": str(exc)}
 
@@ -960,7 +960,7 @@ async def _fetch_phase_stream(
     """
     try:
         creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — any unreadable credentials file ends this fetch
         yield ("fatal", f"No credentials: {exc}")
         return
 
@@ -1395,7 +1395,7 @@ async def _capture_phase_stream() -> AsyncGenerator[tuple[str, str | dict | None
                     return
                 yield ("done", creds)
                 return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — any capture failure becomes an SSE error event
         yield ("error", classify_capture_error(str(exc)))
 
 
@@ -1424,7 +1424,7 @@ async def refresh_pipeline_stream(
                 elif kind == "done":
                     try:
                         save_credentials(payload, DEFAULT_CREDENTIALS_PATH)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 — a failed save becomes an SSE error event
                         yield _send_event(
                             {
                                 "type": "error",
@@ -1499,7 +1499,7 @@ async def refresh_pipeline_stream(
                 elif kind == "done":
                     try:
                         save_credentials(payload, DEFAULT_CREDENTIALS_PATH)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 — a failed save becomes an SSE error event
                         yield _send_event(
                             {
                                 "type": "error",

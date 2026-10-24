@@ -472,7 +472,7 @@ class ClaudeFetcher:
 
             self._log(f"  Downloaded: {dest_path.name}")
             return True, dest_path
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — a failed attachment download is logged and skipped
             self._log(f"  Failed to download {url}: {e}")
             return False, dest_path
 
@@ -1228,7 +1228,7 @@ class ClaudeFetcher:
                                 "reason": error_kind,
                             })
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — one org's failure must not stop the other orgs
                 # Any other failure: record as failed, continue.
                 logger.warning("Org %s failed: %s", org_uuid, e)
                 # A1-hunt: classify rather than persisting raw type(e).__name__.
@@ -1310,7 +1310,7 @@ class ClaudeFetcher:
                 update_primary_org_and_save,
             )
             update_primary_org_and_save(new_primary, DEFAULT_CREDENTIALS_PATH)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — a best-effort credentials update; the fetch result stands
             logger.warning(
                 "Could not persist primary-org demotion to credentials: %s", e
             )

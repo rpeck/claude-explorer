@@ -85,10 +85,10 @@ async def wait_for_login(page: Page) -> bool:
                 ).first.is_visible(timeout=500)
                 if logged_in:
                     return True
-            except Exception:
+            except Exception:  # noqa: BLE001, S110 — the page can navigate during the poll; poll again
                 pass
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — any failure while waiting means: not logged in
         click.echo(f"Error waiting for login: {e}", err=True)
         return False
 
@@ -135,7 +135,7 @@ async def get_orgs(page: Page) -> list[OrgRef]:
                     for entry in data
                     if isinstance(entry, dict) and entry.get("uuid")
                 ]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — the API probe is optional; fall back to the URL
         click.echo(f"Warning: Could not fetch orgs via API: {e}", err=True)
 
     # Fallback: try to extract one org id from URL.
@@ -153,7 +153,7 @@ async def get_orgs(page: Page) -> list[OrgRef]:
                             "seen_in_response": False,
                         }
                     ]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — logged; capture continues without orgs
         # Council C3: don't swallow silently. The visible failure mode
         # is "capture returned no orgs"; a debug breadcrumb here means
         # operators can diagnose Claude API URL-shape changes without

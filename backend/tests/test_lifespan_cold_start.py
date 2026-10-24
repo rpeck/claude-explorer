@@ -579,7 +579,7 @@ async def test_eager_fill_processpool_shutdown_does_not_orphan_workers(
                 result = fut.result(timeout=10.0)
                 pool_done.set()
                 return {p: {"pid": result} for p in misses}
-        except Exception:
+        except Exception:  # noqa: BLE001 — the fake pool signals done on any failure
             pool_done.set()
             return {}
 

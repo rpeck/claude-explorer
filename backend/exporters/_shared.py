@@ -480,7 +480,7 @@ def _resolve_attachment_path(conv_uuid: str, file_uuid: str, variant: str) -> Pa
     """Find on-disk bytes for a cached desktop attachment."""
     try:
         from ..config import get_settings
-    except Exception:  # pragma: no cover
+    except ImportError:  # pragma: no cover
         return None
     data_dir = get_settings().data_dir
     files_root = data_dir.parent / "files" if data_dir.name == "conversations" else data_dir / "files"
