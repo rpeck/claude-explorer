@@ -41,8 +41,12 @@ frontend/dist/
 .claude-exporter/
 .claude-explorer/
 
-# Claude Code per-project / per-agent state
-.claude/
+# Claude Code per-project / per-agent state. Only the shared project
+# settings and their hooks are tracked; settings.local.json, worktrees/,
+# and editor backups stay private.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
 
 # Obsidian vault config (personal editor state)
 .obsidian/

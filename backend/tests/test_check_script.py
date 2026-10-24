@@ -1,8 +1,8 @@
 """scripts/check.py: one list of checks for CI, the pre-commit hook, and agents.
 
 The checks record the content that passed. The pre-commit hook refuses a
-commit whose checked files differ from that content, and an agent's Stop
-hook refuses to end a turn while checked files changed without a green run
+commit whose checked files differ from that content, and the project's Stop
+hook (.claude/hooks/) refuses to end a turn while checked files changed without a green run
 (2026-10-24: two commits went in after pytest failed).
 """
 
@@ -91,6 +91,13 @@ def test_a_recorded_run_covers_exactly_that_content(repo: Path) -> None:
 
 def test_a_new_untracked_code_file_needs_a_green_run(repo: Path) -> None:
     (repo / "backend" / "new.py").write_text("y = 1\n", encoding="utf-8")
+    assert _check(repo, "--verify").returncode == 1
+
+
+def test_a_new_project_hook_file_needs_a_run(repo: Path) -> None:
+    """.claude/settings.json and .claude/hooks/ change what an agent does."""
+    (repo / ".claude" / "hooks").mkdir(parents=True)
+    (repo / ".claude" / "hooks" / "hook.py").write_text("pass\n", encoding="utf-8")
     assert _check(repo, "--verify").returncode == 1
 
 

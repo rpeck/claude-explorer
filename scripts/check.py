@@ -12,8 +12,8 @@ digest of the checked files in ``.git`` (per worktree). Then:
 
 - the pre-commit hook (scripts/git-hooks/pre-commit) refuses a commit whose
   checked files are not the content of that green run;
-- ``--verify`` tells an agent's Stop hook whether checked files changed
-  without a green run.
+- ``--verify`` and the project's Stop hook (.claude/hooks/) tell an agent
+  whether checked files changed without a green run.
 
 There is no flag that records without a run. Earned 2026-10-24: two commits
 went in after pytest had failed, and one report read the exit code of
@@ -42,7 +42,7 @@ EXCLUDED_DIRS = ("PLANS/", "PROCESS/", "scripts/vm-setup/")
 # An untracked file counts only in a code folder, or as a root config file.
 UNTRACKED_CODE_DIRS = (
     "backend/", "cli/", "fetcher/", "mcp_server/", "frontend/", "scripts/",
-    "benchmarks/", "assets/", ".github/",
+    "benchmarks/", "assets/", ".github/", ".claude/",
 )
 UNTRACKED_ROOT_SUFFIXES = (".py", ".toml", ".lock", ".cfg", ".ini", ".json")
 MARKER_NAME = "check-passed.json"
@@ -221,17 +221,29 @@ def _report(title: str, paths: list[str], how: str, stream) -> None:
     print(how, file=stream)
 
 
-def verify_worktree() -> int:
-    """0 if the checked files on disk are HEAD's, or the content of the last green run."""
+def unverified_changes() -> list[str]:
+    """The checked files that changed since HEAD without a green run; [] if none.
+
+    For the repo at the current directory. The project's Stop hook
+    (.claude/hooks/require-green-checks.py) calls it for each worktree.
+    """
     now, head = worktree_entries(), head_entries()
     if digest(now) == digest(head):
-        return 0
+        return []
     marker = _read_marker()
     if marker and marker.get("digest") == digest(now):
+        return []
+    return _changed(now, head)
+
+
+def verify_worktree() -> int:
+    """0 if the checked files on disk are HEAD's, or the content of the last green run."""
+    changed = unverified_changes()
+    if not changed:
         return 0
     _report(
         "Checked files changed, and no green run of scripts/check.py covers them:",
-        _changed(now, head),
+        changed,
         "Run: uv run python scripts/check.py",
         sys.stdout,
     )
