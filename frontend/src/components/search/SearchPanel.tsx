@@ -102,8 +102,14 @@ export function SearchPanel() {
     if (!isOpen) return
     if (rightPaneTab !== 'search') return
     const id = window.setTimeout(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
+      const input = inputRef.current
+      // Already in the input: the user typed before this timer ran (a
+      // busy main thread, or a fast typist). select() would select those
+      // keys and the next key would replace them: NEEDLE_X became
+      // EDLE_X (2026-10-24). Select only when this moves the focus.
+      if (!input || document.activeElement === input) return
+      input.focus()
+      input.select()
     }, 0)
     return () => window.clearTimeout(id)
   }, [isOpen, focusRequestSeq, rightPaneTab])

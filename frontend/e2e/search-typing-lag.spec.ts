@@ -13,12 +13,14 @@ import type { Message } from '../src/lib/types'
  *
  * Test: a fixture conversation with 200 messages. Type a multi-char
  * query and assert that:
- *   - the input value reflects every keystroke verbatim (no missed
- *     characters from a stuck event loop), and
- *   - the typing→input-reflection delay is well under 1s per character
- *     (we just assert on the total elapsed for the fill, since
- *     headless rendering is fast enough that any blocked render
- *     would push us over).
+ *   - the input value reflects every keystroke verbatim, and
+ *   - no MessageBubble re-renders while the user types.
+ *
+ * 2026-10-24: the second check counted wall-clock time before ("8 keys in
+ * under 2 s"), which depends on the runner. The bug was the re-render of
+ * every bubble per keystroke, so the test now counts bubble renders
+ * (window.__messageBubbleRenders, a development-build probe in
+ * MessageBubble): 0 with the memo, 80 with the memo broken.
  */
 
 const C = '00000000-0000-0000-0000-0000000000c2'
@@ -53,7 +55,7 @@ for (let i = 0; i < 200; i++) {
 const detail = makeDetail(summary, messages)
 
 test.describe('Search typing latency (manual finding 2026-05-04)', () => {
-  test('typing 8 characters into the SearchPanel input completes under 2 seconds', async ({ page, mockBackend }) => {
+  test('typing 8 characters into the SearchPanel input re-renders no message bubble', async ({ page, mockBackend }) => {
     await mockBackend({ conversations: [summary], details: { [C]: detail } })
     // Mocked /api/search resolves instantly with no matches — we want
     // to measure pure render latency on keystroke, not network.
@@ -78,17 +80,20 @@ test.describe('Search typing latency (manual finding 2026-05-04)', () => {
     const input = page.locator('input[placeholder="Search messages..."]')
     await expect(input).toBeVisible()
 
-    // Type a string and time the round-trip from keystroke to input
-    // value reflecting every character.
+    // Count bubble renders from here on (the page load rendered ~20).
+    await page.evaluate(() => {
+      ;(window as unknown as { __messageBubbleRenders?: number }).__messageBubbleRenders = 0
+    })
     const text = 'NEEDLE_X'
-    const start = Date.now()
     await input.pressSequentially(text, { delay: 0 })
     await expect(input).toHaveValue(text)
-    const elapsed = Date.now() - start
+    // The debounced search ran and its (empty) result is on screen, so
+    // every render that typing causes has happened.
+    await expect(page.getByText(/No matches/i)).toBeVisible()
 
-    // 200 messages × ~8 keystrokes pre-fix would burn several seconds
-    // of layout work. Post-memo we expect <2s comfortably; this is a
-    // soft regression guard.
-    expect(elapsed, `typing ${text} into search input took ${elapsed}ms`).toBeLessThan(2000)
+    const renders = await page.evaluate(
+      () => (window as unknown as { __messageBubbleRenders?: number }).__messageBubbleRenders,
+    )
+    expect(renders, 'typing in the search input re-rendered message bubbles').toBe(0)
   })
 })
