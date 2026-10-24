@@ -20,6 +20,7 @@ column + backfill) rather than silently early-return.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 
 
 def _make_broken_v14_db(path) -> None:
@@ -88,7 +89,7 @@ def test_open_self_repairs_missing_is_compaction_titled_column(tmp_path):
     _make_broken_v14_db(db_path)
 
     # Sanity: pre-state matches the bug report.
-    with sqlite3.connect(str(db_path)) as conn:
+    with closing(sqlite3.connect(str(db_path))) as conn, conn:
         cols_before = {
             r[1] for r in conn.execute(
                 "PRAGMA table_info(conversations)"
@@ -103,7 +104,7 @@ def test_open_self_repairs_missing_is_compaction_titled_column(tmp_path):
     SearchIndex(db_path)
 
     # Post-state: column exists and the canonical-prefix row is tagged.
-    with sqlite3.connect(str(db_path)) as conn:
+    with closing(sqlite3.connect(str(db_path))) as conn, conn:
         cols_after = {
             r[1] for r in conn.execute(
                 "PRAGMA table_info(conversations)"
@@ -137,7 +138,7 @@ def test_open_is_noop_when_v14_db_is_fully_consistent(tmp_path):
     SearchIndex(db_path)
 
     # Snapshot the schema text + table mtime.
-    with sqlite3.connect(str(db_path)) as conn:
+    with closing(sqlite3.connect(str(db_path))) as conn, conn:
         schema_before = conn.execute(
             "SELECT sql FROM sqlite_master WHERE name='conversations'"
         ).fetchone()[0]
@@ -152,7 +153,7 @@ def test_open_is_noop_when_v14_db_is_fully_consistent(tmp_path):
     # Second open should be a no-op for the conversations table.
     SearchIndex(db_path)
 
-    with sqlite3.connect(str(db_path)) as conn:
+    with closing(sqlite3.connect(str(db_path))) as conn, conn:
         schema_after = conn.execute(
             "SELECT sql FROM sqlite_master WHERE name='conversations'"
         ).fetchone()[0]

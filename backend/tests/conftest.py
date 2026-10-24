@@ -615,6 +615,32 @@ def _block_real_search_index_path(monkeypatch) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _close_indexes_after_each_test(monkeypatch) -> Iterator[None]:
+    """Close every SearchIndex and SummaryCache that a test made.
+
+    About 15 tests made one and never closed it. Garbage collection then
+    closed the SQLite connections later, in some other test, with a
+    ResourceWarning that the default filters hid (2026-10-23).
+    pyproject.toml now turns ResourceWarning into an error. Both close()
+    methods are idempotent, so a test that closes its own index is not
+    affected.
+    """
+    from backend import search_index as si
+    from backend import summary_cache as sc
+
+    made: list[Any] = []
+    for cls in (si.SearchIndex, sc.SummaryCache):
+        def tracking_init(self, *args, _init=cls.__init__, **kwargs):
+            _init(self, *args, **kwargs)
+            made.append(self)
+
+        monkeypatch.setattr(cls, "__init__", tracking_init)
+    yield
+    for obj in made:
+        obj.close()
+
+
+@pytest.fixture(autouse=True)
 def isolate_search_index_singleton(tmp_path_factory, monkeypatch) -> Iterator[None]:
     """Prevent any test from accidentally instantiating or writing to the
     user's real ``~/.claude-explorer/search-index.sqlite``.

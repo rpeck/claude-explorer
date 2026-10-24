@@ -392,9 +392,12 @@ def cmd_tray(port: int) -> int:
             stop_process(state["proc"])
             icon.stop()
 
+    # A copy: Image.open() keeps the file open until the image is closed.
+    with Image.open(ICON_PNG) as png:
+        icon_image = png.copy()
     icon = pystray.Icon(
         "claude-explorer",
-        Image.open(ICON_PNG),
+        icon_image,
         "Claude Explorer (starting)",
         menu=pystray.Menu(
             pystray.MenuItem("Open Claude Explorer", on_open, default=True),

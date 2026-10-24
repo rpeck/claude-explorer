@@ -322,9 +322,8 @@ def _write_ico(dest: Path) -> Path:
     from PIL import Image
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    Image.open(_ICON_PNG).save(
-        dest, sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
-    )
+    with Image.open(_ICON_PNG) as png:
+        png.save(dest, sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
     return dest
 
 

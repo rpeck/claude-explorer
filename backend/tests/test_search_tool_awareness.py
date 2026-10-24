@@ -18,6 +18,7 @@ Bidirectional verification per TESTING.md §2: every "absent" or
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -206,7 +207,7 @@ def test_schema_v6_to_current_triggers_rebuild(tmp_path) -> None:
     """
     db_path = tmp_path / "legacy-v6.sqlite"
     # Hand-craft a v6 messages table (no body_text) plus version row.
-    with sqlite3.connect(str(db_path)) as raw:
+    with closing(sqlite3.connect(str(db_path))) as raw, raw:
         raw.execute("""
             CREATE VIRTUAL TABLE messages USING fts5(
                 conv_uuid UNINDEXED,

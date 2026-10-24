@@ -369,7 +369,7 @@ What's behind those numbers:
 - **An LRU FileCache + cache-routed conversation-detail lookups** mean opening a 288 MB Claude Code session is a dict lookup, not a JSONL re-parse. Markdown / PDF / JSON exports get the same payoff for free.
 - **The CC image-warm walk piggybacks on the FTS5 build** instead of running as a separate startup pass: every JSONL the FTS5 build reads also warms its image markers via `cache_all_markers`. Image protection now becomes available within ~1 s of restart instead of ~15 s, and a duplicate disk walk goes away entirely.
 - **Event-driven `watchdog` observers** on `~/.claude/image-cache/` and `~/.claude/projects/` catch new images and CC session edits within sub-second latency; a debounced drift pass keeps the search index fresh while the explorer is running.
-- **`ORJSONResponse`** plus a skinny `ConversationListItem` Pydantic model (a strict subset of `ConversationSummary`) cuts the wire payload ~29% without breaking MCP, the detail page, or the server-side `?search=` filter.
+- **orjson responses** (`backend/responses.py`) plus a skinny `ConversationListItem` Pydantic model (a strict subset of `ConversationSummary`) cuts the wire payload ~29% without breaking MCP, the detail page, or the server-side `?search=` filter.
 - **Frontend virtualization** (`@tanstack/react-virtual`) on the flat sidebar list mounts ~13 rows instead of all ~1,000, taking the linear-in-N React reconciliation cost with it.
 - **A linear-scan fallback** kept in the codebase covers every "fast path unavailable" case (FTS5 missing on a stock Linux Python, index still warming on first install, summary cache disabled). Search and sidebar never go "down" — slow-but-correct beats fast-but-broken.
 
