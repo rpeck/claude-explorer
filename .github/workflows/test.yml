@@ -24,7 +24,13 @@ on:
         required: false
         default: true
 
-# Both jobs name their Ubuntu version. GitHub moves ubuntu-latest to 26.04
+# Read-only for every job. release.yml calls this workflow, and without this
+# its jobs (which run npm and npx code) would inherit release.yml's
+# id-token: write.
+permissions:
+  contents: read
+
+# Every job names its Ubuntu version. GitHub moves ubuntu-latest to 26.04
 # between 2026-10-19 and 2026-11-19, so with ubuntu-latest a run could get
 # either image. install-matrix.yml also tests Ubuntu 24.04.
 jobs:
