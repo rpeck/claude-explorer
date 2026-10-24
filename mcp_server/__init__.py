@@ -15,4 +15,4 @@
 #
 # Bumping this here updates pip + MCP serverInfo + MCPB manifest in lockstep.
 # See PLANS/2026.06.04-mcpb-bundle.md §9 (Version contract).
-__version__ = "1.1.8"
+__version__ = "1.1.9"
