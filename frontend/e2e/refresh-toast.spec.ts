@@ -73,6 +73,8 @@ test.describe('Refresh toast', () => {
       });
     });
 
+    // The page clock moves the toast's timer forward exactly (2026-10-24).
+    await page.clock.install();
     await withNetRetry(page, () => page.goto('/'));
     await clickRefresh(page);
 
@@ -80,7 +82,7 @@ test.describe('Refresh toast', () => {
     await expect(errorToast).toBeVisible({ timeout: 5000 });
     await expect(errorToast).toContainText(/Session expired|Cloudflare/i);
 
-    await page.waitForTimeout(6000);
+    await page.clock.runFor(6000);
     await expect(errorToast).toBeVisible();
   });
 

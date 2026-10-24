@@ -911,6 +911,36 @@ export async function waitForKeyboardShortcuts(page: Page, mode: 'vim' | 'emacs'
   await expect(page.locator(`html[data-keyboard-shortcuts="${mode}"]`)).toHaveCount(1)
 }
 
+/**
+ * Record whether the backend-connection dialog ever appears.
+ *
+ * Install before `page.goto`. A MutationObserver sees every appearance,
+ * also one that lasts a few milliseconds; a loop that samples the DOM
+ * every 200 ms could miss it (connection-status-reload.spec.ts,
+ * 2026-10-24). Read the result with `connectionDialogSeen(page)`.
+ */
+export async function watchConnectionDialog(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __connectionDialogSeen?: string[] }
+    w.__connectionDialogSeen = []
+    const look = () => {
+      for (const dialog of document.querySelectorAll('[role="dialog"]')) {
+        const text = dialog.textContent ?? ''
+        if (/Backend|Connection Failed|Attempt \d+ of \d+/.test(text) && !w.__connectionDialogSeen!.includes(text)) {
+          w.__connectionDialogSeen!.push(text)
+        }
+      }
+    }
+    new MutationObserver(look).observe(document, { childList: true, subtree: true, characterData: true })
+  })
+}
+
+export async function connectionDialogSeen(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () => (window as unknown as { __connectionDialogSeen?: string[] }).__connectionDialogSeen ?? [],
+  )
+}
+
 export { expect }
 export type { Page, Route } from '@playwright/test'
 export const PRIMARY_ORG = PRIMARY_ORG_ID

@@ -25,6 +25,9 @@ async function clickRefresh(page: Page) {
 
 test.describe('Refresh error toast duration (Bug C)', () => {
   test.beforeEach(async ({ page, mockBackend }) => {
+    // The page clock: a test moves the toasts' timers forward exactly,
+    // instead of waiting 5-10 s of real time (2026-10-24).
+    await page.clock.install();
     await mockBackend({});
     await page.route('**/api/fetch/status', async (route) => {
       await route.fulfill({
@@ -61,7 +64,7 @@ test.describe('Refresh error toast duration (Bug C)', () => {
     await expect(toast).toContainText(/Network problem/i);
 
     // After 5s the toast must still be visible (not auto-dismissed).
-    await page.waitForTimeout(5000);
+    await page.clock.runFor(5000);
     await expect(toast).toBeVisible();
   });
 
@@ -87,8 +90,7 @@ test.describe('Refresh error toast duration (Bug C)', () => {
     await retry.click();
 
     // Clicking Retry must re-issue the refresh.
-    await page.waitForTimeout(500);
-    expect(calls).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => calls).toBeGreaterThanOrEqual(2);
   });
 
   test('TERMINAL error toast is still visible 10s after appearing (sticky)', async ({
@@ -109,7 +111,7 @@ test.describe('Refresh error toast duration (Bug C)', () => {
     const toast = page.locator('[data-sonner-toast][data-type="error"]').first();
     await expect(toast).toBeVisible({ timeout: 3000 });
 
-    await page.waitForTimeout(10000);
+    await page.clock.runFor(10000);
     await expect(toast).toBeVisible();
   });
 
@@ -134,7 +136,7 @@ test.describe('Refresh error toast duration (Bug C)', () => {
     const toast = page.locator('[data-sonner-toast][data-type="error"]').first();
     await expect(toast).toBeVisible({ timeout: 3000 });
 
-    await page.waitForTimeout(10000);
+    await page.clock.runFor(10000);
     await expect(toast).toBeVisible();
   });
 
@@ -158,7 +160,7 @@ test.describe('Refresh error toast duration (Bug C)', () => {
     await expect(toast).toContainText(/Session expired/i);
 
     // Sticky: still there after 8s.
-    await page.waitForTimeout(8000);
+    await page.clock.runFor(8000);
     await expect(toast).toBeVisible();
   });
 });

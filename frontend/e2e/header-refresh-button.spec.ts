@@ -39,9 +39,8 @@ test.describe('Header Refresh button (Sidebar)', () => {
     const headerRefresh = page.locator('aside button[title="Refresh conversation list"]')
     await expect(headerRefresh).toBeVisible()
     await headerRefresh.click()
-    await page.waitForTimeout(500)
 
-    expect(refreshRequests.length).toBeGreaterThan(0)
+    await expect.poll(() => refreshRequests.length).toBeGreaterThan(0)
     expect(refreshRequests[0]).toContain('/api/fetch/refresh')
   })
 
@@ -111,6 +110,8 @@ test.describe('Header Refresh button (Sidebar)', () => {
       },
     })
 
+    // The page clock moves the toast's timer forward exactly (2026-10-24).
+    await page.clock.install()
     await withNetRetry(page, () => page.goto('/'))
     const headerRefresh = page.locator('aside button[title="Refresh conversation list"]')
     await headerRefresh.click()
@@ -120,7 +121,7 @@ test.describe('Header Refresh button (Sidebar)', () => {
     })
     await expect(toast).toBeVisible({ timeout: 3000 })
 
-    await page.waitForTimeout(5000)
+    await page.clock.runFor(5000)
     await expect(toast).toBeVisible()
   })
 })
