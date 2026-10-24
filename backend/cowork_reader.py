@@ -376,7 +376,7 @@ def updated_at_key(conv: dict) -> datetime:
     if not isinstance(value, str) or not value:
         return _OLDEST
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return _OLDEST
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)

@@ -35,11 +35,11 @@ TOOL_EXE = "/Users/u/.local/share/uv/tools/claude-explorer/bin/claude-explorer"
 
 
 def _script(**kw) -> str:
-    args = dict(
-        executable=TOOL_EXE,
-        port=8765,
-        log_path="/Users/u/Library/Logs/claude-explorer-serve.log",
-    )
+    args = {
+        "executable": TOOL_EXE,
+        "port": 8765,
+        "log_path": "/Users/u/Library/Logs/claude-explorer-serve.log",
+    }
     args.update(kw)
     return app_launcher.build_applescript(**args)
 

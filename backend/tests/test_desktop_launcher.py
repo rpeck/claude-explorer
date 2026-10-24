@@ -320,8 +320,8 @@ def test_windows_shortcut_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     read = subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-         "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CE_LNK); "
-         "Write-Output $s.TargetPath; Write-Output $s.Arguments"],
+         ("$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CE_LNK); "
+         "Write-Output $s.TargetPath; Write-Output $s.Arguments")],
         env={**__import__("os").environ, "CE_LNK": str(lnk)},
         capture_output=True, text=True, check=True,
     ).stdout.splitlines()

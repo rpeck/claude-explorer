@@ -317,7 +317,7 @@ def test_rollup_tolerates_legacy_transient_error_code() -> None:
         "error_code": "TRANSIENT",
         "error_message": "blip",
     }
-    bucket, msg = _rollup_bucket_for(legacy_record)
+    bucket, _msg = _rollup_bucket_for(legacy_record)
     assert bucket == "transient"
 
 

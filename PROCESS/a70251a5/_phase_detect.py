@@ -40,9 +40,7 @@ def is_real_prompt(summary: str) -> bool:
     # skip slash commands / exit / clear
     if s.startswith("<command-"):
         return False
-    if _INTERRUPT.match(s):
-        return False
-    return True
+    return not _INTERRUPT.match(s)
 
 
 def real_prompts(rows: list[dict]) -> list[dict]:

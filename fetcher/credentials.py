@@ -244,9 +244,9 @@ def resolve_primary_org_id(
 
     chat_capable = [o["uuid"] for o in orgs if "chat" in (o.get("capabilities") or [])]
     if chat_capable:
-        return sorted(chat_capable)[0]
+        return min(chat_capable)
 
-    return sorted(o["uuid"] for o in orgs)[0]
+    return min(o["uuid"] for o in orgs)
 
 
 # ---------------------------------------------------------------------------

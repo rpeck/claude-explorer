@@ -191,6 +191,12 @@ filterwarnings = [
     "error::DeprecationWarning:weasyprint",
 ]
 
+[tool.ruff.lint]
+# RUF022 sorts __all__ alphabetically. Our __all__ lists are grouped under
+# comments ("# Exceptions", "# Writes ..."); a sort moves the names away
+# from their comments.
+ignore = ["RUF022"]
+
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI declares dependencies as `param = Depends(fn)` defaults. FastAPI
 # calls `Depends` once, at import, by design (B008 is a false positive).

@@ -174,7 +174,7 @@ def needs_refetch(
 
 def _parse_utc(value: str) -> datetime:
     """Parse an ISO 8601 timestamp; one without a zone is taken as UTC."""
-    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(value)
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 

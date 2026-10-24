@@ -355,10 +355,9 @@ def _stringify_tool_input(tool_input: dict[str, Any]) -> str:
         elif isinstance(obj, list):
             for item in obj:
                 walk(item)
-        elif isinstance(obj, str):
-            if obj and obj not in seen_values:
-                seen_values.add(obj)
-                values.append(obj)
+        elif isinstance(obj, str) and obj and obj not in seen_values:
+            seen_values.add(obj)
+            values.append(obj)
 
     walk(tool_input)
 

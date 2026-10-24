@@ -159,7 +159,7 @@ def test_markdown_bundle_zips_inline_image_and_marker_image(monkeypatch, tmp_pat
     from backend.main import app
 
     client = TestClient(app)
-    zf, body = _open_bundle(client, session_uuid, dialect="commonmark")
+    zf, _body = _open_bundle(client, session_uuid, dialect="commonmark")
     names = zf.namelist()
 
     # Must contain conversation.md and at least one image under images/.

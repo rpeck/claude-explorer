@@ -175,7 +175,7 @@ def test__get_cc_image__url_encoded_slash__canonicalized_to_403(
     change in decoding would surface as a regression.
     """
 
-    client, cache_dir = cc_image_env
+    client, _cache_dir = cc_image_env
     secret = _write_secret_outside_cache(tmp_path)
 
     # Pass the path with a %2F-encoded slash explicitly via the URL.

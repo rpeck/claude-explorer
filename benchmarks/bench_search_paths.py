@@ -44,7 +44,7 @@ def measure(label: str, fn, runs: int, warmup: int, *args, **kwargs) -> dict:
     samples = [time_call(fn, *args, **kwargs) for _ in range(runs)]
     samples.sort()
     n = len(samples)
-    p95_idx = max(0, int(round(0.95 * (n - 1))))
+    p95_idx = max(0, round(0.95 * (n - 1)))
     return {
         "label": label,
         "median_ms": statistics.median(samples),
@@ -76,15 +76,15 @@ def main() -> int:
     warmup = 1
 
     # Common kwargs required by _search_via_index's keyword-only args.
-    idx_kwargs = dict(
-        source="all",
-        context_size="snippet",
-        sort="updated_at",
-        sort_order="desc",
-        conversation_uuid=None,
-        project_path=None,
-        bookmarks=None,
-    )
+    idx_kwargs = {
+        "source": "all",
+        "context_size": "snippet",
+        "sort": "updated_at",
+        "sort_order": "desc",
+        "conversation_uuid": None,
+        "project_path": None,
+        "bookmarks": None,
+    }
 
     print(f"{'query':<32} {'path':<14} {'median (ms)':>12} {'p95 (ms)':>12}  hits")
     print("-" * 80)

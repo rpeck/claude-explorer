@@ -2520,7 +2520,7 @@ def _drift_first_scan(
 
     # Missing pass: any indexed_files row whose path is no longer on disk.
     missing: list[Path] = []
-    for indexed_path_str in indexed_mtimes.keys():
+    for indexed_path_str in indexed_mtimes:
         indexed_path = Path(indexed_path_str)
         if indexed_path not in live_set:
             missing.append(indexed_path)

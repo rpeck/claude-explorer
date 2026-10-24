@@ -137,8 +137,10 @@ def app_port_conflict_message(
         steps = ["Open a terminal.", "Type the command, then press Enter."]
     steps.append("Open Claude Explorer again.")
     lines = [
-        "Claude Explorer could not start, because another program on this "
-        f"computer already uses port {port}.",
+        (
+            "Claude Explorer could not start, because another program on this "
+            f"computer already uses port {port}."
+        ),
         "",
         "To fix this, give Claude Explorer a different port. The command is:",
         "",

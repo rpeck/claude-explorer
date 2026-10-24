@@ -54,7 +54,7 @@ class Stats:
             return self.samples_ms[0]
         # Discrete p95 — good enough for n=10..50.
         ranked = sorted(self.samples_ms)
-        idx = max(0, int(round(0.95 * (len(ranked) - 1))))
+        idx = max(0, round(0.95 * (len(ranked) - 1)))
         return ranked[idx]
 
     @property

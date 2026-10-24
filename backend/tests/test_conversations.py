@@ -146,8 +146,8 @@ def test_list_conversations_schema_contract(title_filter_data_dir):
     # datetime.fromisoformat handles both "Z" and "+00:00" suffixes on
     # Python 3.11+. The replace() is belt-and-suspenders for older
     # interpreters that don't accept the Z suffix natively.
-    assert datetime.fromisoformat(created_at.replace("Z", "+00:00")).tzinfo is not None
-    assert datetime.fromisoformat(updated_at.replace("Z", "+00:00")).tzinfo is not None
+    assert datetime.fromisoformat(created_at).tzinfo is not None
+    assert datetime.fromisoformat(updated_at).tzinfo is not None
 
     # Exhaustive dict-equality on the static fields. Mirrors the
     # ConversationListItem schema in backend/models.py:78-127 exactly.

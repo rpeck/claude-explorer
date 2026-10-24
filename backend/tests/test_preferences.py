@@ -279,7 +279,7 @@ def test_patch_preferences_unknown_field_returns_422(client_with_prefs):
     the body before the handler runs, so FastAPI surfaces 422 with the
     field name in the detail.
     """
-    client, prefs_file = client_with_prefs
+    client, _prefs_file = client_with_prefs
     r = client.patch(
         "/api/preferences",
         json={"unknown_field_xyz": "anything"},
@@ -311,7 +311,7 @@ def test_patch_preferences_typo_field_returns_422(client_with_prefs):
     GET'ing afterwards: ``theme`` MUST NOT have been set, because the
     PATCH was rejected as a whole.
     """
-    client, prefs_file = client_with_prefs
+    client, _prefs_file = client_with_prefs
     r = client.patch(
         "/api/preferences",
         json={"data": {"theme": "dark"}, "themee": "oops"},

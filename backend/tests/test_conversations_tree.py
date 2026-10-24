@@ -227,7 +227,7 @@ def test__get_conversations_tree__known_uuid__returns_200_with_tree_envelope(
     # TREE-200-NODES: every node has `message` and `children`. Walk the
     # whole tree to prove the contract recursively, not just at the root.
     def _check_node(node: dict[str, Any]) -> None:
-        assert set(["message", "children"]).issubset(node.keys()), (
+        assert {"message", "children"}.issubset(node.keys()), (
             f"node missing required keys: {sorted(node.keys())}"
         )
         assert isinstance(node["children"], list)

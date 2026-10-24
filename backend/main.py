@@ -786,7 +786,7 @@ async def lifespan(app: FastAPI):
                 # Build (uuid, updated_at) pairs and pick top-N by
                 # updated_at. Missing/None summaries are skipped.
                 ranked: list[tuple[str, str]] = []
-                for _path, summary in cached.items():
+                for summary in cached.values():
                     if not summary:
                         continue
                     uuid = summary.get("uuid")

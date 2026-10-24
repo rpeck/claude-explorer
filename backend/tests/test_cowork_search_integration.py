@@ -75,7 +75,7 @@ def test_cowork_audit_jsonl_indexed(index_with_cowork):
     index, _ = index_with_cowork
     # File row exists for the audit.jsonl path.
     indexed = index._read_indexed_files_map()
-    audit_paths = [p for p in indexed.keys() if p.endswith("audit.jsonl")]
+    audit_paths = [p for p in indexed if p.endswith("audit.jsonl")]
     assert len(audit_paths) == 1
 
 

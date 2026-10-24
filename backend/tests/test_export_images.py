@@ -18,16 +18,16 @@ from backend.models import Message
 
 
 def _msg(**overrides) -> Message:
-    base = dict(
-        uuid="m1",
-        sender="human",
-        text="",
-        content=[],
-        created_at=datetime(2026, 4, 1, 10, 0),
-        updated_at=datetime(2026, 4, 1, 10, 0),
-        files=[],
-        files_v2=[],
-    )
+    base = {
+        "uuid": "m1",
+        "sender": "human",
+        "text": "",
+        "content": [],
+        "created_at": datetime(2026, 4, 1, 10, 0),
+        "updated_at": datetime(2026, 4, 1, 10, 0),
+        "files": [],
+        "files_v2": [],
+    }
     base.update(overrides)
     return Message(**base)
 

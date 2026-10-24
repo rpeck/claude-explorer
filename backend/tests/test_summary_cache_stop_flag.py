@@ -15,7 +15,7 @@ import asyncio
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 from unittest.mock import patch
 
 import pytest
@@ -31,7 +31,7 @@ class _InProcessPool:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def __enter__(self) -> _InProcessPool:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:

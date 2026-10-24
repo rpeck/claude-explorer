@@ -207,7 +207,7 @@ def test_upsert_conversation_populates_projection(fresh_index):
         f"Expected exactly one projection row for c1; got {len(rows)} "
         f"(rows={rows!r})"
     )
-    cu, title, proj, src, org, c_created, c_updated = rows[0]
+    _cu, title, proj, src, org, c_created, c_updated = rows[0]
     assert title == "My snapshot of the week"
     assert proj == "/Users/r/proj"
     assert src == "CLAUDE_AI"

@@ -101,7 +101,7 @@ def test_legacy_fallback_dedupes_by_uuid(tmp_path: Path) -> None:
     # UUID appears in by-org path; legacy flat copy excluded.
     assert file_uuids.count(uuid) == 1
     # The retained path is under by-org/.
-    matched = [p for p in files if p.stem == uuid][0]
+    matched = next(p for p in files if p.stem == uuid)
     assert "by-org" in str(matched), f"expected by-org copy to win, got {matched}"
 
 

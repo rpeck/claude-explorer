@@ -491,7 +491,7 @@ def _epoch_ms(iso: str | None) -> int | None:
     if not iso:
         return None
     try:
-        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(iso)
     except ValueError:
         return None
     if dt.tzinfo is None:

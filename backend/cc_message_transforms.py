@@ -142,9 +142,7 @@ def _local_command_kind(text: str) -> str | None:
     """
     if not isinstance(text, str):
         return None
-    if text.startswith("<local-command-caveat>") or text.startswith(
-        "Caveat: The messages below were generated"
-    ):
+    if text.startswith(("<local-command-caveat>", "Caveat: The messages below were generated")):
         return "caveat"
     if text.startswith("<command-name>"):
         return "command"
@@ -593,15 +591,19 @@ def _is_system_message(entry: dict) -> bool:
 
     # Skip system-generated messages and command infrastructure
     return (
-        text.startswith("Caveat: The messages below were generated")
-        or text.startswith("<local-command-caveat>")
-        or text.startswith("<bash-input>")
-        or text.startswith("<bash-stdout>")
-        or text.startswith("<bash-stderr>")
-        or text.startswith("<command-message>")
-        or text.startswith("<command-name>")
-        or text.startswith("Unknown skill:")
-        or text.startswith("Unknown command:")
+        text.startswith(
+            (
+                "Caveat: The messages below were generated",
+                "<local-command-caveat>",
+                "<bash-input>",
+                "<bash-stdout>",
+                "<bash-stderr>",
+                "<command-message>",
+                "<command-name>",
+                "Unknown skill:",
+                "Unknown command:",
+            )
+        )
     )
 
 

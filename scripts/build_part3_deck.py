@@ -264,17 +264,17 @@ def slide05():
                      "and cheap.", yb + 30, size=44)
     cells = [
         ("Skim first",
-         "Claude pulls a one-line-per-message outline before reading anything "
-         "in full."),
+         ("Claude pulls a one-line-per-message outline before reading anything "
+         "in full.")),
         ("Read what matters",
-         "From that outline it reads only the handful of messages that answer "
-         "your question."),
+         ("From that outline it reads only the handful of messages that answer "
+         "your question.")),
         ("Huge sessions",
-         "A single Claude Code session can run to thousands of messages and "
-         "still answer fast."),
+         ("A single Claude Code session can run to thousands of messages and "
+         "still answer fast.")),
         ("Fast and cheap",
-         "You pour in only the parts that matter, so a giant archive stays "
-         "quick and inexpensive."),
+         ("You pour in only the parts that matter, so a giant archive stays "
+         "quick and inexpensive.")),
     ]
     grid(d, cells, yb + 44)
     return img
@@ -338,8 +338,8 @@ def slide10():
     yb = subtitle(d, "Read-only, local, and restrained by design.", yb + 30, size=44)
     cells = [
         ("Read-only", "It can look, but it can't change or delete anything."),
-        ("Local", "Nothing leaves your machine, and there's no server to phone "
-                  "home to."),
+        ("Local", ("Nothing leaves your machine, and there's no server to phone "
+                  "home to.")),
         ("Restrained", "Claude uses it only when you ask."),
     ]
     grid(d, cells, yb + 44)
