@@ -30,19 +30,18 @@ Then launch Claude Desktop through the proxy::
 from __future__ import annotations
 
 import json
-import re
-from datetime import datetime, timezone
-from pathlib import Path
-
 import logging
+import re
+from datetime import UTC, datetime
+from pathlib import Path
 
 from mitmproxy import http
 
 from fetcher.credentials import (
     DEFAULT_CREDENTIALS_PATH,
-    OrgRef,
     CredentialsCorruptError,
     LockContentionError,
+    OrgRef,
     merge_orgs_and_save,
     resolve_primary_org_id,
     save_credentials,
@@ -145,7 +144,7 @@ class ClaudeCredentialCapture:
             if not body:
                 return
             data = json.loads(body)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — any decode failure is logged; capture continues
             log.warning(
                 "organizations response decode failed "
                 "(content-encoding=%r, content-type=%r, content-length=%r): %s",
@@ -236,7 +235,7 @@ class ClaudeCredentialCapture:
             "session_key": self.session_key,
             "cf_bm": self.cf_bm,
             "cf_clearance": self.cf_clearance,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "captured_at": datetime.now(UTC).isoformat(),
             "orgs": list(self.orgs.values()),
             "primary_org_id": primary,
             # Fresh-install bootstrap: legacy_migration_target = primary

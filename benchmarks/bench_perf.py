@@ -54,7 +54,7 @@ class Stats:
             return self.samples_ms[0]
         # Discrete p95 — good enough for n=10..50.
         ranked = sorted(self.samples_ms)
-        idx = max(0, int(round(0.95 * (len(ranked) - 1))))
+        idx = max(0, round(0.95 * (len(ranked) - 1)))
         return ranked[idx]
 
     @property
@@ -75,7 +75,7 @@ class Stats:
 def time_get(url: str) -> tuple[float, int]:
     """Return (elapsed_ms, payload_bytes). Raises on non-2xx."""
     start = time.perf_counter()
-    with urllib.request.urlopen(url, timeout=30) as resp:  # noqa: S310 (local URL)
+    with urllib.request.urlopen(url, timeout=30) as resp:
         body = resp.read()
         if resp.status >= 400:
             raise RuntimeError(f"{url} returned {resp.status}")
@@ -167,6 +167,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     # Re-import urllib.parse lazily so the top-level import block stays minimal.
-    import urllib.parse  # noqa: E402  (intentional placement)
+    import urllib.parse
 
     raise SystemExit(main())

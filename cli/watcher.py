@@ -47,7 +47,6 @@ from pathlib import Path
 
 import click
 
-
 # Cross-platform unit/job identifiers. Same logical name ("claude-explorer
 # CC image-cache watcher"), spelled in each OS's idiomatic style:
 _LAUNCHD_LABEL = "com.claude-explorer.cc-watcher"
@@ -238,6 +237,7 @@ def _install_macos(python_bin: str, interval: float) -> None:
     result = subprocess.run(
         ["launchctl", "load", str(plist)],
         capture_output=True, text=True,
+        check=False,
     )
     if result.returncode != 0:
         raise click.ClickException(
@@ -290,7 +290,7 @@ def _install_linux(python_bin: str, interval: float) -> None:
         ["systemctl", "--user", "enable", _SYSTEMD_UNIT_NAME],
         ["systemctl", "--user", "restart", _SYSTEMD_UNIT_NAME],
     ):
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             raise click.ClickException(
                 f"`{' '.join(cmd)}` failed: "
@@ -369,7 +369,7 @@ def _install_windows(python_bin: str, interval: float) -> None:
         "/SC", "ONLOGON",
         "/F",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         raise click.ClickException(
             f"schtasks /Create failed: "
@@ -398,6 +398,7 @@ def _uninstall_windows() -> None:
     result = subprocess.run(
         ["schtasks", "/Delete", "/TN", _WIN_TASK_NAME, "/F"],
         capture_output=True, text=True,
+        check=False,
     )
     if result.returncode == 0:
         click.echo(f"Removed scheduled task: {_WIN_TASK_NAME}")

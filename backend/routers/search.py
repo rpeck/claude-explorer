@@ -19,15 +19,16 @@ identical kwargs — only the transport differs.
 
 import asyncio
 import logging
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..deps import get_store
 from ..models import SearchResponse
-from ..store import ConversationStore
 from ..search import search_conversations
+from ..store import ConversationStore
 
 log = logging.getLogger("uvicorn.error")
 
@@ -66,7 +67,7 @@ async def _run_search_with_disconnect(
                 asyncio.shield(search_task),
                 timeout=_DISCONNECT_POLL_INTERVAL,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
         if search_task.done():

@@ -15,7 +15,6 @@ import base64
 
 import pytest
 
-
 # 1x1 transparent PNG bytes — same payload used elsewhere.
 TINY_PNG_B64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAA"
@@ -38,7 +37,7 @@ def watcher_env(tmp_path, monkeypatch):
     monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
     monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(data_dir))
 
-    from backend import config, cc_watcher
+    from backend import cc_watcher, config
 
     config.get_settings.cache_clear()
     cc_watcher.reset_seen_for_tests()
@@ -168,7 +167,7 @@ def real_search_index(watcher_env, tmp_path, monkeypatch):
         si._search_index = prior
         try:
             idx.close()
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110 — teardown is best-effort
             pass
 
 
@@ -345,7 +344,9 @@ def test_scan_once_refreshes_summary_cache_for_drifted_files(
     new mtime AND the row count is unchanged (no duplicates).
     """
     import os
-    from backend import cc_watcher, summary_cache as sc
+
+    from backend import cc_watcher
+    from backend import summary_cache as sc
 
     # Force a per-test SQLite file so we don't touch ~/.claude-explorer.
     cache_path = tmp_path / "search-index.sqlite"
@@ -402,7 +403,8 @@ def test_scan_once_drops_summary_cache_rows_for_missing_files(
     """scan_once() removes summary-cache rows for paths that no longer
     exist on disk. Mirrors the FTS5 cleanup pass.
     """
-    from backend import cc_watcher, summary_cache as sc
+    from backend import cc_watcher
+    from backend import summary_cache as sc
 
     cache_path = tmp_path / "search-index.sqlite"
     monkeypatch.setattr(sc, "default_index_path", lambda: cache_path)

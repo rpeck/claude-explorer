@@ -25,7 +25,6 @@ import logging
 
 from .watcher_status import is_watcher_installed
 
-
 log = logging.getLogger(__name__)
 
 

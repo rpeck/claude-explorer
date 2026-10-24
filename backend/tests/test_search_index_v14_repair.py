@@ -22,7 +22,6 @@ from __future__ import annotations
 import sqlite3
 
 
-
 def _make_broken_v14_db(path) -> None:
     """Construct the exact corrupted state observed on the user's machine:
 
@@ -111,7 +110,7 @@ def test_open_self_repairs_missing_is_compaction_titled_column(tmp_path):
             ).fetchall()
         }
         assert "is_compaction_titled" in cols_after, (
-            "self-repair MUST add the column; got cols=%r" % (cols_after,)
+            f"self-repair MUST add the column; got cols={cols_after!r}"
         )
         rows = conn.execute(
             "SELECT conv_uuid, is_compaction_titled FROM conversations "
@@ -119,10 +118,10 @@ def test_open_self_repairs_missing_is_compaction_titled_column(tmp_path):
         ).fetchall()
     by_uuid = dict(rows)
     assert by_uuid["conv-a"] == 0, (
-        "normal-titled conv must be tagged 0; got %r" % (by_uuid,)
+        f"normal-titled conv must be tagged 0; got {by_uuid!r}"
     )
     assert by_uuid["conv-b"] == 1, (
-        "compaction-titled conv must be tagged 1; got %r" % (by_uuid,)
+        f"compaction-titled conv must be tagged 1; got {by_uuid!r}"
     )
 
 

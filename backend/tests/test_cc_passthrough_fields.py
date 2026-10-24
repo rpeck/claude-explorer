@@ -25,7 +25,6 @@ from __future__ import annotations
 from backend.models import Message
 from backend.store import _CC_ONLY_DEFAULTS, _CC_ONLY_PASSTHROUGH_FIELDS
 
-
 # These are the fields that should be hand-forwarded in _parse_message:
 # every "CC-only" field that the Claude Code reader sets via the
 # collapser / fold / prelude-flag passes. The reader populates them

@@ -16,8 +16,8 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.cache import _conversation_cache
 from backend import config as cfg
+from backend.cache import _conversation_cache
 from backend.main import app
 
 

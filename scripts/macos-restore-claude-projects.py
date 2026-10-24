@@ -218,7 +218,7 @@ def chown_recursive(path: Path, username: str) -> None:
             ["chown", "-R", f"{username}:staff", str(path)],
             check=False, capture_output=True,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 — best-effort cleanup
         pass
 
 
@@ -337,7 +337,7 @@ def main() -> int:
         try:
             shutil.copytree(src, dst, symlinks=True)
             copied.append(name)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — report the error and continue with the next item
             print(f"         ERROR: {e}", file=sys.stderr)
 
     chown_recursive(recovery_dir, username)
@@ -369,7 +369,7 @@ def main() -> int:
                 shutil.move(str(src), str(dst))
                 applied += 1
                 print(f"     move: {name}")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — report the error and continue with the next item
                 print(f"         ERROR: {e}", file=sys.stderr)
         chown_recursive(current_projects, username)
         print()

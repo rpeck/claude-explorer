@@ -168,7 +168,7 @@ def test_sort_updated_at_desc_uses_conversation_updated_at_not_max_msg(
     After the fix (conversation_updated_at key), order is:
         newest → middle → oldest
     """
-    store, idx = store_with_inverted_timestamps
+    store, _idx = store_with_inverted_timestamps
     results = search_conversations(
         store=store,
         query="needle",
@@ -191,7 +191,7 @@ def test_sort_updated_at_asc_inverts(store_with_inverted_timestamps):
     min-of-message-time key would yield newest → middle → oldest, the
     same INVERSION of the correct asc order).
     """
-    store, idx = store_with_inverted_timestamps
+    store, _idx = store_with_inverted_timestamps
     results = search_conversations(
         store=store,
         query="needle",
@@ -284,7 +284,7 @@ def test_sort_created_at_desc_uses_conversation_created_at_not_min_msg(
     (because C_old's msg=05-13 is newest, A_new's msg=03-01 is oldest).
     After the fix: A_new → B_mid → C_old.
     """
-    store, idx = store_with_inverted_created_timestamps
+    store, _idx = store_with_inverted_created_timestamps
     results = search_conversations(
         store=store,
         query="needle",

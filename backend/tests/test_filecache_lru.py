@@ -225,7 +225,7 @@ def test_filecache_stale_entry_eviction_doesnt_break_lru_order(tmp_path):
     os.utime(a, (new_mtime, new_mtime))
 
     # Get A — stale; cache reports (data, False).
-    data, valid = cache.get(a)
+    _data, valid = cache.get(a)
     assert valid is False, "mtime changed; cache must report stale"
 
     # Insert D. We should still respect the cap (≤3 entries).

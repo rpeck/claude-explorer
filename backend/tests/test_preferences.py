@@ -33,8 +33,8 @@ def client_with_prefs(tmp_path, monkeypatch):
     cfg.get_settings.cache_clear()
 
     # Reload routers + app so the new env var/data_dir is picked up.
-    from backend import main as backend_main
     import backend.routers.preferences as prefs_router
+    from backend import main as backend_main
     importlib.reload(prefs_router)
     importlib.reload(backend_main)
 
@@ -109,7 +109,7 @@ def test_concurrent_patches_dont_corrupt(client_with_prefs):
         try:
             r = client.patch("/api/preferences", json={"data": {key: f"v-{key}"}})
             assert r.status_code == 200, r.text
-        except Exception as e:  # pragma: no cover - reported via list
+        except Exception as e:  # pragma: no cover - reported via list  # noqa: BLE001 — the main thread reports every error
             errors.append(e)
 
     threads = [threading.Thread(target=patch_one, args=(k,)) for k in keys]
@@ -279,7 +279,7 @@ def test_patch_preferences_unknown_field_returns_422(client_with_prefs):
     the body before the handler runs, so FastAPI surfaces 422 with the
     field name in the detail.
     """
-    client, prefs_file = client_with_prefs
+    client, _prefs_file = client_with_prefs
     r = client.patch(
         "/api/preferences",
         json={"unknown_field_xyz": "anything"},
@@ -311,7 +311,7 @@ def test_patch_preferences_typo_field_returns_422(client_with_prefs):
     GET'ing afterwards: ``theme`` MUST NOT have been set, because the
     PATCH was rejected as a whole.
     """
-    client, prefs_file = client_with_prefs
+    client, _prefs_file = client_with_prefs
     r = client.patch(
         "/api/preferences",
         json={"data": {"theme": "dark"}, "themee": "oops"},

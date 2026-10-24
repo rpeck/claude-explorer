@@ -2,11 +2,12 @@
 
 from fastapi import APIRouter, Depends
 
+from mcp_server import __version__
+
+from ..config import get_settings
 from ..deps import get_store
 from ..models import AppConfig, AppConfigStats
-from ..config import get_settings
 from ..store import ConversationStore
-from mcp_server import __version__
 
 router = APIRouter(tags=["config"])
 

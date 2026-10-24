@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -51,7 +51,7 @@ CC_ROOT = FIXTURES_ROOT / "claude"
 TEST_ORG_UUID = "00000000-1111-2222-3333-444444444444"
 TEST_ORG_NAME = "Fixture Workspace"
 
-BASE_TS = datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc)
+BASE_TS = datetime(2026, 4, 1, 10, 0, 0, tzinfo=UTC)
 
 
 def _det_uuid(seed: str) -> str:

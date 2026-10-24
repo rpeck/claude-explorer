@@ -30,10 +30,12 @@ THEN (the manual, Medium-side steps)
 Re-run any time the source changes; output is regenerated.
 """
 from __future__ import annotations
+
 import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 RAW_BASE = "https://raw.githubusercontent.com/rpeck/claude-explorer/main/articles/"
 
@@ -124,7 +126,7 @@ def main() -> int:
         print("usage: python3 scripts/medium-prep.py <article.md>")
         return 2
     src = sys.argv[1]
-    text = open(src, encoding="utf-8").read()
+    text = Path(src).read_text(encoding="utf-8")
     text = re.sub(r"^<!--.*?-->\n+", "", text, count=1, flags=re.DOTALL)  # drop provenance header
     text = strip_toc(text)
     text = strip_anchors(text)

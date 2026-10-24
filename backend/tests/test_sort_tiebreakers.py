@@ -43,13 +43,12 @@ fix, both agree AND match the pinned order.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from backend.models import ConversationSummary, MessageSnippet, SearchResult
 from backend.search import _sort_results
-
 
 # ----- helpers ----------------------------------------------------
 
@@ -64,7 +63,7 @@ def _sr(
     messages: list[MessageSnippet] | None = None,
 ) -> SearchResult:
     """SearchResult with safe defaults; only override what the test pins."""
-    t = updated_at or datetime(2026, 5, 1, tzinfo=timezone.utc)
+    t = updated_at or datetime(2026, 5, 1, tzinfo=UTC)
     return SearchResult(
         conversation_uuid=uuid,
         conversation_name=name,
@@ -83,7 +82,7 @@ def _cs(
     created_at: datetime | None = None,
     project_path: str | None = None,
 ) -> ConversationSummary:
-    t = updated_at or datetime(2026, 5, 1, tzinfo=timezone.utc)
+    t = updated_at or datetime(2026, 5, 1, tzinfo=UTC)
     return ConversationSummary(
         uuid=uuid,
         name=name,
@@ -100,7 +99,7 @@ def _ms(uuid: str, *, created_at: datetime | None = None) -> MessageSnippet:
         snippet="x",
         match_start=0,
         match_end=1,
-        created_at=created_at or datetime(2026, 5, 1, tzinfo=timezone.utc),
+        created_at=created_at or datetime(2026, 5, 1, tzinfo=UTC),
     )
 
 
@@ -126,7 +125,7 @@ class TestSearchSortTiebreakers:
         """Three results with IDENTICAL name and IDENTICAL timestamp;
         only UUIDs differ. Without a tiebreaker, the sort output is
         determined by input order."""
-        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
         return [
             _sr("aaa-111", name="Untitled", updated_at=t),
             _sr("mmm-555", name="Untitled", updated_at=t),
@@ -135,7 +134,7 @@ class TestSearchSortTiebreakers:
 
     @pytest.fixture
     def three_same_time(self) -> list[SearchResult]:
-        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
         return [
             _sr("aaa-111", name="A", updated_at=t),
             _sr("mmm-555", name="M", updated_at=t),
@@ -144,7 +143,7 @@ class TestSearchSortTiebreakers:
 
     @pytest.fixture
     def three_same_project(self) -> list[SearchResult]:
-        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
         return [
             _sr("aaa-111", updated_at=t, project_name="proj-x"),
             _sr("mmm-555", updated_at=t, project_name="proj-x"),
@@ -234,7 +233,7 @@ class TestSearchSortTiebreakers:
         """Mixed null / non-null project names: the existing
         ``(project_name is None, ...)`` boolean key buckets nulls at
         the END for asc. The tiebreaker must not perturb that."""
-        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
         items = [
             _sr("uuid-z", project_name=None, updated_at=t),
             _sr("uuid-a", project_name="proj-a", updated_at=t),
@@ -250,7 +249,7 @@ class TestSearchSortTiebreakers:
         """The per-result ``matching_messages.sort`` also needed a
         tiebreaker — when two matched messages share a created_at
         timestamp, they would silently flip order."""
-        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+        t = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
         msgs = [
             _ms("msg-aaa", created_at=t),
             _ms("msg-mmm", created_at=t),
@@ -445,9 +444,9 @@ class TestStoreSortLogicMirror:
 
         # Build summaries from the same disk data and feed shuffled
         # into the mirror.
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        t_dt = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+        t_dt = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
         summaries = [
             _cs("aaa-111", name="Untitled", updated_at=t_dt),
             _cs("mmm-555", name="Untitled", updated_at=t_dt),

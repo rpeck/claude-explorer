@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from mcp_server.server import mcp
 
-
 EXPECTED_TOOLS = {
     "list_sessions",
     "list_projects",

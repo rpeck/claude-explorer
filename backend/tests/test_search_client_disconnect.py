@@ -32,8 +32,8 @@ NOT pinned (deliberately deferred):
 from __future__ import annotations
 
 import asyncio
-import time
 import threading
+import time
 
 import httpx
 import pytest
@@ -84,7 +84,7 @@ async def test_server_returns_promptly_when_client_disconnects_mid_search(
                     ),
                     timeout=0.1,
                 )
-            except (asyncio.TimeoutError, httpx.ReadTimeout, httpx.RemoteProtocolError):
+            except (TimeoutError, httpx.ReadTimeout, httpx.RemoteProtocolError):
                 # Expected — we cancelled by timeout.
                 pass
 

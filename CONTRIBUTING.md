@@ -27,7 +27,8 @@ These commands work in bash, zsh, and PowerShell, except where a note says other
 
 ## Code style
 
-- Python: PEP 8 with type hints; run `ruff check` and `pyflakes` locally before pushing (CI runs the test suites but does not yet enforce lint; please don't regress).
+- Python: PEP 8 with type hints. Run `uv run ruff check .` before you push. CI fails on any ruff finding.
+  - Ruff is pinned to one minor line in `pyproject.toml`. To upgrade it, fix every new finding, or turn off a rule in `[tool.ruff.lint]` with a reason. Do not hide the findings with a pin.
 - TypeScript: strict mode, `tsc --noEmit` clean, eslint via vite-plugin; prefer functional components.
 - Testing discipline: see [TESTING.md](./TESTING.md) for the black-box / spec-driven rules, Playwright "deterministic settle barrier" pattern, and the pre-flight checklist.
 - General coding practices and project structure are documented in [AGENTS.md](./AGENTS.md).

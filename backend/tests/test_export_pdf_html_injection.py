@@ -31,11 +31,11 @@ so these tests read the response body.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from backend.exporters.pdf import (
-    _TRANSPARENT_1x1_PNG,
     _build_pdf_url_fetcher,
+    _TRANSPARENT_1x1_PNG,
     conversation_to_html,
 )
 from backend.models import ConversationDetail
@@ -46,7 +46,7 @@ def _body(response) -> bytes:
 
 
 def _make_conv(name: str = "Test", model: str = "claude-3-5-sonnet") -> ConversationDetail:
-    now = datetime(2026, 5, 27, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 27, 12, 0, 0, tzinfo=UTC)
     return ConversationDetail(
         uuid="11111111-2222-3333-4444-555555555555",
         name=name,

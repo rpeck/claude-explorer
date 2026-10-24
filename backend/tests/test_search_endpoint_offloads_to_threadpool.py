@@ -41,7 +41,6 @@ import pytest
 from backend.routers.search import search as search_get_handler
 from backend.routers.search import search_post as search_post_handler
 
-
 # --------------------------------------------------------------------------- #
 # Structural — handler signature contract                                     #
 # --------------------------------------------------------------------------- #

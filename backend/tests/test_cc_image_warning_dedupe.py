@@ -22,9 +22,7 @@ This file flips both contracts via TDD-strict RED → GREEN.
 
 from __future__ import annotations
 
-
 import pytest
-
 
 # Use the existing fixtures from test_cc_image_permanent_cache.
 pytest_plugins = []

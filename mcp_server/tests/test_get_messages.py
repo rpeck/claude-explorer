@@ -115,7 +115,7 @@ def test_include_tool_results_implies_include_tool_calls(mcp_data):
     assert "tool_use" in block_types
     assert "tool_result" in block_types
     # The tool_result must carry the actual result text.
-    tr = [b for b in result[0]["content"] if b["type"] == "tool_result"][0]
+    tr = next(b for b in result[0]["content"] if b["type"] == "tool_result")
     nested_text = " ".join(
         b.get("text", "") for b in tr.get("content", []) if b.get("type") == "text"
     )
@@ -141,7 +141,7 @@ def test_tool_use_long_input_uses_preview(mcp_data):
         include_tool_calls=True,
         include_tool_results=False,
     )
-    tool_block = [b for b in result[0]["content"] if b["type"] == "tool_use"][0]
+    tool_block = next(b for b in result[0]["content"] if b["type"] == "tool_use")
     assert "input_preview" in tool_block
     assert "input" not in tool_block
     assert tool_block["input_preview"].endswith("...")

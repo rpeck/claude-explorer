@@ -138,7 +138,8 @@ def test_markdown_bundle_zips_inline_image_and_marker_image(monkeypatch, tmp_pat
     monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(data_dir))
 
     # Reset settings + cache between tests so monkeypatch envs apply.
-    from backend import config as cfg, cache
+    from backend import cache
+    from backend import config as cfg
 
     cfg.get_settings.cache_clear()  # type: ignore[attr-defined]
     cache.clear_cache()
@@ -154,10 +155,11 @@ def test_markdown_bundle_zips_inline_image_and_marker_image(monkeypatch, tmp_pat
     )
 
     from fastapi.testclient import TestClient
+
     from backend.main import app
 
     client = TestClient(app)
-    zf, body = _open_bundle(client, session_uuid, dialect="commonmark")
+    zf, _body = _open_bundle(client, session_uuid, dialect="commonmark")
     names = zf.namelist()
 
     # Must contain conversation.md and at least one image under images/.
@@ -192,7 +194,8 @@ def test_markdown_bundle_obsidian_dialect_uses_wikilinks(monkeypatch, tmp_path):
     data_dir.mkdir()
     monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
     monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(data_dir))
-    from backend import config as cfg, cache
+    from backend import cache
+    from backend import config as cfg
 
     cfg.get_settings.cache_clear()  # type: ignore[attr-defined]
     cache.clear_cache()
@@ -207,6 +210,7 @@ def test_markdown_bundle_obsidian_dialect_uses_wikilinks(monkeypatch, tmp_path):
     )
 
     from fastapi.testclient import TestClient
+
     from backend.main import app
 
     client = TestClient(app)
@@ -231,12 +235,14 @@ def test_markdown_bundle_unknown_dialect_rejects_with_422(monkeypatch, tmp_path)
     data_dir.mkdir()
     monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
     monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(data_dir))
-    from backend import config as cfg, cache
+    from backend import cache
+    from backend import config as cfg
 
     cfg.get_settings.cache_clear()  # type: ignore[attr-defined]
     cache.clear_cache()
 
     from fastapi.testclient import TestClient
+
     from backend.main import app
 
     client = TestClient(app)

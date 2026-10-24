@@ -1,11 +1,12 @@
 """Fetch router - trigger Claude Desktop conversation fetch from frontend."""
 
-import json
 import asyncio
+import json
 import logging
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -16,8 +17,8 @@ from fastapi.responses import StreamingResponse
 # (``uv run``, editable install, or repo-root invocation). The previous
 # ``sys.path.insert`` hack was removed in Council A2 (2026-05-21).
 from fetcher.bulk_fetch import (
-    ClaudeFetcher,
     DEFAULT_CREDENTIALS_PATH,
+    ClaudeFetcher,
     FetchAuthError,
     FetchTerminalError,
     FetchTransientError,
@@ -28,16 +29,17 @@ from fetcher.bulk_fetch import (
     migrate_legacy_error_code,
     needs_refetch,
 )
-from fetcher.playwright_capture import capture_credentials
-from fetcher.remote_sessions import RemoteCoworkFetcher
 from fetcher.credentials import (
     CredentialsCorruptError,
     fetcher_credentials,
     save_credentials,
 )
+from fetcher.playwright_capture import capture_credentials
+from fetcher.remote_sessions import RemoteCoworkFetcher
 
 from ..config import files_dir_for, get_settings
 from ..deps import refuse_if_config_corrupt
+
 # Patch-safe SSE helpers extracted in Council A2 (2026-05-21). The heavier
 # pipeline functions stay in this module because their bodies reference
 # names (``ClaudeFetcher``, ``load_credentials``, ``capture_credentials``,
@@ -53,7 +55,7 @@ from ..fetch_pipeline import (
 # to own so existing test imports (``from backend.routers.fetch import
 # FetchProgress``) keep working — see TESTING.md §5.12 on the
 # attribute-patch idiom.
-from ..models import FetchProgress, FetchStatus, ForceRefetchResponse  # noqa: F401  re-export
+from ..models import FetchProgress, FetchStatus, ForceRefetchResponse
 
 __all__ = [
     "FetchProgress",  # re-export for backward-compat test imports
@@ -387,7 +389,7 @@ async def _reindex_search_after_fetch() -> None:
 
     try:
         updated = await asyncio.to_thread(_run)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("search re-index after fetch failed")
         return
     if updated:
@@ -540,7 +542,7 @@ async def fetch_conversations_stream(
         # Load credentials
         try:
             creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
-        except Exception:
+        except Exception:  # noqa: BLE001 — any unreadable credentials file means: run capture
             yield send_event({
                 "type": "error",
                 "message": "No credentials found. Run 'claude-explorer capture' first.",
@@ -680,7 +682,7 @@ async def fetch_conversations_stream(
                         None, fetcher.save_conversation, full_conv
                     )
                     fetched_count += 1
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — every fetch failure is classified into an SSE event
                 error_msg = str(e)
                 lowered = error_msg.lower()
                 if "401" in error_msg or "403" in error_msg or "cf-mitigated" in lowered:
@@ -723,7 +725,7 @@ async def fetch_conversations_stream(
             "total": total,
         })
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — any failure becomes the stream's error event
         yield send_event({
             "type": "error",
             "message": classify_fetch_error(str(e)),
@@ -762,7 +764,7 @@ async def _force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     """The re-fetch itself; the route above holds the one-fetch flag."""
     try:
         creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
-    except Exception:
+    except Exception:  # noqa: BLE001 — any unreadable credentials file means: run capture
         raise HTTPException(status_code=400, detail="No credentials. Run 'claude-explorer capture' first.")
 
     try:
@@ -821,7 +823,7 @@ async def _force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
         detail = CONVERSATION_GONE_MESSAGE
         try:
             org_list = fetcher.fetch_conversation_list()
-        except Exception:
+        except Exception:  # noqa: BLE001 — an optional probe; keep the generic message
             # If we can't even pull the list, stick with the generic message.
             org_list = None
         # Heuristic: only switch to the cross-workspace message when the
@@ -918,7 +920,7 @@ async def _run_capture_with_keepalive(
                 )
                 yield {"_result": result}
                 return
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 waited += CAPTURE_KEEPALIVE_SECONDS
                 yield _send_event(
                     {
@@ -935,7 +937,7 @@ async def _run_capture_with_keepalive(
                 yield ": ping\n\n"
         result = await capture_task
         yield {"_result": result}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — the caller reports any capture failure
         capture_task.cancel()
         yield {"_error": str(exc)}
 
@@ -958,7 +960,7 @@ async def _fetch_phase_stream(
     """
     try:
         creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — any unreadable credentials file ends this fetch
         yield ("fatal", f"No credentials: {exc}")
         return
 
@@ -1056,11 +1058,11 @@ async def _fetch_phase_stream(
                         # Persist skipped status.
                         await loop.run_in_executor(
                             None,
-                            lambda ek=error_kind, hs=http_status: fetcher.save_index(
+                            lambda ek=error_kind, hs=http_status, em=exc_message: fetcher.save_index(
                                 [], status="skipped",
                                 error_kind=ek,
                                 http_status=hs,
-                                error_message=exc_message,
+                                error_message=em,
                             ),
                         )
                         org_results.append({
@@ -1118,11 +1120,11 @@ async def _fetch_phase_stream(
                         # Per-org transient: skip this org, continue.
                         await loop.run_in_executor(
                             None,
-                            lambda hs=http_status: fetcher.save_index(
+                            lambda hs=http_status, em=exc_message: fetcher.save_index(
                                 [], status="failed",
                                 error_kind="TRANSIENT",
                                 http_status=hs,
-                                error_message=exc_message,
+                                error_message=em,
                             ),
                         )
                         org_results.append({
@@ -1143,14 +1145,14 @@ async def _fetch_phase_stream(
                             }),
                         )
                         continue
-                    logger.error("Fetch terminal error for %s: %s", org_uuid, exc, exc_info=True)
+                    logger.exception("Fetch terminal error for %s", org_uuid)
                     await loop.run_in_executor(
                         None,
-                        lambda hs=http_status: fetcher.save_index(
+                        lambda hs=http_status, em=exc_message: fetcher.save_index(
                             [], status="failed",
                             error_kind="TERMINAL",
                             http_status=hs,
-                            error_message=exc_message,
+                            error_message=em,
                         ),
                     )
                     org_results.append({
@@ -1268,7 +1270,7 @@ async def _fetch_phase_stream(
                                 }),
                             )
                         else:
-                            logger.error("Terminal error fetching %s: %s", name, exc, exc_info=True)
+                            logger.exception("Terminal error fetching %s", name)
                             yield (
                                 "event",
                                 _send_event({
@@ -1304,7 +1306,7 @@ async def _fetch_phase_stream(
                 )
         except Exception as exc:
             # Defensive: any unhandled exception in the per-org block.
-            logger.error("Unhandled per-org error for %s: %s", org_uuid, exc, exc_info=True)
+            logger.exception("Unhandled per-org error for %s", org_uuid)
             org_results.append({
                 "org_id": org_uuid, "name": org_name,
                 "status": "failed",
@@ -1393,7 +1395,7 @@ async def _capture_phase_stream() -> AsyncGenerator[tuple[str, str | dict | None
                     return
                 yield ("done", creds)
                 return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — any capture failure becomes an SSE error event
         yield ("error", classify_capture_error(str(exc)))
 
 
@@ -1422,7 +1424,7 @@ async def refresh_pipeline_stream(
                 elif kind == "done":
                     try:
                         save_credentials(payload, DEFAULT_CREDENTIALS_PATH)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 — a failed save becomes an SSE error event
                         yield _send_event(
                             {
                                 "type": "error",
@@ -1497,7 +1499,7 @@ async def refresh_pipeline_stream(
                 elif kind == "done":
                     try:
                         save_credentials(payload, DEFAULT_CREDENTIALS_PATH)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 — a failed save becomes an SSE error event
                         yield _send_event(
                             {
                                 "type": "error",

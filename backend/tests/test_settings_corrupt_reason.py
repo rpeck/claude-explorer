@@ -38,9 +38,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.tests._platform_home import patch_home
-
 from backend import config
+from backend.tests._platform_home import patch_home
 
 
 @pytest.fixture

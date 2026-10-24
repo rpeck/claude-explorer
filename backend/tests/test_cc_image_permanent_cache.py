@@ -22,7 +22,6 @@ from pathlib import Path
 
 import pytest
 
-
 # 1x1 transparent PNG bytes — same payload used by other tests.
 TINY_PNG_B64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAA"

@@ -25,8 +25,6 @@ counts as a compaction.
 
 from __future__ import annotations
 
-
-
 CANONICAL_PREFIX = (
     "This session is being continued from a previous conversation that "
     "ran out of context."

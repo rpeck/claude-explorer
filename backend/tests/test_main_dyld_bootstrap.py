@@ -28,7 +28,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).parent.parent.parent
 
 
@@ -71,6 +70,7 @@ def test_fresh_subprocess_import_backend_main_then_weasyprint_succeeds() -> None
         env=env,
         cwd=str(REPO_ROOT),
         timeout=30,
+        check=False,
     )
     assert result.returncode == 0, (
         "Fresh-process import chain failed. "
@@ -116,6 +116,7 @@ def test_fresh_subprocess_without_bootstrap_fails_as_expected() -> None:
         env=env,
         cwd=str(REPO_ROOT),
         timeout=30,
+        check=False,
     )
     if result.returncode == 0:
         # weasyprint imported without help — the user's machine has

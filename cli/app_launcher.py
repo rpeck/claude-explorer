@@ -342,6 +342,7 @@ def install_windows_shortcut(*, dest: Path, executable: str, port: int = DEFAULT
     result = subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", _SHORTCUT_PS],
         env=env, capture_output=True, text=True,
+        check=False,
     )
     if result.returncode != 0 or not lnk.exists():
         raise click.ClickException(

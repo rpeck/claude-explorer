@@ -33,7 +33,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-
 TOOL_PLACEHOLDER = "This block is not supported on your current device yet."
 
 
@@ -79,7 +78,8 @@ def isolated_data_dir(monkeypatch, tmp_path):
     claude_dir.mkdir()
     monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
 
-    from backend import config as cfg, cache
+    from backend import cache
+    from backend import config as cfg
 
     cfg.get_settings.cache_clear()  # type: ignore[attr-defined]
     cache.clear_cache()
@@ -123,7 +123,7 @@ def _pdf_text(pdf_bytes: bytes) -> str:
     for page in reader.pages:
         try:
             out.append(page.extract_text() or "")
-        except Exception:  # noqa: BLE001 — any extractor failure is a non-signal here
+        except Exception:  # noqa: BLE001, S112 — any extractor failure is a non-signal here
             continue
     text = "\n".join(out)
     # Belt-and-suspenders: also scan raw bytes in case the extractor

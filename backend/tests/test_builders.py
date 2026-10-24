@@ -34,11 +34,10 @@ from pathlib import Path
 
 import pytest
 
-from backend.tests import builders as B
 from backend.claude_code_reader import read_conversation_summary_fast
 from backend.models import ConversationSummary
 from backend.store import ConversationStore
-
+from backend.tests import builders as B
 
 # ---------------------------------------------------------------------------
 # Desktop conversation builder

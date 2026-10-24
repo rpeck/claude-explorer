@@ -60,8 +60,11 @@ import logging
 import sqlite3
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Literal
+
+from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
 
 from .compact_prefixes import (
     COMPACTION_TITLE_PREFIX,
@@ -69,8 +72,6 @@ from .compact_prefixes import (
 )
 from .config import get_settings
 from .search_text import _extract_searchable_text
-from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
-
 
 logger = logging.getLogger(__name__)
 
@@ -1197,85 +1198,84 @@ class SearchIndex:
                 )
             )
 
-        with self._write_lock:
-            with self._write_conn:  # explicit BEGIN; auto-COMMIT or ROLLBACK
-                self._write_conn.execute(
-                    "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
-                )
-                self._write_conn.executemany(
-                    "INSERT INTO messages "
-                    "(conv_uuid, message_uuid, sender, created_at, source, "
-                    " project_path, organization_id, conv_created_at, "
-                    " conv_updated_at, is_compaction_summary, "
-                    " title, body, body_text) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    rows,
-                )
-                # v10 title projection (2026-05-23). INSERT OR REPLACE
-                # keeps one-row-per-conv invariant on title renames /
-                # re-upserts. Same transaction as the messages writes
-                # so a crash mid-upsert rolls both back — no split-brain
-                # "projection updated, messages stale" state.
-                #
-                # v14 (2026-05-26): also write ``is_compaction_titled``
-                # so the title-sweep helpers can filter out compaction-
-                # derived titles when Show Compactions is OFF. The
-                # ``is_compaction_prefix_text`` shared helper applies
-                # the canonical anchored ``.lstrip().startswith()``
-                # check — same predicate as
-                # ``cowork_reader._extract_cowork_compact_markers``.
-                # User-renamed sessions (``/rename`` writes a
-                # ``custom-title`` row that WINS over the fallback in
-                # ``cc_message_transforms``) get the new title here, so
-                # this flag re-evaluates correctly on the next upsert.
-                is_compaction_titled = 1 if is_compaction_prefix_text(title) else 0
-                self._write_conn.execute(
-                    "INSERT OR REPLACE INTO conversations "
-                    "(conv_uuid, title, conv_created_at, conv_updated_at, "
-                    " project_path, source, organization_id, "
-                    " is_compaction_titled) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        conv_uuid,
-                        title,
-                        conv_created_at,
-                        conv_updated_at,
-                        project_path,
-                        source,
-                        organization_id,
-                        is_compaction_titled,
-                    ),
-                )
-                # v12 (2026-05-25): also persist the conv_uuid so
-                # delete_by_path can resolve it via a SQL lookup
-                # instead of the stem heuristic that silently failed
-                # for Cowork (``local_<uuid>/audit.jsonl`` ⇒ stem ==
-                # "audit", DELETE no-op).
-                self._write_conn.execute(
-                    "INSERT OR REPLACE INTO indexed_files "
-                    "(path, mtime, indexed_at, conv_uuid) "
-                    "VALUES (?, ?, ?, ?)",
-                    (str(file_path), float(mtime), int(time.time()), conv_uuid),
-                )
+        # The connection context is an explicit BEGIN; auto-COMMIT or ROLLBACK.
+        with self._write_lock, self._write_conn:
+            self._write_conn.execute(
+                "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
+            )
+            self._write_conn.executemany(
+                "INSERT INTO messages "
+                "(conv_uuid, message_uuid, sender, created_at, source, "
+                " project_path, organization_id, conv_created_at, "
+                " conv_updated_at, is_compaction_summary, "
+                " title, body, body_text) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+            # v10 title projection (2026-05-23). INSERT OR REPLACE
+            # keeps one-row-per-conv invariant on title renames /
+            # re-upserts. Same transaction as the messages writes
+            # so a crash mid-upsert rolls both back — no split-brain
+            # "projection updated, messages stale" state.
+            #
+            # v14 (2026-05-26): also write ``is_compaction_titled``
+            # so the title-sweep helpers can filter out compaction-
+            # derived titles when Show Compactions is OFF. The
+            # ``is_compaction_prefix_text`` shared helper applies
+            # the canonical anchored ``.lstrip().startswith()``
+            # check — same predicate as
+            # ``cowork_reader._extract_cowork_compact_markers``.
+            # User-renamed sessions (``/rename`` writes a
+            # ``custom-title`` row that WINS over the fallback in
+            # ``cc_message_transforms``) get the new title here, so
+            # this flag re-evaluates correctly on the next upsert.
+            is_compaction_titled = 1 if is_compaction_prefix_text(title) else 0
+            self._write_conn.execute(
+                "INSERT OR REPLACE INTO conversations "
+                "(conv_uuid, title, conv_created_at, conv_updated_at, "
+                " project_path, source, organization_id, "
+                " is_compaction_titled) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    conv_uuid,
+                    title,
+                    conv_created_at,
+                    conv_updated_at,
+                    project_path,
+                    source,
+                    organization_id,
+                    is_compaction_titled,
+                ),
+            )
+            # v12 (2026-05-25): also persist the conv_uuid so
+            # delete_by_path can resolve it via a SQL lookup
+            # instead of the stem heuristic that silently failed
+            # for Cowork (``local_<uuid>/audit.jsonl`` ⇒ stem ==
+            # "audit", DELETE no-op).
+            self._write_conn.execute(
+                "INSERT OR REPLACE INTO indexed_files "
+                "(path, mtime, indexed_at, conv_uuid) "
+                "VALUES (?, ?, ?, ?)",
+                (str(file_path), float(mtime), int(time.time()), conv_uuid),
+            )
 
         return len(rows)
 
     def delete_conversation(self, conv_uuid: str, file_path: Path | None = None) -> None:
         """Remove a conversation's rows from the index."""
-        with self._write_lock:
-            with self._write_conn:
+        with self._write_lock, self._write_conn:
+            self._write_conn.execute(
+                "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
+            )
+            # v10: purge the projection row alongside. Otherwise the
+            # title sweep would still surface a deleted conversation.
+            self._write_conn.execute(
+                "DELETE FROM conversations WHERE conv_uuid = ?", (conv_uuid,)
+            )
+            if file_path is not None:
                 self._write_conn.execute(
-                    "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
+                    "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
                 )
-                # v10: purge the projection row alongside. Otherwise the
-                # title sweep would still surface a deleted conversation.
-                self._write_conn.execute(
-                    "DELETE FROM conversations WHERE conv_uuid = ?", (conv_uuid,)
-                )
-                if file_path is not None:
-                    self._write_conn.execute(
-                        "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
-                    )
 
     def delete_by_path(self, file_path: Path) -> None:
         """Remove all rows for a file that no longer exists on disk.
@@ -1305,33 +1305,32 @@ class SearchIndex:
         story as pre-v12 for that branch — the migration has already
         purged any orphans by the time this fallback would fire.
         """
-        with self._write_lock:
-            with self._write_conn:
-                row = self._write_conn.execute(
-                    "SELECT conv_uuid FROM indexed_files WHERE path = ?",
-                    (str(file_path),),
-                ).fetchone()
-                if row is not None and row[0]:
-                    conv_uuid = row[0]
-                else:
-                    # No indexed_files row → fall back to the historical
-                    # stem heuristic. Correct for CC/Desktop; no-op for
-                    # Cowork (acceptable: the migration purged orphans;
-                    # any post-migration Cowork upsert wrote conv_uuid
-                    # so the primary lookup above succeeds).
-                    conv_uuid = file_path.stem
-                self._write_conn.execute(
-                    "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
-                )
-                # v10: same uuid scope applies to the projection;
-                # leave-no-trace contract matches delete_conversation.
-                self._write_conn.execute(
-                    "DELETE FROM conversations WHERE conv_uuid = ?",
-                    (conv_uuid,),
-                )
-                self._write_conn.execute(
-                    "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
-                )
+        with self._write_lock, self._write_conn:
+            row = self._write_conn.execute(
+                "SELECT conv_uuid FROM indexed_files WHERE path = ?",
+                (str(file_path),),
+            ).fetchone()
+            if row is not None and row[0]:
+                conv_uuid = row[0]
+            else:
+                # No indexed_files row → fall back to the historical
+                # stem heuristic. Correct for CC/Desktop; no-op for
+                # Cowork (acceptable: the migration purged orphans;
+                # any post-migration Cowork upsert wrote conv_uuid
+                # so the primary lookup above succeeds).
+                conv_uuid = file_path.stem
+            self._write_conn.execute(
+                "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
+            )
+            # v10: same uuid scope applies to the projection;
+            # leave-no-trace contract matches delete_conversation.
+            self._write_conn.execute(
+                "DELETE FROM conversations WHERE conv_uuid = ?",
+                (conv_uuid,),
+            )
+            self._write_conn.execute(
+                "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
+            )
 
     @_tracked_read
     def needs_update(self, file_path: Path, current_mtime: float) -> bool:
@@ -1396,11 +1395,10 @@ class SearchIndex:
         surface deleted-from-disk conversations until the next
         watcher cleanup pass caught them.
         """
-        with self._write_lock:
-            with self._write_conn:
-                self._write_conn.execute("DELETE FROM messages")
-                self._write_conn.execute("DELETE FROM indexed_files")
-                self._write_conn.execute("DELETE FROM conversations")
+        with self._write_lock, self._write_conn:
+            self._write_conn.execute("DELETE FROM messages")
+            self._write_conn.execute("DELETE FROM indexed_files")
+            self._write_conn.execute("DELETE FROM conversations")
 
     # ----- query -----------------------------------------------------
 
@@ -2269,8 +2267,8 @@ def get_search_index() -> SearchIndex | None:
             return None
         try:
             _search_index = SearchIndex(default_index_path())
-        except sqlite3.Error as exc:
-            logger.error("search_index: failed to open index: %s", exc, exc_info=True)
+        except sqlite3.Error:
+            logger.exception("search_index: failed to open index")
             return None
     return _search_index
 
@@ -2444,7 +2442,7 @@ def _load_conversation_at(
         from .cowork_reader import read_cowork_conversation
         try:
             return read_cowork_conversation(path.parent)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("search_index: failed to read Cowork %s", path)
             return None
 
@@ -2452,13 +2450,13 @@ def _load_conversation_at(
         from .claude_code_reader import read_claude_code_conversation
         try:
             return read_claude_code_conversation(path)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("search_index: failed to read CC %s", path)
             return None
     # Desktop JSON path — reuse the store's mtime-cached loader.
     try:
         return store._load_conversation(path)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("search_index: failed to read Desktop %s", path)
         return None
 
@@ -2522,7 +2520,7 @@ def _drift_first_scan(
 
     # Missing pass: any indexed_files row whose path is no longer on disk.
     missing: list[Path] = []
-    for indexed_path_str in indexed_mtimes.keys():
+    for indexed_path_str in indexed_mtimes:
         indexed_path = Path(indexed_path_str)
         if indexed_path not in live_set:
             missing.append(indexed_path)

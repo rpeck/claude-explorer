@@ -44,12 +44,11 @@ import pytest
 
 from backend.search import _extract_searchable_text
 from backend.search_index import (
-    SearchIndex,
     SCHEMA_VERSION,
+    SearchIndex,
     fts5_available,
     reset_search_index_for_tests,
 )
-
 
 # ----- _extract_searchable_text: NEGATIVE (argless excluded) ----------------
 
@@ -289,7 +288,7 @@ def test_schema_version_bumped_to_4() -> None:
     chrome hits until manual reindex."""
     assert SCHEMA_VERSION >= 4, (
         "SCHEMA_VERSION must be >=4 to force a rebuild that clears "
-        "pre-cleanup argless-marker body rows. Got: %d" % SCHEMA_VERSION
+        f"pre-cleanup argless-marker body rows. Got: {SCHEMA_VERSION}"
     )
 
 

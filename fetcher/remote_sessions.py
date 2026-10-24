@@ -54,15 +54,15 @@ import os
 import re
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import quote, urlencode
 
 from fetcher.atomic import atomic_replace
 from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
-
 
 log = logging.getLogger(__name__)
 
@@ -342,7 +342,7 @@ class RemoteCoworkFetcher:
         )
         return added
 
-    def _stored_state(self, org_uuid: str, session_id: str) -> "_StoredState":
+    def _stored_state(self, org_uuid: str, session_id: str) -> _StoredState:
         """What is on disk for one session.
 
         ``after_seq`` is the append point: the highest ``_sequence_num`` in
@@ -491,11 +491,11 @@ def _epoch_ms(iso: str | None) -> int | None:
     if not iso:
         return None
     try:
-        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(iso)
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return int(dt.timestamp() * 1000)
 
 

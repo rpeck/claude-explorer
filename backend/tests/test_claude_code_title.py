@@ -13,8 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.claude_code_reader import (
-    read_conversation_summary_fast,
     read_claude_code_conversation,
+    read_conversation_summary_fast,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "jsonl"

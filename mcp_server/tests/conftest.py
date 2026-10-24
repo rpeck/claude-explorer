@@ -33,12 +33,12 @@ from __future__ import annotations
 import json
 import re
 import uuid as _uuid_mod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import pytest
-
 
 # Matches the production filter in ``backend/store.py:28``; conversation
 # files must be ``<36-char-UUID>.json`` or they're silently skipped.

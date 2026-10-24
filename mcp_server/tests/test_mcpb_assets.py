@@ -17,7 +17,6 @@ from __future__ import annotations
 import pathlib
 import struct
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 ASSETS_DIR = REPO_ROOT / "assets"
 ICON_PATH = ASSETS_DIR / "mcpb-icon.png"

@@ -22,7 +22,29 @@ from typing import Any
 from .cache import (
     get_conversation_cache,
 )
-from .parsing import parse_datetime as _parse_datetime  # noqa: F401  (re-export)
+
+# Agent-session discovery + metadata (refactor B5, 2026-05-18). Moved
+# to backend.cc_agent_reader; the facade re-exports them so existing
+# callers do not need to update their imports.
+from .cc_agent_reader import (  # noqa: F401
+    _extract_agent_metadata,
+    build_agent_index_with_summaries,
+    discover_agent_files,
+    read_agent_summary,
+    read_agent_summary_fast,
+)
+
+# Compact-marker extraction (refactor B5, 2026-05-18): moved out of this
+# file into a dedicated module. Re-exported here so existing
+# ``from backend.claude_code_reader import extract_compact_markers``
+# imports keep working without source changes downstream.
+from .cc_image_markers import (  # noqa: F401
+    _COMPACT_ARGS_RE,
+    _COMPACT_COMMAND_NAME,
+    _COMPACT_LOOKAHEAD,
+    extract_compact_markers,
+)
+
 # Raw JSONL I/O (refactor B5, 2026-05-18). The streaming summary
 # reader + path-discovery + LOGIC_VERSION live in ``cc_jsonl_io``; the
 # facade re-exports them so external imports like
@@ -36,6 +58,7 @@ from .cc_jsonl_io import (  # noqa: F401
     parse_jsonl_file,
     read_conversation_summary_fast,
 )
+
 # Re-export the message-pipeline transforms from their dedicated module
 # (refactor B5, 2026-05-18). Pre-refactor these all lived in this file;
 # they were extracted into ``cc_message_transforms`` to drop the facade
@@ -63,26 +86,7 @@ from .cc_message_transforms import (  # noqa: F401
     _merge_entries_to_message,
     _title_from_entry,
 )
-# Compact-marker extraction (refactor B5, 2026-05-18): moved out of this
-# file into a dedicated module. Re-exported here so existing
-# ``from backend.claude_code_reader import extract_compact_markers``
-# imports keep working without source changes downstream.
-from .cc_image_markers import (  # noqa: F401
-    _COMPACT_ARGS_RE,
-    _COMPACT_COMMAND_NAME,
-    _COMPACT_LOOKAHEAD,
-    extract_compact_markers,
-)
-# Agent-session discovery + metadata (refactor B5, 2026-05-18). Moved
-# to backend.cc_agent_reader; the facade re-exports them so existing
-# callers do not need to update their imports.
-from .cc_agent_reader import (  # noqa: F401
-    _extract_agent_metadata,
-    build_agent_index_with_summaries,
-    discover_agent_files,
-    read_agent_summary,
-    read_agent_summary_fast,
-)
+from .parsing import parse_datetime as _parse_datetime  # noqa: F401  (re-export)
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +165,7 @@ def _read_summaries_parallel(
                 if stop is not None and stop.is_set():
                     break
         return done
-    except Exception:  # noqa: BLE001
+    except Exception:
         # ProcessPoolExecutor failure modes are platform-specific
         # (sandboxed Python without fork, frozen executable that
         # can't re-import the module, etc.) and rare. Fall back to
@@ -188,7 +192,7 @@ def _read_summaries_parallel(
             path = future_to_path[future]
             try:
                 out[path] = future.result()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception(
                     "claude_code_reader: parallel summary read failed for %s",
                     path,
@@ -301,7 +305,7 @@ def read_claude_code_conversation(jsonl_path: Path) -> dict[str, Any] | None:
         from .cc_image_cache import cache_all_markers
 
         cache_all_markers(result)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("cache_all_markers failed for %s", jsonl_path)
 
     return result

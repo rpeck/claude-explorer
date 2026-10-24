@@ -153,7 +153,7 @@ def test_load_credentials_list_root_returns_unchanged_or_raises_clean(
     except click.ClickException:
         # OK — strict mode declined the list root.
         return
-    except Exception as e:  # pragma: no cover — failure mode
+    except Exception as e:  # pragma: no cover — failure mode  # noqa: BLE001 — any other exception fails the test with its type
         pytest.fail(
             f"load_credentials must raise ClickException for non-dict "
             f"root, NOT a raw {type(e).__name__}: {e!r}"

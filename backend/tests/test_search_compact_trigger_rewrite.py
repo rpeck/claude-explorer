@@ -54,14 +54,13 @@ from __future__ import annotations
 import pytest
 
 from backend.search import _extract_searchable_text
-from backend.search_text import _is_compact_trigger_message
 from backend.search_index import (
     SCHEMA_VERSION,
     SearchIndex,
     fts5_available,
     reset_search_index_for_tests,
 )
-
+from backend.search_text import _is_compact_trigger_message
 
 # ---------------------------------------------------------------------------
 # Realistic /compact trigger row shape (mirrors fixtures/jsonl/compact_manual_only.jsonl)
@@ -567,9 +566,9 @@ def test_search_dedupe_when_both_marker_and_trigger_match(monkeypatch) -> None:
     UUID — frontend does NOT dedupe at render time (see
     frontend/src/contexts/SearchPanelContext.tsx).
     """
-    from backend.search import _search_via_linear_scan
     import backend.search as search_mod
     import backend.search_text as st
+    from backend.search import _search_via_linear_scan
 
     # Two-pronged patch:
     # (1) Disable the index-time predicate in search_text so

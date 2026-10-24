@@ -23,10 +23,10 @@ import json
 import logging
 import random
 import time
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Iterable, Iterator
 
 import click
 from curl_cffi import requests as curl_requests
@@ -43,21 +43,20 @@ from curl_cffi.requests.errors import RequestsError
 # imports `PersistedErrorKind` and others as `from fetcher.bulk_fetch import ...`.
 # DO NOT REMOVE these re-exports without a coordinated update of all
 # import sites.
-from fetcher.http_retry import (  # noqa: F401  (re-exported)
+from fetcher.http_retry import (
     AUTH_HTTP_STATUSES,
+    PERSISTED_ERROR_KINDS,
+    TRANSIENT_CURL_CODES,
+    TRANSIENT_HTTP_STATUSES,
     FetchAuthError,
     FetchError,
     FetchTerminalError,
     FetchTransientError,
-    PERSISTED_ERROR_KINDS,
     PersistedErrorKind,
-    TRANSIENT_CURL_CODES,
-    TRANSIENT_HTTP_STATUSES,
     extract_http_status_from_message,
     kind_from_http_status,
     migrate_legacy_error_code,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +64,15 @@ logger = logging.getLogger(__name__)
 # Default paths — canonically defined in fetcher.paths and re-exported here
 # so old imports + test patches at fetcher.bulk_fetch.DEFAULT_* keep working.
 # See backend/tests/conftest.py for the multi-site patch fixture.
-from fetcher.atomic import atomic_replace  # noqa: E402
-from fetcher.remote_sessions import RemoteCoworkFetcher  # noqa: E402
-from fetcher.paths import (  # noqa: E402  (after logger configure is fine here)
+from fetcher.atomic import atomic_replace
+from fetcher.paths import (
     DEFAULT_CREDENTIALS_PATH,
-    DEFAULT_DATA_DIR as DEFAULT_OUTPUT_DIR,  # legacy local alias
     DEFAULT_FILES_DIR,
 )
+from fetcher.paths import (
+    DEFAULT_DATA_DIR as DEFAULT_OUTPUT_DIR,  # legacy local alias
+)
+from fetcher.remote_sessions import RemoteCoworkFetcher
 
 # Public API surface. This module is a facade — it re-exports the
 # http_retry vocabulary (so callers don't have to know about that split)
@@ -173,8 +174,8 @@ def needs_refetch(
 
 def _parse_utc(value: str) -> datetime:
     """Parse an ISO 8601 timestamp; one without a zone is taken as UTC."""
-    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    dt = datetime.fromisoformat(value)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 class TransientHTTPError(Exception):
@@ -471,7 +472,7 @@ class ClaudeFetcher:
 
             self._log(f"  Downloaded: {dest_path.name}")
             return True, dest_path
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — a failed attachment download is logged and skipped
             self._log(f"  Failed to download {url}: {e}")
             return False, dest_path
 
@@ -800,7 +801,7 @@ class ClaudeFetcher:
 
         org_uuid = self.current_org["uuid"]
         org_name = self.current_org.get("name")
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         fetched_count = len(conversations) if status == "ok" else 0
 
         # Read prior index to (a) preserve last_successful_* on failure for
@@ -1227,7 +1228,7 @@ class ClaudeFetcher:
                                 "reason": error_kind,
                             })
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — one org's failure must not stop the other orgs
                 # Any other failure: record as failed, continue.
                 logger.warning("Org %s failed: %s", org_uuid, e)
                 # A1-hunt: classify rather than persisting raw type(e).__name__.
@@ -1309,7 +1310,7 @@ class ClaudeFetcher:
                 update_primary_org_and_save,
             )
             update_primary_org_and_save(new_primary, DEFAULT_CREDENTIALS_PATH)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — a best-effort credentials update; the fetch result stands
             logger.warning(
                 "Could not persist primary-org demotion to credentials: %s", e
             )

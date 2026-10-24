@@ -18,12 +18,12 @@ Bidirectional contracts:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from backend.export import (
+    _is_excludable_marker,
     conversation_to_html,
     conversation_to_markdown,
-    _is_excludable_marker,
 )
 from backend.models import ContentBlock, ConversationDetail, Message
 
@@ -45,8 +45,8 @@ def _msg(
         sender=sender,  # type: ignore[arg-type]
         text=text,
         content=[ContentBlock(type="text", text=text)] if text else [],
-        created_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=timezone.utc),
+        created_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=UTC),
         is_command_marker=is_command_marker,
         is_prelude=is_prelude,
         slash_command=slash_command,
@@ -59,8 +59,8 @@ def _conv(messages: list[Message]) -> ConversationDetail:
         name="Test conversation",
         summary="",
         model="claude-sonnet-4-6",
-        created_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=timezone.utc),
+        created_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 19, 1, 31, 14, tzinfo=UTC),
         message_count=len(messages),
         human_message_count=sum(1 for m in messages if m.sender == "human"),
         source="CLAUDE_CODE",

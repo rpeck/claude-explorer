@@ -65,7 +65,8 @@ def test_hint_module_imports_without_playwright() -> None:
         "print(playwright_install_hint())"
     )
     result = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True
+        [sys.executable, "-c", code], capture_output=True, text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     assert "playwright install chromium" in result.stdout

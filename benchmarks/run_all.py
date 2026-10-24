@@ -50,16 +50,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import statistics
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
-
 
 # UUID-shaped stem (8-4-4-4-12 hex). Filters out subagent files
 # (``agent-<hash>.jsonl``) and metadata files (``_index.json``,
@@ -97,7 +96,7 @@ class Stats:
         if len(self.samples_ms) == 1:
             return self.samples_ms[0]
         ranked = sorted(self.samples_ms)
-        idx = max(0, int(round(0.95 * (len(ranked) - 1))))
+        idx = max(0, round(0.95 * (len(ranked) - 1)))
         return ranked[idx]
 
     @property
@@ -195,7 +194,7 @@ def pick_percentile_uuid(
     if not files:
         return None
     sorted_files = sorted(files, key=lambda fs: fs[1])
-    idx = max(0, min(len(sorted_files) - 1, int(round((pct / 100.0) * (len(sorted_files) - 1)))))
+    idx = max(0, min(len(sorted_files) - 1, round((pct / 100.0) * (len(sorted_files) - 1))))
     path, size = sorted_files[idx]
     return path.stem, size
 
@@ -209,7 +208,7 @@ def time_get(url: str, *, timeout: float = 60.0) -> tuple[float, int, int]:
     """Return ``(elapsed_ms, payload_bytes, status_code)``."""
     start = time.perf_counter()
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310 (local URL)
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
             body = resp.read()
             status = resp.status
     except urllib.error.HTTPError as exc:

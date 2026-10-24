@@ -29,13 +29,12 @@ from fastapi import APIRouter, HTTPException
 
 from fetcher import account as account_api
 from fetcher.credentials import (
-    CredentialsCorruptError,
     DEFAULT_CREDENTIALS_PATH,
+    CredentialsCorruptError,
     load_credentials,
 )
 
 from ..models import AccountResponse
-
 
 log = logging.getLogger(__name__)
 

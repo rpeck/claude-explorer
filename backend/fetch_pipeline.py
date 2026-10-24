@@ -49,7 +49,7 @@ def _is_session_expired_error(error_msg: str) -> bool:
     return "401" in error_msg or "403" in error_msg or "cf-mitigated" in lowered
 
 
-def _drain_retry_events(fetcher: "ClaudeFetcher") -> list[str]:
+def _drain_retry_events(fetcher: ClaudeFetcher) -> list[str]:
     """Drain ``fetcher.retry_events``, returning SSE-encoded ``progress`` events.
 
     The list is emptied in place. The caller forwards each frame to the
@@ -80,7 +80,7 @@ def _drain_retry_events(fetcher: "ClaudeFetcher") -> list[str]:
 
 
 __all__ = [
-    "_send_event",
-    "_is_session_expired_error",
     "_drain_retry_events",
+    "_is_session_expired_error",
+    "_send_event",
 ]

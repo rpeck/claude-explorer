@@ -25,7 +25,6 @@ from fastapi.testclient import TestClient
 
 from backend import search_index as si
 
-
 # ----- helpers ---------------------------------------------------------
 
 
@@ -302,6 +301,7 @@ def test_mcp_search_path_uses_limit_5000(monkeypatch) -> None:
 
     # Set up a minimal data dir so list_sessions can build a store.
     import tempfile
+
     from backend import config
     # ignore_cleanup_errors: this test asserts the search limit, not file
     # locking. The real connection leak that caused WinError 32 here is

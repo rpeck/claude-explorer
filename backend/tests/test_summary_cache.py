@@ -25,7 +25,6 @@ import pytest
 from backend import summary_cache as sc
 from backend.summary_cache import SummaryCache
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -61,8 +60,7 @@ def _write_session_jsonl(path: Path, *, user_text: str = "hello", n_user: int = 
                     "content": [{"type": "text", "text": "world"}]},
     })
     with open(path, "w") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in entries)
 
 
 # ---------------------------------------------------------------------------

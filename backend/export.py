@@ -25,13 +25,12 @@ existing imports continue to work byte-for-byte:
 Prefer importing directly from the submodules for new code.
 """
 
-from .models import ConversationDetail, ContentBlock, Message  # noqa: F401  re-export
 from .exporters._shared import (
     CC_IMAGE_MARKER_RE,
-    MarkdownDialect,
     TOOL_PLACEHOLDER,
     TOOL_PLACEHOLDER_MOBILE_ARTIFACT,
     TOOL_PLACEHOLDERS,
+    MarkdownDialect,
     _dedupe_image_files,
     _dedupe_non_image_files,
     _guess_mime,
@@ -42,6 +41,16 @@ from .exporters._shared import (
     format_timestamp,
     message_has_visible_content,
     sanitize_filename,
+)
+from .exporters.bundle import (
+    _bundle_block_to_markdown,
+    _bundle_message_to_markdown,
+    _image_marker_path_is_safe,
+    _markdown_attachment_ref,
+    _markdown_image_ref,
+    _maybe_bundle_marker,
+    _resolve_bundle_attachment_path,
+    create_markdown_bundle,
 )
 from .exporters.markdown import (
     _EMPTY_CORPUS_README,
@@ -55,27 +64,17 @@ from .exporters.pdf import (
     _ATTACHMENTS_PATH_RE,
     _CC_IMAGE_PATH_RE,
     _FILES_PROXY_PATH_RE,
-    _TRANSPARENT_1x1_PNG,
     _build_pdf_url_fetcher,
     _image_html,
     _render_image_block_html,
     _resolve_cc_image_path,
     _rewrite_cc_image_markers_to_html,
+    _TRANSPARENT_1x1_PNG,
     conversation_to_html,
     create_pdf,
     render_content_block_html,
 )
-from .exporters.bundle import (
-    _bundle_block_to_markdown,
-    _bundle_message_to_markdown,
-    _image_marker_path_is_safe,
-    _markdown_attachment_ref,
-    _markdown_image_ref,
-    _maybe_bundle_marker,
-    _resolve_bundle_attachment_path,
-    create_markdown_bundle,
-)
-
+from .models import ContentBlock, ConversationDetail, Message  # noqa: F401  re-export
 
 __all__ = [
     # _shared

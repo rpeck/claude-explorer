@@ -99,7 +99,7 @@ async def test_pdf_export_does_not_block_other_endpoints(
     uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     _seed_conversation(isolated_data_dir, uuid)
 
-    def slow_create_pdf(conv, include_tools, include_compact=False):  # noqa: ARG001 — signature matches real create_pdf
+    def slow_create_pdf(conv, include_tools, include_compact=False):
         time.sleep(2.0)
         return b"%PDF-1.4\n%fake\n"
 
@@ -162,7 +162,7 @@ async def test_pdf_export_timeout_returns_504(
     uuid = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
     _seed_conversation(isolated_data_dir, uuid)
 
-    def hanging_create_pdf(conv, include_tools, include_compact=False):  # noqa: ARG001
+    def hanging_create_pdf(conv, include_tools, include_compact=False):
         time.sleep(3.0)
         return b"unreachable"
 
@@ -233,7 +233,7 @@ async def test_pdf_export_runtime_error_does_not_leak_exception_text(
 
     canary = "/Users/SECRET_NAME/.claude-explorer/files/secret_token=abc123"
 
-    def leaking_create_pdf(conv, include_tools, include_compact=False):  # noqa: ARG001
+    def leaking_create_pdf(conv, include_tools, include_compact=False):
         raise RuntimeError(
             f"WeasyPrint failed to load image at {canary}: cairo_status: out of memory"
         )

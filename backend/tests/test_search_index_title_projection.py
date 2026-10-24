@@ -42,7 +42,6 @@ import pytest
 
 from backend import search_index as si
 
-
 # ----- helpers (mirror the conv-builder shape used elsewhere in tests) ----
 
 
@@ -208,7 +207,7 @@ def test_upsert_conversation_populates_projection(fresh_index):
         f"Expected exactly one projection row for c1; got {len(rows)} "
         f"(rows={rows!r})"
     )
-    cu, title, proj, src, org, c_created, c_updated = rows[0]
+    _cu, title, proj, src, org, c_created, c_updated = rows[0]
     assert title == "My snapshot of the week"
     assert proj == "/Users/r/proj"
     assert src == "CLAUDE_AI"
@@ -378,11 +377,10 @@ def test_open_backfills_projection_when_messages_have_orphan_rows(tmp_path):
     )
     # Sneakily delete the projection row for c2 to simulate the dev
     # race — same as if c2 had been upserted by the old (v9) code.
-    with idx._write_lock:
-        with idx._write_conn:
-            idx._write_conn.execute(
-                "DELETE FROM conversations WHERE conv_uuid = ?", ("c2",)
-            )
+    with idx._write_lock, idx._write_conn:
+        idx._write_conn.execute(
+            "DELETE FROM conversations WHERE conv_uuid = ?", ("c2",)
+        )
     idx.close()
 
     # Re-open. The open should detect the drift and backfill.

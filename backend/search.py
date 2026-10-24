@@ -24,7 +24,7 @@ import sqlite3
 from typing import Any, Literal
 
 from .compact_prefixes import is_compaction_prefix_text
-from .models import SearchResponse, SearchResult, MessageSnippet, SnippetFragment
+from .models import MessageSnippet, SearchResponse, SearchResult, SnippetFragment
 from .search_text import (
     _TOOL_PLACEHOLDER_RE,
     _extract_searchable_text,

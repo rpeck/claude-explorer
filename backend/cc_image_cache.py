@@ -22,11 +22,10 @@ import hashlib
 import logging
 import re
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from .config import get_settings
-
 
 log = logging.getLogger(__name__)
 

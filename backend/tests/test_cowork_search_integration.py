@@ -19,12 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from backend.store import ConversationStore
 from backend.search_index import (
     SearchIndex,
     build_full_index,
 )
-
+from backend.store import ConversationStore
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "cowork"
 HAPPY_DEPLOYMENT = FIXTURE_ROOT / "d_deployment1"
@@ -76,7 +75,7 @@ def test_cowork_audit_jsonl_indexed(index_with_cowork):
     index, _ = index_with_cowork
     # File row exists for the audit.jsonl path.
     indexed = index._read_indexed_files_map()
-    audit_paths = [p for p in indexed.keys() if p.endswith("audit.jsonl")]
+    audit_paths = [p for p in indexed if p.endswith("audit.jsonl")]
     assert len(audit_paths) == 1
 
 

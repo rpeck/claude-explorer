@@ -137,8 +137,10 @@ def app_port_conflict_message(
         steps = ["Open a terminal.", "Type the command, then press Enter."]
     steps.append("Open Claude Explorer again.")
     lines = [
-        "Claude Explorer could not start, because another program on this "
-        f"computer already uses port {port}.",
+        (
+            "Claude Explorer could not start, because another program on this "
+            f"computer already uses port {port}."
+        ),
         "",
         "To fix this, give Claude Explorer a different port. The command is:",
         "",
@@ -156,7 +158,7 @@ def copy_to_clipboard(text: str) -> bool:
     if sys.platform != "win32":
         return False
     try:
-        result = subprocess.run(["clip"], input=text, text=True, capture_output=True, timeout=5)
+        result = subprocess.run(["clip"], input=text, text=True, capture_output=True, timeout=5, check=False)
     except (OSError, subprocess.SubprocessError):
         return False
     return result.returncode == 0

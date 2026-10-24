@@ -33,9 +33,10 @@ Allowlist for spec-driven authoring (TESTING.md §1):
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
+from starlette.requests import ClientDisconnect
 
 import backend.routers.fetch as fetch_mod
 
@@ -181,7 +182,7 @@ async def _within(coro, seconds: float = 3.0):
     """Await ``coro`` or fail: a request that hangs is a failed guard."""
     try:
         return await asyncio.wait_for(coro, timeout=seconds)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         pytest.fail("the request hung: a second fetch stream was opened")
 
 
@@ -353,7 +354,8 @@ async def test__client_leaves_before_the_first_chunk__flag_is_cleared(
     assert fetch_mod._refresh_in_progress is True
 
     # The response start already fails: the stream never starts.
-    with pytest.raises(Exception):
+    # Starlette reports the failed send as ClientDisconnect, as for a real client.
+    with pytest.raises(ClientDisconnect):
         await response(_scope(), _never_disconnects, _send_failing_after(0))
 
     assert fetch_mod._refresh_in_progress is False, (
@@ -383,7 +385,8 @@ async def test__client_leaves_mid_stream__old_stream_never_clears_a_new_fetch_fl
 
     response = await _open_route(route)
     # The response start and one chunk go out, then the client leaves.
-    with pytest.raises(Exception):
+    # Starlette reports the failed send as ClientDisconnect, as for a real client.
+    with pytest.raises(ClientDisconnect):
         await response(_scope(), _never_disconnects, _send_failing_after(2))
     assert fetch_mod._refresh_in_progress is False
 

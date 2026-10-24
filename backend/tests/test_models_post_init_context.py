@@ -30,7 +30,7 @@ NOT a heavily-patched module; the only existing test that touches
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from backend.models import ConversationListItem, ConversationSummary
 
@@ -41,8 +41,8 @@ def _row(project_path: str | None = None) -> dict:
         "uuid": "11111111-1111-1111-1111-111111111111",
         "name": "Council D3 fixture",
         "model": "claude-sonnet-4-6",
-        "created_at": datetime(2026, 5, 21, tzinfo=timezone.utc),
-        "updated_at": datetime(2026, 5, 21, tzinfo=timezone.utc),
+        "created_at": datetime(2026, 5, 21, tzinfo=UTC),
+        "updated_at": datetime(2026, 5, 21, tzinfo=UTC),
         "is_starred": False,
         "message_count": 1,
         "has_branches": False,

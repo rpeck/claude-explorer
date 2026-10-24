@@ -21,7 +21,6 @@ byte-for-byte.
 import re
 from typing import Any
 
-
 # Placeholder pattern used by Claude Desktop when a content block (tool call,
 # canvas widget, etc.) can't be rendered in the current client. Mirrors the
 # frontend's filter in frontend/src/lib/utils.ts (filterToolPlaceholders): when
@@ -356,10 +355,9 @@ def _stringify_tool_input(tool_input: dict[str, Any]) -> str:
         elif isinstance(obj, list):
             for item in obj:
                 walk(item)
-        elif isinstance(obj, str):
-            if obj and obj not in seen_values:
-                seen_values.add(obj)
-                values.append(obj)
+        elif isinstance(obj, str) and obj and obj not in seen_values:
+            seen_values.add(obj)
+            values.append(obj)
 
     walk(tool_input)
 

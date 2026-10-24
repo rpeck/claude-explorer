@@ -34,7 +34,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
 # A deliberately-unusual byte sequence that will NOT appear in any
 # legitimate 4xx error envelope echoing the rejected path back to the
 # client. Use this as the body of "secret" files in negative-space

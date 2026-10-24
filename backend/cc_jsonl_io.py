@@ -35,21 +35,21 @@ from __future__ import annotations
 
 import hashlib
 import inspect
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import orjson
 
 from .agent_session_io import parse_jsonl_file  # noqa: F401  re-export
 from .cc_message_transforms import (
-    cc_session_uuid,
     _extract_title_from_message,
     _is_system_message,
     _title_from_entry,
+    cc_session_uuid,
 )
 from .parsing import parse_datetime as _parse_datetime
-
 
 # Default Claude directory
 DEFAULT_CLAUDE_DIR = Path.home() / ".claude"
@@ -111,7 +111,7 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
 
                 except orjson.JSONDecodeError:
                     pass
-    except (OSError, IOError):
+    except OSError:
         return None
 
     if not first_user:
@@ -148,7 +148,7 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
     created_at = _parse_datetime(first_timestamp)
     try:
         mtime = jsonl_path.stat().st_mtime
-        updated_at = datetime.fromtimestamp(mtime, tz=timezone.utc)
+        updated_at = datetime.fromtimestamp(mtime, tz=UTC)
     except OSError:
         updated_at = created_at
 

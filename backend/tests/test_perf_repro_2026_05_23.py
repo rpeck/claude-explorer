@@ -63,6 +63,7 @@ Why per-route bypass (chosen) rather than global off-loop gzip:
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC
 
 import httpx
 import pytest
@@ -124,9 +125,10 @@ def _stub_conv_store():
     big enough (~5 MB) that gzip would noticeably compress it if not
     bypassed — the discriminating signal for the post-fix contract.
     """
+    from datetime import datetime
+
     from backend.deps import get_store
     from backend.models import ConversationDetail, Message
-    from datetime import datetime, timezone
 
     # 5000 messages × ~1 KB each ≈ 5 MB rendered JSON. Big enough that
     # gzip would shave it to ~1 MB if applied (so the absence of the
@@ -137,8 +139,8 @@ def _stub_conv_store():
             sender="human" if i % 2 == 0 else "assistant",
             text="lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 20,
             content=[],
-            created_at=datetime(2026, 5, 23, tzinfo=timezone.utc),
-            updated_at=datetime(2026, 5, 23, tzinfo=timezone.utc),
+            created_at=datetime(2026, 5, 23, tzinfo=UTC),
+            updated_at=datetime(2026, 5, 23, tzinfo=UTC),
             truncated=False,
             parent_message_uuid=None,
             attachments=[],
@@ -151,8 +153,8 @@ def _stub_conv_store():
         name="Perf test conversation",
         summary="",
         model="claude-sonnet-4",
-        created_at=datetime(2026, 5, 23, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 5, 23, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 23, tzinfo=UTC),
+        updated_at=datetime(2026, 5, 23, tzinfo=UTC),
         is_starred=False,
         message_count=5000,
         human_message_count=2500,

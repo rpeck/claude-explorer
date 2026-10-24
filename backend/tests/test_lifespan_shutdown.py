@@ -34,7 +34,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixture: minimal-task lifespan environment
 # ---------------------------------------------------------------------------

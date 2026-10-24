@@ -37,7 +37,6 @@ from backend.search import (
 from backend.store import ConversationStore
 from backend.tests import builders as B
 
-
 # ----- helpers ----------------------------------------------------
 # Conversation builders moved to ``backend.tests.builders`` (C4 in
 # PLANS/2026.05.18-test-hardening.md).
@@ -144,7 +143,7 @@ def test_parse_query_only_quotes_returns_empty():
 
     Guards against emitting an FTS5 phrase `""` which is invalid.
     """
-    phrase, tokens = parse_user_query('""')
+    phrase, _tokens = parse_user_query('""')
     # `""` is len 2 → fails the >=3 phrase test → treated as token.
     # The single token survives whitespace split, so we get back a
     # `""` token. This is acceptable: FTS5's translate_query quotes it

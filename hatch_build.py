@@ -21,7 +21,6 @@ from pathlib import Path
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
-
 # Curated input set for the staleness check. If any of these is newer than
 # `frontend/dist/index.html`, we rebuild. (`src/**` alone would miss config
 # changes; `**/*` would race against `dist/` itself.)

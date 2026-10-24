@@ -27,10 +27,10 @@ from __future__ import annotations
 
 def test_four_new_modules_importable() -> None:
     """Each of the four extracted submodules must be importable on its own."""
-    import backend.cc_jsonl_io  # noqa: F401
+    import backend.cc_agent_reader
+    import backend.cc_image_markers
+    import backend.cc_jsonl_io
     import backend.cc_message_transforms  # noqa: F401
-    import backend.cc_image_markers  # noqa: F401
-    import backend.cc_agent_reader  # noqa: F401
 
 
 def test_facade_reexports_public_symbols() -> None:
@@ -42,12 +42,20 @@ def test_facade_reexports_public_symbols() -> None:
     from the facade, add it here so the next refactor catches the binding.
     """
     from backend.claude_code_reader import (  # noqa: F401
+        # Private symbols that production code or tests reach into.
+        _LOCAL_CMD_ARGS_RE,
+        _PROCESS_POOL_THRESHOLD,
         # Constants
         DEFAULT_CLAUDE_DIR,
         LOGIC_VERSION,
+        _flag_leading_prelude_markers,
+        _fold_canned_assistant_responses_into_marker,
+        _load_conversation_cached,
         # Re-exported helper from backend.parsing (test_parsing.py asserts
         # identity with `parsing.parse_datetime`).
         _parse_datetime,
+        _read_summaries_parallel,
+        build_agent_index_with_summaries,
         # Public API
         discover_jsonl_files,
         extract_compact_markers,
@@ -57,14 +65,6 @@ def test_facade_reexports_public_symbols() -> None:
         read_agent_summary_fast,
         read_claude_code_conversation,
         read_conversation_summary_fast,
-        # Private symbols that production code or tests reach into.
-        _LOCAL_CMD_ARGS_RE,
-        _PROCESS_POOL_THRESHOLD,
-        _flag_leading_prelude_markers,
-        _fold_canned_assistant_responses_into_marker,
-        _load_conversation_cached,
-        _read_summaries_parallel,
-        build_agent_index_with_summaries,
     )
 
 

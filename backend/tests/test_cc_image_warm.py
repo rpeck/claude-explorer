@@ -81,7 +81,7 @@ def test__warm_all_sessions__populates_cache_for_referenced_image(
 
     _make_jsonl_session(claude_dir, "sess-warm-1", fixture_png)
 
-    from backend.cc_image_cache import warm_all_sessions, cache_dir
+    from backend.cc_image_cache import cache_dir, warm_all_sessions
 
     state = warm_all_sessions()
 
@@ -129,7 +129,7 @@ def test__warm_all_sessions__idempotent_re_run_no_dupes(
 
     _make_jsonl_session(claude_dir, "sess-warm-2", fixture_png)
 
-    from backend.cc_image_cache import warm_all_sessions, cache_dir
+    from backend.cc_image_cache import cache_dir, warm_all_sessions
 
     warm_all_sessions()
     cached_after_first = list(cache_dir().rglob("*"))

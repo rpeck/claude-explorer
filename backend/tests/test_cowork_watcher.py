@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-
 HAPPY_AUDIT = (
     Path(__file__).parent
     / "fixtures"
@@ -47,7 +46,7 @@ def cowork_watcher_env(tmp_path, monkeypatch):
     cowork_root.mkdir(parents=True)
     monkeypatch.setenv("CLAUDE_DESKTOP_APP_DIR", str(cowork_app_dir))
 
-    from backend import config, cc_watcher
+    from backend import cc_watcher, config
 
     config.get_settings.cache_clear()
     cc_watcher.reset_seen_for_tests()
@@ -68,6 +67,7 @@ def test_run_watcher_schedules_cowork_observer(cowork_watcher_env, monkeypatch):
     take up to 600 s (the backstop poll) to appear in FTS5 search.
     """
     from watchdog.observers.polling import PollingObserver
+
     from backend import cc_watcher
 
     captured = {}
@@ -124,8 +124,9 @@ def test_audit_jsonl_modify_event_triggers_debounced_drift(
 ):
     """An ``on_modified`` event on an audit.jsonl fires exactly one
     ``update_drifted_files`` call after the debounce window."""
-    from backend import cc_watcher
     from watchdog.events import FileModifiedEvent
+
+    from backend import cc_watcher
 
     drift_calls = {"n": 0}
 
@@ -170,8 +171,9 @@ def test_audit_jsonl_modify_event_triggers_debounced_drift(
 def test_non_audit_jsonl_events_are_ignored(cowork_watcher_env, monkeypatch):
     """Cowork's tree includes outputs/, uploads/, etc. — only
     audit.jsonl events should queue a drift pass."""
-    from backend import cc_watcher
     from watchdog.events import FileModifiedEvent
+
+    from backend import cc_watcher
 
     drift_calls = {"n": 0}
 

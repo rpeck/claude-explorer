@@ -25,8 +25,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-
-
 _TEST_ORG_ID = "ae24ae66-4622-48e7-b4b3-1ab2c49f933d"
 
 

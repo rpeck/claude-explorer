@@ -36,7 +36,7 @@ already-parsed dicts.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .agent_session_io import (  # noqa: F401  re-export
@@ -142,9 +142,7 @@ def _local_command_kind(text: str) -> str | None:
     """
     if not isinstance(text, str):
         return None
-    if text.startswith("<local-command-caveat>") or text.startswith(
-        "Caveat: The messages below were generated"
-    ):
+    if text.startswith(("<local-command-caveat>", "Caveat: The messages below were generated")):
         return "caveat"
     if text.startswith("<command-name>"):
         return "command"
@@ -584,24 +582,27 @@ def _is_system_message(entry: dict) -> bool:
     msg = entry.get("message", {})
     content = msg.get("content", "")
 
-    if isinstance(content, list):
-        # Check for tool_result blocks (these are not real user messages)
-        if any(b.get("type") == "tool_result" for b in content):
-            return True
+    # Check for tool_result blocks (these are not real user messages)
+    if isinstance(content, list) and any(b.get("type") == "tool_result" for b in content):
+        return True
 
     text = _get_message_text(entry)
 
     # Skip system-generated messages and command infrastructure
     return (
-        text.startswith("Caveat: The messages below were generated")
-        or text.startswith("<local-command-caveat>")
-        or text.startswith("<bash-input>")
-        or text.startswith("<bash-stdout>")
-        or text.startswith("<bash-stderr>")
-        or text.startswith("<command-message>")
-        or text.startswith("<command-name>")
-        or text.startswith("Unknown skill:")
-        or text.startswith("Unknown command:")
+        text.startswith(
+            (
+                "Caveat: The messages below were generated",
+                "<local-command-caveat>",
+                "<bash-input>",
+                "<bash-stdout>",
+                "<bash-stderr>",
+                "<command-message>",
+                "<command-name>",
+                "Unknown skill:",
+                "Unknown command:",
+            )
+        )
     )
 
 
@@ -670,8 +671,8 @@ def _extract_conversation_metadata(entries: list[dict], jsonl_path) -> dict:
         if (parsed := _parse_iso_opt(e.get("timestamp"))) is not None
     ]
 
-    created_at = min(all_timestamps) if all_timestamps else datetime.now(timezone.utc)
-    updated_at = max(all_timestamps) if all_timestamps else datetime.now(timezone.utc)
+    created_at = min(all_timestamps) if all_timestamps else datetime.now(UTC)
+    updated_at = max(all_timestamps) if all_timestamps else datetime.now(UTC)
 
     # Fallback name from first real (non-system) user message
     if not name and user_entries:

@@ -27,8 +27,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
-
 CANONICAL_PREFIX = (
     "This session is being continued from a previous conversation that "
     "ran out of context."

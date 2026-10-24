@@ -63,7 +63,6 @@ from backend.tests._security_helpers import (
     attachments_root_for,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -225,7 +224,7 @@ def test__get_attachment__absolute_path_injection__returns_400(
     that directory; post-fix the ``relative_to`` check rejects it.
     """
 
-    _client, root = attach_env
+    _client, _root = attach_env
 
     # Plant the secret somewhere predictable that ISN'T under root.
     # ``tmp_path`` is the test's isolated tmp dir; perfect.

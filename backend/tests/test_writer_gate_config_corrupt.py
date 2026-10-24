@@ -35,18 +35,15 @@ takes: ``Depends(refuse_if_config_corrupt_dep)`` → ``get_settings()``
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 
-from contextlib import contextmanager
-
 import pytest
-
-from backend.tests._platform_home import patch_home
 from fastapi.testclient import TestClient
 
 from backend import config
 from backend.main import app
-
+from backend.tests._platform_home import patch_home
 
 CORRUPT_REASON = (
     "/home/u/.claude-explorer/config.json: JSONDecodeError: "

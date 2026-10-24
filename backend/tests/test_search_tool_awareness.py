@@ -28,7 +28,6 @@ from backend.search import (
     _search_via_linear_scan,
 )
 
-
 # ----- fixtures --------------------------------------------------------
 
 

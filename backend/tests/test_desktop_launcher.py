@@ -20,6 +20,8 @@ every platform in about a second each.
 
 from __future__ import annotations
 
+import json
+import os
 import shutil
 import socket
 import subprocess
@@ -27,6 +29,8 @@ import sys
 import textwrap
 import time
 import types
+import urllib.request
+import uuid
 from pathlib import Path
 
 import pytest
@@ -40,13 +44,14 @@ from cli import app_launcher, desktop_launcher
 # the three tests that wait only 10 s failed (2026-09-24).
 _FAKE_SERVER = textwrap.dedent(
     """
-    import http.server, socketserver, sys
+    import http.server, json, os, socketserver, sys
 
     class H(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200 if self.path == "/api/config" else 404)
             self.end_headers()
-            self.wfile.write(b"{}")
+            # The token tells a test that this server is the one it started.
+            self.wfile.write(json.dumps({"token": os.environ.get("FAKE_SERVER_TOKEN")}).encode())
 
         def log_message(self, *a):
             pass
@@ -63,6 +68,25 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+def _serves(port: int, token: str) -> bool:
+    """True if the server started with ``token`` answers on ``port``.
+
+    ``server_up`` is true for any server on the port. Under xdist, the port
+    from ``_free_port`` can go to another worker's server first: then
+    ``proc`` cannot bind and exits, and ``server_up`` sees the other server
+    until that test stops it (a CI failure, 2026-10-23).
+
+    A token, not the PID: on Windows the venv's python.exe is a launcher
+    that runs the real interpreter as a child, so the server's PID is not
+    ``Popen.pid``.
+    """
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/config", timeout=5) as r:
+            return json.loads(r.read()).get("token") == token
+    except (OSError, ValueError):
+        return False
+
+
 def _wait(predicate, timeout: float = 10.0) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -70,6 +94,24 @@ def _wait(predicate, timeout: float = 10.0) -> bool:
             return True
         time.sleep(0.1)
     return predicate()
+
+
+def _start_own_server(started: list[subprocess.Popen]) -> tuple[int, subprocess.Popen, str]:
+    """Start the fake server on a free port, and wait until it answers.
+
+    If another worker takes the port first, the server cannot bind and
+    exits: then try a new port.
+    """
+    for _ in range(5):
+        port = _free_port()
+        token = uuid.uuid4().hex
+        env = {**os.environ, "FAKE_SERVER_TOKEN": token}
+        proc = subprocess.Popen(desktop_launcher.serve_command(port), env=env)
+        started.append(proc)
+        if _wait(lambda pt=port, tk=token, pr=proc: _serves(pt, tk) or pr.poll() is not None) and proc.poll() is None:
+            return port, proc, token
+        proc.kill()
+    pytest.fail("the fake server did not start on 5 free ports")
 
 
 @pytest.fixture
@@ -110,10 +152,8 @@ def test_open_starts_records_and_leaves_the_server_running(launcher_env) -> None
 
 
 def test_open_reuses_a_running_server(launcher_env) -> None:
-    port, started = launcher_env
-    proc = subprocess.Popen(desktop_launcher.serve_command(port))
-    started.append(proc)
-    assert _wait(lambda: desktop_launcher.server_up(port))
+    _, started = launcher_env
+    port, _proc, _token = _start_own_server(started)
 
     assert desktop_launcher.cmd_open(port) == 0
 
@@ -121,15 +161,14 @@ def test_open_reuses_a_running_server(launcher_env) -> None:
 
 
 def test_stop_leaves_a_server_it_did_not_start(launcher_env) -> None:
-    port, started = launcher_env
-    proc = subprocess.Popen(desktop_launcher.serve_command(port))
-    started.append(proc)
-    assert _wait(lambda: desktop_launcher.server_up(port))
+    _, started = launcher_env
+    port, proc, token = _start_own_server(started)
 
     desktop_launcher.cmd_stop()
 
-    assert desktop_launcher.server_up(port)
-    assert proc.poll() is None
+    assert proc.poll() is None, "stop ended a server that it did not start"
+    # One probe with a 1 s timeout failed on a busy CI runner: wait instead.
+    assert _wait(lambda: _serves(port, token))
 
 
 def test_stop_ignores_a_stale_record(launcher_env) -> None:
@@ -210,10 +249,8 @@ def test_tray_goes_away_when_its_server_stops_on_its_own(launcher_env, monkeypat
 
 
 def test_tray_adds_no_second_icon_when_a_server_runs(launcher_env, monkeypatch) -> None:
-    port, started = launcher_env
-    proc = subprocess.Popen(desktop_launcher.serve_command(port))
-    started.append(proc)
-    assert _wait(lambda: desktop_launcher.server_up(port))
+    _, started = launcher_env
+    port, proc, _token = _start_own_server(started)
     made = _fake_pystray(monkeypatch)
 
     assert desktop_launcher.cmd_tray(port) == 0
@@ -268,7 +305,7 @@ def test_desktop_entry_passes_the_validator(tmp_path: Path) -> None:
     entry.write_text(
         app_launcher.build_desktop_entry(executable="/opt/x y/python", icon=tmp_path / "i.png")
     )
-    result = subprocess.run(["desktop-file-validate", str(entry)], capture_output=True, text=True)
+    result = subprocess.run(["desktop-file-validate", str(entry)], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -320,8 +357,8 @@ def test_windows_shortcut_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     read = subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-         "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CE_LNK); "
-         "Write-Output $s.TargetPath; Write-Output $s.Arguments"],
+         ("$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CE_LNK); "
+         "Write-Output $s.TargetPath; Write-Output $s.Arguments")],
         env={**__import__("os").environ, "CE_LNK": str(lnk)},
         capture_output=True, text=True, check=True,
     ).stdout.splitlines()

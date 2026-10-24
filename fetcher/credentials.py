@@ -64,6 +64,7 @@ from typing import Literal, TypedDict
 import portalocker
 
 from fetcher.atomic import atomic_replace
+
 # Canonically defined in fetcher.paths; re-exported so backend imports
 # (`from fetcher.credentials import DEFAULT_CREDENTIALS_PATH`) and
 # tests patching `fetcher.credentials.DEFAULT_CREDENTIALS_PATH` continue
@@ -243,9 +244,9 @@ def resolve_primary_org_id(
 
     chat_capable = [o["uuid"] for o in orgs if "chat" in (o.get("capabilities") or [])]
     if chat_capable:
-        return sorted(chat_capable)[0]
+        return min(chat_capable)
 
-    return sorted(o["uuid"] for o in orgs)[0]
+    return min(o["uuid"] for o in orgs)
 
 
 # ---------------------------------------------------------------------------

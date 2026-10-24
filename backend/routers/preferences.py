@@ -19,15 +19,14 @@ from pathlib import Path
 from typing import Any
 
 import orjson
-
-from fetcher.credentials import harden_path_permissions
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from fetcher.atomic import atomic_replace
+from fetcher.credentials import harden_path_permissions
+
 from ..config import get_settings
 from ..deps import refuse_if_config_corrupt
-from fetcher.atomic import atomic_replace
-
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
 

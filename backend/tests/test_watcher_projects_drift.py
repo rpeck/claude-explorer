@@ -86,7 +86,7 @@ def watcher_env(tmp_path, monkeypatch):
     # Force a short debounce so tests don't wait 2 s of real time.
     monkeypatch.setenv("CLAUDE_EXPLORER_SEARCH_DRIFT_DEBOUNCE_SEC", "0.2")
 
-    from backend import config, cc_watcher
+    from backend import cc_watcher, config
 
     config.get_settings.cache_clear()
     cc_watcher.reset_seen_for_tests()
@@ -412,7 +412,6 @@ def test_drain_waits_for_a_drift_pass_that_already_started(
     def _slow_index():
         opened.set()
         time.sleep(0.5)
-        return None
 
     monkeypatch.setattr("backend.search_index.update_drifted_files", _fake_drift)
     monkeypatch.setattr(si, "get_search_index", _slow_index)

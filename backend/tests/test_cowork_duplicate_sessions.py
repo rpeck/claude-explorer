@@ -35,7 +35,6 @@ from backend.tests.test_store_cowork_integration import (
 )
 from fetcher.remote_sessions import _build_sidecar
 
-
 LOCAL_UUID = "dup00000-2222-3333-4444-555566667777"
 REMOTE_ID = "cse_01DuplicateTask"
 ORG_A = "aaaaaaaa-0000-0000-0000-000000000001"

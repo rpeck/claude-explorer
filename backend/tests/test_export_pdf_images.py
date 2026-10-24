@@ -27,7 +27,6 @@ import pytest
 from backend.export import create_pdf
 from backend.models import ConversationDetail, Message
 
-
 # A deterministic 2x1 PNG with two unique RGB pixels:
 #   pixel 0 = (0xAB, 0xCD, 0xEF)
 #   pixel 1 = (0x12, 0x34, 0x56)

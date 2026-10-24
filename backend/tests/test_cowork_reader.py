@@ -16,8 +16,6 @@ import json
 import shutil
 from pathlib import Path
 
-
-
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "cowork"
 HAPPY_DEPLOYMENT = FIXTURE_ROOT / "d_deployment1"
 HAPPY_ORG = HAPPY_DEPLOYMENT / "o_org1"

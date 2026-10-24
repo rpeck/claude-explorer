@@ -39,7 +39,6 @@ import pytest
 from backend.search_index import SearchIndex
 from backend.summary_cache import SummaryCache
 
-
 REQUIRED_BUSY_TIMEOUT_MS = 30000
 
 

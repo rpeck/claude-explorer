@@ -14,8 +14,9 @@ def client_with_bookmarks(tmp_path, monkeypatch):
 
     # Reload modules so the env var is picked up.
     import importlib
-    from backend import main as backend_main
+
     import backend.routers.bookmarks as bm_router
+    from backend import main as backend_main
     importlib.reload(bm_router)
     importlib.reload(backend_main)
 
@@ -45,7 +46,7 @@ def test_create_and_list(client_with_bookmarks):
     assert body["message_uuid"] == "msg-1"
     assert body["note"] == "important"
     assert body["snippet"] == "First bookmarked message"
-    assert "id" in body and body["id"]
+    assert body.get("id")
     assert "created_at" in body
 
     r2 = client.get("/api/bookmarks")

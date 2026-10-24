@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import pathlib
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 README = REPO_ROOT / "README.md"
 # AGENTS.md is the canonical agent doc (renamed from CLAUDE.md 2026-09-23).

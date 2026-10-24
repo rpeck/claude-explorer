@@ -234,7 +234,7 @@ def _scripted(monkeypatch: pytest.MonkeyPatch, pages: dict) -> list[str]:
     """Answer each request from ``pages`` (keyed by URL substring); record URLs."""
     calls: list[str] = []
 
-    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+    def fake(self, url: str, org_uuid: str) -> dict:
         calls.append(url)
         if len(calls) > 50:
             raise AssertionError("pagination did not stop")
@@ -262,7 +262,7 @@ def test_a_page_with_nothing_new_ends_the_listing(tmp_path: Path, monkeypatch) -
     """A cursor that changes but returns the same page must stop too."""
     counter = {"n": 0}
 
-    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+    def fake(self, url: str, org_uuid: str) -> dict:
         counter["n"] += 1
         if counter["n"] > 50:
             raise AssertionError("pagination did not stop")
@@ -291,7 +291,7 @@ def test_pagination_has_a_hard_page_cap(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(remote_sessions, "MAX_PAGES", 3)
     counter = {"n": 0}
 
-    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+    def fake(self, url: str, org_uuid: str) -> dict:
         counter["n"] += 1
         return {"data": [{"id": f"cse_{counter['n']:03d}"}], "next_cursor": f"c{counter['n']}"}
 
@@ -344,7 +344,7 @@ def test_an_opaque_session_cursor_is_url_encoded(tmp_path: Path, monkeypatch) ->
     cursor = "ab+c/d==&x=1"
     calls: list[str] = []
 
-    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+    def fake(self, url: str, org_uuid: str) -> dict:
         calls.append(url)
         if len(calls) > 5:
             raise AssertionError("pagination did not stop")
@@ -369,7 +369,7 @@ def test_an_opaque_event_cursor_and_the_session_id_are_url_encoded(
     cursor = "ab+c/d==&x=1"
     calls: list[str] = []
 
-    def fake(self, url: str, org_uuid: str) -> dict:  # noqa: ARG001
+    def fake(self, url: str, org_uuid: str) -> dict:
         calls.append(url)
         if len(calls) > 5:
             raise AssertionError("pagination did not stop")
@@ -593,7 +593,7 @@ def test_a_session_whose_events_call_fails_is_recorded_as_failed(
 ) -> None:
     _real_get_json(monkeypatch)
 
-    def http_get(url: str, headers: dict | None = None) -> _FakeResponse:  # noqa: ARG001
+    def http_get(url: str, headers: dict | None = None) -> _FakeResponse:
         if "/events" in url:
             return _FakeResponse(500)
         return _FakeResponse(200, {"data": [{"id": "cse_01A", "title": "Broken"}]})
