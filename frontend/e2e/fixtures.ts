@@ -852,7 +852,6 @@ export const test = base.extend<Fixtures>({
       await page.route('**/api/account', (route: Route) => {
         route.fulfill({ contentType: 'application/json', body: JSON.stringify(DEFAULT_ACCOUNT) })
       })
-      // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture `use(value)`, not React.use().
       await use(undefined)
     },
     { auto: true },
@@ -898,6 +897,19 @@ export const test = base.extend<Fixtures>({
     { auto: true },
   ],
 })
+
+/**
+ * Wait until the keyboard shortcuts listen, in `mode`.
+ *
+ * The keydown listener attaches in a useEffect, after React's first
+ * commit, so a key pressed right after `page.goto` can come before it.
+ * useKeyboardShortcuts sets `<html data-keyboard-shortcuts="vim|emacs">`
+ * when the listener is on. Earned 2026-10-24: "Vim Mode › / focuses
+ * search" failed in CI because `/` came too early.
+ */
+export async function waitForKeyboardShortcuts(page: Page, mode: 'vim' | 'emacs'): Promise<void> {
+  await expect(page.locator(`html[data-keyboard-shortcuts="${mode}"]`)).toHaveCount(1)
+}
 
 export { expect }
 export type { Page, Route } from '@playwright/test'

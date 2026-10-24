@@ -492,6 +492,14 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
+    // A DOM signal that the shortcuts listen now, and in which mode. The
+    // listener attaches after React's first commit, so a key pressed right
+    // after page load can come too early; e2e tests wait for this attribute
+    // before they press keys (keyboard-navigation.spec.ts, 2026-10-24).
+    document.documentElement.dataset.keyboardShortcuts = keyboardMode
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      delete document.documentElement.dataset.keyboardShortcuts
+    }
+  }, [handleKeyDown, keyboardMode])
 }
