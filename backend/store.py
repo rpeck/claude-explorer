@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # rendered ``model_dump(mode='json')`` output for ConversationDetail.
 #
 # Why a dict cache (not a Pydantic-object cache):
-#   * On warm hits, the route returns ORJSONResponse(content=cached_dict)
+#   * On warm hits, the route returns OrjsonResponse(content=cached_dict)
 #     which bypasses BOTH Pydantic rebuild (~186 ms per call on the
 #     user's 16K-msg conv) AND FastAPI's default encoder (~70 ms).
 #   * Caching the Pydantic object would still pay model_dump on every
@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 #
 # Mutability contract: the cached dict is SHARED across requests. Callers
 # MUST treat it as immutable. The conversation route returns it directly
-# to ORJSONResponse which serializes without mutation.
+# to OrjsonResponse (backend/responses.py), which serializes without mutation.
 #
 # LRU cap: 32 entries. Each entry is ~5-70 MB on disk worth of dict —
 # at 32 entries the worst-case resident memory is ~2 GB on a heavy
@@ -1028,7 +1028,7 @@ class ConversationStore:
         """Get a conversation as a ``model_dump(mode='json')`` dict, cached.
 
         W3+W4 fast path for the /api/conversations/<uuid> route. The
-        returned dict is suitable for direct hand-off to ORJSONResponse,
+        returned dict is suitable for direct hand-off to OrjsonResponse,
         bypassing both Pydantic rebuild AND FastAPI's default encoder.
 
         Caching:

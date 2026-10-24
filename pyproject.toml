@@ -190,6 +190,10 @@ filterwarnings = [
     "error::pytest.PytestUnraisableExceptionWarning",
     "error::DeprecationWarning:weasyprint",
     "error::ResourceWarning",
+    # A FastAPI deprecation must fail the suite too: fastapi has no upper
+    # bound, and `uv tool install` takes the newest release, so a removed
+    # API breaks every fresh install (ORJSONResponse, 2026-10-23).
+    "error::fastapi.exceptions.FastAPIDeprecationWarning",
 ]
 
 [tool.ruff.lint]
