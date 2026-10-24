@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import shutil
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -202,7 +203,7 @@ def test_search_index_repairs_remote_tasks_indexed_without_a_workspace(tmp_path:
     finally:
         index.close()
 
-    with sqlite3.connect(index_path) as conn:
+    with closing(sqlite3.connect(index_path)) as conn, conn:
         orgs = dict(conn.execute("SELECT conv_uuid, organization_id FROM conversations"))
         msg_orgs = {
             row[0]

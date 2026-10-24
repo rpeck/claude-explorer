@@ -189,6 +189,7 @@ filterwarnings = [
     "error::RuntimeWarning",
     "error::pytest.PytestUnraisableExceptionWarning",
     "error::DeprecationWarning:weasyprint",
+    "error::ResourceWarning",
 ]
 
 [tool.ruff.lint]

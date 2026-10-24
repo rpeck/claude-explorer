@@ -36,6 +36,7 @@ toggle.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -572,7 +573,7 @@ def test_schema_v12_to_current_triggers_rebuild(tmp_path) -> None:
     """
     db_path = tmp_path / "legacy-v12.sqlite"
     # Hand-craft a v12 messages table (no is_compaction_summary).
-    with sqlite3.connect(str(db_path)) as raw:
+    with closing(sqlite3.connect(str(db_path))) as raw, raw:
         raw.execute("""
             CREATE VIRTUAL TABLE messages USING fts5(
                 conv_uuid UNINDEXED,
@@ -1061,7 +1062,7 @@ def test_v13_to_v14_fast_migration_preserves_messages_and_backfills_flag(
     db_path = tmp_path / "legacy-v13.sqlite"
     # Hand-craft a v13 schema: messages FTS5 with is_compaction_summary
     # AND a conversations projection WITHOUT is_compaction_titled.
-    with sqlite3.connect(str(db_path)) as raw:
+    with closing(sqlite3.connect(str(db_path))) as raw, raw:
         raw.execute("""
             CREATE VIRTUAL TABLE messages USING fts5(
                 conv_uuid UNINDEXED,
@@ -1200,7 +1201,7 @@ def test_v13_to_v14_migration_is_idempotent(tmp_path) -> None:
     # v13 schema as above, BUT also add the new column manually (without
     # bumping schema_version). Simulates a crash between ALTER TABLE and
     # the INSERT INTO schema_version.
-    with sqlite3.connect(str(db_path)) as raw:
+    with closing(sqlite3.connect(str(db_path))) as raw, raw:
         raw.execute("""
             CREATE VIRTUAL TABLE messages USING fts5(
                 conv_uuid UNINDEXED,

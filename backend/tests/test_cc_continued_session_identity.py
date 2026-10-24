@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -154,7 +155,7 @@ def test_the_search_index_repairs_a_continuation_stored_under_the_old_uuid(conti
     finally:
         index.close()
 
-    with sqlite3.connect(index_path) as conn:
+    with closing(sqlite3.connect(index_path)) as conn, conn:
         by_file = dict(conn.execute("SELECT path, conv_uuid FROM indexed_files"))
         flamingo_convs = {
             row[0]
