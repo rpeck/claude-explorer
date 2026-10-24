@@ -14,6 +14,11 @@ Read §0 and the file for your task before you write, review, or report on tests
 The test-execution integrity rule is a hard invariant. It now lives in
 [TESTING.md §0](./TESTING.md). Never report a suite as passing without it.
 
+**Before you commit or report work as done, run `uv run python scripts/check.py`
+until it passes.** It runs the same checks as CI. The pre-commit hook refuses
+a commit of content that no green run covers; never bypass it with
+`--no-verify`. If the checks fail, say so plainly.
+
 ## Performance Work
 
 Three project-specific invariants the 2026-05-22 → 2026-05-23 search-perf hunt earned. Full walk: [PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md](./PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md). Testing protocol: [§5.14](./testing/backend-contracts.md). Council-driven perf workflow: `~/.claude/agents/llm-council-coding.md` Rules P0–P11.

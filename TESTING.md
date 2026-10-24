@@ -58,7 +58,22 @@ for any cited number.
 
 ## 0 · Running the tests, and trusting the result
 
-Run each suite from the repository root:
+**Before you commit or report work as done, run every check in one command:**
+
+```bash
+uv run python scripts/check.py              # python + frontend: what a commit needs
+uv run python scripts/check.py --only e2e   # the fixture check and Playwright
+```
+
+- `scripts/check.py` is the one list of checks. CI runs the same sections (`test.yml`), so a green local run and a green CI run test the same things.
+- **python:** ruff, compileall, pytest, and the serial tests. **frontend:** tsc, eslint, vitest, and the React Doctor diff gate.
+- It stops at the first failure and exits with that step's real exit code.
+- A green run of python + frontend records the content that passed. The pre-commit hook (`python3 scripts/check.py --install-hooks`) refuses a commit of other content. `python3 scripts/check.py --verify` tells you whether changed files need a run.
+- **For Claude Code,** `.claude/settings.json` runs `.claude/hooks/require-green-checks.py` at the end of each turn. While any worktree has checked changes that no green run covers, it blocks the end of the turn once, with the list of files. The hook uses this project's `check.py`, never a worktree's, because a worktree can hold an untrusted pull request.
+- There is no flag that records without a run. Do not bypass the hook with `--no-verify`.
+- The hook runs the `scripts/check.py` of the checkout. So when you check out someone else's branch, for example a pull request from a fork, and commit on it, that branch's own script runs. Read the changes to `scripts/` before you commit there.
+
+Run a single suite from the repository root:
 
 ```bash
 uv run pytest            # backend, fetcher, MCP server; parallel

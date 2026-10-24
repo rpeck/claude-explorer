@@ -8,7 +8,7 @@ Two workflows run automatically.
 
 | Workflow | Runners | What it proves |
 |---|---|---|
-| `test.yml` | `ubuntu-26.04` | `ruff check .`, the Python suite, and Playwright in fixture mode |
+| `test.yml` | `ubuntu-26.04` | The three sections of `scripts/check.py`, one job each: python (ruff, compileall, pytest, serial tests), frontend (tsc, eslint, vitest, React Doctor), and e2e (fixture check, Playwright) |
 | `install-matrix.yml` | Seven runners, listed below | The documented install, the CLI, Chromium, `serve`, the watcher, and the Python suite |
 
 ### The install matrix
