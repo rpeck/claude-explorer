@@ -301,9 +301,11 @@ def test__proxy__upstream_404_local_fallback__emits_observability_log(
     upstream.content = b''
     upstream.headers = {"content-type": "application/json"}
 
-    with caplog.at_level(logging.INFO, logger="backend.routers.files"):
-        with patch("curl_cffi.requests.get", return_value=upstream):
-            resp = client.get(f"/api/{_TEST_ORG}/files/{_TEST_FILE}/preview")
+    with (
+        caplog.at_level(logging.INFO, logger="backend.routers.files"),
+        patch("curl_cffi.requests.get", return_value=upstream),
+    ):
+        resp = client.get(f"/api/{_TEST_ORG}/files/{_TEST_FILE}/preview")
     assert resp.status_code == 200, (
         "fallback must succeed for the log assertion to be meaningful"
     )

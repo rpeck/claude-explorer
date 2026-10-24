@@ -527,10 +527,8 @@ def get_summary_cache() -> SummaryCache | None:
             return None
         try:
             _summary_cache = SummaryCache(default_index_path())
-        except sqlite3.Error as exc:
-            logger.error(
-                "summary_cache: failed to open cache: %s", exc, exc_info=True,
-            )
+        except sqlite3.Error:
+            logger.exception("summary_cache: failed to open cache")
             return None
     return _summary_cache
 

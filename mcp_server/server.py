@@ -328,16 +328,15 @@ def _filter_content_blocks(
                         else:
                             entry["input"] = block.input
                 result.append(entry)
-        elif block.type == "tool_result":
-            if include_tool_results and block.content:
-                nested = _filter_content_blocks(
-                    block.content, include_tool_calls, include_tool_results
-                )
-                entry = {"type": "tool_result", "content": nested}
-                # Back-reference to the tool_use.id this is a result for.
-                if block.tool_use_id:
-                    entry["tool_use_id"] = block.tool_use_id
-                result.append(entry)
+        elif block.type == "tool_result" and include_tool_results and block.content:
+            nested = _filter_content_blocks(
+                block.content, include_tool_calls, include_tool_results
+            )
+            entry = {"type": "tool_result", "content": nested}
+            # Back-reference to the tool_use.id this is a result for.
+            if block.tool_use_id:
+                entry["tool_use_id"] = block.tool_use_id
+            result.append(entry)
     return result
 
 

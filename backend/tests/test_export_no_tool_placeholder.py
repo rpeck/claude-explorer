@@ -123,7 +123,7 @@ def _pdf_text(pdf_bytes: bytes) -> str:
     for page in reader.pages:
         try:
             out.append(page.extract_text() or "")
-        except Exception:  # noqa: BLE001 — any extractor failure is a non-signal here
+        except Exception:  # noqa: BLE001, S112 — any extractor failure is a non-signal here
             continue
     text = "\n".join(out)
     # Belt-and-suspenders: also scan raw bytes in case the extractor

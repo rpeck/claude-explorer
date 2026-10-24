@@ -1198,66 +1198,66 @@ class SearchIndex:
                 )
             )
 
-        with self._write_lock:
-            with self._write_conn:  # explicit BEGIN; auto-COMMIT or ROLLBACK
-                self._write_conn.execute(
-                    "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
-                )
-                self._write_conn.executemany(
-                    "INSERT INTO messages "
-                    "(conv_uuid, message_uuid, sender, created_at, source, "
-                    " project_path, organization_id, conv_created_at, "
-                    " conv_updated_at, is_compaction_summary, "
-                    " title, body, body_text) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    rows,
-                )
-                # v10 title projection (2026-05-23). INSERT OR REPLACE
-                # keeps one-row-per-conv invariant on title renames /
-                # re-upserts. Same transaction as the messages writes
-                # so a crash mid-upsert rolls both back — no split-brain
-                # "projection updated, messages stale" state.
-                #
-                # v14 (2026-05-26): also write ``is_compaction_titled``
-                # so the title-sweep helpers can filter out compaction-
-                # derived titles when Show Compactions is OFF. The
-                # ``is_compaction_prefix_text`` shared helper applies
-                # the canonical anchored ``.lstrip().startswith()``
-                # check — same predicate as
-                # ``cowork_reader._extract_cowork_compact_markers``.
-                # User-renamed sessions (``/rename`` writes a
-                # ``custom-title`` row that WINS over the fallback in
-                # ``cc_message_transforms``) get the new title here, so
-                # this flag re-evaluates correctly on the next upsert.
-                is_compaction_titled = 1 if is_compaction_prefix_text(title) else 0
-                self._write_conn.execute(
-                    "INSERT OR REPLACE INTO conversations "
-                    "(conv_uuid, title, conv_created_at, conv_updated_at, "
-                    " project_path, source, organization_id, "
-                    " is_compaction_titled) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        conv_uuid,
-                        title,
-                        conv_created_at,
-                        conv_updated_at,
-                        project_path,
-                        source,
-                        organization_id,
-                        is_compaction_titled,
-                    ),
-                )
-                # v12 (2026-05-25): also persist the conv_uuid so
-                # delete_by_path can resolve it via a SQL lookup
-                # instead of the stem heuristic that silently failed
-                # for Cowork (``local_<uuid>/audit.jsonl`` ⇒ stem ==
-                # "audit", DELETE no-op).
-                self._write_conn.execute(
-                    "INSERT OR REPLACE INTO indexed_files "
-                    "(path, mtime, indexed_at, conv_uuid) "
-                    "VALUES (?, ?, ?, ?)",
-                    (str(file_path), float(mtime), int(time.time()), conv_uuid),
-                )
+        # The connection context is an explicit BEGIN; auto-COMMIT or ROLLBACK.
+        with self._write_lock, self._write_conn:
+            self._write_conn.execute(
+                "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
+            )
+            self._write_conn.executemany(
+                "INSERT INTO messages "
+                "(conv_uuid, message_uuid, sender, created_at, source, "
+                " project_path, organization_id, conv_created_at, "
+                " conv_updated_at, is_compaction_summary, "
+                " title, body, body_text) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+            # v10 title projection (2026-05-23). INSERT OR REPLACE
+            # keeps one-row-per-conv invariant on title renames /
+            # re-upserts. Same transaction as the messages writes
+            # so a crash mid-upsert rolls both back — no split-brain
+            # "projection updated, messages stale" state.
+            #
+            # v14 (2026-05-26): also write ``is_compaction_titled``
+            # so the title-sweep helpers can filter out compaction-
+            # derived titles when Show Compactions is OFF. The
+            # ``is_compaction_prefix_text`` shared helper applies
+            # the canonical anchored ``.lstrip().startswith()``
+            # check — same predicate as
+            # ``cowork_reader._extract_cowork_compact_markers``.
+            # User-renamed sessions (``/rename`` writes a
+            # ``custom-title`` row that WINS over the fallback in
+            # ``cc_message_transforms``) get the new title here, so
+            # this flag re-evaluates correctly on the next upsert.
+            is_compaction_titled = 1 if is_compaction_prefix_text(title) else 0
+            self._write_conn.execute(
+                "INSERT OR REPLACE INTO conversations "
+                "(conv_uuid, title, conv_created_at, conv_updated_at, "
+                " project_path, source, organization_id, "
+                " is_compaction_titled) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    conv_uuid,
+                    title,
+                    conv_created_at,
+                    conv_updated_at,
+                    project_path,
+                    source,
+                    organization_id,
+                    is_compaction_titled,
+                ),
+            )
+            # v12 (2026-05-25): also persist the conv_uuid so
+            # delete_by_path can resolve it via a SQL lookup
+            # instead of the stem heuristic that silently failed
+            # for Cowork (``local_<uuid>/audit.jsonl`` ⇒ stem ==
+            # "audit", DELETE no-op).
+            self._write_conn.execute(
+                "INSERT OR REPLACE INTO indexed_files "
+                "(path, mtime, indexed_at, conv_uuid) "
+                "VALUES (?, ?, ?, ?)",
+                (str(file_path), float(mtime), int(time.time()), conv_uuid),
+            )
 
         return len(rows)
 
@@ -2267,8 +2267,8 @@ def get_search_index() -> SearchIndex | None:
             return None
         try:
             _search_index = SearchIndex(default_index_path())
-        except sqlite3.Error as exc:
-            logger.error("search_index: failed to open index: %s", exc, exc_info=True)
+        except sqlite3.Error:
+            logger.exception("search_index: failed to open index")
             return None
     return _search_index
 

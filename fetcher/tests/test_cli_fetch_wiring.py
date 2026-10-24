@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from click.testing import CliRunner
@@ -54,9 +54,9 @@ from cli.main import main
 class _StubFetcher:
     """Captures the ClaudeFetcher constructor call for inspection."""
 
-    last_kwargs: dict[str, Any] = {}
-    last_run_kwargs: dict[str, Any] = {}
-    last_run_all_orgs_kwargs: dict[str, Any] = {}
+    last_kwargs: ClassVar[dict[str, Any]] = {}
+    last_run_kwargs: ClassVar[dict[str, Any]] = {}
+    last_run_all_orgs_kwargs: ClassVar[dict[str, Any]] = {}
 
     def __init__(self, **kwargs: Any) -> None:
         _StubFetcher.last_kwargs = dict(kwargs)

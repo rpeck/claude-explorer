@@ -1058,11 +1058,11 @@ async def _fetch_phase_stream(
                         # Persist skipped status.
                         await loop.run_in_executor(
                             None,
-                            lambda ek=error_kind, hs=http_status: fetcher.save_index(
+                            lambda ek=error_kind, hs=http_status, em=exc_message: fetcher.save_index(
                                 [], status="skipped",
                                 error_kind=ek,
                                 http_status=hs,
-                                error_message=exc_message,
+                                error_message=em,
                             ),
                         )
                         org_results.append({
@@ -1120,11 +1120,11 @@ async def _fetch_phase_stream(
                         # Per-org transient: skip this org, continue.
                         await loop.run_in_executor(
                             None,
-                            lambda hs=http_status: fetcher.save_index(
+                            lambda hs=http_status, em=exc_message: fetcher.save_index(
                                 [], status="failed",
                                 error_kind="TRANSIENT",
                                 http_status=hs,
-                                error_message=exc_message,
+                                error_message=em,
                             ),
                         )
                         org_results.append({
@@ -1145,14 +1145,14 @@ async def _fetch_phase_stream(
                             }),
                         )
                         continue
-                    logger.error("Fetch terminal error for %s: %s", org_uuid, exc, exc_info=True)
+                    logger.exception("Fetch terminal error for %s", org_uuid)
                     await loop.run_in_executor(
                         None,
-                        lambda hs=http_status: fetcher.save_index(
+                        lambda hs=http_status, em=exc_message: fetcher.save_index(
                             [], status="failed",
                             error_kind="TERMINAL",
                             http_status=hs,
-                            error_message=exc_message,
+                            error_message=em,
                         ),
                     )
                     org_results.append({
@@ -1270,7 +1270,7 @@ async def _fetch_phase_stream(
                                 }),
                             )
                         else:
-                            logger.error("Terminal error fetching %s: %s", name, exc, exc_info=True)
+                            logger.exception("Terminal error fetching %s", name)
                             yield (
                                 "event",
                                 _send_event({
@@ -1306,7 +1306,7 @@ async def _fetch_phase_stream(
                 )
         except Exception as exc:
             # Defensive: any unhandled exception in the per-org block.
-            logger.error("Unhandled per-org error for %s: %s", org_uuid, exc, exc_info=True)
+            logger.exception("Unhandled per-org error for %s", org_uuid)
             org_results.append({
                 "org_id": org_uuid, "name": org_name,
                 "status": "failed",

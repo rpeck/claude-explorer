@@ -222,16 +222,13 @@ async def _lifespan_migration_task(data_dir, credentials_path) -> None:
                 "Lifespan migration deferred (attempt %d, consecutive_failures=%d): %s",
                 _migration_state["attempts"], consecutive_failures, e,
             )
-            try:
-                await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                raise
+            await asyncio.sleep(60)
         except Exception as e:
             # Any other error — log and stop. The user can run
             # `claude-explorer migrate` to retry manually.
             _migration_state["status"] = "stuck"
             _migration_state["last_error"] = str(e)
-            log.error("Lifespan migration failed: %s", e, exc_info=True)
+            log.exception("Lifespan migration failed")
             return
 
 
@@ -373,7 +370,7 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 # Any other error — log and continue. Legacy fallback in
                 # store.py keeps conversations visible.
-                log.error("Lifespan migration failed: %s", e, exc_info=True)
+                log.exception("Lifespan migration failed")
                 _migration_state["status"] = "stuck"
                 _migration_state["last_error"] = str(e)
 

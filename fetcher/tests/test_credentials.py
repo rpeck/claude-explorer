@@ -182,7 +182,7 @@ def test_parent_dir_0700(tmp_path: Path) -> None:
 def test_invalid_schema_rejected(tmp_path: Path) -> None:
     """save_credentials({}) raises before touching disk."""
     creds_path = tmp_path / "credentials.json"
-    with pytest.raises(Exception):  # ValidationError or similar
+    with pytest.raises(CredentialsCorruptError, match="schema_version must be 2"):
         save_credentials({}, creds_path)  # type: ignore[arg-type]
     assert not creds_path.exists()
 
@@ -192,7 +192,7 @@ def test_invalid_primary_not_in_orgs_rejected(tmp_path: Path) -> None:
     creds_path = tmp_path / "credentials.json"
     bad = _v2_creds()
     bad["primary_org_id"] = "uuid-not-in-orgs"
-    with pytest.raises(Exception):
+    with pytest.raises(CredentialsCorruptError, match="primary_org_id"):
         save_credentials(bad, creds_path)
     assert not creds_path.exists()
 
@@ -201,7 +201,7 @@ def test_invalid_empty_session_key_rejected(tmp_path: Path) -> None:
     creds_path = tmp_path / "credentials.json"
     bad = _v2_creds()
     bad["session_key"] = ""
-    with pytest.raises(Exception):
+    with pytest.raises(CredentialsCorruptError, match="session_key must be a non-empty str"):
         save_credentials(bad, creds_path)
 
 
@@ -209,7 +209,7 @@ def test_invalid_empty_orgs_rejected(tmp_path: Path) -> None:
     creds_path = tmp_path / "credentials.json"
     bad = _v2_creds()
     bad["orgs"] = []
-    with pytest.raises(Exception):
+    with pytest.raises(CredentialsCorruptError, match="orgs must be a non-empty list"):
         save_credentials(bad, creds_path)
 
 

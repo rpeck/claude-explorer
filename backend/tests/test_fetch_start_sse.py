@@ -33,7 +33,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 import pytest
@@ -89,14 +89,14 @@ class _FakeFetcher:
     """
 
     # Test hooks (set in tests).
-    list_result: list[dict] = []
+    list_result: ClassVar[list[dict]] = []
     list_raises: BaseException | None = None
     fetch_raises: BaseException | None = None
     fetch_result: dict | None = None
 
     # Recording (zeroed at construction).
-    save_calls: list[dict] = []
-    index_calls: list[list[dict]] = []
+    save_calls: ClassVar[list[dict]] = []
+    index_calls: ClassVar[list[list[dict]]] = []
 
     def __init__(self, **_kwargs: Any) -> None:
         # Matches the kwargs the route passes (line 229-241 / 589-601).

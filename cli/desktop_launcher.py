@@ -158,7 +158,7 @@ def copy_to_clipboard(text: str) -> bool:
     if sys.platform != "win32":
         return False
     try:
-        result = subprocess.run(["clip"], input=text, text=True, capture_output=True, timeout=5)
+        result = subprocess.run(["clip"], input=text, text=True, capture_output=True, timeout=5, check=False)
     except (OSError, subprocess.SubprocessError):
         return False
     return result.returncode == 0

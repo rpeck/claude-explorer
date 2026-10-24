@@ -34,6 +34,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 # Parts not yet ready to render on GitHub; fix and remove before publishing.
 # (Part 3's restructure on 2026-06-02 dropped its image embeds entirely, so it
@@ -46,7 +47,8 @@ FENCE = re.compile(r"^\s*```")
 
 def tracked_under_articles() -> set[str]:
     out = subprocess.run(
-        ["git", "ls-files", "articles"], capture_output=True, text=True
+        ["git", "ls-files", "articles"], capture_output=True, text=True,
+        check=True,
     ).stdout
     return set(out.splitlines())
 
@@ -58,7 +60,7 @@ def is_remote(target: str) -> bool:
 def check_file(path: str, tracked: set[str]) -> list[tuple[int, str, str]]:
     viol: list[tuple[int, str, str]] = []
     in_fence = False
-    for lineno, raw in enumerate(open(path, encoding="utf-8").read().split("\n"), 1):
+    for lineno, raw in enumerate(Path(path).read_text(encoding="utf-8").split("\n"), 1):
         if FENCE.match(raw):
             in_fence = not in_fence
             continue

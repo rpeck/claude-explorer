@@ -288,7 +288,7 @@ def test_schema_version_bumped_to_4() -> None:
     chrome hits until manual reindex."""
     assert SCHEMA_VERSION >= 4, (
         "SCHEMA_VERSION must be >=4 to force a rebuild that clears "
-        "pre-cleanup argless-marker body rows. Got: %d" % SCHEMA_VERSION
+        f"pre-cleanup argless-marker body rows. Got: {SCHEMA_VERSION}"
     )
 
 

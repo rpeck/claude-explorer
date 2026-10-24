@@ -44,6 +44,7 @@ def _run_strict(code: str, tmp_path: Path) -> subprocess.CompletedProcess:
         encoding="utf-8",
         env=_child_env(tmp_path),
         timeout=120,
+        check=False,
     )
 
 

@@ -210,7 +210,8 @@ def test_build_app_makes_a_valid_signed_bundle(tmp_path: Path) -> None:
     assert info["CFBundleIdentifier"] == app_launcher.BUNDLE_ID
     assert (app / "Contents" / "Resources" / "applet.icns").stat().st_size > 10_000
     verify = subprocess.run(
-        ["codesign", "--verify", "--verbose", str(app)], capture_output=True, text=True
+        ["codesign", "--verify", "--verbose", str(app)], capture_output=True, text=True,
+        check=False,
     )
     assert verify.returncode == 0, verify.stderr
 

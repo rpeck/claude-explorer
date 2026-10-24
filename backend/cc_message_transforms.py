@@ -582,10 +582,9 @@ def _is_system_message(entry: dict) -> bool:
     msg = entry.get("message", {})
     content = msg.get("content", "")
 
-    if isinstance(content, list):
-        # Check for tool_result blocks (these are not real user messages)
-        if any(b.get("type") == "tool_result" for b in content):
-            return True
+    # Check for tool_result blocks (these are not real user messages)
+    if isinstance(content, list) and any(b.get("type") == "tool_result" for b in content):
+        return True
 
     text = _get_message_text(entry)
 

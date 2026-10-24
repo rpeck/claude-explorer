@@ -610,7 +610,7 @@ async def test_eager_fill_processpool_shutdown_does_not_orphan_workers(
         while time.monotonic() < deadline:
             if not _process_is_alive(pid):
                 break
-            time.sleep(0.05)
+            await asyncio.sleep(0.05)
         else:
             pytest.fail(
                 f"Worker pid {pid} did not exit within {budget:.0f}s after lifespan "

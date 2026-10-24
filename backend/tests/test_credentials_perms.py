@@ -55,7 +55,8 @@ def assert_owner_only(p: Path) -> None:
     """
     if sys.platform == "win32":
         out = subprocess.run(
-            ["icacls", str(p)], capture_output=True, text=True, timeout=30
+            ["icacls", str(p)], capture_output=True, text=True, timeout=30,
+            check=True,
         ).stdout
         for principal in ("Everyone", "BUILTIN\\Users", "AUTHENTICATED USERS"):
             assert principal not in out, f"{p} still grants {principal}:\n{out}"

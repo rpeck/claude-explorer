@@ -112,6 +112,7 @@ def _macos_check() -> bool:
         capture_output=True,
         text=True,
         timeout=_PROBE_TIMEOUT_SEC,
+        check=False,
     )
     if result.returncode != 0:
         return False
@@ -133,6 +134,7 @@ def _linux_check() -> bool:
         capture_output=True,
         text=True,
         timeout=_PROBE_TIMEOUT_SEC,
+        check=False,
     )
     return result.returncode == 0
 
@@ -145,5 +147,6 @@ def _windows_check() -> bool:
         capture_output=True,
         text=True,
         timeout=_PROBE_TIMEOUT_SEC,
+        check=False,
     )
     return result.returncode == 0

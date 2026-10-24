@@ -346,9 +346,13 @@ def test_acquires_fetch_lock(tmp_path: Path) -> None:
 
     lock_path = data_dir / ".fetch.lock"
 
-    with portalocker.Lock(str(lock_path), mode="a+", flags=portalocker.LOCK_EX | portalocker.LOCK_NB, fail_when_locked=True):
-        with pytest.raises(LockContentionError):
-            migrate_to_v2(data_dir=data_dir, credentials_path=creds_path, timeout_seconds=0.5)
+    with (
+        portalocker.Lock(
+            str(lock_path), mode="a+", flags=portalocker.LOCK_EX | portalocker.LOCK_NB, fail_when_locked=True
+        ),
+        pytest.raises(LockContentionError),
+    ):
+        migrate_to_v2(data_dir=data_dir, credentials_path=creds_path, timeout_seconds=0.5)
 
 
 # ---------------------------------------------------------------------------

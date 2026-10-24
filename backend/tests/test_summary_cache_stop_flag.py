@@ -15,7 +15,7 @@ import asyncio
 import threading
 import time
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 from unittest.mock import patch
 
 import pytest
@@ -26,7 +26,7 @@ from backend import claude_code_reader as ccr
 class _InProcessPool:
     """A ProcessPoolExecutor stand-in that runs map() in this process."""
 
-    maps: list[int] = []
+    maps: ClassVar[list[int]] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass

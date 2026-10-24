@@ -268,7 +268,7 @@ def test_desktop_entry_passes_the_validator(tmp_path: Path) -> None:
     entry.write_text(
         app_launcher.build_desktop_entry(executable="/opt/x y/python", icon=tmp_path / "i.png")
     )
-    result = subprocess.run(["desktop-file-validate", str(entry)], capture_output=True, text=True)
+    result = subprocess.run(["desktop-file-validate", str(entry)], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
 
 

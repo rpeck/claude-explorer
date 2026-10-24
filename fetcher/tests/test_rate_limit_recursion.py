@@ -142,11 +142,13 @@ def test_429_exhaustion_raises_transient_error(tmp_path: Path) -> None:
     # Belt-and-suspenders: patch both sleep symbols so the test is
     # fast regardless of whether the implementation uses raw time.sleep
     # (pre-fix) or _retry_sleep (post-fix).
-    with patch.object(fetcher, "_get", side_effect=fake_get), patch(
-        "fetcher.bulk_fetch._retry_sleep", return_value=None
-    ), patch("fetcher.bulk_fetch.time.sleep", return_value=None):
-        with pytest.raises(FetchTransientError):
-            fetcher.fetch_conversation("conv-2")
+    with (
+        patch.object(fetcher, "_get", side_effect=fake_get),
+        patch("fetcher.bulk_fetch._retry_sleep", return_value=None),
+        patch("fetcher.bulk_fetch.time.sleep", return_value=None),
+        pytest.raises(FetchTransientError),
+    ):
+        fetcher.fetch_conversation("conv-2")
 
     # Bounded: at most a small number of attempts. The exact cap is
     # implementation detail, but it must be finite (<= 10).
