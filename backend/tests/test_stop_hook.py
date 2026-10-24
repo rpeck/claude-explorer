@@ -1,7 +1,9 @@
 """.claude/hooks/require-green-checks.py: the project's Claude Code Stop hook.
 
-At the end of each turn, it blocks the stop once while a worktree of the
-repo has checked changes that no green run of scripts/check.py covers. It
+At the end of each turn, it blocks the stop once while a worktree that this
+session changed has checked changes that no green run of scripts/check.py
+covers. It reads the session's transcript to know those worktrees: another
+agent's worktree, which this session never touched, is not its business. It
 uses its own project's check.py, never a worktree's: a worktree can hold an
 untrusted pull request (2026-10-24).
 """
@@ -36,8 +38,30 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, env=ENV)
 
 
-def _stop(cwd: Path, **extra) -> subprocess.CompletedProcess:
+def _transcript(path: Path, *calls: tuple[str, dict]) -> Path:
+    """A transcript in Claude Code's JSONL form, with these tool calls."""
+    lines = [json.dumps({"type": "user", "message": {"role": "user", "content": "go"}})]
+    for name, tool_input in calls:
+        lines.append(json.dumps({
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "tool_use", "name": name, "input": tool_input}]},
+        }))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _edit(path: Path) -> tuple[str, dict]:
+    return ("Edit", {"file_path": str(path), "old_string": "a", "new_string": "b"})
+
+
+def _cd(path: Path) -> tuple[str, dict]:
+    return ("Bash", {"command": f"cd {path} && git status --short", "description": "status"})
+
+
+def _stop(cwd: Path, transcript: Path | None = None, **extra) -> subprocess.CompletedProcess:
     event = {"hook_event_name": "Stop", "cwd": str(cwd), "stop_hook_active": False, **extra}
+    if transcript is not None:
+        event["transcript_path"] = str(transcript)
     return subprocess.run(
         [sys.executable, str(HOOK)], input=json.dumps(event),
         capture_output=True, text=True, env=ENV, timeout=60, check=False,
@@ -67,12 +91,13 @@ def test_a_clean_repo_may_stop(repo: Path) -> None:
     assert _stop(repo).returncode == 0
 
 
-def test_changed_code_blocks_the_stop_once(repo: Path) -> None:
+def test_changed_code_blocks_the_stop_once(tmp_path: Path, repo: Path) -> None:
     (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
-    result = _stop(repo)
+    transcript = _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py"))
+    result = _stop(repo, transcript)
     assert result.returncode == 2
     assert "backend/code.py" in result.stderr
-    assert _stop(repo, stop_hook_active=True).returncode == 0
+    assert _stop(repo, transcript, stop_hook_active=True).returncode == 0
 
 
 def test_outside_git_and_without_the_protocol(tmp_path: Path, repo: Path) -> None:
@@ -85,19 +110,43 @@ def test_outside_git_and_without_the_protocol(tmp_path: Path, repo: Path) -> Non
     assert _stop(repo).returncode == 0, "a worktree without scripts/check.py is not checked"
 
 
-def test_a_dirty_second_worktree_blocks(tmp_path: Path, repo: Path) -> None:
+def test_a_worktree_that_this_session_worked_in_blocks(tmp_path: Path, repo: Path) -> None:
     wt = tmp_path / "wt"
     _git(repo, "worktree", "add", "-q", "-b", "side", str(wt))
     (wt / "backend" / "code.py").write_text("x = 3\n", encoding="utf-8")
-    result = _stop(repo)
+    result = _stop(repo, _transcript(tmp_path / "t.jsonl", _cd(wt)))
     assert result.returncode == 2
     assert str(wt) in result.stderr
 
 
-def test_a_green_run_lets_it_stop(repo: Path) -> None:
+def test_another_agents_worktree_does_not_block(tmp_path: Path, repo: Path) -> None:
+    """Another agent can be in the middle of a change in its own worktree."""
+    wt = tmp_path / "other-agent"
+    _git(repo, "worktree", "add", "-q", "-b", "other", str(wt))
+    (wt / "backend" / "code.py").write_text("half done\n", encoding="utf-8")
+    transcript = _transcript(tmp_path / "t.jsonl", _cd(repo), ("Read", {"file_path": str(wt / "backend" / "code.py")}))
+    assert _stop(repo, transcript).returncode == 0
+
+
+def test_without_a_transcript_only_the_cwd_worktree_counts(tmp_path: Path, repo: Path) -> None:
+    wt = tmp_path / "other-agent"
+    _git(repo, "worktree", "add", "-q", "-b", "other", str(wt))
+    (wt / "backend" / "code.py").write_text("half done\n", encoding="utf-8")
+    assert _stop(repo).returncode == 0
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    assert _stop(repo).returncode == 2
+
+
+def test_an_edit_outside_every_worktree_is_ignored(tmp_path: Path, repo: Path) -> None:
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    outside = tmp_path / "notes.md"
+    assert _stop(repo, _transcript(tmp_path / "t.jsonl", _edit(outside))).returncode == 0
+
+
+def test_a_green_run_lets_it_stop(tmp_path: Path, repo: Path) -> None:
     (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
     subprocess.run([sys.executable, "-c", GREEN_RUN], cwd=repo, check=True, capture_output=True, env=ENV)
-    assert _stop(repo).returncode == 0
+    assert _stop(repo, _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py"))).returncode == 0
 
 
 def test_the_hook_never_runs_a_worktrees_script(tmp_path: Path, repo: Path) -> None:
@@ -111,5 +160,5 @@ def test_the_hook_never_runs_a_worktrees_script(tmp_path: Path, repo: Path) -> N
     script.write_text(source.replace(future, future + f"open({str(canary)!r}, 'w').close()\n", 1), encoding="utf-8")
     _git(repo, "commit", "-qam", "script with a side effect")
     (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
-    assert _stop(repo).returncode == 2
+    assert _stop(repo, _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py"))).returncode == 2
     assert not canary.exists(), "the hook ran the worktree's check.py"
