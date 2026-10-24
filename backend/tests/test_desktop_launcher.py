@@ -62,10 +62,35 @@ _FAKE_SERVER = textwrap.dedent(
 )
 
 
+_PORTS_PER_WORKER = 200
+_PORT_BASE = 20000  # below every OS's ephemeral range (Linux starts at 32768)
+
+
+def _worker_port_range(worker: str | None) -> range:
+    """The ports of one xdist worker ("gw3"), or of a run without xdist."""
+    index = int(worker[2:]) if worker and worker.startswith("gw") else 0
+    start = _PORT_BASE + index * _PORTS_PER_WORKER
+    return range(start, start + _PORTS_PER_WORKER)
+
+
+_next_port = iter(_worker_port_range(os.environ.get("PYTEST_XDIST_WORKER")))
+
+
 def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+    """A port that no other worker uses, and that this worker has not used.
+
+    Port 0 asks the OS for an ephemeral port, and two workers could get the
+    same one: the test then saw the other worker's server. The counter
+    also skips ports that a stopped server left in TIME_WAIT.
+    """
+    for port in _next_port:
+        with socket.socket() as s:
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+        return port
+    pytest.fail("this worker used all of its test ports")
 
 
 def _serves(port: int, token: str) -> bool:
@@ -146,6 +171,22 @@ def launcher_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             proc.kill()
         proc.wait()
     desktop_launcher.stop_recorded_server()
+
+
+def test_two_workers_never_get_the_same_port() -> None:
+    """Each xdist worker takes ports from its own range, below every OS's
+    ephemeral range. From the OS's ephemeral range, two workers could get
+    the same port, and a test then saw the other worker's server (CI,
+    2026-10-23 and 2026-10-24)."""
+    ranges = [_worker_port_range(f"gw{n}") for n in range(16)]
+    for i, a in enumerate(ranges):
+        assert a.stop <= 32768, f"gw{i} reaches the Linux ephemeral range: {a}"
+        for b in ranges[i + 1 :]:
+            assert not set(a) & set(b), f"{a} and {b} overlap"
+    assert _worker_port_range(None) == _worker_port_range("gw0")
+    first, second = _free_port(), _free_port()
+    assert first != second
+    assert {first, second} <= set(_worker_port_range(os.environ.get("PYTEST_XDIST_WORKER")))
 
 
 def test_open_starts_records_and_leaves_the_server_running(launcher_env) -> None:
