@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, PRIMARY_ORG, type Page, type Route, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, PRIMARY_ORG, type Page, type Route, withNetRetry, waitForScrollQuiet, recordJumps, jumps, clearJumps, expectNoRevert } from './fixtures'
 import type { Message } from '../src/lib/types'
 
 /**
@@ -183,29 +183,7 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
     })
     await page.setViewportSize({ width: 1024, height: 700 })
 
-    // Log every URL change.
-    const urlLog: string[] = []
-    page.on('framenavigated', (frame) => {
-      if (frame === page.mainFrame()) {
-        urlLog.push(frame.url())
-      }
-    })
-    // The URL changes via pushState/replaceState (SPA) won't fire
-    // 'framenavigated'. Use the request listener to log any URL change
-    // via history. Simpler: poll page.url() and accumulate distinct values.
-    const distinctUrls: string[] = []
-    let lastUrl = ''
-    const stopPolling = { v: false }
-    const polling = (async () => {
-      while (!stopPolling.v) {
-        const u = page.url()
-        if (u !== lastUrl) {
-          distinctUrls.push(u)
-          lastUrl = u
-        }
-        await new Promise((r) => setTimeout(r, 25))
-      }
-    })()
+    await recordJumps(page)
 
     await withNetRetry(page, () => page.goto(`/conversations/${C}`))
     await expect(page.locator('[data-message-uuid="cm-0"]')).toBeVisible()
@@ -220,18 +198,19 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
     const live = page.locator('[data-testid="search-match-aria-live"]')
     await expect(live).toContainText(/Match\s+1\s+of\s+2/i, { timeout: 5000 })
 
-    // Reset URL log just before Cmd+G.
-    distinctUrls.length = 0
-    // Drain URL change for clarity.
-    await page.waitForTimeout(200)
-    distinctUrls.length = 0
+    // The auto-promote jump has settled; start the record just before Cmd+G.
+    await waitForScrollQuiet(page)
+    await clearJumps(page)
 
     await page.keyboard.press(isMac ? 'Meta+g' : 'Control+g')
 
-    // Wait long enough for any bounce to materialize.
-    await page.waitForTimeout(2000)
-    stopPolling.v = true
-    await polling
+    // The jump and its corrections are done. A bounce would run inside
+    // that window: its effect chain is quicker than the correction chain
+    // (2026-10-24: a 2 s sleep).
+    await expect(live).toContainText(/Match\s+2\s+of\s+2/i)
+    await waitForScrollQuiet(page)
+    const { urls: distinctUrls, live: liveLog } = await jumps(page)
+    expectNoRevert(liveLog, /Match\s+2\s+of\s+2/i)
 
     // We expect: URL changes ONCE to include highlight=cm-25, and that's it.
     // Pre-fix the URL goes highlight=cm-25, then the
@@ -336,6 +315,7 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
       })
     })
     await page.setViewportSize({ width: 1024, height: 800 })
+    await recordJumps(page)
     await withNetRetry(page, () => page.goto(`/conversations/${C}`))
     await expect(page.locator('[data-message-uuid="c-m0"]')).toBeVisible()
 
@@ -365,7 +345,8 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
     // useMemo, fires the activeMatchIndex reset effect (deps include
     // scope), drops index back to -1, then auto-promote sets it to 0
     // → URL navigates back to c-m0 (the first match).
-    await page.waitForTimeout(1500)
+    await waitForScrollQuiet(page) // the jump and its corrections are done
+    expectNoRevert((await jumps(page)).live, /Match\s+2\s+of\s+3/i)
     await expect(live).toContainText(/Match\s+2\s+of\s+3/i)
     await expect(page).toHaveURL(/highlight=c-m25/)
 
@@ -374,7 +355,8 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
     await expect(page).toHaveURL(/highlight=c-m49/, { timeout: 3000 })
     await expect(live).toContainText(/Match\s+3\s+of\s+3/i, { timeout: 3000 })
 
-    await page.waitForTimeout(1500)
+    await waitForScrollQuiet(page)
+    expectNoRevert((await jumps(page)).live, /Match\s+3\s+of\s+3/i)
     await expect(live).toContainText(/Match\s+3\s+of\s+3/i)
     await expect(page).toHaveURL(/highlight=c-m49/)
   })
@@ -393,6 +375,7 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
     await mockSearchTwoConvs(page)
     await page.setViewportSize({ width: 1024, height: 900 })
 
+    await recordJumps(page)
     await withNetRetry(page, () => page.goto(`/conversations/${A}`))
     await expect(page.locator('[data-message-uuid="a-msg-1"]')).toBeVisible()
 
@@ -426,7 +409,9 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
     // re-run, which fires the activeMatchIndex reset effect (deps
     // include `scope`), drops index back to -1, then auto-promote
     // sets it to 0 → user is yanked back to match 1.
-    await page.waitForTimeout(1500)
+    await expect(page.locator('[data-message-uuid="b-msg-1"]')).toBeVisible()
+    await waitForScrollQuiet(page) // conv B's jump and its corrections are done
+    expectNoRevert((await jumps(page)).live, /Match\s+2\s+of\s+2/i)
     await expect(live).toContainText(/Match\s+2\s+of\s+2/i)
     await expect(page).toHaveURL(new RegExp(`/conversations/${B}`))
   })
@@ -445,6 +430,7 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
     await mockSearchTwoConvs(page)
     await page.setViewportSize({ width: 1024, height: 900 })
 
+    await recordJumps(page)
     await withNetRetry(page, () => page.goto(`/conversations/${A}`))
     await expect(page.locator('[data-message-uuid="a-msg-1"]')).toBeVisible()
 
@@ -469,7 +455,9 @@ test.describe('Search — Cmd+G / card-click does NOT jump back (2026-05-24)', (
 
     // The jump-back race fires within ~50-200ms post-navigation. Wait
     // generously to catch it.
-    await page.waitForTimeout(1500)
+    await expect(page.locator('[data-message-uuid="b-msg-1"]')).toBeVisible()
+    await waitForScrollQuiet(page) // conv B's jump and its corrections are done
+    expectNoRevert((await jumps(page)).live, /Match\s+2\s+of\s+2/i)
     await expect(live).toContainText(/Match\s+2\s+of\s+2/i)
     await expect(page).toHaveURL(new RegExp(`/conversations/${B}`))
   })

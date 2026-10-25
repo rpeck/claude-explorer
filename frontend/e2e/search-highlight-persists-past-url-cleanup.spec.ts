@@ -98,6 +98,7 @@ test.describe('Search-hit highlights persist past the URL-cleanup timer (2026-05
       details: { [CONV]: detail },
     })
     await mockSearch(page)
+    await page.clock.install()
     await withNetRetry(page, () => page.goto(`/conversations/${CONV}`))
 
     // Open search panel, type the needle. Auto-promote should land on
@@ -118,11 +119,12 @@ test.describe('Search-hit highlights persist past the URL-cleanup timer (2026-05
     await expect(bubble.locator('mark')).toHaveCount(2)
     await expect(bubble.locator('mark').first()).toContainText(NEEDLE)
 
-    // Wait LONGER than the 2 s highlight-effect URL cleanup. Without
-    // the activeMatchUuid gate, the URL `?highlight=` param clears,
-    // the bubble's `searchQuery` prop drops to `''`, and the `<mark>`
-    // nodes disappear (the bug the user reported in the screenshot).
-    await page.waitForTimeout(2500)
+    // Run the 2 s highlight-effect URL cleanup for certain, on the page
+    // clock (2026-10-24: a real 2.5 s sleep). Without the activeMatchUuid
+    // gate, the URL `?highlight=` param clears, the bubble's
+    // `searchQuery` prop drops to `''`, and the `<mark>` nodes disappear
+    // (the bug the user reported in the screenshot).
+    await page.clock.runFor(2500)
 
     // USER-OBSERVABLE CONTRACT: marks must still be there.
     await expect(bubble.locator('mark')).toHaveCount(2)

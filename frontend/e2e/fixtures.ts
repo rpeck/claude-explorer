@@ -945,6 +945,96 @@ export async function waitForScrollQuiet(page: Page): Promise<void> {
 }
 
 /**
+ * Record, inside the page, every URL that history gets (pushState,
+ * replaceState, popstate). A navigation can be undone within a
+ * millisecond; checking page.url() once afterwards could miss the bounce.
+ * Install before `page.goto`. Read with `historyRecord(page)`.
+ */
+export async function recordHistory(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __history: string[] }
+    w.__history = [location.href]
+    for (const name of ['pushState', 'replaceState'] as const) {
+      const real = history[name].bind(history)
+      history[name] = ((...args: Parameters<History['pushState']>) => {
+        real(...args)
+        w.__history.push(location.href)
+      }) as History['pushState']
+    }
+    addEventListener('popstate', () => w.__history.push(location.href))
+  })
+}
+
+export async function historyRecord(page: Page): Promise<string[]> {
+  return page.evaluate(() => [...(window as unknown as { __history: string[] }).__history])
+}
+
+/**
+ * Wait until the browser has drawn `count` more frames. Work that the
+ * current frame scheduled (ResizeObserver callbacks, React's passive
+ * effects) has run by then. An order of events, not a delay.
+ */
+export async function nextFrames(page: Page, count = 2): Promise<void> {
+  await page.evaluate(
+    (n) =>
+      new Promise<void>((resolve) => {
+        const step = (left: number) => (left === 0 ? resolve() : requestAnimationFrame(() => step(left - 1)))
+        step(n)
+      }),
+    count,
+  )
+}
+
+/**
+ * Record, inside the page, every URL that history gets and every text of
+ * the "Match N of M" live region. A bounce can last a few milliseconds and
+ * need not change the URL; sampling page.url() from the test every 25 ms
+ * could miss it (2026-10-24).
+ */
+export async function recordJumps(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __urls: string[]; __live: string[] }
+    w.__urls = []
+    w.__live = []
+    for (const name of ['pushState', 'replaceState'] as const) {
+      const real = history[name].bind(history)
+      history[name] = ((...args: Parameters<History['pushState']>) => {
+        real(...args)
+        w.__urls.push(location.href)
+      }) as History['pushState']
+    }
+    addEventListener('popstate', () => w.__urls.push(location.href))
+    new MutationObserver(() => {
+      const text = document.querySelector('[data-testid="search-match-aria-live"]')?.textContent?.trim() ?? ''
+      if (text && w.__live[w.__live.length - 1] !== text) w.__live.push(text)
+    }).observe(document, { childList: true, subtree: true, characterData: true })
+  })
+}
+
+export async function jumps(page: Page): Promise<{ urls: string[]; live: string[] }> {
+  return page.evaluate(() => {
+    const w = window as unknown as { __urls: string[]; __live: string[] }
+    return { urls: [...w.__urls], live: [...w.__live] }
+  })
+}
+
+export async function clearJumps(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __urls: string[]; __live: string[] }
+    w.__urls.length = 0
+    w.__live.length = 0
+  })
+}
+
+/** Once `target` showed in the live region, no other match text followed it. */
+export function expectNoRevert(live: string[], target: RegExp) {
+  const first = live.findIndex((t) => target.test(t))
+  expect(first, `the live region never showed ${target}: ${JSON.stringify(live)}`).toBeGreaterThan(-1)
+  const after = live.slice(first).filter((t) => /Match\s+\d+/i.test(t))
+  expect(after.every((t) => target.test(t)), `the live region went back: ${JSON.stringify(live)}`).toBe(true)
+}
+
+/**
  * Record whether the backend-connection dialog ever appears.
  *
  * Install before `page.goto`. A MutationObserver sees every appearance,

@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForScrollQuiet, recordHistory, historyRecord } from './fixtures'
 import type { SearchResult, Message } from '../src/lib/types'
 
 /**
@@ -159,6 +159,7 @@ test.describe('Search — clicking a hit scrolls its target bubble (A1 two-tier 
     // be centered.
     await page.setViewportSize({ width: 1024, height: 900 })
 
+    await recordHistory(page)
     await withNetRetry(page, () => page.goto(`/conversations/${CONV_UUID}`))
     await expect(page.locator('[data-message-uuid="m-0000"]')).toBeVisible()
 
@@ -182,10 +183,11 @@ test.describe('Search — clicking a hit scrolls its target bubble (A1 two-tier 
     // NEGATIVE bidirectional pin: fast path must NOT have changed the
     // URL. If the URL acquires `?highlight=`, it means we regressed to
     // the URL-only path (A2) — that would break the
-    // search-focus-model + search-auto-focus tests downstream. Wait
-    // 500 ms to ensure we're not just sampling before navigate would
-    // have fired.
-    await page.waitForTimeout(500)
+    // search-focus-model + search-auto-focus tests downstream. The jump
+    // has settled, and the in-page history record holds every URL the
+    // page had (2026-10-24: a 500 ms sleep, then one look).
+    await waitForScrollQuiet(page)
+    expect((await historyRecord(page)).filter((u) => u.includes('highlight='))).toEqual([])
     expect(new URL(page.url()).searchParams.get('highlight')).toBeNull()
   })
 
