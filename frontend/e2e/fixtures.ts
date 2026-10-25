@@ -912,6 +912,39 @@ export async function waitForKeyboardShortcuts(page: Page, mode: 'vim' | 'emacs'
 }
 
 /**
+ * Wait until the conversation stream has stopped moving: no scroll
+ * correction is pending (`data-scroll-settling`, set by
+ * scrollBubbleIntoView) and `scrollTop` was the same for 3 animation
+ * frames in a row. A smooth scroll changes `scrollTop` every frame, and a
+ * pending correction keeps the attribute set, so this ends when the page
+ * has really settled. It counts frames, not milliseconds (2026-10-24:
+ * the scroll specs slept 300-1500 ms instead).
+ */
+export async function waitForScrollQuiet(page: Page): Promise<void> {
+  const quiet = await page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
+        if (!stream) return resolve(true)
+        let last = stream.scrollTop
+        let still = 0
+        let frames = 0
+        const tick = () => {
+          frames += 1
+          const now = stream.scrollTop
+          still = now === last && !stream.hasAttribute('data-scroll-settling') ? still + 1 : 0
+          last = now
+          if (still >= 3) return resolve(true)
+          if (frames > 1200) return resolve(false)
+          requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      }),
+  )
+  expect(quiet, 'the message stream kept scrolling').toBe(true)
+}
+
+/**
  * Record whether the backend-connection dialog ever appears.
  *
  * Install before `page.goto`. A MutationObserver sees every appearance,

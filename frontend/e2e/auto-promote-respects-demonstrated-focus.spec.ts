@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForScrollQuiet } from './fixtures'
 import type { SearchResult, Message, CompactMarker } from '../src/lib/types'
 
 /**
@@ -289,19 +289,14 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
 
     // Close the search panel so its overlay does not intercept clicks.
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(200)
 
     // Click a non-hit bubble in the same area. m-0085 is filler near the
     // first hit; the virtualizer keeps it mounted via overscan.
     const clickedUuid = 'm-0085'
     const clickedBubble = page.locator(`[data-message-uuid="${clickedUuid}"]`)
     await expect(clickedBubble).toBeAttached({ timeout: 5000 })
-    if (!(await clickedBubble.isVisible())) {
-      await clickedBubble.scrollIntoViewIfNeeded()
-      await page.waitForTimeout(300)
-    }
-    await clickedBubble.click()
-    await page.waitForTimeout(300)
+    await clickedBubble.click() // click() scrolls it into view first
+    await waitForScrollQuiet(page)
 
     const distanceBeforeToggle = await distancePxFromCenter(page, clickedUuid)
     // Sanity: the clicked bubble was near viewport (else the test setup
@@ -330,10 +325,15 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
     )
     await expect(compactionsCheckbox).toBeChecked()
     const heightBefore = await streamTotalHeight(page)
+    // The toggle changes the search query key: the app fetches the hits
+    // again, and auto-promote reacts to that answer (2026-10-24: a 1.5 s
+    // sleep instead of these two signals).
+    const refetched = page.waitForResponse((r) => r.url().includes('/api/search'))
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).not.toBeChecked()
     await waitForHeightShrink(page, heightBefore, 1000)
-    await page.waitForTimeout(1500)
+    await refetched
+    await waitForScrollQuiet(page)
 
     // CONTRACT 1: the sidebar's active-match counter must show "no
     // active match" (the "—" placeholder in SearchPanel.tsx:460).
@@ -367,7 +367,7 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
     // by a few hundred px when row heights change). Anything more means
     // auto-promote fired.
     await page.keyboard.press('Escape') // close search panel
-    await page.waitForTimeout(200)
+    await waitForScrollQuiet(page)
     const scrollTopAfterToggle = await streamScrollTop(page)
     const delta = Math.abs(scrollTopAfterToggle - scrollTopBeforeToggle)
     expect(
@@ -416,10 +416,15 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
       '[data-testid="header-show-compactions-checkbox"]',
     )
     const heightBefore = await streamTotalHeight(page)
+    // The toggle changes the search query key: the app fetches the hits
+    // again, and auto-promote reacts to that answer (2026-10-24: a 1.5 s
+    // sleep instead of these two signals).
+    const refetched = page.waitForResponse((r) => r.url().includes('/api/search'))
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).not.toBeChecked()
     await waitForHeightShrink(page, heightBefore, 1000)
-    await page.waitForTimeout(1500)
+    await refetched
+    await waitForScrollQuiet(page)
 
     // Auto-promote should fire: sidebar lands on match 1 (the first
     // matching message in the refreshed result set, which is still
@@ -463,7 +468,6 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
 
     // Close search panel.
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(200)
 
     // Fire a real wheel event on the message stream. The deltaY signals
     // user-initiated scroll (programmatic scroll does NOT fire wheel
@@ -485,7 +489,7 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
       ) as HTMLElement | null
       if (el) el.scrollTop = Math.max(0, el.scrollTop - 2000)
     })
-    await page.waitForTimeout(300)
+    await waitForScrollQuiet(page)
 
     const scrollTopBeforeToggle = await streamScrollTop(page)
 
@@ -495,10 +499,15 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
     )
     await expect(compactionsCheckbox).toBeChecked()
     const heightBefore = await streamTotalHeight(page)
+    // The toggle changes the search query key: the app fetches the hits
+    // again, and auto-promote reacts to that answer (2026-10-24: a 1.5 s
+    // sleep instead of these two signals).
+    const refetched = page.waitForResponse((r) => r.url().includes('/api/search'))
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).not.toBeChecked()
     await waitForHeightShrink(page, heightBefore, 1000)
-    await page.waitForTimeout(1500)
+    await refetched
+    await waitForScrollQuiet(page)
 
     void scrollTopBeforeToggle
 
@@ -555,25 +564,25 @@ test.describe('Bug 3 (2026-05-26): auto-promote respects demonstrated focus', ()
 
     // Close search panel, click a bubble (demonstrated focus).
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(200)
     const clickedUuid = 'm-0085'
     const clickedBubble = page.locator(`[data-message-uuid="${clickedUuid}"]`)
-    if (!(await clickedBubble.isVisible())) {
-      await clickedBubble.scrollIntoViewIfNeeded()
-      await page.waitForTimeout(300)
-    }
-    await clickedBubble.click()
-    await page.waitForTimeout(300)
+    await clickedBubble.click() // click() scrolls it into view first
+    await waitForScrollQuiet(page)
 
     // Toggle Show Compactions OFF — demonstrated focus suppresses auto-promote.
     const compactionsCheckbox = page.locator(
       '[data-testid="header-show-compactions-checkbox"]',
     )
     const heightBefore = await streamTotalHeight(page)
+    // The toggle changes the search query key: the app fetches the hits
+    // again, and auto-promote reacts to that answer (2026-10-24: a 1.5 s
+    // sleep instead of these two signals).
+    const refetched = page.waitForResponse((r) => r.url().includes('/api/search'))
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).not.toBeChecked()
     await waitForHeightShrink(page, heightBefore, 1000)
-    await page.waitForTimeout(1500)
+    await refetched
+    await waitForScrollQuiet(page)
 
     // Confirm: sidebar shows no active match.
     await page.keyboard.press('Meta+k')
