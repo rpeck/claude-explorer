@@ -177,14 +177,22 @@ export function ConversationList({
   // Row UUIDs in display order. Keyboard navigation (j/k, arrows) walks
   // this list, so it must match what the user sees: folder by folder
   // without collapsed folders when grouped, else starred first.
-  const orderedIds = useMemo(() => {
+  //
+  // Keyed by content: the recent filter's clock makes a new
+  // `conversations` array once a minute, and a new ID array each time
+  // would re-run the sync below and undo the user's keyboard selection.
+  const orderedIdsKey = useMemo(() => {
     if (!conversations) return null
-    if (folders) return displayOrder(folders, collapsedGroups)
+    if (folders) return displayOrder(folders, collapsedGroups).join('\n')
     return [
       ...conversations.filter((c) => c.is_starred),
       ...conversations.filter((c) => !c.is_starred),
-    ].map((c) => c.uuid)
+    ].map((c) => c.uuid).join('\n')
   }, [conversations, folders, collapsedGroups])
+  const orderedIds = useMemo(
+    () => (orderedIdsKey === null ? null : orderedIdsKey ? orderedIdsKey.split('\n') : []),
+    [orderedIdsKey],
+  )
 
   // Register conversation IDs with navigation context (in display order)
   useEffect(() => {
@@ -193,13 +201,15 @@ export function ConversationList({
 
   // Sync selectedIndex with the currently viewed conversation (from URL)
   // Only runs when the URL or conversation list changes, NOT when selectedIndex changes
-  // (otherwise it would override keyboard navigation)
+  // (otherwise it would override keyboard navigation).
+  //
+  // A filter can hide the open conversation (no exceptions; UX.md →
+  // "Conversation List filters"). Then no row is selected (-1). A stale
+  // index would select another row, and ConversationPage would show its
+  // "Press Enter to open" hint in place of the open conversation.
   useEffect(() => {
     if (selectedUuid && orderedIds) {
-      const index = orderedIds.indexOf(selectedUuid)
-      if (index !== -1) {
-        setSelectedIndex(index)
-      }
+      setSelectedIndex(orderedIds.indexOf(selectedUuid))
     }
   }, [selectedUuid, orderedIds, setSelectedIndex])
 
