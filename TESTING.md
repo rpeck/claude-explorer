@@ -68,8 +68,13 @@ uv run python scripts/check.py --only e2e   # the fixture check and Playwright
 - `scripts/check.py` is the one list of checks. CI runs the same sections (`test.yml`), so a green local run and a green CI run test the same things.
 - **python:** ruff, compileall, pytest, and the serial tests. **frontend:** tsc, eslint, vitest, and the React Doctor diff gate.
 - It stops at the first failure and exits with that step's real exit code.
-- A green run of python + frontend records the content that passed. The pre-commit hook (`python3 scripts/check.py --install-hooks`) refuses a commit of other content. `python3 scripts/check.py --verify` tells you whether changed files need a run.
-- **For Claude Code,** `.claude/settings.json` runs `.claude/hooks/require-green-checks.py` at the end of each turn. While any worktree has checked changes that no green run covers, it blocks the end of the turn once, with the list of files. The hook uses this project's `check.py`, never a worktree's, because a worktree can hold an untrusted pull request.
+- A green run of python + frontend records the content that passed. The pre-commit hook (`uv run python scripts/check.py --install-hooks`) refuses a commit of other content. `uv run python scripts/check.py --verify` tells you whether changed files need a run.
+- **For Claude Code,** the checked-in `.claude/settings.json` runs `.claude/hooks/require-green-checks.py` at the end of each turn. You do not install it.
+  - If a worktree that this session changed has checked changes that no green run covers, the hook blocks the end of the turn once, with the list of files.
+  - It runs through `uv`, not the `python3` on PATH. That `python3` can be Xcode's Python 3.9 on macOS, where `check.py` does not import, or the Microsoft Store stub on Windows.
+  - It finds the session's worktrees in the session transcript: the files of Edit and Write calls, and the targets of `cd` in Bash commands. Without a transcript, it uses the worktree of the session's folder.
+  - It ignores the other worktrees. Another agent can be in the middle of a change there.
+  - It uses this project's `check.py`, never a worktree's, because a worktree can hold an untrusted pull request.
 - There is no flag that records without a run. Do not bypass the hook with `--no-verify`.
 - The hook runs the `scripts/check.py` of the checkout. So when you check out someone else's branch, for example a pull request from a fork, and commit on it, that branch's own script runs. Read the changes to `scripts/` before you commit there.
 
