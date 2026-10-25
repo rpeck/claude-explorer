@@ -28,7 +28,9 @@ test.describe('Toast position must not be occluded by the search panel', () => {
     await withNetRetry(page, () => page.goto('/'))
     await page.keyboard.press('Meta+k')
     const searchPanel = page.locator('[data-testid="search-panel"], aside[aria-label*="earch"]').first()
-    await page.waitForTimeout(300)
+    // The panel is open (2026-10-24: a 300 ms sleep, and the overlap check
+    // below ran only `if` the panel happened to be visible).
+    await expect(searchPanel).toBeVisible()
 
     const headerRefresh = page.locator('aside button[title="Refresh conversation list"]')
     await headerRefresh.click()
@@ -45,17 +47,15 @@ test.describe('Toast position must not be occluded by the search panel', () => {
     const viewport = page.viewportSize()
     if (!viewport) throw new Error('viewport missing')
 
-    if (await searchPanel.isVisible().catch(() => false)) {
-      const panelBox = await searchPanel.boundingBox()
-      if (panelBox) {
-        const overlapX =
-          Math.max(0, Math.min(toastBox.x + toastBox.width, panelBox.x + panelBox.width) - Math.max(toastBox.x, panelBox.x))
-        const overlapY =
-          Math.max(0, Math.min(toastBox.y + toastBox.height, panelBox.y + panelBox.height) - Math.max(toastBox.y, panelBox.y))
-        const overlapArea = overlapX * overlapY
-        const toastArea = toastBox.width * toastBox.height
-        expect(overlapArea / toastArea).toBeLessThan(0.25)
-      }
-    }
+    await expect(searchPanel).toBeVisible()
+    const panelBox = await searchPanel.boundingBox()
+    if (!panelBox) throw new Error('search panel box missing')
+    const overlapX =
+      Math.max(0, Math.min(toastBox.x + toastBox.width, panelBox.x + panelBox.width) - Math.max(toastBox.x, panelBox.x))
+    const overlapY =
+      Math.max(0, Math.min(toastBox.y + toastBox.height, panelBox.y + panelBox.height) - Math.max(toastBox.y, panelBox.y))
+    const overlapArea = overlapX * overlapY
+    const toastArea = toastBox.width * toastBox.height
+    expect(overlapArea / toastArea).toBeLessThan(0.25)
   })
 })

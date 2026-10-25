@@ -120,9 +120,12 @@ test.describe('Refresh toast: live progress text (Bug 2)', () => {
 
     // After the burst of events, only ONE toast should be visible. If
     // toast.loading was called without a stable id, we'd see 5 stacked.
-    await page.waitForTimeout(1000);
-    const toastCount = await page.locator('[data-sonner-toast]').count();
-    expect(toastCount).toBe(1);
+    // The stream ends after the last event, so the app shows "Connection
+    // lost during refresh." in the same toast: every event was handled
+    // (2026-10-24: a 1 s sleep). Stacked progress toasts would still be
+    // on screen beside it.
+    await expect(page.locator('[data-sonner-toast]', { hasText: /Connection lost during refresh/ })).toBeVisible();
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(1);
   });
 
   test('long conversation names never leak un-truncated to the toast', async ({ page }) => {

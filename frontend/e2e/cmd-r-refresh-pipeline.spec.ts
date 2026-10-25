@@ -170,10 +170,29 @@ test.describe('Stream C: Cmd+R triggers /api/fetch/refresh', () => {
       },
     })
 
+    // Count the refresh streams that the page opens. startRefresh creates
+    // its EventSource synchronously in the key handler, so the count is
+    // final when keyboard.press() returns (2026-10-24: a 300 ms sleep "for
+    // a spurious second request").
+    await page.addInitScript(() => {
+      const Real = window.EventSource
+      const w = window as unknown as { __refreshStreams: number }
+      w.__refreshStreams = 0
+      window.EventSource = class extends Real {
+        constructor(url: string | URL, init?: EventSourceInit) {
+          super(url, init)
+          if (String(url).includes('/api/fetch/refresh')) w.__refreshStreams += 1
+        }
+      }
+    })
+    const refreshStreams = () =>
+      page.evaluate(() => (window as unknown as { __refreshStreams: number }).__refreshStreams)
+
     await withNetRetry(page, () => page.goto('/'))
     await page.locator('main').click()
 
     await page.keyboard.press('Meta+r')
+    expect(await refreshStreams()).toBe(1)
 
     // Settle signal: wait for the first request to land before
     // pressing again. Without this we'd race the keydown handler
@@ -187,9 +206,7 @@ test.describe('Stream C: Cmd+R triggers /api/fetch/refresh', () => {
     // prevent the second request from firing.
     await page.keyboard.press('Meta+r')
 
-    // Give Playwright's network layer a moment to see any spurious
-    // second request; assert the count stayed at exactly 1.
-    await page.waitForTimeout(300)
+    expect(await refreshStreams(), 'the second Cmd+R opened another refresh stream').toBe(1)
     expect(refreshRequests.length).toBe(1)
   })
 })
