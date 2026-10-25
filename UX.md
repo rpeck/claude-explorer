@@ -727,6 +727,11 @@ last 24 h."). It gives a button for each filter that it can clear:
 - Keyboard navigation (`j`/`k`, arrows) follows the display order,
   folder by folder, and skips the rows of a collapsed folder.
 
+**Layout:** the list keeps a minimum height of 12rem (about two rows).
+On a short screen, the block of controls above it scrolls. Before
+2026-10-25, the controls and two banners could leave the list 0 px high,
+with no row shown.
+
 ### Workspace / org filter
 
 When the captured credentials cover ≥2 organizations, the sidebar

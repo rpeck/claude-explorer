@@ -212,8 +212,12 @@ export function Sidebar({ className }: SidebarProps) {
         </Button>
       </div>
 
-      {/* Search and Filter */}
-      <div className="p-4 pb-2 space-y-2">
+      {/* Search and Filter. On a short screen this block scrolls, and the
+          list below keeps its minimum height (UX.md → "Conversation List
+          filters" → layout). Without that, the watcher and migration
+          banners plus these controls left the list 0-1 px high, and it
+          showed no row (CI, 2026-10-25). */}
+      <div className="min-h-0 shrink overflow-y-auto p-4 pb-2 space-y-2" data-testid="sidebar-controls">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <Input
@@ -466,8 +470,8 @@ export function Sidebar({ className }: SidebarProps) {
           `filters._migratedV1 && !filters.migrationBannerDismissed`. */}
       <MigrationBanner />
 
-      {/* Conversation List */}
-      <ScrollArea className="flex-1">
+      {/* Conversation List: at least 12rem high, about two rows. */}
+      <ScrollArea className="min-h-48 flex-1">
         <ConversationList
           searchQuery={searchQuery}
           sourceFilter={sourceFilter}
