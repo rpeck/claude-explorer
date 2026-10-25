@@ -74,7 +74,7 @@ export function AccountBadge() {
   return (
     <section
       aria-label="Signed-in account"
-      className="flex h-12 min-w-0 items-center gap-3 border-t border-zinc-200 px-4 dark:border-zinc-800"
+      className="flex h-12 min-w-0 shrink-0 items-center gap-3 border-t border-zinc-200 px-4 dark:border-zinc-800"
     >
       {lines && (
         <>
