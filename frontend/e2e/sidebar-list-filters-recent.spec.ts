@@ -10,6 +10,7 @@ import {
   messageUuid,
   row,
   sentPrefValues,
+  sidebar,
   startClock,
   typeHours,
 } from './sidebar-list-filters.helpers'
@@ -157,7 +158,7 @@ test.describe('Sidebar list filters: recent sessions', () => {
     const hours = await box('sidebar-recent-hours')
     const empty = await box('show-phantom-sessions-toggle')
     // The sort-direction button sits on the sort row ("↑" or "↓").
-    const sortDir = await page.getByTitle(/^(Ascending|Descending)$/).boundingBox()
+    const sortDir = await sidebar(page).getByTitle(/^(Ascending|Descending)$/).boundingBox()
     expect(sortDir).not.toBeNull()
 
     const mid = (b: { y: number; height: number }) => b.y + b.height / 2

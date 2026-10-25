@@ -209,7 +209,9 @@ export const E2E_DEFAULT_PREFS: Readonly<Record<string, unknown>> = Object.freez
  * verbatim; this helper consolidates them.
  *
  * Behavior:
- *   - GET  → returns `{ data: prefs.data }` (current in-memory blob).
+ *   - GET  → returns `{ version: 1, data: prefs.data }` (current in-memory
+ *     blob). The app rejects an envelope without `version` and then
+ *     ignores every saved preference, so the seed would have no effect.
  *   - PATCH → merges the request body's `data` field (or the whole body
  *     as a fallback) into the existing prefs.
  *   - PUT  → overwrites the prefs blob with the request body's `data`
@@ -236,7 +238,7 @@ export async function installLocalPrefsMock(
     if (method === 'GET') {
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ data: prefs.data }),
+        body: JSON.stringify({ version: 1, data: prefs.data }),
       })
       return
     }
@@ -246,7 +248,7 @@ export async function installLocalPrefsMock(
       prefs.data = method === 'PUT' ? patch : { ...prefs.data, ...patch }
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ data: prefs.data }),
+        body: JSON.stringify({ version: 1, data: prefs.data }),
       })
       return
     }

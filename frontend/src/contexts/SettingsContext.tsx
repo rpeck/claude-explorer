@@ -82,6 +82,12 @@ interface SettingsContextType {
   setSortOrder: (order: SortOrder) => void
   groupByProject: boolean
   setGroupByProject: (group: boolean) => void
+  // Conversation List: show only sessions active in the last N hours
+  // (UX.md → "Conversation List filters"). Default on, 24.
+  listRecentOnly: boolean
+  setListRecentOnly: (on: boolean) => void
+  listRecentHours: number
+  setListRecentHours: (hours: number) => void
   // Theme settings
   theme: Theme
   setTheme: (theme: Theme) => void
@@ -161,6 +167,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     'groupByProject',
     false,
   )
+  const [listRecentOnly, setListRecentOnly] = usePreferences<boolean>('listRecentOnly', true)
+  const [listRecentHours, setListRecentHours] = usePreferences<number>('listRecentHours', 24)
   const [theme, setTheme] = usePreferences<Theme>('theme', 'system')
   const [keyboardMode, setKeyboardMode] = usePreferences<KeyboardMode>(
     'keyboardMode',
@@ -288,6 +296,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSortOrder,
       groupByProject,
       setGroupByProject,
+      listRecentOnly,
+      setListRecentOnly,
+      listRecentHours,
+      setListRecentHours,
       theme,
       setTheme,
       effectiveTheme,
@@ -313,6 +325,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSortOrder,
       groupByProject,
       setGroupByProject,
+      listRecentOnly,
+      setListRecentOnly,
+      listRecentHours,
+      setListRecentHours,
       theme,
       setTheme,
       effectiveTheme,

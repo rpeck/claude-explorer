@@ -112,8 +112,8 @@ test.describe('Sidebar list filters: folder order (case 11)', () => {
     await expect.poll(() => folderOrder(page)).toEqual(['zulu', 'Alpha', 'beta'])
 
     // Ascending: Alpha and beta tie on their oldest session; zulu's oldest is the newest.
-    await page.getByTitle('Descending').click()
-    await expect(page.getByTitle('Ascending')).toBeVisible()
+    await sidebar(page).getByTitle('Descending').click()
+    await expect(sidebar(page).getByTitle('Ascending')).toBeVisible()
     await expect.poll(() => folderOrder(page)).toEqual(['Alpha', 'beta', 'zulu'])
   })
 })

@@ -426,9 +426,11 @@ source of truth.
 ### Per-tab vs. per-user
 
 - The scope **pin** is per-tab (URL state — Section 3).
+- The list's project or path filter is per-tab too (URL state).
 - Everything else (theme, keyboard mode, sort, group-by-project, "show
-  empty sessions", show tool calls, markdown export default, search
-  panel context size / sort, right-pane tab) is per-user.
+  empty sessions", the recent-sessions filter, show tool calls, markdown
+  export default, search panel context size / sort, right-pane tab) is
+  per-user.
 
 ---
 
@@ -662,8 +664,68 @@ In addition to the scope-pin dim (Section 5), the list dims rows for:
 
 - **Phantom sessions** (empty Claude Code sessions): hidden by default,
   toggled by the "Empty" checkbox in the sidebar header.
-- **Group-by-project** mode: only available when the source filter
-  isn't "Claude Desktop only".
+- **Group-by-project** mode: only available when the source filter is
+  "All Conversations" or "Claude Code". See "Conversation List filters".
+
+### Conversation List filters
+
+The user often wants only the sessions that are active now, or only one
+project. These controls hide the other rows. Spec and test cases:
+[PLANS/2026.10.25-sidebar-list-filters.md](./PLANS/2026.10.25-sidebar-list-filters.md).
+
+**No exceptions.** Each filter applies to every row. The open
+conversation is hidden when a filter excludes it. The Conversation Pane
+still shows it.
+
+**Recent sessions** (`[x] Last [N] h`, a sidebar row below the sort
+controls):
+
+- Default: on, N = 24. Per-user preferences `listRecentOnly` and
+  `listRecentHours`.
+- When on, the list hides each row whose `updated_at` is older than now
+  minus N hours. The list applies the cutoff again once a minute.
+- N is a whole number, 1 or more. The field saves no other input, and on
+  blur it shows the saved value again. It is disabled while the checkbox
+  is off.
+
+**Project or path** (per tab, in the URL):
+
+- `?project=<name>` shows the rows whose `project_name` equals `<name>`,
+  ignoring case. `project_name` is the last folder of `project_path`, so
+  one project can hold several paths.
+- `?path=<path>` shows the rows whose `project_path` equals `<path>`.
+- Only one of the two is active. Rows without a project (Claude Desktop,
+  Cowork) do not match either.
+- **Sidebar select:** "All projects", then each project name of the
+  loaded list, A to Z. While a path filter is active, it also shows
+  "Path: <path>". It is always shown, so that it can clear a filter that
+  a URL or the header set.
+- **Conversation header, "List" menu** (Claude Code sessions with a
+  path): "Show only this project", "Show only this path", and "Show all
+  projects". The label is "List: all", "List: project", "List: path",
+  or "List: other" (a filter for another project or path).
+- This filter is separate from the search scope pin (Section 3), which
+  dims rows and does not hide them.
+
+**Empty state:** when the filters hide every loaded row, the list names
+each active filter ("All 12 conversations hidden by project=foo and
+last 24 h."). It gives a button for each filter that it can clear:
+"Clear active filter", "Show all projects", and "Show older sessions".
+
+**Group sessions by project** (the folder-tree checkbox):
+
+- The list groups only when the checkbox is shown and checked. It is
+  shown for the sources "All Conversations" and "Claude Code".
+- Folders hold only the filtered rows. A folder with no visible row is
+  not shown, and its count is its number of visible rows.
+- **Folder order:** a folder takes the value of its first session in the
+  chosen sort order: the largest value for a descending sort, the
+  smallest for an ascending sort. A tie sorts by folder name, A to Z.
+  - Last Activity: `updated_at`. Start Time: `created_at`.
+  - Title: `name`, ignoring case. Project: the folder name.
+- Inside a folder, starred rows come first.
+- Keyboard navigation (`j`/`k`, arrows) follows the display order,
+  folder by folder, and skips the rows of a collapsed folder.
 
 ### Workspace / org filter
 
