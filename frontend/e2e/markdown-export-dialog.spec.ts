@@ -18,7 +18,7 @@
  * dialog.
  */
 
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, E2E_DEFAULT_PREFS } from './fixtures'
 import type { Route } from './fixtures'
 
 const ME = '00000000-0000-0000-0000-0000000000d7'
@@ -49,7 +49,8 @@ async function installPrefsRoute(
   page: Page,
   initial: Record<string, unknown> = {},
 ): Promise<{ state: PrefsState; patches: PatchLog }> {
-  const state: PrefsState = { data: { ...initial } }
+  // E2E_DEFAULT_PREFS: the recent-sessions filter is off (fixture dates are in the past).
+  const state: PrefsState = { data: { ...E2E_DEFAULT_PREFS, ...initial } }
   const patches: PatchLog = { bodies: [] }
 
   await page.route('**/api/preferences', (route: Route) => {

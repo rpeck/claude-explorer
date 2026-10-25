@@ -1,4 +1,4 @@
-import { test, expect, withNetRetry } from './fixtures'
+import { test, expect, withNetRetry, E2E_DEFAULT_PREFS } from './fixtures'
 import type { Browser, BrowserContext, Page, Route } from './fixtures'
 
 /**
@@ -181,7 +181,7 @@ async function newPage(browser: Browser, prefsState: PrefsState): Promise<{ cont
 test.describe('G1 — preferences persist across browser contexts', () => {
   test('all three §16.1 prefs changed in context A are visible in context B', async ({ browser }) => {
     // Shared state — both contexts mutate / read from this object.
-    const prefsState: PrefsState = { data: {} }
+    const prefsState: PrefsState = { data: { ...E2E_DEFAULT_PREFS } }
 
     // Context A — make all three pref changes.
     const a = await newPage(browser, prefsState)
@@ -254,8 +254,8 @@ test.describe('G1 — preferences persist across browser contexts', () => {
     // accidentally bridged state would FAIL this test. The user-facing
     // promise is "shared backend = shared prefs"; we want the dual
     // promise enforced too: "isolated backend = isolated prefs".
-    const stateA: PrefsState = { data: {} }
-    const stateB: PrefsState = { data: {} }
+    const stateA: PrefsState = { data: { ...E2E_DEFAULT_PREFS } }
+    const stateB: PrefsState = { data: { ...E2E_DEFAULT_PREFS } }
 
     const a = await newPage(browser, stateA)
     try {

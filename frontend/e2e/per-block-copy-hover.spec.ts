@@ -1,4 +1,4 @@
-import { test, expect, Route, withNetRetry } from './fixtures'
+import { test, expect, Route, withNetRetry, E2E_DEFAULT_PREFS } from './fixtures'
 
 /**
  * M4 from PLANS/articles/part2_revision_plan.md.
@@ -111,7 +111,7 @@ async function mockBackend(page: import('@playwright/test').Page) {
   await page.route('**/api/preferences', (route: Route) => {
     route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ version: 1, data: {} }),
+      body: JSON.stringify({ version: 1, data: { ...E2E_DEFAULT_PREFS } }),
     })
   })
 }

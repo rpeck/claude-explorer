@@ -49,7 +49,8 @@ export interface MockBackendOptions {
    * Initial server-side preferences blob (the `data` field of the
    * `/api/preferences` envelope). Tests that need pre-populated prefs
    * pass them here; subsequent PATCH/PUT requests in the same test
-   * mutate this state in-memory.
+   * mutate this state in-memory. Merged over `E2E_DEFAULT_PREFS`; a key
+   * set to `undefined` here is left out of the blob.
    */
   preferences?: Record<string, unknown>
   /**
@@ -59,7 +60,7 @@ export interface MockBackendOptions {
    *   - When provided, mockBackend uses this object's `data` map for
    *     GET / merges PATCH bodies into it / overwrites it on PUT.
    *   - The `preferences` option is ignored in this mode (caller seeds
-   *     the shared state directly).
+   *     the shared state directly, including `E2E_DEFAULT_PREFS`).
    *   - When NOT provided, behavior is unchanged: each call gets its
    *     own private state. Existing tests remain isolated by default.
    *
@@ -171,6 +172,27 @@ export function expectNetworkError(
 }
 
 /**
+ * Preferences that every e2e server-side prefs blob starts with, unless a
+ * test overrides them.
+ *
+ * `listRecentOnly: false`: the Conversation List hides sessions older than
+ * the last N hours by default (PLANS/2026.10.25-sidebar-list-filters.md),
+ * and fixture dates are fixed in the past. Without this seed every list
+ * spec would show an empty list. A test of the recent filter turns it on,
+ * and sets the browser clock with `page.clock`.
+ *
+ * A test that needs the app's own default (no saved value) passes
+ * `preferences: { listRecentOnly: undefined }` to `mockBackend`: the seed
+ * is copied through JSON, which drops `undefined` keys.
+ *
+ * Specs with their own `/api/preferences` mock spread this into their
+ * initial blob too.
+ */
+export const E2E_DEFAULT_PREFS: Readonly<Record<string, unknown>> = Object.freeze({
+  listRecentOnly: false,
+})
+
+/**
  * Per-test in-memory `/api/preferences` mock for specs that define their
  * OWN local `mockBackend(page)` (i.e. NOT using the shared `mockBackend`
  * fixture from this file). Without this, GET/PATCH/PUT `/api/preferences`
@@ -207,7 +229,7 @@ export async function installLocalPrefsMock(
   page: Page,
   initial: Record<string, unknown> = {},
 ): Promise<void> {
-  const prefs: { data: Record<string, unknown> } = { data: { ...initial } }
+  const prefs: { data: Record<string, unknown> } = { data: { ...E2E_DEFAULT_PREFS, ...initial } }
   await page.route('**/api/preferences', async (route: Route) => {
     const req = route.request()
     const method = req.method()
@@ -478,7 +500,7 @@ export const test = base.extend<Fixtures>({
       // and remains test-isolated.
       const prefsState: { data: Record<string, unknown> } =
         opts.sharedPrefsState ?? {
-          data: JSON.parse(JSON.stringify(opts.preferences ?? {})),
+          data: JSON.parse(JSON.stringify({ ...E2E_DEFAULT_PREFS, ...(opts.preferences ?? {}) })),
         }
 
       // -----------------------------------------------------------------
