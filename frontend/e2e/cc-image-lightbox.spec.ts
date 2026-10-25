@@ -116,7 +116,6 @@ test.describe('CC `[Image: source: <path>]` marker opens lightbox (Issue #1)', (
     // opens on the successful /api/cc-image fetch regardless.
     expectNetworkError(consoleAssertions, 404)
     const tracker = await trackPopups(page)
-    await mockCcImageBytes(page)
 
     const summary = makeSummary({
       uuid: C,
@@ -140,6 +139,10 @@ test.describe('CC `[Image: source: <path>]` marker opens lightbox (Issue #1)', (
     const detail = makeDetail(summary, [m])
 
     await mockBackend({ conversations: [summary], details: { [C]: detail } })
+    // AFTER mockBackend, whose own /api/cc-image route answers 404: the
+    // route registered last runs first. Before 2026-10-24 this came
+    // first, so the lightbox opened on a broken image.
+    await mockCcImageBytes(page)
     await withNetRetry(page, () => page.goto(`/conversations/${C}`))
 
     const bubble = page.locator('[data-message-uuid="ccm-1"]')
@@ -151,6 +154,8 @@ test.describe('CC `[Image: source: <path>]` marker opens lightbox (Issue #1)', (
 
     const lightbox = page.getByTestId('image-lightbox')
     await expect(lightbox).toBeVisible()
+    // The image itself loaded (the mocked PNG), not a broken image.
+    await expect.poll(() => lightbox.locator('img').first().evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
 
     expect(tracker.count()).toBe(0)
     expect(await getOpenCount(page)).toBe(0)
