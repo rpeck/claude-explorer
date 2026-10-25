@@ -81,10 +81,34 @@ def repo(tmp_path: Path) -> Path:
     return r
 
 
-def test_the_project_settings_run_the_hook() -> None:
+def _configured_hook() -> list[str]:
+    """The Stop hook's argument vector, as .claude/settings.json gives it to Claude Code."""
     settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
-    commands = [h["command"] for entry in settings["hooks"]["Stop"] for h in entry["hooks"]]
-    assert any(".claude/hooks/require-green-checks.py" in c for c in commands)
+    (hook,) = [h for entry in settings["hooks"]["Stop"] for h in entry["hooks"]]
+    # Exec form (`args` set): no shell, so it is the same on Windows, where
+    # Claude Code uses Git Bash or PowerShell. The docs prefer it for a hook
+    # with a path placeholder.
+    assert "args" in hook, "use exec form: command plus args"
+    return [hook["command"], *(a.replace("${CLAUDE_PROJECT_DIR}", str(REPO)) for a in hook["args"])]
+
+
+def test_the_project_settings_run_the_hook(tmp_path: Path, repo: Path) -> None:
+    """Run the hook exactly as configured. It must block, not crash."""
+    argv = _configured_hook()
+    # Not `python3` from PATH: on macOS that can be Xcode's Python 3.9, where
+    # check.py fails to import (exit 1, which Claude Code does not block on),
+    # and on Windows it is often missing or the Microsoft Store stub.
+    assert argv[0] == "uv" and argv[1:5] == ["run", "--no-project", "--python", ">=3.11"]
+    assert argv[-1].endswith("require-green-checks.py")
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    transcript = _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py"))
+    event = {"hook_event_name": "Stop", "cwd": str(repo), "stop_hook_active": False, "transcript_path": str(transcript)}
+    result = subprocess.run(
+        [shutil.which(argv[0]) or argv[0], *argv[1:]], input=json.dumps(event),
+        capture_output=True, text=True, env=ENV, timeout=120, check=False,
+    )
+    assert result.returncode == 2, result.stderr
+    assert "backend/code.py" in result.stderr
 
 
 def test_a_clean_repo_may_stop(repo: Path) -> None:

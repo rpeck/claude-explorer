@@ -3,8 +3,8 @@
 
     uv run python scripts/check.py                  # python + frontend (records a green run)
     uv run python scripts/check.py --only e2e       # fixture check + Playwright
-    python3 scripts/check.py --verify               # do checked files need a run?
-    python3 scripts/check.py --install-hooks        # turn on the pre-commit hook
+    uv run python scripts/check.py --verify         # do checked files need a run?
+    uv run python scripts/check.py --install-hooks  # turn on the pre-commit hook
 
 CI runs the same sections (.github/workflows/test.yml), so the local checks
 and CI cannot drift apart. A run of python + frontend that passes records a
@@ -19,7 +19,8 @@ There is no flag that records without a run. Earned 2026-10-24: two commits
 went in after pytest had failed, and one report read the exit code of
 ``sed`` instead of pytest's.
 
-Standard library only: the hooks run it with any ``python3``.
+Standard library only, Python 3.11 or later. The hooks run it with
+``uv run --no-project --python '>=3.11'``, without the project's packages.
 """
 
 from __future__ import annotations

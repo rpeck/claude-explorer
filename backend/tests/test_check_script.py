@@ -153,6 +153,28 @@ def test_the_hook_allows_a_commit_of_docs_only(repo: Path) -> None:
     _git(repo, "commit", "-q", "-m", "docs")
 
 
+def test_the_hook_does_not_need_python3_on_path(tmp_path: Path, repo: Path) -> None:
+    """The `python3` on PATH can be Xcode's Python 3.9 (check.py does not
+    import there) or, on Windows, the Microsoft Store stub. The hook runs
+    check.py through uv, which picks a Python that fits."""
+    fake = tmp_path / "fake-bin"
+    fake.mkdir()
+    for name in ("python3", "python"):
+        (fake / name).write_text("#!/bin/sh\necho 'not this python' >&2\nexit 1\n", encoding="utf-8")
+        (fake / name).chmod(0o755)
+    _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+    (repo / "PLANS" / "plan.md").write_text("changed\n", encoding="utf-8")
+    _git(repo, "add", "PLANS/plan.md")
+    env = {**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}",
+           "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com"}
+    env.pop("GIT_INDEX_FILE", None)
+    done = subprocess.run(
+        ["git", "commit", "-q", "-m", "docs"], cwd=repo, capture_output=True, text=True, env=env, check=False
+    )
+    assert done.returncode == 0, done.stderr
+
+
 def test_a_failing_step_stops_the_run_and_records_nothing(repo: Path, monkeypatch) -> None:
     check = runpy.run_path(str(repo / "scripts" / "check.py"))
     Step = check["Step"]

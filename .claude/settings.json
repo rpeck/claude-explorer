@@ -5,7 +5,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/require-green-checks.py\"",
+            "command": "uv",
+            "args": [
+              "run",
+              "--no-project",
+              "--python",
+              ">=3.11",
+              "python",
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-green-checks.py"
+            ],
             "timeout": 120
           }
         ]
