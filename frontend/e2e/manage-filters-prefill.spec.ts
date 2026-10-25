@@ -20,6 +20,7 @@ test.describe('CF2 — atom name prefill', () => {
       },
     })
 
+    await page.clock.install()
     await withNetRetry(page, () => page.goto('/'))
     await page.getByTestId('active-filter-select').click()
     await page.getByTestId('active-filter-manage').click()
@@ -47,8 +48,9 @@ test.describe('CF2 — atom name prefill', () => {
     await patternsTa.click()
     await patternsTa.fill('Different*Pattern')
     await page.keyboard.press('Tab')
-    // Wait past debounce window, ensure name didn't shift.
-    await page.waitForTimeout(500)
+    // Run the 300 ms prefill debounce for certain (the page clock), then
+    // check that the name did not shift (2026-10-24: a real 500 ms sleep).
+    await page.clock.runFor(500)
     await expect(nameInput).toHaveValue('My custom name')
 
     // 3. Clear Name; prefill resumes from current pattern.

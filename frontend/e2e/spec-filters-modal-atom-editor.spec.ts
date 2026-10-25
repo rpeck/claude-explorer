@@ -367,6 +367,7 @@ test.describe('Manage Filters modal — atom editor', () => {
         },
       },
     })
+    await page.clock.install()
     await withNetRetry(page, () => page.goto('/'))
     const modal = await openModal(page)
     const newBtn = modal.getByRole('button', { name: /new filter|add filter|\+ new/i }).first()
@@ -377,9 +378,9 @@ test.describe('Manage Filters modal — atom editor', () => {
 
     await nameInput.fill('MyManualName')
     await patterns.fill('something-else')
-    // Name should NOT be overwritten.
-    // Wait past debounce.
-    await page.waitForTimeout(500)
+    // Name should NOT be overwritten: run the 300 ms prefill debounce for
+    // certain on the page clock (2026-10-24: a real 500 ms sleep).
+    await page.clock.runFor(500)
     await expect(nameInput).toHaveValue('MyManualName')
   })
 
@@ -395,6 +396,7 @@ test.describe('Manage Filters modal — atom editor', () => {
         },
       },
     })
+    await page.clock.install()
     await withNetRetry(page, () => page.goto('/'))
     const modal = await openModal(page)
     const newBtn = modal.getByRole('button', { name: /new filter|add filter|\+ new/i }).first()
@@ -405,7 +407,7 @@ test.describe('Manage Filters modal — atom editor', () => {
 
     await nameInput.fill('ManualName')
     await patterns.fill('initial-pat')
-    await page.waitForTimeout(500)
+    await page.clock.runFor(500) // the prefill debounce runs for certain
     await expect(nameInput).toHaveValue('ManualName')
 
     // Clear name.

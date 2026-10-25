@@ -10,7 +10,7 @@
  *   - The sentinel `_migratedV1: true` prevents re-migration on reload.
  */
 
-import { test, expect, withNetRetry } from './fixtures'
+import { test, expect, withNetRetry, recordPreferencePatches, preferencePatchesSent } from './fixtures'
 import type { Route } from './fixtures'
 
 interface PrefsState {
@@ -125,16 +125,20 @@ test.describe('FilterContext composable-graph migration (CF1)', () => {
       activeFilterIds: [],
     })
 
+    await recordPreferencePatches(page)
     await withNetRetry(page, () => page.goto('/'))
     await expect.poll(() => patches.bodies.length, { timeout: 5_000 }).toBeGreaterThan(0)
     const countAfterFirstLoad = patches.bodies.length
 
     await withNetRetry(page, () => page.reload())
-    // Give the page a moment to settle.
-    await page.waitForTimeout(500)
+    // The migration effects ran for the reloaded state (a DOM signal of
+    // FilterContext), so any PATCH they send has been sent (2026-10-24:
+    // a 500 ms sleep "to settle").
+    await expect(page.locator('html[data-filters-migration="v1v2"]')).toHaveCount(1)
 
     // No new PATCHes should have fired: legacy keys are nulled and
     // _migratedV1 sentinel is true on the server.
+    expect(await preferencePatchesSent(page)).toEqual([])
     expect(patches.bodies.length).toBe(countAfterFirstLoad)
   })
 
@@ -156,11 +160,15 @@ test.describe('FilterContext composable-graph migration (CF1)', () => {
       },
     })
 
+    await recordPreferencePatches(page)
     await withNetRetry(page, () => page.goto('/'))
-    await page.waitForTimeout(500)
+    // The migration effects ran for the server's state (a DOM signal of
+    // FilterContext; 2026-10-24: a 500 ms sleep).
+    await expect(page.locator('html[data-filters-migration="v1v2"]')).toHaveCount(1)
     // The picker shows the pre-existing filter as active (load smoke).
     await expect(page.getByTestId('active-filter-select')).toContainText('Already migrated')
     // No migration PATCH fired.
+    expect(await preferencePatchesSent(page)).toEqual([])
     expect(patches.bodies).toEqual([])
   })
 })

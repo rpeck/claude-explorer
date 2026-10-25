@@ -292,6 +292,18 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersState._migratedV1, filtersState._migratedV2, qc])
 
+  // A DOM signal for e2e tests: the two migration effects above have run
+  // for the sentinels that this render holds (effects run in source order),
+  // so any migration PATCH has been sent. Tests wait for it instead of a
+  // fixed delay (preferences-filter-migration.spec.ts, 2026-10-24).
+  useEffect(() => {
+    const root = document.documentElement.dataset
+    root.filtersMigration = `${filtersState._migratedV1 ? 'v1' : '-'}${filtersState._migratedV2 ? 'v2' : '-'}`
+    return () => {
+      delete root.filtersMigration
+    }
+  }, [filtersState._migratedV1, filtersState._migratedV2])
+
   const setActiveId = useCallback(
     (id: FilterId | null) => {
       setFiltersState({ ...filtersState, activeId: id })

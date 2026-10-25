@@ -941,6 +941,38 @@ export async function connectionDialogSeen(page: Page): Promise<string[]> {
   )
 }
 
+/**
+ * Record, in the page, every PATCH or PUT to /api/preferences when `fetch`
+ * is called (not when the request reaches a route, which comes later).
+ * Install before `page.goto`; each new document starts a new record.
+ * Read it with `preferencePatchesSent(page)`.
+ */
+export async function recordPreferencePatches(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __prefPatches: unknown[] }
+    w.__prefPatches = []
+    const realFetch = window.fetch.bind(window)
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const method = (init?.method ?? 'GET').toUpperCase()
+      if (url.includes('/api/preferences') && (method === 'PATCH' || method === 'PUT')) {
+        try {
+          w.__prefPatches.push(JSON.parse(String(init?.body ?? '{}')))
+        } catch {
+          w.__prefPatches.push(init?.body ?? null)
+        }
+      }
+      return realFetch(input, init)
+    }
+  })
+}
+
+export async function preferencePatchesSent(page: Page): Promise<Array<{ data?: Record<string, unknown> }>> {
+  return page.evaluate(() => (window as unknown as { __prefPatches: unknown[] }).__prefPatches) as Promise<
+    Array<{ data?: Record<string, unknown> }>
+  >
+}
+
 export { expect }
 export type { Page, Route } from '@playwright/test'
 export const PRIMARY_ORG = PRIMARY_ORG_ID
