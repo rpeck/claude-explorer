@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForScrollQuiet } from './fixtures'
 import type { SearchResult, Message, CompactMarker } from '../src/lib/types'
 
 /**
@@ -200,7 +200,7 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
     const hitCard = page.getByRole('button', { name: new RegExp(NEEDLE) }).first()
     await expect(hitCard).toBeVisible()
     await hitCard.click()
-    await page.waitForTimeout(1500) // let scroll correction chain settle
+    await waitForScrollQuiet(page) // the jump and its corrections are done
 
     const compactionUuid = messages[COMPACT_AT_IDX].uuid
     const adjacentUuid = messages[ADJACENT_AT_IDX].uuid
@@ -217,7 +217,6 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
     // clicks on the conversation, then click an ADJACENT (non-compaction)
     // bubble. This is the exact user-action that surfaces Bug 2.
     await page.keyboard.press('Escape') // close the search panel overlay
-    await page.waitForTimeout(200)
     const adjacentBubble = page.locator(`[data-message-uuid="${adjacentUuid}"]`)
     // Make sure the adjacent bubble is in the DOM (the virtualizer may
     // have it overscan-mounted but not visible; if not, we need to
@@ -227,12 +226,8 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
     await expect(adjacentBubble).toBeAttached({ timeout: 5000 })
     // If the bubble isn't visible (off-screen overscan mount), scroll
     // a touch so we can click it.
-    if (!(await adjacentBubble.isVisible())) {
-      await adjacentBubble.scrollIntoViewIfNeeded()
-      await page.waitForTimeout(500)
-    }
-    await adjacentBubble.click()
-    await page.waitForTimeout(300)
+    await adjacentBubble.click() // click() scrolls it into view first
+    await waitForScrollQuiet(page)
 
     // Step 3: toggle Show Compactions OFF.
     const compactionsCheckbox = page.locator(
@@ -248,6 +243,9 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
       ) as HTMLElement | null
       return spacer?.offsetHeight ?? 0
     })
+    // The toggle changes the search query key, so the hits are fetched
+    // again (2026-10-24: a 1.5 s sleep instead of these signals).
+    const refetched = page.waitForResponse((r) => r.url().includes('/api/search'))
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).not.toBeChecked()
     // Settle: virtualizer total height shrank.
@@ -267,7 +265,8 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
         { timeout: 5000 },
       )
       .toBeLessThan(totalHeightBefore - 1000)
-    await page.waitForTimeout(1500)
+    await refetched
+    await waitForScrollQuiet(page)
 
     // CONTRACT: the CLICKED bubble (adjacentUuid) should now be the
     // recenter target, NOT the now-hidden compaction. The adjacent
@@ -317,7 +316,7 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
 
     const hitCard = page.getByRole('button', { name: new RegExp(NEEDLE) }).first()
     await hitCard.click()
-    await page.waitForTimeout(1500)
+    await waitForScrollQuiet(page)
 
     const compactionUuid = messages[COMPACT_AT_IDX].uuid
     // Toggle compactions OFF — no intermediate click.
@@ -333,6 +332,9 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
       ) as HTMLElement | null
       return spacer?.offsetHeight ?? 0
     })
+    // The toggle changes the search query key, so the hits are fetched
+    // again (2026-10-24: a 1.5 s sleep instead of these signals).
+    const refetched = page.waitForResponse((r) => r.url().includes('/api/search'))
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).not.toBeChecked()
     await expect
@@ -351,7 +353,8 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
         { timeout: 5000 },
       )
       .toBeLessThan(totalHeightBefore - 1000)
-    await page.waitForTimeout(1500)
+    await refetched
+    await waitForScrollQuiet(page)
 
     // Compaction row vanished. The original `toggle-preserves-focus-scroll`
     // spec already pins the "search-hit stays centered post-toggle"

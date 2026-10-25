@@ -39,28 +39,25 @@ test.describe('Mobile responsive layout', () => {
 
     // Click hamburger; sidebar slides in.
     await hamburger.click();
-    await page.waitForTimeout(300);
 
-    const sidebarVisible = await page.evaluate(() => {
+    // Poll until the slide animation ends (2026-10-24: a 300 ms sleep).
+    await expect.poll(() => page.evaluate(() => {
       const aside = document.querySelector('aside');
       if (!aside) return false;
       const rect = aside.getBoundingClientRect();
       return rect.left >= 0 && rect.right > 0 && rect.left < window.innerWidth;
-    });
-    expect(sidebarVisible).toBe(true);
+    })).toBe(true);
 
     // After clicking outside (or close button), drawer closes.
     const closeBtn = page.getByRole('button', { name: /close sidebar/i });
     await closeBtn.click();
-    await page.waitForTimeout(300);
 
-    const stillOffScreen = await page.evaluate(() => {
+    await expect.poll(() => page.evaluate(() => {
       const aside = document.querySelector('aside');
       if (!aside) return true;
       const rect = aside.getBoundingClientRect();
       const style = getComputedStyle(aside);
       return rect.right <= 0 || rect.left >= window.innerWidth || style.display === 'none';
-    });
-    expect(stillOffScreen).toBe(true);
+    })).toBe(true);
   });
 });

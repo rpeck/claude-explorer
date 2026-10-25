@@ -1,100 +1,128 @@
-import { test, expect, makeSummary, withNetRetry } from './fixtures'
+import {
+  test,
+  expect,
+  makeSummary,
+  withNetRetry,
+  expectNetworkError,
+  watchConnectionDialog,
+  connectionDialogSeen,
+  type Page,
+  type Route,
+} from './fixtures'
 
 /**
- * Manual finding 2026-05-03 (Bug A): on FE reload against a real
- * backend (~2.3s /api/config response on a 660-conversation archive),
- * the ConnectionStatus modal cycles through several "retry attempts"
- * before settling, even when the backend is healthy.
+ * Manual finding 2026-05-03 (Bug A): on a reload against a slow but
+ * healthy backend (~2.3 s /api/config on a 660-conversation archive), the
+ * ConnectionStatus dialog cycled through "Attempt N of 5" before it
+ * settled.
  *
- * These tests reproduce by mocking /api/config with a moderate
- * delay, then asserting the retry-attempt UI never appears.
+ * The dialog opens once two attempts in a row failed (retryCount >= 2);
+ * retries wait 4 s, then 8 s, 10 s, ...; each attempt aborts after 5 s.
+ *
+ * 2026-10-24 rewrite. The old tests checked nothing:
+ * - They registered their slow /api/config route BEFORE mockBackend, and
+ *   Playwright runs the route registered last, so mockBackend answered
+ *   every call at once: the delays never happened, and the call counter
+ *   stayed at 0 (so "at most 4 calls" always passed).
+ * - They watched for 6-7 s of real time, but two failed attempts take
+ *   about 14 s.
+ * Now the test's route comes after mockBackend, each test asserts that
+ * its route answered, the page clock moves the app's timers (retry
+ * delays and the 5 s abort) forward exactly, and a MutationObserver
+ * records every appearance of the dialog.
  */
 
+const CONFIG = JSON.stringify({ data_dir: '/tmp', conversation_count: 660 })
+
+/** A /api/config route whose calls the test answers by hand. */
+async function holdConfig(page: Page) {
+  const held: Route[] = []
+  let calls = 0
+  await page.route('**/api/config', (route) => {
+    calls += 1
+    held.push(route)
+  })
+  return {
+    calls: () => calls,
+    held: () => held.length,
+    /** Answer every call that waits, and let later calls through at once. */
+    releaseAll: async () => {
+      await page.unroute('**/api/config')
+      await page.route('**/api/config', (route) => {
+        calls += 1
+        return route.fulfill({ contentType: 'application/json', body: CONFIG })
+      })
+      for (const route of held.splice(0)) {
+        await route.fulfill({ contentType: 'application/json', body: CONFIG }).catch(() => undefined)
+      }
+    },
+  }
+}
+
 test.describe('ConnectionStatus on reload (Bug A)', () => {
-  test('does not show "Attempt N of 5" retry text when backend responds within reasonable time', async ({ page, mockBackend }) => {
-    // Mock the backend with a 2.5s /api/config delay — matches the
-    // user's actual production latency on a 660-conversation archive.
-    // Well under the 5s AbortSignal.timeout. The retry counter must
-    // never appear.
-    await page.route('**/api/config', async (route) => {
-      await new Promise((r) => setTimeout(r, 2500))
-      await route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify({ data_dir: '/tmp', conversation_count: 660 }),
-      })
-    })
+  test.beforeEach(async ({ page, mockBackend }) => {
     await mockBackend({ conversations: [makeSummary({ uuid: 'a', name: 'Conv A' })] })
-
-    await withNetRetry(page, () => page.goto('/'))
-
-    // The modal copy "Attempt N of 5" must never become visible.
-    // Poll for 6 seconds (slightly past the 2.5s mock delay × 2 to
-    // catch StrictMode double-fire); if it pops up at any point during
-    // connect, this assertion fails.
-    const retryText = page.getByText(/Attempt \d+ of \d+/i)
-    const start = Date.now()
-    while (Date.now() - start < 6000) {
-      const count = await retryText.count()
-      expect(count, `retry text was visible at +${Date.now() - start}ms`).toBe(0)
-      await page.waitForTimeout(200)
-    }
-
-    // App content actually rendered.
-    await expect(page.getByText('Claude Explorer')).toBeVisible()
+    await watchConnectionDialog(page)
+    await page.clock.install()
   })
 
-  test('app does not double-fire /api/config on initial mount (StrictMode safe)', async ({ page, mockBackend }) => {
-    let configCalls = 0
-    await page.route('**/api/config', async (route) => {
-      configCalls += 1
-      await route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify({ data_dir: '/tmp', conversation_count: 0 }),
-      })
-    })
-    await mockBackend({ conversations: [] })
-
+  test('a slow but successful /api/config shows no retry dialog', async ({ page }) => {
+    const config = await holdConfig(page)
     await withNetRetry(page, () => page.goto('/'))
-    // Wait long enough for StrictMode double-mount + ConnectionStatus
-    // initial check + at least one retry-window to elapse.
-    await page.waitForTimeout(3000)
+    await expect.poll(() => config.held()).toBeGreaterThan(0)
 
-    // Strict mode in dev double-mounts; one /api/config from
-    // ConnectionStatus + one from useConfig = at most 2 calls per mount,
-    // so 4 total. A runaway retry loop would push this far higher.
-    expect(configCalls).toBeLessThanOrEqual(4)
+    await page.clock.runFor(2500) // 2.5 s: slow, but under the 5 s abort
+    await config.releaseAll()
+    await expect(page.getByText('Conv A')).toBeVisible()
+    await page.clock.runFor(45_000) // past every retry window
+
+    expect(await connectionDialogSeen(page)).toEqual([])
   })
 
-  test('reproduces the cycling-retry bug when /api/config exceeds the 5s timeout', async ({ page, mockBackend }) => {
-    // The original bug surfaced because ConnectionStatus's checkConnection
-    // uses AbortSignal.timeout(5000), and the live backend's /api/config
-    // endpoint walked the entire conversation directory (~2.2s per call).
-    // With React StrictMode firing the effect twice and a parallel call
-    // from useConfig, four sequential walks could blow past 5s and
-    // trigger the retry counter even though the server is healthy.
-    //
-    // We reproduce by holding /api/config for 6 seconds (just past the
-    // timeout). The retry counter MUST NOT appear — once the backend is
-    // fixed to respond fast, this scenario doesn't happen, but the
-    // ConnectionStatus + AbortSignal timing still needs to be tolerant
-    // of any single slow call.
-    await page.route('**/api/config', async (route) => {
-      await new Promise((r) => setTimeout(r, 6000))
-      await route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify({ data_dir: '/tmp', conversation_count: 660 }),
-      })
+  test('the app does not fire /api/config in a loop (StrictMode safe)', async ({ page }) => {
+    let calls = 0
+    await page.route('**/api/config', (route) => {
+      calls += 1
+      return route.fulfill({ contentType: 'application/json', body: CONFIG })
     })
-    await mockBackend({ conversations: [] })
-
     await withNetRetry(page, () => page.goto('/'))
-    // Watch for 7 seconds for any "Attempt N of 5" copy.
-    const retryText = page.getByText(/Attempt \d+ of \d+/i)
-    const start = Date.now()
-    while (Date.now() - start < 7000) {
-      const count = await retryText.count()
-      expect(count, `retry text appeared at +${Date.now() - start}ms`).toBe(0)
-      await page.waitForTimeout(250)
-    }
+    await expect(page.getByText('Conv A')).toBeVisible()
+    await page.clock.runFor(45_000) // past every retry window
+
+    // StrictMode mounts twice in dev; ConnectionStatus and useConfig each
+    // fetch once per mount: at most 4. A retry loop would go far higher.
+    expect(calls).toBeGreaterThan(0)
+    expect(calls).toBeLessThanOrEqual(4)
+  })
+
+  test('one call past the 5 s timeout shows no dialog', async ({ page, consoleAssertions }) => {
+    consoleAssertions.allowlist.push(/signal is aborted|AbortError|aborted/i)
+    const config = await holdConfig(page)
+    await withNetRetry(page, () => page.goto('/'))
+    await expect.poll(() => config.held()).toBeGreaterThan(0)
+    const firstCalls = config.calls()
+
+    await page.clock.runFor(5000) // the first attempt aborts ...
+    // ... which ConnectionStatus counts (its DOM signal of the retry state).
+    await expect(page.locator('html[data-connection-retries="1"]')).toHaveCount(1)
+    await config.releaseAll() // from now on the backend answers at once
+    await page.clock.runFor(4000) // the first retry runs, and succeeds
+    await expect(page.getByText('Conv A')).toBeVisible()
+    await page.clock.runFor(45_000)
+
+    expect(config.calls(), 'the retry after the abort did not happen').toBeGreaterThan(firstCalls)
+    expect(await connectionDialogSeen(page)).toEqual([])
+  })
+
+  test('two failed attempts in a row do open the dialog', async ({ page, consoleAssertions }) => {
+    // The opposite case: proves the observer sees the dialog, and pins the
+    // threshold of two failures.
+    expectNetworkError(consoleAssertions, 'connectionrefused')
+    await page.route('**/api/config', (route) => route.abort('connectionrefused'))
+    await withNetRetry(page, () => page.goto('/'))
+    await page.clock.runFor(4000) // the first retry runs, and fails too
+
+    await expect(page.getByText(/Attempt 2 of 5/)).toBeVisible()
+    expect((await connectionDialogSeen(page)).join(' ')).toMatch(/Attempt 2 of 5/)
   })
 })

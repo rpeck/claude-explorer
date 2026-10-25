@@ -1,4 +1,4 @@
-import { test, expect, withNetRetry, expectNetworkError } from './fixtures';
+import { test, expect, withNetRetry, expectNetworkError, watchConnectionDialog, connectionDialogSeen } from './fixtures';
 
 // M5.5: converted to `./fixtures`. Tests 1-7 deliberately block all
 // `/api/**` to exercise the offline-backend UX, so they don't need
@@ -77,8 +77,7 @@ test.describe('Connection Status', () => {
     await page.getByRole('button', { name: 'Retry Now' }).click();
 
     // Should trigger a new request immediately
-    await page.waitForTimeout(500);
-    expect(requestCount).toBeGreaterThan(initialCount);
+    await expect.poll(() => requestCount).toBeGreaterThan(initialCount);
   });
 
   test('shows Connection Failed dialog after max retries', async ({ page, consoleAssertions }) => {
@@ -292,22 +291,38 @@ test.describe('Connection Status', () => {
     // mockBackend installed first so the app loads.
     await mockBackend({});
 
-    let failuresRemaining = 1;
+    // Every /api/config call fails until the first attempt has failed:
+    // ConnectionStatus and useConfig send the same request, so failing
+    // only the first call could hit useConfig's and leave ConnectionStatus
+    // untested (it did before 2026-10-24).
+    let failing = true;
+    let calls = 0;
     await page.route('**/api/config', async (route) => {
-      if (failuresRemaining > 0) {
-        failuresRemaining -= 1;
+      calls += 1;
+      if (failing) {
         await route.abort('connectionrefused');
         return;
       }
       await route.fallback();
     });
+    // A MutationObserver records every appearance of the dialog, and the
+    // page clock runs the retry timers exactly. Before, the test waited
+    // 6 s of real time and then looked once.
+    await watchConnectionDialog(page);
+    await page.clock.install();
 
     await withNetRetry(page, () => page.goto('/'));
 
-    // The first /api/config 404s, but the second succeeds before retry 2
-    // would open the dialog. The dialog must NEVER become visible.
-    // Wait 6s (longer than the 4s first-retry) and assert no dialog.
-    await page.waitForTimeout(6000);
+    // The first attempt failed (a DOM signal of ConnectionStatus) ...
+    await expect(page.locator('html[data-connection-retries="1"]')).toHaveCount(1);
+    failing = false;
+    // ... and the retry 4 s later succeeds, before a second failure could
+    // open the dialog. The dialog must NEVER become visible.
+    await page.clock.runFor(4000);
+    await expect(page.locator('html[data-connection-state="connected"]')).toHaveCount(1);
+    expect(calls).toBeGreaterThan(1);
+    await page.clock.runFor(45_000); // past every retry window
+    expect(await connectionDialogSeen(page)).toEqual([]);
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });

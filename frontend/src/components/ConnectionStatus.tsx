@@ -76,6 +76,19 @@ export function ConnectionStatus() {
     }, delay)
   }, [checkConnection])
 
+  // A DOM signal of the retry state, which the closed dialog does not show.
+  // e2e tests wait for it (e.g. "the first attempt failed") instead of a
+  // fixed delay (connection-status.spec.ts, 2026-10-24).
+  useEffect(() => {
+    const root = document.documentElement.dataset
+    root.connectionState = state
+    root.connectionRetries = String(retryCount)
+    return () => {
+      delete root.connectionState
+      delete root.connectionRetries
+    }
+  }, [state, retryCount])
+
   // Initial connection check
   // oxlint-disable-next-line react-doctor/exhaustive-deps -- The cleanup intentionally reads `retryTimeoutRef.current` at unmount time (not at effect-run time). Capturing the ref value at effect-run would always be null (this effect runs on mount before any timer is scheduled). What we want on unmount is "clear whichever timer is currently pending," which is exactly the live ref read.
   useEffect(() => {

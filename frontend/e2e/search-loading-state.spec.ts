@@ -57,7 +57,9 @@ test.describe('Search panel loading state (Bug B)', () => {
     const releaseSearch = new Promise<void>((r) => {
       resolveSearch = r
     })
+    let searchArrived = false
     await page.route('**/api/search**', async (route) => {
+      searchArrived = true
       await releaseSearch
       await route.fulfill({
         contentType: 'application/json',
@@ -82,8 +84,9 @@ test.describe('Search panel loading state (Bug B)', () => {
     const noMatches = page.getByText(/No matches/i)
     const loading = page.getByText(/Searching|Loading/i)
 
-    // Give the request 800ms to be in flight before asserting.
-    await page.waitForTimeout(800)
+    // The request is in flight: the route holds it (2026-10-24: a fixed
+    // 800 ms wait, which proved nothing about the request).
+    await expect.poll(() => searchArrived).toBe(true)
     await expect(noMatches).toHaveCount(0)
     await expect(loading.first()).toBeVisible()
 
@@ -96,6 +99,7 @@ test.describe('Search panel loading state (Bug B)', () => {
     await mockBackend({ conversations: [summary], details: { [C]: detail } })
 
     let firstResponded = false
+    let secondArrived = false
     let resolveSecond: (() => void) | null = null
     const releaseSecond = new Promise<void>((r) => {
       resolveSecond = r
@@ -118,6 +122,7 @@ test.describe('Search panel loading state (Bug B)', () => {
         })
       } else {
         // Second query (different text) is held until we release it.
+        secondArrived = true
         await releaseSecond
         await route.fulfill({
           contentType: 'application/json',
@@ -143,7 +148,7 @@ test.describe('Search panel loading state (Bug B)', () => {
 
     // Now type a different query — second request goes in flight.
     await input.fill('UNRELATED_TOKEN_XYZ')
-    await page.waitForTimeout(800)
+    await expect.poll(() => secondArrived).toBe(true)
 
     // While the second request is in flight, panel must NOT claim
     // "No matches" — that's the lying-empty-state bug.

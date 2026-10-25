@@ -267,17 +267,16 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
       undefined,
       { timeout: 5000 },
     )
-    await page.waitForTimeout(50)
-    const phantomActuallyPresent = await page.evaluate(() => {
+    // Poll the condition itself (2026-10-24: a 50 ms sleep, then one look).
+    await expect.poll(() => page.evaluate(() => {
       const phantom = document.querySelector('[data-test-phantom="mid-scroll-row-growth"]')
       return phantom !== null && (phantom as HTMLElement).offsetHeight === 4000
-    })
-    expect(
-      phantomActuallyPresent,
+    }), {
+      message:
       'phantom injection no-op: the 4000 px phantom is not present in the DOM, ' +
         'so the rest of the test would be vacuous. Likely the virtualizer mounted ' +
         'no rows below the target or the data-index discovery failed.',
-    ).toBe(true)
+    }).toBe(true)
 
     // ─── ASSERTION 2: the target ends within ±100 px of center ─────
     //
@@ -391,7 +390,9 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
     // 250ms correction window closes).
     const hits = page.getByRole('button', { name: new RegExp(NEEDLE) })
     await hits.nth(1).click()  // late
-    await page.waitForTimeout(50)
+    // The late jump's correction chain is pending: the case under test.
+    // (2026-10-24: a 50 ms gap, which could also land after the window.)
+    await expect(page.getByTestId('message-stream')).toHaveAttribute('data-scroll-settling', '')
     await hits.nth(0).click()  // early — supersedes late's pending correction
 
     // EARLY target must end within ±100px of center (no stale-correction
@@ -461,7 +462,9 @@ test.describe('Search — clicking a hit LANDS the target bubble at viewport cen
 
     const hits = page.getByRole('button', { name: new RegExp(NEEDLE) })
     await hits.nth(1).click() // late: URL path
-    await page.waitForTimeout(50)
+    // The late jump is on its way: its ?highlight= is in the URL (2026-10-24:
+    // a 50 ms gap instead of this state).
+    await expect(page).toHaveURL(/highlight=/)
     await hits.nth(0).click() // early: the newer jump
 
     // End state: no jump is pending. Either the URL highlight was used and

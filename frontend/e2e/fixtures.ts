@@ -852,7 +852,6 @@ export const test = base.extend<Fixtures>({
       await page.route('**/api/account', (route: Route) => {
         route.fulfill({ contentType: 'application/json', body: JSON.stringify(DEFAULT_ACCOUNT) })
       })
-      // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture `use(value)`, not React.use().
       await use(undefined)
     },
     { auto: true },
@@ -898,6 +897,204 @@ export const test = base.extend<Fixtures>({
     { auto: true },
   ],
 })
+
+/**
+ * Wait until the keyboard shortcuts listen, in `mode`.
+ *
+ * The keydown listener attaches in a useEffect, after React's first
+ * commit, so a key pressed right after `page.goto` can come before it.
+ * useKeyboardShortcuts sets `<html data-keyboard-shortcuts="vim|emacs">`
+ * when the listener is on. Earned 2026-10-24: "Vim Mode › / focuses
+ * search" failed in CI because `/` came too early.
+ */
+export async function waitForKeyboardShortcuts(page: Page, mode: 'vim' | 'emacs'): Promise<void> {
+  await expect(page.locator(`html[data-keyboard-shortcuts="${mode}"]`)).toHaveCount(1)
+}
+
+/**
+ * Wait until the conversation stream has stopped moving: no scroll
+ * correction is pending (`data-scroll-settling`, set by
+ * scrollBubbleIntoView) and `scrollTop` was the same for 3 animation
+ * frames in a row. A smooth scroll changes `scrollTop` every frame, and a
+ * pending correction keeps the attribute set, so this ends when the page
+ * has really settled. It counts frames, not milliseconds (2026-10-24:
+ * the scroll specs slept 300-1500 ms instead).
+ */
+export async function waitForScrollQuiet(page: Page): Promise<void> {
+  const quiet = await page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
+        if (!stream) return resolve(true)
+        let last = stream.scrollTop
+        let still = 0
+        let frames = 0
+        const tick = () => {
+          frames += 1
+          const now = stream.scrollTop
+          still = now === last && !stream.hasAttribute('data-scroll-settling') ? still + 1 : 0
+          last = now
+          if (still >= 3) return resolve(true)
+          if (frames > 1200) return resolve(false)
+          requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      }),
+  )
+  expect(quiet, 'the message stream kept scrolling').toBe(true)
+}
+
+/**
+ * Record, inside the page, every URL that history gets (pushState,
+ * replaceState, popstate). A navigation can be undone within a
+ * millisecond; checking page.url() once afterwards could miss the bounce.
+ * Install before `page.goto`. Read with `historyRecord(page)`.
+ */
+export async function recordHistory(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __history: string[] }
+    w.__history = [location.href]
+    for (const name of ['pushState', 'replaceState'] as const) {
+      const real = history[name].bind(history)
+      history[name] = ((...args: Parameters<History['pushState']>) => {
+        real(...args)
+        w.__history.push(location.href)
+      }) as History['pushState']
+    }
+    addEventListener('popstate', () => w.__history.push(location.href))
+  })
+}
+
+export async function historyRecord(page: Page): Promise<string[]> {
+  return page.evaluate(() => [...(window as unknown as { __history: string[] }).__history])
+}
+
+/**
+ * Wait until the browser has drawn `count` more frames. Work that the
+ * current frame scheduled (ResizeObserver callbacks, React's passive
+ * effects) has run by then. An order of events, not a delay.
+ */
+export async function nextFrames(page: Page, count = 2): Promise<void> {
+  await page.evaluate(
+    (n) =>
+      new Promise<void>((resolve) => {
+        const step = (left: number) => (left === 0 ? resolve() : requestAnimationFrame(() => step(left - 1)))
+        step(n)
+      }),
+    count,
+  )
+}
+
+/**
+ * Record, inside the page, every URL that history gets and every text of
+ * the "Match N of M" live region. A bounce can last a few milliseconds and
+ * need not change the URL; sampling page.url() from the test every 25 ms
+ * could miss it (2026-10-24).
+ */
+export async function recordJumps(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __urls: string[]; __live: string[] }
+    w.__urls = []
+    w.__live = []
+    for (const name of ['pushState', 'replaceState'] as const) {
+      const real = history[name].bind(history)
+      history[name] = ((...args: Parameters<History['pushState']>) => {
+        real(...args)
+        w.__urls.push(location.href)
+      }) as History['pushState']
+    }
+    addEventListener('popstate', () => w.__urls.push(location.href))
+    new MutationObserver(() => {
+      const text = document.querySelector('[data-testid="search-match-aria-live"]')?.textContent?.trim() ?? ''
+      if (text && w.__live[w.__live.length - 1] !== text) w.__live.push(text)
+    }).observe(document, { childList: true, subtree: true, characterData: true })
+  })
+}
+
+export async function jumps(page: Page): Promise<{ urls: string[]; live: string[] }> {
+  return page.evaluate(() => {
+    const w = window as unknown as { __urls: string[]; __live: string[] }
+    return { urls: [...w.__urls], live: [...w.__live] }
+  })
+}
+
+export async function clearJumps(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __urls: string[]; __live: string[] }
+    w.__urls.length = 0
+    w.__live.length = 0
+  })
+}
+
+/** Once `target` showed in the live region, no other match text followed it. */
+export function expectNoRevert(live: string[], target: RegExp) {
+  const first = live.findIndex((t) => target.test(t))
+  expect(first, `the live region never showed ${target}: ${JSON.stringify(live)}`).toBeGreaterThan(-1)
+  const after = live.slice(first).filter((t) => /Match\s+\d+/i.test(t))
+  expect(after.every((t) => target.test(t)), `the live region went back: ${JSON.stringify(live)}`).toBe(true)
+}
+
+/**
+ * Record whether the backend-connection dialog ever appears.
+ *
+ * Install before `page.goto`. A MutationObserver sees every appearance,
+ * also one that lasts a few milliseconds; a loop that samples the DOM
+ * every 200 ms could miss it (connection-status-reload.spec.ts,
+ * 2026-10-24). Read the result with `connectionDialogSeen(page)`.
+ */
+export async function watchConnectionDialog(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __connectionDialogSeen?: string[] }
+    w.__connectionDialogSeen = []
+    const look = () => {
+      for (const dialog of document.querySelectorAll('[role="dialog"]')) {
+        const text = dialog.textContent ?? ''
+        if (/Backend|Connection Failed|Attempt \d+ of \d+/.test(text) && !w.__connectionDialogSeen!.includes(text)) {
+          w.__connectionDialogSeen!.push(text)
+        }
+      }
+    }
+    new MutationObserver(look).observe(document, { childList: true, subtree: true, characterData: true })
+  })
+}
+
+export async function connectionDialogSeen(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () => (window as unknown as { __connectionDialogSeen?: string[] }).__connectionDialogSeen ?? [],
+  )
+}
+
+/**
+ * Record, in the page, every PATCH or PUT to /api/preferences when `fetch`
+ * is called (not when the request reaches a route, which comes later).
+ * Install before `page.goto`; each new document starts a new record.
+ * Read it with `preferencePatchesSent(page)`.
+ */
+export async function recordPreferencePatches(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __prefPatches: unknown[] }
+    w.__prefPatches = []
+    const realFetch = window.fetch.bind(window)
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const method = (init?.method ?? 'GET').toUpperCase()
+      if (url.includes('/api/preferences') && (method === 'PATCH' || method === 'PUT')) {
+        try {
+          w.__prefPatches.push(JSON.parse(String(init?.body ?? '{}')))
+        } catch {
+          w.__prefPatches.push(init?.body ?? null)
+        }
+      }
+      return realFetch(input, init)
+    }
+  })
+}
+
+export async function preferencePatchesSent(page: Page): Promise<Array<{ data?: Record<string, unknown> }>> {
+  return page.evaluate(() => (window as unknown as { __prefPatches: unknown[] }).__prefPatches) as Promise<
+    Array<{ data?: Record<string, unknown> }>
+  >
+}
 
 export { expect }
 export type { Page, Route } from '@playwright/test'

@@ -140,7 +140,15 @@ Playwright runs locators in strict mode by default. If a query matches more than
   - Add a more specific selector.
 - `getByRole('combobox')` matches every `<Select>` trigger, every `<input role=combobox>`, and similar elements. Always pair it with `{ name: /…/i }`, or scope it to a parent.
 
-### PATCH-spy ordering (LIFO route registration)
+### Register every `/api` route after `mockBackend` (LIFO)
+
+**Rule:** a test registers its own `page.route('**/api/…')` after its `mockBackend()` call, never before.
+
+- Playwright runs route handlers in LIFO order: the handler that registered last runs first.
+- `mockBackend` registers a route for nearly every `/api` path, and a catch-all for the rest. So an `/api` route that a test registers before `mockBackend()` never runs, whatever its path.
+- On 2026-10-24 four tests checked nothing for this reason: the three `connection-status-reload` tests (their slow `/api/config` never ran) and the `/settings` auto-promote test (its held search never ran). A fifth, `cc-image-lightbox`, opened its lightbox on a 404 image.
+- `backend/tests/test_e2e_spec_rules.py` rejects an `/api` route before `mockBackend()` in the same test.
+- When a test holds a route, also assert that the route answered (a call counter). Then the test cannot become vacuous again unnoticed.
 
 Some tests seed `mockBackend({ preferences: ... })` and also intercept later PATCH bodies. In these tests, register the `page.route('**/api/preferences')` spy after the seed.
 
@@ -163,6 +171,31 @@ The shared `mockBackend` answers an unmocked `/api/*` request with a 500, so tha
 - An open page sends requests while `mockBackend` registers its routes. Until the end of the registration, such a request goes on to the network.
 - Before 2026-10-23 the catch-all started first. A request sent during the registration got a 500, and the console gate failed the test. `keyboard-nav-smoke.spec.ts` failed this way in about 1 of 4 runs at 8 workers.
 - `mock-backend-registration.spec.ts` holds the registration open and sends a request in that time.
+
+### No `waitForTimeout`: wait for a signal
+
+**Rule:** no spec calls `page.waitForTimeout()`. `backend/tests/test_e2e_spec_rules.py` rejects it.
+
+A fixed sleep fails in one of two ways:
+- **Too short on a slow runner:** the test acts before the app is ready, and it is flaky.
+- **A "nothing happened in N ms" check:** it proves nothing, because the event may come later. On 2026-10-24 three such tests passed against the bug they were written for.
+
+Wait for one of these signals instead (`e2e/fixtures.ts`):
+
+| Signal | Use it when |
+|---|---|
+| `waitForScrollQuiet(page)` | a jump, a toggle, or a click scrolled the stream: no correction is pending, and `scrollTop` was still for 3 frames |
+| `waitForKeyboardShortcuts(page, mode)` | the test presses keys right after a page load |
+| `page.clock.install()`, then `runFor(ms)` | the app's own timer decides the result: toast durations, debounces, retry delays, the 2 s highlight cleanup, `AbortSignal.timeout` |
+| `recordHistory` / `historyRecord` | the URL must not bounce: every `pushState` is recorded in the page |
+| `recordJumps` / `expectNoRevert` | the "Match N of M" live region must not go back, even for a moment |
+| `watchConnectionDialog` / `connectionDialogSeen` | the connection dialog must never appear |
+| `recordPreferencePatches` / `preferencePatchesSent` | a preferences PATCH must not be sent; it counts at the `fetch` call |
+| `nextFrames(page)` | work that the current frame scheduled (ResizeObserver callbacks, passive effects) has run |
+| `<html data-keyboard-shortcuts>`, `data-connection-state`, `data-connection-retries`, `data-filters-migration` | DOM signals that the app writes in an effect, for states that the UI does not show |
+| a held route plus `expect.poll` on its flag or counter | a request must be in flight, or a later answer must arrive |
+
+Prove a new negative check with a mutation: put the bug back, and the test must fail.
 
 ## 5.15 · E2E tests MUST assert zero unexpected console errors / warnings
 

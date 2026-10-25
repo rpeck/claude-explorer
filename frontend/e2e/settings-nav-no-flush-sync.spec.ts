@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry, recordHistory, historyRecord, nextFrames } from './fixtures'
 import type { Message } from '../src/lib/types'
 
 /**
@@ -64,6 +64,15 @@ const msgs: Message[] = [
 
 const detail = makeDetail(summary, msgs)
 
+
+/** No URL in the record after `from` left the route that `stay` matches. */
+function expectStayed(record: string[], from: RegExp, stay: RegExp) {
+  const i = record.findIndex((u) => from.test(u))
+  expect(i, `never reached ${from}: ${JSON.stringify(record)}`).toBeGreaterThan(-1)
+  const bounced = record.slice(i).filter((u) => !stay.test(u))
+  expect(bounced, `bounced away: ${JSON.stringify(record)}`).toEqual([])
+}
+
 test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)', () => {
   test('clicking Settings from a conversation page lands on /settings and stays', async ({
     page,
@@ -73,6 +82,7 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
       conversations: [summary],
       details: { [CONV]: detail },
     })
+    await recordHistory(page)
     await withNetRetry(page, () => page.goto(`/conversations/${CONV}`))
 
     // Wait for the virtualizer to mount at least one bubble (proves the
@@ -109,7 +119,11 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
     // Negative pair: the URL must NOT have bounced back to a
     // conversation route. This is the user-observable contract that
     // the flushSync rollback used to violate.
-    await page.waitForTimeout(500) // give React a chance to bounce if it would
+    // A bounce would come from the unmount or the first ResizeObserver
+    // callbacks, which run before the next frames (2026-10-24: a 500 ms
+    // sleep, then one look at the URL).
+    await nextFrames(page)
+    expectStayed(await historyRecord(page), /\/settings$/, /\/settings$/)
     await expect(page).toHaveURL(/\/settings$/)
     await expect(page).not.toHaveURL(/\/conversations\//)
   })
@@ -125,6 +139,7 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
       conversations: [summary],
       details: { [CONV]: detail },
     })
+    await recordHistory(page)
     await withNetRetry(page, () => page.goto('/settings'))
     await expect(
       page.getByRole('heading', { name: /settings/i, level: 1 }),
@@ -137,7 +152,8 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
     await withNetRetry(page, () => page.goto(`/conversations/${CONV}`))
     await expect(page.locator('[data-message-uuid="m1"]')).toBeVisible()
 
-    await page.waitForTimeout(500)
+    await nextFrames(page) // the mount-time ResizeObserver callbacks ran
+    expectStayed(await historyRecord(page), new RegExp(`/conversations/${CONV}`), new RegExp(`/conversations/${CONV}`))
     await expect(page).toHaveURL(new RegExp(`/conversations/${CONV}`))
   })
 
@@ -157,6 +173,17 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
     //
     // Mock the search endpoint with an artificial delay so we can land
     // the fetch DELIBERATELY after the route change.
+    let releaseSearch!: () => void
+    const searchReleased = new Promise<void>((r) => (releaseSearch = r))
+    await recordHistory(page)
+    await mockBackend({
+      conversations: [summary],
+      details: { [CONV]: detail },
+    })
+    // AFTER mockBackend: Playwright runs the route registered last, and
+    // before 2026-10-24 mockBackend's empty search answered every call,
+    // so the held 1-match answer never reached the app and the test
+    // checked nothing.
     await page.route('**/api/search**', async (route) => {
       const url = new URL(route.request().url())
       const q = (url.searchParams.get('q') ?? '').toLowerCase()
@@ -181,8 +208,8 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
             },
           ]
         : []
-      // 800ms delay so the user can click Settings before this lands.
-      await new Promise((r) => setTimeout(r, 800))
+      // Held until the test is on /settings (2026-10-24: an 800 ms timer).
+      await searchReleased
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -193,11 +220,6 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
           truncated: false,
         }),
       })
-    })
-
-    await mockBackend({
-      conversations: [summary],
-      details: { [CONV]: detail },
     })
     await withNetRetry(page, () => page.goto(`/conversations/${CONV}`))
     await expect(page.locator('[data-message-uuid="m1"]')).toBeVisible()
@@ -216,10 +238,14 @@ test.describe('Navigating to Settings does not flash-and-disappear (2026-05-24)'
     // We must be on /settings now.
     await expect(page).toHaveURL(/\/settings$/)
 
-    // Wait LONGER than the 200ms debounce + 800ms search delay.
-    // If the fix is missing, the search result lands during this
-    // window and yanks the URL back to /conversations/...?highlight=.
-    await page.waitForTimeout(1500)
+    // Now the search result lands, and the app has processed it two
+    // frames later. Without the fix, auto-promote would navigate back to
+    // /conversations/...?highlight= in the effect after that render.
+    const answered = page.waitForResponse((r) => r.url().includes('/api/search'))
+    releaseSearch()
+    await answered
+    await nextFrames(page)
+    expectStayed(await historyRecord(page), /\/settings$/, /\/settings$/)
 
     // USER-OBSERVABLE CONTRACT: URL must still be /settings, the page
     // must still be the Settings page (heading visible).

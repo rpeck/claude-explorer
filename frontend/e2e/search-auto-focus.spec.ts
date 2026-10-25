@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForScrollQuiet, recordJumps, jumps, expectNoRevert } from './fixtures'
 import type { SearchResult } from '../src/lib/types'
 
 /**
@@ -160,6 +160,7 @@ test.describe('Search — auto-focus first match on results land (V1 polish)', (
     await mockBackend({ conversations: [summary], details: { [SM]: detail } })
     await mockSearch(page, twoMatchResults)
     await page.setViewportSize({ width: 1024, height: 900 })
+    await recordJumps(page)
 
     await withNetRetry(page, () => page.goto(`/conversations/${SM}`))
     await page.locator('main').click()
@@ -184,9 +185,11 @@ test.describe('Search — auto-focus first match on results land (V1 polish)', (
 
     // Crucial: the auto-focus effect must NOT fire again here. It was
     // gated on activeMatchIndex === -1; once we set 0 and then 1 it
-    // shouldn't snap back. Wait long enough that any spurious effect
-    // would have run.
-    await page.waitForTimeout(2500)
+    // shouldn't snap back. The Cmd+G jump has settled, so a spurious
+    // effect would have run, and the live-region record shows any
+    // snap back, even a short one (2026-10-24: a 2.5 s sleep).
+    await waitForScrollQuiet(page)
+    expectNoRevert((await jumps(page)).live, /Match\s+2\s+of\s+2/i)
     // The target's ring may have aged out (2s timeout). Either way,
     // m1 must NOT have the yellow ring (which would mean the effect
     // yanked us back).

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { User, Bot, ChevronsUpDown, Copy, Check, Star } from 'lucide-react'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { MessageAttachments } from './MessageAttachments'
@@ -71,6 +71,16 @@ function MessageBubbleImpl({
   expandAllTools = false,
   searchQuery = '',
 }: MessageBubbleProps) {
+  // Render probe for e2e tests, in development builds only. An effect
+  // without deps runs after each commit in which this bubble rendered,
+  // and not when React.memo skips it. search-typing-lag.spec.ts counts
+  // these to prove that a keystroke does not re-render the list
+  // (2026-10-24: it measured wall-clock time before, which varies).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as { __messageBubbleRenders?: number }
+    w.__messageBubbleRenders = (w.__messageBubbleRenders ?? 0) + 1
+  })
   const isHuman = message.sender === 'human'
   const { isBookmarked, toggleBookmark } = useBookmarks()
   // Hunt #11: useCopyFeedback owns the 2s "Copied" indicator + the

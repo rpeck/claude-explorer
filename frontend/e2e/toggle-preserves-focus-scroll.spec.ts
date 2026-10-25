@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry, type Page } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry, type Page, waitForScrollQuiet } from './fixtures'
 import type { SearchResult, Message, CompactMarker } from '../src/lib/types'
 
 /**
@@ -205,7 +205,7 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
     const hitCard = page.getByRole('button', { name: new RegExp(NEEDLE) }).first()
     await expect(hitCard).toBeVisible()
     await hitCard.click()
-    await page.waitForTimeout(1500)
+    await waitForScrollQuiet(page) // the jump and its corrections are done
 
     const targetUuid = messages[LATE_TARGET_IDX].uuid
     const initialDistance = await distancePxFromCenter(page, targetUuid)
@@ -245,6 +245,9 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
     // .click() (NOT .uncheck()) per header-toggles-as-checkboxes.spec.ts
     // L141 — Playwright's .uncheck has a state-precondition race with
     // React commit.
+    // The toggle changes the search query key, so the hits are fetched
+    // again (2026-10-24: a 1.5 s sleep instead of these signals).
+    const refetched = page.waitForResponse((r) => r.url().includes('/api/search'))
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).not.toBeChecked()
     // Deterministic settle: virtualizer total height shrank by enough
@@ -264,10 +267,8 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
         })
       }, { timeout: 5000 })
       .toBeLessThan(totalHeightBefore - 2000)
-    // Give the scrollBubbleIntoView correction chain time to fully
-    // settle (1250 ms + slack), matching the wait used in
-    // search-hit-scroll-landing.spec.ts.
-    await page.waitForTimeout(1500)
+    await refetched
+    await waitForScrollQuiet(page)
 
     const afterHideDistance = await distancePxFromCenter(page, targetUuid)
     expect(
@@ -278,6 +279,8 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
     ).toBeLessThanOrEqual(100)
 
     // ─── TOGGLE BACK ON ─────────────────────────────────────────────
+    // Back to the first query key: React Query answers from its cache, so
+    // no request goes out.
     await compactionsCheckbox.click()
     await expect(compactionsCheckbox).toBeChecked()
     // Deterministic settle: total height back near the original value.
@@ -290,7 +293,7 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
         })
       }, { timeout: 5000 })
       .toBeGreaterThan(totalHeightBefore - 1000)
-    await page.waitForTimeout(1500)
+    await waitForScrollQuiet(page)
 
     const afterShowDistance = await distancePxFromCenter(page, targetUuid)
     expect(
@@ -322,7 +325,7 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
 
     const hitCard = page.getByRole('button', { name: new RegExp(NEEDLE) }).first()
     await hitCard.click()
-    await page.waitForTimeout(1500)
+    await waitForScrollQuiet(page) // the jump and its corrections are done
 
     const targetUuid = messages[LATE_TARGET_IDX].uuid
     const initialDistance = await distancePxFromCenter(page, targetUuid)
@@ -339,7 +342,9 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
     await expect(toolsCheckbox).not.toBeChecked()
     await toolsCheckbox.click()
     await expect(toolsCheckbox).toBeChecked()
-    await page.waitForTimeout(1500)
+    // The search does not refetch for Tools (it always includes tool
+    // calls); the re-center and its corrections are done.
+    await waitForScrollQuiet(page)
 
     const afterToggleDistance = await distancePxFromCenter(page, targetUuid)
     expect(
@@ -372,7 +377,7 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
       const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
       if (stream) stream.scrollTo({ top: 30_000, behavior: 'auto' })
     })
-    await page.waitForTimeout(300)
+    await waitForScrollQuiet(page)
 
     const beforeScrollTop = await page.evaluate(() => {
       const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
@@ -407,7 +412,7 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
         })
       }, { timeout: 5000 })
       .toBeLessThan(heightBefore - 2000)
-    await page.waitForTimeout(1500)
+    await waitForScrollQuiet(page) // no search here, so no refetch
 
     const afterScrollTop = await page.evaluate(() => {
       const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null

@@ -1,4 +1,5 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from './fixtures';
+import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry, waitForKeyboardShortcuts } from './fixtures';
+import type { Page } from './fixtures';
 import type { ConversationSummary, ConversationDetail } from '../src/lib/types';
 
 /**
@@ -162,19 +163,41 @@ test.describe('Keyboard Navigation', () => {
   });
 });
 
+/**
+ * Choose a keyboard mode in Settings, and wait until it is in effect and saved.
+ *
+ * Signals, not timers (2026-10-24): before, the setup waited a fixed 500 ms,
+ * and the test pressed its first key before the listener existed.
+ * - The shortcuts listen in every route, so the new mode shows on this page
+ *   at once (localStorage is written in the same click).
+ * - A real change also PATCHes /api/preferences; wait for it, so that the
+ *   next navigation does not cut it off. Clicking the active mode sends none.
+ */
+async function chooseKeyboardMode(page: Page, mode: 'vim' | 'emacs'): Promise<void> {
+  await withNetRetry(page, () => page.goto('/settings'));
+  const label = page.locator(`label:has-text("${mode === 'vim' ? 'Vim' : 'Emacs'}")`);
+  await expect(label).toBeVisible({ timeout: 10000 });
+  // The shortcuts listen (in some mode) before we read which mode is active.
+  await expect(page.locator('html[data-keyboard-shortcuts]')).toHaveCount(1);
+  const current = await page.locator('html').getAttribute('data-keyboard-shortcuts');
+  const saved =
+    current === mode
+      ? null
+      : page.waitForResponse((r) => r.url().includes('/api/preferences') && r.request().method() === 'PATCH');
+  await label.click();
+  await waitForKeyboardShortcuts(page, mode);
+  if (saved) expect((await saved).ok()).toBe(true);
+}
+
 test.describe('Vim Mode', () => {
   test.beforeEach(async ({ page, mockBackend }) => {
     const { conversations, details } = buildFixtures();
     await mockBackend({ conversations, details });
-    // Switch to Vim mode
-    await withNetRetry(page, () => page.goto('/settings'));
-    // Wait for the Vim label to be visible before clicking
-    const vimLabel = page.locator('label:has-text("Vim")');
-    await expect(vimLabel).toBeVisible({ timeout: 10000 });
-    await vimLabel.click();
-    // Wait for setting to be saved in localStorage
-    await page.waitForTimeout(500);
-    await withNetRetry(page, () => page.goto('/'));
+    await chooseKeyboardMode(page, 'vim');
+    // 'commit' returns before React mounts: the strictest start for the
+    // test's first key. It must still pass, because it waits for the signal.
+    await withNetRetry(page, () => page.goto('/', { waitUntil: 'commit' }));
+    await waitForKeyboardShortcuts(page, 'vim');
   });
 
   test('help modal shows Vim shortcuts', async ({ page }) => {
@@ -204,12 +227,9 @@ test.describe('Emacs Mode', () => {
   test.beforeEach(async ({ page, mockBackend }) => {
     const { conversations, details } = buildFixtures();
     await mockBackend({ conversations, details });
-    // Ensure Emacs mode is selected
-    await withNetRetry(page, () => page.goto('/settings'));
-    await page.click('label:has-text("Emacs")');
-    // Wait for setting to be saved
-    await page.waitForTimeout(500);
-    await withNetRetry(page, () => page.goto('/'));
+    await chooseKeyboardMode(page, 'emacs');
+    await withNetRetry(page, () => page.goto('/', { waitUntil: 'commit' }));
+    await waitForKeyboardShortcuts(page, 'emacs');
   });
 
   test('help modal shows Emacs shortcuts', async ({ page }) => {

@@ -21,7 +21,7 @@
 //
 // NO APP CODE was read while writing this test.
 
-import { test, expect, withNetRetry } from './fixtures'
+import { test, expect, withNetRetry, recordPreferencePatches, preferencePatchesSent } from './fixtures'
 import { makeSummary } from './fixtures'
 
 const conversations = [
@@ -259,9 +259,12 @@ test.describe('Migration v1 → v2 + banner', () => {
       await route.fallback()
     })
 
+    await recordPreferencePatches(page)
     await withNetRetry(page, () => page.goto('/'))
-    // Wait briefly to allow any async migration effect to fire.
-    await page.waitForTimeout(500)
+    // The migration effects ran (a DOM signal of FilterContext), so any
+    // PATCH they send has been sent (2026-10-24: a 500 ms sleep).
+    await expect(page.locator('html[data-filters-migration="v1v2"]')).toHaveCount(1)
+    for (const sent of await preferencePatchesSent(page)) if (sent.data) patches.push(sent.data)
 
     // Filter applied as expected.
     await expect(page.getByText('Foo morning')).toHaveCount(0)
