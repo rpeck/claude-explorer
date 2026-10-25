@@ -1,0 +1,1027 @@
+{
+ "ranked": {
+  "selected": [
+   {
+    "name": "Flightdeck (flightdeckhq)",
+    "repo_url": "https://github.com/flightdeckhq/flightdeck",
+    "why": "Required seed example. A self-hosted control plane whose fleet view draws a parent/child session tree (parent_session_id, agent_role). It is the clearest example of the plugin and SDK-patching approach: its README admits the hook-based Claude Code plugin cannot act mid-call, so it hides Stop Agent for CC sessions, and it needs Docker plus env vars. Verified: 16 stars, pushed 2026-10-24.",
+    "collection_mechanism": "A Claude Code marketplace plugin built on hooks. It reads FLIGHTDECK_SERVER/TOKEN env vars at SessionStart, POSTs hook events to a local server on :4000, and identifies Task subagents by the hook payload's agent_type. Non-CC Python agents use the flightdeck-sensor SDK monkey-patch (init() + patch()) for Anthropic, OpenAI, litellm, and MCP.",
+    "needs_change_in_observed_session": "yes: install the plugin (/plugin marketplace add + /plugin install), set env vars, and run the Docker Compose stack"
+   },
+   {
+    "name": "Flightdeck (justinchuby)",
+    "repo_url": "https://github.com/justinchuby/flightdeck",
+    "why": "Required seed example. It is the orchestrator-owned extreme: a Project Lead agent builds a task DAG and spawns specialist CLI agents, and a ReactFlow dashboard shows the DAG, Kanban, Gantt, and messages live over WebSocket. Its DAG UI is useful for Phase 2, and so is its main limit: it can watch only the sessions that it launched. Verified: 42 stars, 9 forks, pushed 2026-07-09.",
+    "collection_mechanism": "Wrapper or launcher. It spawns each agent CLI as a subprocess over ACP (Copilot CLI, Claude SDK, Gemini, Codex, Cursor, OpenCode) and parses structured commands that the agents emit in doubled Unicode brackets on stdout.",
+    "needs_change_in_observed_session": "yes: the session must be launched and owned by Flightdeck. It cannot attach to a plain `claude` session."
+   },
+   {
+    "name": "claude-devtools (matt1398)",
+    "repo_url": "https://github.com/matt1398/claude-devtools",
+    "why": "The best-regarded passive JSONL tool and the closest match to our no-runtime-dependency goal: 3,993 stars and 304 forks (verified), HN Show HN 69 points and 44 comments, a reported Reddit launch with 500+ upvotes, Product Hunt, and blog reviews. It rebuilds per-subagent and per-team execution trees (tokens, duration, cost) live from ~/.claude. Its FileWatcher design shows how a mature product does live tailing passively: fs.watch with a 100 ms debounce, byte-offset append parsing, a 30 s catch-up scan, and SubagentLocator/Resolver.",
+    "collection_mechanism": "JSONL tail. src/main/services/infrastructure/FileWatcher.ts runs fs.watch on ~/.claude/projects and ~/.claude/todos, parses only appended bytes (lastProcessedSize), runs a 30 s catch-up scan for missed events, and polls every 3 s in SSH mode. It links subagent files to their parents. 'Does not wrap, modify, or interfere with Claude Code.'",
+    "needs_change_in_observed_session": "no"
+   },
+   {
+    "name": "zoetrope (furkankly)",
+    "repo_url": "https://github.com/furkankly/zoetrope",
+    "why": "The most direct precedent for a passive live subagent DAG. It draws a CC or Codex session as a flow graph: the main agent, spawned subagents, workflow groups, and a timeline of tool activity. It can follow a live session, replay at the session's own timestamps, scrub, and show each agent's provenance (the prompt that spawned it). It reads the same main, subagents/, and workflows/ files that Claude Explorer already reads. Strong momentum: 1,096 stars and 78 forks in about 2 months (verified, pushed 2026-10-14). This is our second passive JSONL pick, chosen for DAG-specific capability.",
+    "collection_mechanism": "JSONL tail of the ~/.claude/projects main transcript plus subagents/ and workflows/ (`zoe`, `zoe <file.jsonl> --follow`). Rust ratatui TUI plus a browser mode.",
+    "needs_change_in_observed_session": "no"
+   },
+   {
+    "name": "Agent Flow (patoles)",
+    "repo_url": "https://github.com/patoles/agent-flow",
+    "why": "The most-starred live subagent node-graph visualizer (1,735 stars and 214 forks, verified, pushed 2026-10-10). It is a hybrid: hooks for 'zero-latency streaming', plus passive watching of ~/.claude/projects and Codex rollout JSONL. Reading its code shows exactly what the hook channel adds over passive tailing (latency, event types), which is the trade-off Phase 2 must make without hooks. Its open issues are useful lessons: performance degrades in long sessions (#20), a Windows path-encoding bug (#4), and discovery failures for workspace paths with underscores (#18, #22). HN commenters asked for detection of repeated file re-reads and retry loops, which feeds the learning-loop feature.",
+    "collection_mechanism": "Hybrid. A local HTTP hook server receives CC hook events; the VS Code extension auto-configures CC hooks the first time the panel opens, or the user runs `pnpm run setup`. It also watches ~/.claude/projects and tails ~/.codex/sessions rollout-*.jsonl, and it can replay any JSONL event log.",
+    "needs_change_in_observed_session": "yes for the live hook channel (it auto-writes CC hook settings); no for its JSONL-watch fallback"
+   }
+  ],
+  "also_ran": [
+   {
+    "name": "Agents Observe (simple10)",
+    "url": "https://github.com/simple10/agents-observe",
+    "one_line": "Plugin+hooks real-time dashboard for CC agent teams; hook events go to a Docker API server, SQLite, and WebSocket.",
+    "why_not_selected": "Best-received hooks dashboard on HN (77 pts), but flightdeckhq already covers the hooks/plugin method and Agent Flow is more capable (it has a node graph; Agents Observe has no tree view yet). Its HN findings still belong in the synthesis: hooks are blocking (50-60 ms each), 'jsonl files provide the full picture', and agents show 'sanitised optimism'."
+   },
+   {
+    "name": "claude-code-hooks-multi-agent-observability (disler)",
+    "url": "https://github.com/disler/claude-code-hooks-multi-agent-observability",
+    "one_line": "Canonical hooks reference: hook scripts POST to a Bun server, then SQLite, WebSocket, and Vue.",
+    "why_not_selected": "Inactive for about 8 months (last push 2026-02). Hooks are already represented, and users must copy the hooks into every project (#18)."
+   },
+   {
+    "name": "Claude Code Agent Monitor / CCAM (hoangsonww)",
+    "url": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "one_line": "Large hooks-first suite with transcript discovery, an OTel collector, Kanban, desktop apps, and an MCP server.",
+    "why_not_selected": "Its hooks-primary hybrid overlaps flightdeckhq and Agent Flow. No community discussion found. Its issues still matter: #315 (PostToolUse payloads grew the DB to 2 GB) and #223 (desktop app freeze)."
+   },
+   {
+    "name": "abtop (graykode)",
+    "url": "https://github.com/graykode/abtop",
+    "one_line": "Rust 'htop for AI agents' that adds the OS process table to a JSONL tail and shows a subagent tree.",
+    "why_not_selected": "Highly starred (3,772), but it is a session/process TUI, not a DAG view. Passive JSONL is already covered twice. Its process-table liveness technique is worth a note in the synthesis."
+   },
+   {
+    "name": "AgentsView (kenn-io)",
+    "url": "https://github.com/kenn-io/agentsview",
+    "one_line": "Go daemon that indexes 20-60+ agents' sessions into SQLite FTS5, with an SSE web UI; the closest analog to Claude Explorer.",
+    "why_not_selected": "No subagent DAG (shows_subagents=false). Most relevant as a direct archive/search competitor, not for Phase 2 real-time subagent visualization."
+   },
+   {
+    "name": "claude-code-trace (delexw)",
+    "url": "https://github.com/delexw/claude-code-trace",
+    "one_line": "Tauri/Rust JSONL viewer: a notify-crate watcher with SSE live tail, plus a subagent-linking spec.",
+    "why_not_selected": "Passive and well built (380 stars), but less capable and less well known than claude-devtools and zoetrope. specs/09-subagent-linking.md is worth reading as a side reference."
+   },
+   {
+    "name": "claude-view (tombelieber)",
+    "url": "https://github.com/tombelieber/claude-view",
+    "one_line": "Rust mission-control dashboard: a JSONL backfill plus a hook-free ~/.claude/sessions/<pid>.json lifecycle watcher, and auto-injected curl hooks.",
+    "why_not_selected": "Low adoption (121 stars). Its live channel silently edits the global settings.json. Its sessions_watcher.rs technique (pid files plus kill(pid,0)) is a valuable passive liveness signal to cite."
+   },
+   {
+    "name": "Claude Code Viewer (d-kimuson)",
+    "url": "https://github.com/d-kimuson/claude-code-viewer",
+    "one_line": "Web CC client with real-time JSONL log viewing and strict schema validation.",
+    "why_not_selected": "Mainly a client and history browser; subagent DAG support is unverified."
+   },
+   {
+    "name": "claude-flightdeck (scasella)",
+    "url": "https://github.com/scasella/claude-flightdeck",
+    "one_line": "Claude Code mod that docks a live dashboard pane in the terminal (subagent swimlanes, permission checks).",
+    "why_not_selected": "A third 'flightdeck' that needs an in-session mod (CC 2.1.287+), which duplicates the plugin approach. Its state is in-session only, and the pane fails in the VS Code extension (#5)."
+   },
+   {
+    "name": "ccxray (lis186)",
+    "url": "https://github.com/lis186/ccxray",
+    "one_line": "Zero-config HTTP proxy with a real-time dashboard of every API request.",
+    "why_not_selected": "A proxy needs ANTHROPIC_BASE_URL or a `ccxray claude` launch, so it does not meet our goal. Proxy is noted as a method class only."
+   },
+   {
+    "name": "rungraph (fayzan123)",
+    "url": "https://github.com/fayzan123/rungraph",
+    "one_line": "Passive JSONL run graph with an error signal strip, an SSE live tail, and MCP query tools.",
+    "why_not_selected": "Tiny (28 stars), but its MCP tools (find_nodes, get_graph, get_detail) are a direct precedent for the planned chatbot. Cite it in the feature synthesis."
+   },
+   {
+    "name": "GUI-Anything (Flow Observer)",
+    "url": "https://github.com/YurunChen/GUI-Anything",
+    "one_line": "JSONL sidecar that builds a live intent graph and a project-memory wiki.",
+    "why_not_selected": "No subagent view. Relevant as a learning-loop precedent only."
+   },
+   {
+    "name": "cctop (stefanprodan)",
+    "url": "https://github.com/stefanprodan/cctop",
+    "one_line": "Zero-dependency Bun TUI that combines a JSONL tail and the process table into a sub-agent tree.",
+    "why_not_selected": "Small (147 stars) TUI. Its method is covered by abtop and the passive picks."
+   },
+   {
+    "name": "agtop (ldegio)",
+    "url": "https://github.com/ldegio/agtop",
+    "one_line": "top-style TUI that rebuilds 'ghost' subagent rows from the parent transcript after CC purges the subagent files.",
+    "why_not_selected": "Small (285 stars). Its ghost-row technique for purged subagent files is worth a note."
+   },
+   {
+    "name": "Roundtable / seedeep / CC Harness / agent-monitor (a0s) / claude-workflow-viz / claude-team-dashboard / June / claude-visualized / subagents-visualization / Stargx dashboard / dlupiak session dashboard / claude-tail",
+    "url": "https://github.com/Kostakurta8/roundtable",
+    "one_line": "Small passive JSONL viewers of subagents, workflows, and teams.",
+    "why_not_selected": "All have low adoption (0-150 stars). They confirm that the passive subagents/ tail design works, but none is a leader."
+   },
+   {
+    "name": "Claude Code Karma / claude-pulse",
+    "url": "https://github.com/JayantDevkar/claude-code-karma",
+    "one_line": "JSONL dashboards that add hooks (Karma) or optional hooks (Pulse) for live status and approvals.",
+    "why_not_selected": "Karma needs hooks for its live status. Pulse shows no subagents."
+   },
+   {
+    "name": "c9watch",
+    "url": "https://github.com/minchenlee/c9watch",
+    "one_line": "macOS menu-bar session status from process scanning plus JSONL.",
+    "why_not_selected": "No subagent view."
+   },
+   {
+    "name": "Tarsa / agentwatch (gyuco) / ccdeck",
+    "url": "https://github.com/elcronos/tarsa",
+    "one_line": "Hook-based live subagent topology dashboards.",
+    "why_not_selected": "Very low adoption, and they use hooks."
+   },
+   {
+    "name": "claude-code-otel and other OTel stacks (SigNoz, Grafana)",
+    "url": "https://github.com/ColeMurray/claude-code-otel",
+    "one_line": "CC native OTel export to Grafana, Prometheus, and Loki.",
+    "why_not_selected": "Needs env vars in the session, the dashboards show no subagent tree, and the project is inactive. The OTel beta traces (agent_id and parent_agent_id) are worth noting as a method class."
+   },
+   {
+    "name": "Langfuse / Laminar / Arize coding-harness-tracing / Opik / Braintrust plugins; OpenInference SDK instrumentation",
+    "url": "https://github.com/langfuse/claude-observability-plugin",
+    "one_line": "Vendor trace plugins: a Stop hook reads the transcript from a saved byte offset, or an SDK wrapper exports OTLP.",
+    "why_not_selected": "Not real time (per-turn batches), they need plugins or wrappers, and they report to vendor backends."
+   },
+   {
+    "name": "claude-code-proxy (seifghazi) / Watchtower / claude-trace (badlogic)",
+    "url": "https://github.com/seifghazi/claude-code-proxy",
+    "one_line": "API proxies or launch-wrapper fetch interceptors.",
+    "why_not_selected": "Each needs ANTHROPIC_BASE_URL or a wrapper launch, which breaks our goal."
+   },
+   {
+    "name": "Claude Code Agent View (official, Anthropic)",
+    "url": "https://code.claude.com/docs/en/agent-view",
+    "one_line": "Built-in `claude agents` screen of background sessions.",
+    "why_not_selected": "No public repo, and it does not list subagents as separate rows. It is the official session-level competitor."
+   },
+   {
+    "name": "ccusage / Claude-Code-Usage-Monitor / Sniffly / claude-code-log",
+    "url": "https://github.com/ccusage/ccusage",
+    "one_line": "The most-starred passive JSONL readers, for usage, analytics, or export.",
+    "why_not_selected": "None visualizes subagents in real time. They show that passive JSONL reading is the most-adopted path."
+   },
+   {
+    "name": "Session launchers (Vibe Kanban, opcode, Claude Squad, Omnara)",
+    "url": "https://github.com/BloopAI/vibe-kanban",
+    "one_line": "Tools that own the CC process and launch and manage sessions.",
+    "why_not_selected": "Not subagent-DAG visualizers. justinchuby/flightdeck already covers the wrapper method."
+   }
+  ],
+  "method_landscape": "I merged the three candidate sweeps, removed duplicates, and picked the five tools below. All seven repos I checked exist, are public, and are not archived (verified with gh api on 2026-10-24).\n\n**The five picks span four collection methods:**\n- **Hook/plugin plus SDK patching:** flightdeckhq/flightdeck.\n- **Orchestrator that launches and owns the agents:** justinchuby/flightdeck.\n- **Passive JSONL tail:** claude-devtools and zoetrope.\n- **Hybrid (hooks for live updates, JSONL watching as fallback):** Agent Flow.\n\n**Six method classes exist in the field:**\n1. Hooks through settings.json or a plugin. Examples: disler, agents-observe, CCAM, flightdeckhq, Tarsa.\n2. In-session mods or skills. Example: scasella/claude-flightdeck.\n3. CC native OpenTelemetry through env vars. Examples: claude-code-otel, SigNoz. The beta traces carry agent_id and parent_agent_id.\n4. API proxy or wrapper launch. Examples: ccxray, claude-code-proxy, claude-trace.\n5. Orchestrator or launcher that owns the process. Examples: justinchuby/flightdeck, Vibe Kanban, Claude Squad.\n6. Passive file reading, the only class that needs nothing in the session. Examples: claude-devtools, zoetrope, abtop, AgentsView, claude-code-trace, cctop, agtop, rungraph, Roundtable.\n\n**Passive sources that need no change in the observed session:**\n- The ~/.claude/projects JSONL tail: main transcript, subagents/agent-*.jsonl with meta.json, and workflows/.\n- ~/.claude/sessions/<pid>.json lifecycle files. claude-view reads them with a kill(pid,0) check for crashes.\n- The OS process table, as abtop, cctop, and c9watch use it.\n- ~/.claude/todos and team/task files, as claude-devtools and claude-team-dashboard read them.\n\n**Hybrids that silently add hooks:** claude-view and Agent Flow write hooks into ~/.claude/settings.json automatically. That still counts as a runtime dependency, even though the user installs nothing by hand.\n\n**Evidence that passive reading is enough:**\n- The Agents Observe author found hooks blocking (50-60 ms per call) and wrote that 'Claude's jsonl files provide the full picture'.\n- The top passive tool, claude-devtools, has the most stars in the subagent-view category (3,993).\n\n**Gaps in the evidence:**\n- Reddit could not be reached in any sweep. The Reddit signals are secondhand (from blog posts) and unverified.\n- I did not run gh api checks on the also-ran repos. Their numbers come from the candidate sweeps."
+ },
+ "deep": [
+  {
+   "name": "Flightdeck (flightdeckhq)",
+   "repo_url": "https://github.com/flightdeckhq/flightdeck",
+   "commit": "2db326d6e452161f52a368ae6472a4809bac5c63",
+   "license": "Apache-2.0 (LICENSE; plugin/.claude-plugin/plugin.json:11)",
+   "architecture_summary": "A self-hosted control plane made of several Go services plus a React dashboard, run with Docker Compose or Helm. The services are postgres, nats, ingestion, workers, api, dashboard and nginx (docker/docker-compose.yml:2,32,50,74,90,115,120). There are two producers. (1) For Claude Code there is a Claude Code plugin. Every CC hook runs one Node script, observe_cli.mjs, as a short-lived child process (plugin/hooks/hooks.json:3-105). The script reads the hook JSON from stdin (observe_cli.mjs:2519-2528). It then re-reads the session's JSONL transcript to get token counts, the model and message bodies (readTurns, observe_cli.mjs:1116-1215), and POSTs events to `$FLIGHTDECK_SERVER/ingest/v1/events` (observe_cli.mjs:1958-1975). (2) For production agents there is a Python sensor, flightdeck_sensor. It monkey-patches the Anthropic, OpenAI, LiteLLM, LangGraph, CrewAI and MCP SDK classes (sensor/flightdeck_sensor/interceptor/anthropic.py:1080-1134; sensor/flightdeck_sensor/__init__.py:230 init, :590 patch). The pipeline runs ingestion (Go HTTP) -> NATS JetStream subject `events.<event_type>` (ingestion/internal/nats/publisher.go:91-93; ingestion/internal/handlers/events.go:534-536) -> workers consumer -> Postgres insert -> `pg_notify('flightdeck_fleet', {session_id,event_type,event_id})` (workers/internal/writer/notify.go:34-48). The api hub LISTENs on that channel, SELECTs the triggering event plus its session, and broadcasts a `fleetUpdate` over WebSocket `/v1/stream` (api/internal/ws/hub.go:1-2,166-186,191-214; api/internal/server/server.go:201). The dashboard (dashboard/src/hooks/useFleet.ts:23,47; dashboard/src/hooks/useWebSocket.ts:3-43) renders the Fleet swimlanes, the Investigate view, Analytics, Agents and Policies. Kill switches and budget enforcement (\"directives\") travel back on the ingestion response (ingestion/internal/handlers/events.go:569). Only the Python sensor acts on them; the CC plugin sets supports_directives=false (plugin/README.md:108-116).",
+   "collection": [
+    {
+     "mechanism": "Claude Code plugin hooks. One Node script, observe_cli.mjs, is registered for SessionStart, UserPromptSubmit, PreToolUse(*), PostToolUse(*), PostToolUseFailure(*), Stop, SessionEnd, PreCompact, SubagentStart and SubagentStop. Each hook spawns a fresh node process that reads the hook event JSON from stdin, maps it to a wire event_type (EVENT_MAP) and POSTs it over HTTP with a Bearer token.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "Install the plugin into the observed CC session (`/plugin marketplace add flightdeckhq/flightdeck` + `/plugin install flightdeck@flightdeck-plugins` + `/reload-plugins`, or `claude --plugin-dir`). Set FLIGHTDECK_SERVER / FLIGHTDECK_TOKEN in the shell before launching claude for any stack other than the local dev one. Node must be on PATH. A running Docker stack is required, or events are dropped.",
+     "data_it_yields": "Session lifecycle (start source, end reason). Each tool call with tool_name, a sanitized whitelist of tool_input (file_path, command, query, pattern, prompt, truncated to 100/200 chars), tool_response truncated to 2000 chars, CC's tool_use_id and duration_ms, and a structured error block on failure. The user prompt (pre_call). A compaction marker. Host, git and OS context. CC env signals (entrypoint, attended, child_session, remote, CI).",
+     "evidence": [
+      "plugin/hooks/hooks.json:3-105",
+      "plugin/hooks/scripts/observe_cli.mjs:1275-1283 (EVENT_MAP)",
+      "plugin/hooks/scripts/observe_cli.mjs:2512-2540 (main reads stdin hook event)",
+      "plugin/hooks/scripts/observe_cli.mjs:1958-1975 (postEvent -> /ingest/v1/events)",
+      "plugin/hooks/scripts/observe_cli.mjs:3017-3085 (tool_call payload, tool_response truncation)",
+      "plugin/README.md:9-20, 55-68 (install + env vars)",
+      "README.md:46-66"
+     ]
+    },
+    {
+     "mechanism": "JSONL transcript re-reading from inside the hook. On PostToolUse, PostToolUseFailure, Stop, SessionEnd and SubagentStop the hook opens `hookEvent.transcript_path` (the CC session JSONL) with readFileSync, parses every line, and groups assistant records by message.id, keeping the last usage. Each LLM call not yet emitted is sent as a post_call event, deduplicated on disk per message.id. Inside a subagent, the hook works out the subagent transcript path `<parent_dir>/<parent_session_id>/subagents/agent-<agent_id>.jsonl`, because interior hooks carry the parent's transcript_path.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "Same plugin. The hook only triggers the read; the data itself is the same JSONL on disk that a passive reader sees.",
+     "data_it_yields": "Per-LLM-call model, tokens (input = uncached + cache_read + cache_creation, output, cache_read, cache_creation), latency from the preceding user-role record to the last assistant record, content blocks (thinking, text, tool_use), and the CC version. LLM turns appear only at the next tool boundary or at Stop, never while a turn is mid-stream.",
+     "evidence": [
+      "plugin/hooks/scripts/observe_cli.mjs:1-24 (design note: hooks have no LLM visibility; reads transcript)",
+      "plugin/hooks/scripts/observe_cli.mjs:1116-1215 (readTurns)",
+      "plugin/hooks/scripts/observe_cli.mjs:1233-1259 (tokensFromUsage, computeLatencyMs)",
+      "plugin/hooks/scripts/observe_cli.mjs:2179-2226 (flushPostCallTurns, markEmittedTurn dedup)",
+      "plugin/hooks/scripts/observe_cli.mjs:1546-1588 (_subagentTranscriptPath derivation)",
+      "plugin/README.md:79,82"
+     ]
+    },
+    {
+     "mechanism": "Session id resolution via disk markers. The hook mints its own Flightdeck session id (a random uuid4) and caches it under $TMPDIR/flightdeck-plugin/session-<sha(cc_session_id)>.txt, so every hook process in one CC invocation agrees on the id. The native CC session_id is reported separately as context.claude_code_session_id.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "The plugin. Optional overrides CLAUDE_SESSION_ID / ANTHROPIC_CLAUDE_SESSION_ID.",
+     "data_it_yields": "A stable Flightdeck session id per CC invocation. It is not equal to the CC session uuid, and SessionEnd invalidates it so that /clear starts a new Flightdeck session.",
+     "evidence": [
+      "plugin/hooks/scripts/observe_cli.mjs:345-438 (getSessionId)",
+      "plugin/hooks/scripts/observe_cli.mjs:441-484 (clearSessionCacheFiles)",
+      "plugin/README.md:64-67"
+     ]
+    },
+    {
+     "mechanism": "PreToolUse MCP Protection Policy gate (enforcement, not observation). The hook fetches MCP policies from the api at SessionStart, caches them for one hour on disk, and on each mcp__<server>__<tool> call writes a hookSpecificOutput.permissionDecision of deny, allow or ask to stdout. It reads server fingerprints from .mcp.json and ~/.claude.json.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "The plugin, plus an MCP policy configured in the dashboard.",
+     "data_it_yields": "policy_mcp_warn, policy_mcp_block and mcp_policy_user_remembered events, plus MCP server fingerprints in session_start.context.mcp_servers.",
+     "evidence": [
+      "plugin/hooks/scripts/observe_cli.mjs:2264-2342 (dispatchMcpPolicySessionStart, writeHookDecision)",
+      "plugin/hooks/scripts/observe_cli.mjs:2364-2435 (dispatchMcpPolicyPreToolUse)",
+      "plugin/hooks/scripts/observe_cli.mjs:964-1030 (loadMcpServerFingerprints)",
+      "plugin/README.md:78,106"
+     ]
+    },
+    {
+     "mechanism": "Python sensor that monkey-patches LLM, framework and MCP SDK classes in-process (Messages.create/stream/parse etc.) and sits in the call path. It can act on directives returned by ingestion (kill switch, budget, model degrade). This path is not used for Claude Code.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "pip install flightdeck_sensor and call init()/patch() in the agent's code. This does not apply to CC sessions.",
+     "data_it_yields": "Full LLM request and response metadata, all six MCP event types, and directive enforcement.",
+     "evidence": [
+      "sensor/flightdeck_sensor/__init__.py:230 (init), :590 (patch), :701 (unpatch)",
+      "sensor/flightdeck_sensor/interceptor/anthropic.py:67, 1080-1134 (patch_anthropic_classes setattr)",
+      "plugin/README.md:100,116"
+     ]
+    }
+   ],
+   "subagent_linking": "The link comes from SubagentStart and SubagentStop hooks, plus the `agent_id` field that CC stamps on interior hooks. On SubagentStart/SubagentStop the plugin takes a correlator: `hookEvent.agent_id`, falling back to tool_use_id, subagent_id, then id (observe_cli.mjs:1506-1531). It derives the child session id as uuid5(NAMESPACE_FLIGHTDECK, `flightdeck:subagent://<outerSessionId>/<correlator>`) (observe_cli.mjs:1533-1544). It emits a child session_start/session_end with parent_session_id=<outer Flightdeck session id> and agent_role=subagent_type||agent_type (observe_cli.mjs:1493-1504, 1758-1810). The SubagentStart prompt (tool_input.prompt) and the SubagentStop response ride along as inline or overflow content. On SubagentStop the plugin flushes the child transcript from `agent_transcript_path` or the derived `<parent>/subagents/agent-<id>.jsonl` (observe_cli.mjs:1840-1890). Interior hooks (PostToolUse etc.) carry the parent's session_id plus agent_id/agent_type. _subagentInteriorContext remaps them onto the child session id (observe_cli.mjs:1619-1671; main at 2656-2710). The worker writes `sessions.parent_session_id`, an FK to sessions, and `agent_role` (docker/postgres/migrations/000017_sub_agent_observability.up.sql:42-50). When a child arrives before its parent, the worker lazily creates a stub parent row (workers/internal/processor/session.go:305-340; :105, :142-144). Linking to the SPAWNING CALL is weak. On modern CC, SubagentStart carries no tool_use_id (comment observe_cli.mjs:1511-1517), so the child session is never tied to the parent's Agent tool_use_id. The legacy `is_subagent_call` hint fires only when toolName === \"Task\" (observe_cli.mjs:3025, 3074-3077), so it misses the current \"Agent\" tool name. The dashboard draws the parent->child Bezier connector from a pure time-proximity heuristic: pickSpawnEvent picks the parent's latest event at or before the child's first event (dashboard/src/components/timeline/SubAgentConnector.tsx:106-138; Timeline.tsx:445-466). Its own comment calls a real spawn-event filter a follow-up. Nested depth beyond one level and workflows/ runs were not found in the code.",
+   "events_and_fields": [
+    "Wire event_types from the plugin: session_start, pre_call, post_call, tool_call, mcp_tool_call, session_end, plus policy_mcp_warn, policy_mcp_block and mcp_policy_user_remembered (observe_cli.mjs:1275-1283; plugin/README.md:74-86)",
+    "Common payload fields: session_id, agent_id (uuid5 identity derivation, agent_id.mjs), agent_name (parent/role for children), flavor=claude-code, agent_type=coding, framework=claude-code, client_type=claude_code, model, timestamp, has_content, content (plugin/README.md:88; observe_cli.mjs:1795-1810)",
+    "Sub-agent fields: parent_session_id, agent_role, is_subagent_call (legacy Task only) (observe_cli.mjs:1795-1806, 3074-3077)",
+    "post_call: tokens_input, tokens_output, tokens_total, tokens_cache_read, tokens_cache_creation, latency_ms, plus content {provider, model, messages, response} (observe_cli.mjs:1233-1250, 2209-2226)",
+    "tool_call: tool_name, tool_input (sanitized JSON string), tool_use_id, latency_ms/duration_ms from CC hook duration, and an error {error_type, error_class=PluginToolError, message (<redacted> unless both capture knobs on), interrupted} (observe_cli.mjs:894-960, 3017-3085; plugin/README.md:81)",
+    "mcp_tool_call: server_name, tool_name, transport, mcp_server {name, source}, tool_use_id, arguments, result, duration_ms, error (plugin/README.md:94-96; observe_cli.mjs:1314)",
+    "session_start.context: hostname, OS, node version, git commit/branch/repo, orchestration, frameworks, supports_directives=false, session_source, claude_code_session_id, claude_code_version, entrypoint, attended, child_session, remote, CI provider, mcp_servers fingerprints (observe_cli.mjs:556-750; plugin/README.md:26-30,76)",
+    "Session state machine in Postgres: active / stale / lost / closed, with revive-on-event and an orphan_timeout reaper (workers/internal/processor/session.go:73,160-175,639; workers/internal/metrics/metrics.go:79)",
+    "NOTIFY payload {session_id, event_type, event_id}; WS fleetUpdate {type, session, last_event} (api/internal/ws/hub.go:166-186)"
+   ],
+   "realtime_transport": "A push chain with several hops. (1) CC fires a hook, which spawns `node observe_cli.mjs`, which runs an HTTP POST to ingestion with a TIMEOUT_MS abort (observe_cli.mjs:1958-1975). (2) Ingestion publishes to NATS JetStream `events.<type>` with retry (ingestion/internal/nats/publisher.go:57-93; handlers/events.go:534-536). (3) A worker consumes the event, writes Postgres, then runs `SELECT pg_notify('flightdeck_fleet', ...)` (workers/internal/writer/notify.go:30-48). (4) The api Hub LISTENs and reconnects after 3s if the listener drops (hub.go:20-22, 191-214, 323-334). It SELECTs the exact event by event_id, then broadcasts JSON to every WebSocket client through a 256-message buffer; slow clients are dropped (hub.go:24-27, 147-160, 257-280). (5) The dashboard connects to WebSocket `/api/v1/stream`, reconnecting with exponential backoff (dashboard/src/hooks/useFleet.ts:23,47; useWebSocket.ts:3-43). The WS uses a bearer token on the stream (api/internal/handlers/stream.go:37-60). Latency notes: tool events land at PostToolUse. LLM turns land only when the next tool call or the Stop hook fires, because the transcript is flushed then. A long model turn with no tool call shows nothing until it ends. The README says sessions appear 'within a few seconds' (plugin/README.md:13); no measured number was found.",
+   "storage": "Postgres is the system of record: tables sessions, events, event_content, agents, policies, directives, access_tokens, MCP policy tables, and migrations under docker/postgres/migrations (e.g. 000017_sub_agent_observability.up.sql:42-50 adds parent_session_id and agent_role). NATS JetStream stream FLIGHTDECK is a durable queue between ingestion and workers (ingestion/internal/nats/publisher.go:33-50). The plugin keeps client-side state in $TMPDIR/flightdeck-plugin/, created with mode 0700: session id markers, started markers, emitted-turn dedup, a cached model, the MCP policy cache, remembered MCP decisions and the SessionEnd worker log (observe_cli.mjs:14-17, 345-438, 2002-2020, 2115-2125; plugin/README.md:140-145). Large content (>8 KiB, up to 2 MiB) goes to event_content rather than inline (observe_cli.mjs:1673-1756). pricing.yaml at the repo root feeds the cost estimates (api/internal/store/pricing_loader.go).",
+   "ui_views": [
+    "Fleet page: per-agent swimlanes on a shared time axis, with event circles, run brackets and an agent status badge (dashboard/src/pages/Fleet.tsx; components/timeline/SwimLane.tsx, VirtualizedSwimLane.tsx, Timeline.tsx, TimeAxis.tsx, RunBracket.tsx, EventNode.tsx)",
+    "Sub-agent connector overlay: SVG Bezier curves from the parent's estimated spawn event to the child's first event, 10% opacity at rest and 50% on hover (components/timeline/SubAgentConnector.tsx:3-25,106-138)",
+    "Live feed of events plus a session state bar and an event filter bar (components/fleet/LiveFeed.tsx, SessionStateBar.tsx, EventFilterBar.tsx)",
+    "Topology pill per agent: lone / child of <parent> / spawns N (components/fleet/TopologyCell.tsx:8-20)",
+    "Session drawer with tabs: Timeline, Prompts (PromptViewer), Sub-agents tab with an inline mini-timeline of at most 12 events per child, token usage bar, and error/MCP/policy event detail (components/session/SessionDrawer.tsx, SubAgentsTab.tsx:1-25, PromptViewer.tsx, TokenUsageBar.tsx, ErrorEventDetails.tsx, MCPEventDetails.tsx)",
+    "Investigate page: a faceted, paginated event table with date range and facets (client type, framework, event type, agent type) and a PARENT column link (pages/Investigate.tsx:1-15)",
+    "Analytics page: cost, token usage over time, latency distribution, model/provider bars, donut/dimension/ranking charts, and a ParentChildBreakdownChart with metrics parent_token_sum, child_count and parent_to_first_child_latency_ms (components/analytics/*.tsx; api/internal/store/analytics.go:232-244)",
+    "Agents page, Directives page (kill switch / budget, hidden for CC sessions), Policies page (MCP Protection), Settings (access tokens) (pages/*.tsx; api/internal/server/server.go:105-176)"
+   ],
+   "query_chat_or_learning_features": "No chatbot, no natural-language query, and no learning-from-mistakes loop. Search is substring/prefix/exact ILIKE matching over sessions and events (api/internal/store/search.go:69-130; GET /v1/search at api/internal/server/server.go:134). Analytics are fixed SQL aggregations grouped by dimensions such as model, provider, agent_role and flavor, with parent/child token and latency metrics (api/internal/store/analytics.go:232-244; GET /v1/analytics at server.go:133). Errors are captured as structured error blocks (error_type/error_class/message) but never clustered or summarized. A grep for chat/LLM-query/embedding features in api/internal/handlers found none; 'embeddings' only refers to observing embedding API calls (sessions_list.go:107). The bundled skill (plugin/skills/flightdeck/SKILL.md:1-20) only explains to the observed agent what Flightdeck records. It is not a query feature.",
+   "could_work_without_session_changes": "Could be rebuilt from passive JSONL plus file watching. The plugin's own core data path for LLM turns is already a JSONL read: readTurns parses transcript_path and the subagents/agent-<id>.jsonl files (observe_cli.mjs:1-24, 1116-1215, 1546-1588). We already watch those same files. Rebuildable features: (1) per-LLM-call model, tokens with cache split, latency and content, from assistant records grouped by message.id; (2) the tool call list with tool_use_id, input and result, by pairing tool_use and tool_result blocks; tool errors come from is_error tool_result content; (3) the parent/child session tree with agent_role, from the subagents/ directory, agent-<id>.meta.json (agentType) and the parent's Agent tool_use/toolUseResult. This beats Flightdeck because it ties the child to the exact spawning tool_use_id, where Flightdeck guesses by time proximity (SubAgentConnector.tsx:106-138); (4) swimlanes, connectors, sub-agents tab and the mini-timeline; (5) compaction markers (compact boundary records in the JSONL); (6) session_source, version, cwd and git branch from JSONL record fields; (7) cost and analytics (token sums, parent vs child tokens, child_count, first-child latency) from the same data plus a pricing table; (8) live/idle/stale state, inferred from file mtime and the last record timestamp instead of explicit start/end events. Not rebuildable passively: (a) the PreToolUse MCP policy gate and any allow/deny/ask enforcement, which needs a hook on the call path; (b) kill switch, budget and model-degrade directives (Flightdeck does not offer these for CC either); (c) CC's hook-measured tool duration_ms, unless we approximate it from tool_use vs tool_result timestamps; (d) a crisp SessionEnd reason (clear/logout/prompt_input_exit) and exact SubagentStop moments, which have to be inferred; (e) hook-env-only signals such as CLAUDE_CODE_ENTRYPOINT, ATTENDED, CHILD_SESSION, REMOTE and the CI markers, unless they appear in the JSONL (unverified); (f) a live prompt pre_call at UserPromptSubmit before CC writes it, though CC writes the user record promptly in practice (unverified latency).",
+   "limitations": [
+    "Runtime dependency on the observed session: the plugin must be installed in Claude Code, Node is required, and FLIGHTDECK_SERVER/FLIGHTDECK_TOKEN are needed for a non-default stack (plugin/README.md:9-20; README.md:46-66)",
+    "Heavy infrastructure: Docker Compose with postgres, nats, ingestion, workers, api, dashboard and nginx; Docker Engine 28+ required (docker/docker-compose.yml:2-120; README.md:32,350-354)",
+    "Observer-only for CC: no Stop Agent, kill switch, budget enforcement or model degradation; supports_directives=false hides those controls (plugin/README.md:108-116; README.md:157)",
+    "LLM turns become visible only at tool boundaries or Stop, because the transcript is flushed then. There is no mid-turn streaming (plugin/README.md:79,82; observe_cli.mjs:2179-2226)",
+    "Every hook re-reads and re-parses the whole transcript JSONL with readFileSync. On long sessions that costs O(file size) for each hook (observe_cli.mjs:1116-1126)",
+    "The child is not linked to the spawning Agent tool_use_id on modern CC, because SubagentStart has no tool_use_id. The connector is a time-proximity heuristic (observe_cli.mjs:1511-1517; SubAgentConnector.tsx:106-120)",
+    "The legacy is_subagent_call flag tests toolName === 'Task' only, so it misses the current 'Agent' tool name (observe_cli.mjs:3025)",
+    "Data is lost when the stack is down. Events POSTed while the server is unreachable are dropped, not queued. The session lazily reappears after recovery, with tokens counted from that point (plugin/README.md:131-149; observe_cli.mjs:1975-1980)",
+    "A SessionEnd flush can be lost on ephemeral CI machines or when the server is slow (1.5 s CC budget, 0.8 s grace, 20 s worker deadline) (plugin/README.md:83,138-145)",
+    "Content is truncated: tool inputs are whitelisted and truncated to 100/200 chars, tool_response to 2000 chars, MCP resource/prompt reads are invisible, and Write/Edit file bodies are never forwarded (plugin/README.md:45-53,98-104; observe_cli.mjs:3040-3048)",
+    "The Flightdeck session id is a random uuid4, not the CC session uuid, so joining to CC files needs context.claude_code_session_id (observe_cli.mjs:331-344)",
+    "Only past and live sessions recorded while the plugin was installed are visible. There is no backfill of earlier CC history (inferred from the hook-only producer path; no importer found)"
+   ],
+   "ideas_to_borrow": [
+    "A thin NOTIFY plus a SELECT by event_id to avoid the paired-event race (hub.go:166-176). For us: the watcher emits {session, record offset/uuid} on an SSE/WS channel and the client fetches exactly that record, or the server sends the parsed delta",
+    "Group assistant JSONL records by message.id and take the LAST usage as authoritative. Compute tokens_input = uncached + cache_read + cache_creation (observe_cli.mjs:1116-1250). Dedup per message.id when tailing",
+    "Subagent transcript path derivation `<parent>/subagents/agent-<agent_id>.jsonl`, plus the agent_id correlator (observe_cli.mjs:1546-1588). This confirms our layout and file names are the right join key",
+    "A deterministic uuid5 child id from (parent, correlator), so start and stop pair up without shared state (observe_cli.mjs:1533-1544)",
+    "Lazy parent-stub creation when a child arrives before its parent (workers/internal/processor/session.go:305-340). This is useful when a watcher sees subagents/ files before the parent JSONL record lands",
+    "Session state machine active/stale/lost/closed with revive-on-new-event and an orphan reaper (session.go:73,160-175,639). For us this maps to mtime-based liveness for running sessions",
+    "A SubAgentConnector-style SVG overlay: Bezier curves anchored on the parent event circle's circumference, at low opacity at rest and highlighted on hover (SubAgentConnector.tsx:3-25). We can anchor on the exact Agent tool_use node instead of a time guess",
+    "A topology pill per row (lone / child of X / spawns N) and a Sub-agents tab with an inline mini-timeline of at most 12 events (TopologyCell.tsx; SubAgentsTab.tsx:10-19)",
+    "Analytics metrics: parent_token_sum, child_token_sum, child_count, parent_to_first_child_latency_ms (api/internal/store/analytics.go:232-244; migration 000017:36-40)",
+    "A structured tool error block {error_type, error_class, message, interrupted}. This is a ready schema for our 'learn from mistakes' corpus (observe_cli.mjs:926-960)",
+    "A privacy posture with explicit content knobs and never forwarding Write/Edit bodies (plugin/README.md:34-53). This matters if we ever ship data to an LLM for the chat/learning features",
+    "WebSocket hub with a bounded per-client buffer, dropping slow clients, and client-side exponential backoff reconnect (hub.go:24-27; useWebSocket.ts:3-43)",
+    "Differentiators against Flightdeck: zero install; exact spawn-call linking via tool_use_id/agentId; backfill of all history; no Docker; and live LLM turns visible as soon as CC appends records, not only at the next tool boundary"
+   ],
+   "unverified": [
+    "Measured end-to-end latency from a hook firing to the dashboard update. Only the README claim 'within a few seconds' exists (plugin/README.md:13)",
+    "Whether hook-env signals (CLAUDE_CODE_ENTRYPOINT, ATTENDED, CHILD_SESSION, REMOTE) also appear in the CC JSONL, which would decide whether a passive reader can recover them",
+    "Whether nested subagents (a subagent spawning a subagent) render correctly; no explicit multi-level handling was traced beyond parent_session_id recursion in analytics CTEs (migration 000017:38)",
+    "No support for CC workflows/<runId>/ directories was found; I grepped only the plugin script, not exhaustively",
+    "Exact TIMEOUT_MS value for the hook POST (the constant exists at observe_cli.mjs:1960 usage; its definition was not read)",
+    "Popularity and regard (16 stars, pushed 2026-10-24) come from the task brief, not from my own check",
+    "Dashboard internals beyond file headers (e.g. how the fleet store merges WS updates) were not read line by line"
+   ]
+  },
+  {
+   "name": "Flightdeck (justinchuby)",
+   "repo_url": "https://github.com/justinchuby/flightdeck",
+   "commit": "b8190f68b58dd6c1d0b1959f6676fd6e488af396",
+   "license": "MIT (LICENSE:1, package.json \"license\": \"MIT\")",
+   "architecture_summary": "Flightdeck is an orchestrator, not an observer. It is a Node/TypeScript monorepo: packages/server (Express 5, SQLite via better-sqlite3/Drizzle, ws), packages/web (React 19, Vite, Zustand, @xyflow/react, visx) and packages/shared (types and the provider registry). The server launches every agent itself as a child CLI process that speaks the Agent Client Protocol (ACP) over ndjson stdio (packages/server/src/adapters/AcpAdapter.ts:298-337, 352-353). For Claude, the binary is Zed's `claude-agent-acp` adapter, not the `claude` CLI (packages/shared/src/domain/provider.ts:190-205, 220-223). AcpAdapter, the only file that imports the ACP SDK (AcpAdapter.ts:1-14), turns ACP `session/update` notifications into typed events (agent_message_chunk -> text/content, agent_thought_chunk -> thinking, tool_call, tool_call_update, plan, usage_update; AcpAdapter.ts:368-437). AgentAcpBridge.wireAcpEvents stores them on the in-memory Agent object (packages/server/src/agents/AgentAcpBridge.ts:208-260). AgentManager re-emits them as 'agent:*' events (packages/server/src/agents/AgentManager.ts:56-82, 539). WebSocketServer pushes them to the dashboard (packages/server/src/comms/WebSocketServer.ts:170-215). Agent coordination runs through an in-band text protocol: agents print commands such as `\u27e6\u27e6 CREATE_AGENT {...} \u27e7\u27e7` in their output, and CommandDispatcher scans the text stream with regexes (packages/server/src/agents/CommandDispatcher.ts:4, 146-160; packages/server/src/agents/commands/AgentLifecycle.ts:27-38). A Project Lead agent emits CREATE_AGENT/DELEGATE commands. These spawn child agents and link them to rows in a TaskDAG (AgentLifecycle.ts:96-118). The README still describes a separate \"Agent Server (Daemon)\" tier (README.md:196-212), but nothing in the current source tree implements it. No AgentServer, fork or IPC code exists under packages/server/src. Spawning happens directly in the orchestrator process at AcpAdapter.ts:309.",
+   "collection": [
+    {
+     "mechanism": "Flightdeck itself spawns the observed agent as an ACP child process and reads its ACP session/update notifications over stdio (ndjson JSON-RPC). This is the only live-data path.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "The session must be started by Flightdeck; you cannot attach to an existing `claude` session. For Claude you must install Zed's `claude-agent-acp` adapter binary on PATH. ANTHROPIC_API_KEY is listed as required, or you log in with `claude auth`. Flightdeck sets the cwd and env and passes a system prompt in ACP `_meta.systemPrompt`.",
+     "data_it_yields": "Streaming assistant text chunks, thinking chunks, tool_call (toolCallId, title, kind, status, content text), tool_call_update (status/content), plan entries, usage_update (context size/used/cost), and per-prompt usage (input/output/cache tokens, costUsd, durationMs, model) plus stopReason.",
+     "evidence": [
+      "packages/server/src/adapters/AcpAdapter.ts:298-321 (spawn cliCommand with ['--acp','--stdio'] default args, stdio pipes)",
+      "packages/server/src/adapters/AcpAdapter.ts:350-353 (acp.ndJsonStream over child stdin/stdout)",
+      "packages/server/src/adapters/AcpAdapter.ts:368-437 (sessionUpdate switch: agent_message_chunk, agent_thought_chunk, tool_call, tool_call_update, plan, usage_update)",
+      "packages/server/src/adapters/AcpAdapter.ts:440-446 (ClientSideConnection + initialize)",
+      "packages/server/src/adapters/AcpAdapter.ts:466-509 (prompt -> usage, prompt_complete)",
+      "packages/shared/src/domain/provider.ts:190-205 (claude provider binary 'claude-agent-acp', requiredEnvVars ANTHROPIC_API_KEY, supportsLoadSession)",
+      "packages/shared/src/domain/provider.ts:220-223 (setup link to github.com/zed-industries/claude-agent-acp)",
+      "packages/server/src/adapters/AdapterFactory.ts:110-156 (binary/args/env resolution)",
+      "packages/server/src/agents/AgentAcpBridge.ts:103 (createAdapterForProvider)",
+      "packages/server/src/agents/AgentAcpBridge.ts:208-260 (wireAcpEvents)"
+     ]
+    },
+    {
+     "mechanism": "In-band command protocol. Agents are prompted to print \u27e6\u27e6 COMMAND {json} \u27e7\u27e7 blocks. CommandDispatcher regex-scans their text stream and runs CREATE_AGENT, DELEGATE, task, messaging, lock and decision commands. This is where the structure for the agent hierarchy and the task DAG comes from.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "The agent must run with Flightdeck's role system prompt, which teaches the command syntax. Flightdeck injects it, so it works only for sessions that Flightdeck launched and prompted.",
+     "data_it_yields": "Parent->child agent edges, delegation records (fromAgentId, toAgentId, task, status), DAG task creation/dependencies/status, inter-agent messages, decisions, file locks.",
+     "evidence": [
+      "packages/server/src/agents/CommandDispatcher.ts:4 (scans agent text buffers for \u27e6\u27e6 COMMAND \u27e7\u27e7)",
+      "packages/server/src/agents/CommandDispatcher.ts:146-160 (leftmost-match across patterns, nesting guard)",
+      "packages/server/src/agents/commands/AgentLifecycle.ts:27-40 (CREATE_AGENT / DELEGATE / CANCEL_DELEGATION regexes)",
+      "packages/server/src/agents/commands/AgentLifecycle.ts:96-118 (spawnAgent with parentId = agent.id, Delegation record, linkDelegationToDag)",
+      "packages/server/src/agents/Agent.ts:227-232, 286-336 (parentId and hierarchy injected into system prompt)"
+     ]
+    },
+    {
+     "mechanism": "Flightdeck writes role definition files into the user's global Claude config directory, so the spawned CLI can find role prompts natively.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "Nothing manual. Flightdeck writes ~/.claude/agents/<role>.md for the claude provider. This file is a side effect on the user's global Claude Code config. Every Claude Code session on the machine can see it, not only the sessions Flightdeck launched.",
+     "data_it_yields": "No data collected; this is an injection path, listed because it changes the observed environment.",
+     "evidence": [
+      "packages/server/src/adapters/RoleFileWriter.ts:104-121 (Claude: ~/.claude/agents/<role>.md)",
+      "packages/server/src/adapters/RoleFileWriter.ts:433 (claude writer registered)",
+      "packages/server/src/agents/AgentAcpBridge.ts:43-60 (writeRoleFilesForProvider)"
+     ]
+    },
+    {
+     "mechanism": "Permission requests are auto-approved inside the ACP client. Flightdeck does not observe or gate tool permissions as a separate event stream.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "Implicit in the ACP launch. Every requestPermission gets 'allow_once'.",
+     "data_it_yields": "None persisted (permission prompts are not surfaced as events).",
+     "evidence": [
+      "packages/server/src/adapters/AcpAdapter.ts:356-366 ('Always auto-approve \u2014 oversight is prompt-only')"
+     ]
+    },
+    {
+     "mechanism": "Passive file reading of Claude Code JSONL, hooks, OTel or a proxy: NOT USED. A grep for .claude/projects, .jsonl tailing, PreToolUse/hooks, settings.json and OpenTelemetry finds no collection code. fs.watch appears only for Flightdeck's own config file and skills directory.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "n/a",
+     "data_it_yields": "n/a",
+     "evidence": [
+      "packages/server/src/config/ConfigWatcher.ts:2-40 (fs.watch only for flightdeck config)",
+      "packages/server/src/knowledge/SkillsLoader.ts:228-250 (fs.watch only for .github/skills)",
+      "packages/server/src/routes/projects.test.ts:652-703 (only .jsonl reference is a Copilot events.jsonl that the artifact route deliberately blocks)"
+     ]
+    }
+   ],
+   "subagent_linking": "Flightdeck links only the agents it spawned itself, never Claude Code's native Task/Agent-tool subagents. 1) When a lead agent prints \u27e6\u27e6 CREATE_AGENT {...} \u27e7\u27e7, handleCreateAgent calls ctx.spawnAgent(role, task, agent.id, ...), so child.parentId equals the issuing agent's Flightdeck id (packages/server/src/agents/commands/AgentLifecycle.ts:55-96; packages/server/src/agents/AgentManager.ts:201, 375, 453). 2) The handler then creates a Delegation {id 'del-<ts>-<rand>', fromAgentId, toAgentId, task, status} and stores it in ctx.delegations (AgentLifecycle.ts:102-113). DELEGATE persists it to the SQLite active_delegations table (AgentLifecycle.ts:222-253; packages/server/src/db/schema.ts:355-371). 3) linkDelegationToDag ties the delegation to a dag_tasks row through assignedAgentId and dagTaskId (AgentLifecycle.ts:116-118, 241; schema.ts:155-180, where dag_tasks has leadId, dependsOn and assignedAgentId). 4) The server emits 'agent:sub_spawned' {parentId, child} (AgentLifecycle.ts:163) and broadcasts it over WebSocket (packages/server/src/comms/WebSocketServer.ts:170-171). The \"spawning call\" is therefore a parsed text command, not a tool_use id. There is no link between a child and a specific ACP toolCallId. The ACP tool_call handler drops any _meta or parent-tool fields and keeps only toolCallId/title/kind/status/content (packages/server/src/adapters/AcpAdapter.ts:407-423). A grep finds no parentToolUseId or parent_tool_use handling anywhere. If a Flightdeck-launched Claude agent uses Claude Code's own Task tool, its subagent shows up only as a flat tool_call on the parent agent. Nested tool calls inside that subagent may be emitted by claude-agent-acp, but Flightdeck does not attribute them (unverified).",
+   "events_and_fields": [
+    "ACP session/update -> 'text' (string chunk), 'content' {contentType resource|image|audio, text/uri/mimeType/data}: AcpAdapter.ts:372-399",
+    "ACP agent_thought_chunk -> 'thinking' (string): AcpAdapter.ts:401-405",
+    "ACP tool_call -> ToolCallInfo {toolCallId, title, kind, status, content(text)}: AcpAdapter.ts:407-415",
+    "ACP tool_call_update -> {toolCallId, status, content}: AcpAdapter.ts:417-423",
+    "ACP plan -> PlanEntry[]: AcpAdapter.ts:425-427",
+    "ACP usage_update -> {size, used, cost}: AcpAdapter.ts:429-435",
+    "prompt result -> 'usage' {inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, costUsd, durationMs, model}, 'prompt_complete' stopReason: AcpAdapter.ts:483-496; AgentAcpBridge.ts:269",
+    "Lifecycle: connected(sessionId), session_resume_failed, model_substituted, prompting, response_start, idle, exit(code): AcpAdapter.ts:143,177,279,337,348,466-467,539,593",
+    "AgentManager events: agent:spawned, agent:tool_call {agentId, toolCall}, agent:sub_spawned {parentId, child}, agent:delegated {parentId, childId, delegation}, agent:completion_reported {childId, parentId, status}, agent:text, agent:content, agent:response_start, agent:model_fallback: AgentManager.ts:56-82, 539, 885",
+    "WebSocket message types mirror these plus decisions:batch and attention:changed: WebSocketServer.ts:170-215, 326-399",
+    "SQLite activity_log {agentId, agentRole, actionType, summary, details JSON, timestamp, projectId}: db/schema.ts:66-79",
+    "SQLite dag_tasks {id, leadId, projectId, role, title, description, files, dependsOn, dagStatus, priority, model, assignedAgentId, failureReason, createdAt/startedAt/completedAt}: db/schema.ts:155-180",
+    "SQLite active_delegations {delegationId, agentId, task, context, dagTaskId, status, createdAt, completedAt, result}: db/schema.ts:355-371",
+    "Other tables: conversations, messages, decisions, agent_memory, chat_groups*, agent_plans, projects, project_sessions, agent_file_history, collective_memory, task_cost_records, session_retros, timers, message_queue, agent_roster, knowledge, file_locks: db/schema.ts:9-375"
+   ],
+   "realtime_transport": "Two channels. (1) WebSocket on /ws using the `ws` package (packages/server/package.json:25). The dashboard subscribes with 'subscribe' (agentId or '*') and 'subscribe-project' (WebSocketServer.ts:408-444). Broadcasts are filtered by project (WebSocketServer.ts:499-502). agent:text is buffered per agent and flushed every 100 ms (WebSocketServer.ts:30-33, 196-210). tool_call, sub_spawned, response_start and content go out immediately without batching (WebSocketServer.ts:170-188, 212-215). (2) Server-Sent Events for the Timeline: GET /coordination/timeline/stream?leadId= (packages/server/src/routes/coordination.ts:295-306). Event ids have the form '<base36 ts>-<seq>'. On reconnect the server reads Last-Event-ID and replays the missed range as a 'reconnect' event (coordination.ts:309-340). The client uses EventSource with manual reconnect when the connection closes (packages/web/src/components/Timeline/useTimelineSSE.ts:24-33, 77, 189-233). Latency: the agent's ACP stdout produces events in-process with no polling and no file I/O, so delay is the 100 ms text batch at most for text and close to zero for tool events. The ActivityLedger writes to SQLite in batches every 250 ms or every 64 entries (packages/server/src/coordination/activity/ActivityLedger.ts:15-23, 41).",
+   "storage": "One SQLite database in WAL mode at ~/.flightdeck/flightdeck.db. It moves automatically from ./flightdeck.db, and FLIGHTDECK_DB_PATH or DB_PATH overrides the path (packages/server/src/config.ts:34-66; packages/server/src/db/database.ts:20). The schema uses Drizzle and has 24 tables (packages/server/src/db/schema.ts:9-375). The agents' live text and tool calls also sit in memory on the Agent object with caps (_maxMessages, _maxToolCalls) (AgentAcpBridge.ts:212-243). Per-agent artifact directories live under ${FLIGHTDECK_STATE_DIR}/artifacts/<projectId>/sessions/<leadId>/<role>-<id>/, with a _meta.json file (Agent.ts:351; AgentAcpBridge.ts:23-41). Knowledge search uses SQLite FTS5 with an optional vector provider. The container never supplies a vector provider, so search runs on FTS5 alone (packages/server/src/knowledge/HybridSearchEngine.ts:31-86; packages/server/src/container.ts:192).",
+   "ui_views": [
+    "Task DAG graph: @xyflow/react with a custom longest-path topological layering (no dagre/elk) and critical-path highlighting: packages/web/src/components/TaskQueue/DagGraph.tsx:1-23, 431-482; dagCriticalPath.ts",
+    "Kanban board (drag-and-drop): packages/web/src/components/TaskQueue/KanbanBoard.tsx",
+    "Gantt chart of DAG tasks: packages/web/src/components/TaskQueue/DagGantt.tsx",
+    "DAG resource view: packages/web/src/components/TaskQueue/DagResourceView.tsx",
+    "Timeline swim lanes, one lane per agent, with communication links, a brush time selector and keyboard nav (visx): packages/web/src/components/Timeline/AgentLane.tsx, CommunicationLinks.tsx, BrushTimeSelector.tsx, TimelinePage.tsx",
+    "Session replay scrubber plus a shareable replay viewer (/shared/:token): packages/web/src/components/SessionReplay/ReplayScrubber.tsx, SharedReplayViewer.tsx; App.tsx:381",
+    "Org chart (agent hierarchy): packages/web/src/components/OrgChart/OrgChart.tsx; App.tsx:373",
+    "Comm-flow graph (inter-agent messages): packages/web/src/components/CommFlow/CommFlowGraph.tsx",
+    "Lead Dashboard (chat with the lead, crew status): App.tsx:364",
+    "Overview / Mission Control, Home dashboard, Crew roster, Group chat, Knowledge, Artifacts: App.tsx:361-397",
+    "Analytics (token/cost trends, session comparison) and an Analysis page: App.tsx:374-375; packages/web/src/components/TokenEconomics/CostBreakdown.tsx",
+    "AttentionBar (green/yellow/red escalation), Approval Queue, Catch-up banner, Command palette, Global search: packages/web/src/components/AttentionBar, ApprovalQueue, CatchUp, CommandPalette, SearchDialog"
+   ],
+   "query_chat_or_learning_features": "Chat: the user can message any agent directly, chat with the Project Lead on the Lead Dashboard, and use group chats (README.md:153-157; App.tsx:364, 372). \"NL commands\" match phrases against a fixed table of patterns: exact phrase, then phrase prefix plus entity, then word overlap. They run no LLM (packages/server/src/coordination/commands/NLCommandService.ts:280-315, 414-458). Search: knowledge search uses FTS5. A hook for vector search with RRF fusion exists, but nothing wires a vector provider in, so search is keyword-only (knowledge/HybridSearchEngine.ts:31-86; container.ts:192). A global search covers messages, tasks and decisions (README.md:186). Learning: (a) SessionKnowledgeExtractor runs when an agent exits. It needs at least 3 messages (AgentKnowledgeService.ts:132-150). It pulls sentences that contain fixed signal phrases, for example 'lesson learned', 'root cause', 'fixed by' and 'workaround'. No LLM is involved (knowledge/SessionKnowledgeExtractor.ts:22-135, 222-262). It sorts them into decisions, patterns and error resolutions, stores them in the knowledge table, and copies them into collective_memory (AgentKnowledgeService.ts:160+). (b) KnowledgeInjector puts project knowledge into each new agent's prompt at spawn (AgentKnowledgeService.ts:52; knowledge/KnowledgeInjector.ts). (c) TrainingCapture stores user corrections as procedural knowledge and feedback as episodic knowledge (knowledge/TrainingCapture.ts:1-110). Only ProjectImporter calls captureCorrection; the routes only read summaries (projects/ProjectImporter.ts:334; routes/knowledge.ts:105). Analytics: SessionRetro builds per-agent scorecards (tokens, context utilization, idle/active time, files touched) and finds bottlenecks (idle_time, context_pressure, stuck) (coordination/sessions/SessionRetro.ts:15-85). AlertEngine uses heuristics: stuck_agent, long_running_prompt, duplicate_file_edit, idle_agents_ready_tasks, stale_decision (coordination/alerts/AlertEngine.ts:118-203). PredictionService and CrashForensics also exist; I did not read them in depth. Nothing in the code detects tool-call errors, wrong assumptions or repeated mistakes from tool results. All the \"learning\" is phrase matching on the agent's own prose.",
+   "could_work_without_session_changes": "Rebuildable from passive JSONL reading (CC session.jsonl + subagents/agent-<id>.jsonl + .meta.json + watchdog tailing):\n- Per-agent text and thinking streams. The JSONL holds assistant text and thinking blocks per message, which matches what Flightdeck gets from ACP.\n- Tool calls with their status. tool_use blocks give id/name/input. Matching tool_result blocks give completion and is_error. This is richer than Flightdeck's flattened title/kind/content, because we keep the real tool name, the input JSON and error flags.\n- Token/cost usage per message. Assistant `message.usage` lines are present per turn. Context-window pressure is approximate.\n- Parent->child agent edges, and better links than Flightdeck has. Each subagent transcript can be tied to the exact spawning Task/Agent tool_use id, through the meta.json and the parent's tool_use/tool_result. Flightdeck cannot link a child to a specific call at all.\n- Swim-lane timeline, Gantt of agent lifetimes, org chart (agent tree), and a ReactFlow DAG of agent -> tool-call nodes, using the same layered-topological layout idea.\n- Session replay with a scrubber. JSONL is append-only and timestamped, so replay is natural.\n- SSE with Last-Event-ID resume. We can key it on file byte offsets.\n- Heuristic alerts: stuck/long-running agent (no new lines for N seconds), duplicate edits to the same file across agents, repeated failing tool calls.\n- Session retro scorecards, plus keyword or FTS5 knowledge extraction from transcripts. We could run it as a post-hoc LLM pass and get better quality than Flightdeck's phrase matching.\n\nNot rebuildable passively (these need an orchestrator that owns the agent):\n- The planned task DAG, with dependsOn, priorities, assignment and Kanban states. These exist only because the lead emits \u27e6\u27e6 \u27e7\u27e7 commands that Flightdeck interprets. The closest passive proxy is CC's TodoWrite/Task-list tool calls, if the session uses them.\n- Inter-agent messaging and group chat, file locks, the decision/approval queue, the Trust Dial, and auto-approve.\n- Injecting knowledge or role prompts into new agents, and sending messages, pausing or terminating a live agent.\n- ACP `plan` updates and live `usage_update` context-size numbers at sub-turn granularity. The JSONL has per-message usage only, and only once a message has been written.\n- Streaming tokens before a message is complete. CC writes whole JSONL entries, so passive latency is per message rather than per token chunk. Typical delay is sub-second after each entry with watchdog, versus Flightdeck's under-100 ms text batches.",
+   "limitations": [
+    "It can observe only the agents it launches itself. It cannot attach to an existing or user-started Claude Code session (AcpAdapter.ts:298-321).",
+    "Claude support depends on a third-party adapter binary (`claude-agent-acp` from zed-industries) and an ANTHROPIC_API_KEY (provider.ts:195-198, 220-223).",
+    "It writes role files into the user's global ~/.claude/agents/, so every Claude Code session on the machine can see them (RoleFileWriter.ts:104-121).",
+    "It auto-approves every ACP permission request, so the observed agents run with no permission gating (AcpAdapter.ts:356-366).",
+    "Its structure (hierarchy, DAG) depends on the LLM emitting well-formed \u27e6\u27e6 COMMAND \u27e7\u27e7 text, parsed by regex. If the model forgets the syntax, the structure is lost (CommandDispatcher.ts:146-160, 330-339).",
+    "It drops ACP tool-call _meta and has no model of native CC Task subagents. A Claude agent's own subagents show up as one opaque tool_call (AcpAdapter.ts:407-423).",
+    "In-memory caps on messages and toolCalls per agent keep only the most recent slice live (AgentAcpBridge.ts:214-243).",
+    "Its 'learning' uses fixed phrase lists, not LLM analysis (SessionKnowledgeExtractor.ts:222-262). Vector search is stubbed and never wired in (container.ts:192).",
+    "The README architecture (separate Agent Server daemon over stdio with a PID file) does not match the current code. No AgentServer, fork or IPC code exists in packages/server/src (README.md:196-212 vs AcpAdapter.ts:309)."
+   ],
+   "ideas_to_borrow": [
+    "Normalize all sources into one small event vocabulary (text, thinking, tool_call, tool_call_update, plan, usage, lifecycle) before anything reaches the UI. Flightdeck does this in AcpAdapter alone (AcpAdapter.ts:368-437). Our JSONL tailer should emit the same shape, so a future ACP or OTel source could plug in.",
+    "Batch text but send structural events at once: flush per-agent text every 100 ms, and send tool_call, spawn and response_start immediately so the DAG never lags (WebSocketServer.ts:30-33, 170-210).",
+    "SSE with event ids that encode a timestamp, plus a 'reconnect' event that replays what was missed from storage (coordination.ts:295-340). For us the id can be <file>:<byte offset>, so resume is exact.",
+    "Lay out the DAG with longest-path topological layering in React Flow, with no dagre dependency, and add critical-path highlighting (DagGraph.tsx:431-482; dagCriticalPath.ts).",
+    "Offer several views over one store: DAG, Gantt, swim-lane timeline with comm links, org chart, and a replay scrubber (packages/web/src/components/TaskQueue, Timeline, SessionReplay, OrgChart).",
+    "Heuristic AlertEngine rules that map directly onto passive data: stuck_agent, long_running_prompt, duplicate_file_edit, plus idle detection (AlertEngine.ts:118-203). Add our own 'repeated tool error' and 'retry loop' rules.",
+    "A SessionRetro scorecard per agent (tokens, context utilization, active vs idle time, files touched, bottleneck type) as the end-of-run summary (SessionRetro.ts:15-85).",
+    "An AttentionBar with green, yellow and red escalation states, and a 'while you were away' catch-up banner. Both are cheap and high-value for a live monitor (README.md:146, 177).",
+    "Group knowledge into Core, Procedural, Semantic and Episodic categories, and keep corrections and feedback separate (TrainingCapture.ts:1-8). This is a good schema for our learn-from-mistakes loop, but extract with an LLM pass over tool errors and user corrections instead of phrase lists.",
+    "Differentiation: we can link each subagent to its exact spawning tool_use id from JSONL plus meta.json. Flightdeck cannot (AgentLifecycle.ts:96-118 links only by its own agent id), and it needs nothing installed in the session."
+   ],
+   "unverified": [
+    "Whether claude-agent-acp emits nested tool calls from Claude Code's native Task subagents, and with what parent metadata. Flightdeck ignores _meta, so its code does not show this.",
+    "Whether ANTHROPIC_API_KEY is strictly required, or `claude auth` login works with claude-agent-acp. The registry lists both requiredEnvVars ANTHROPIC_API_KEY and loginInstructions 'Log in with claude auth' (provider.ts:198, 225).",
+    "The README's two-process Agent Server/daemon architecture and the 'Claude SDK adapter' in CHANGELOG.md:86-98. Neither appears in the current packages/server/src tree, and I cannot tell from the code when or why they were removed.",
+    "The internals of PredictionService, CrashForensics, AnalyticsService and the web Analytics/Analysis pages. I saw the files and headers but did not trace them line by line.",
+    "Star count, fork count and push date (42 stars, 9 forks, 2026-07-09) come from the orchestrator's task text. I did not re-check them, because I made no GitHub API call.",
+    "The exact contents of the collective_memory write after extraction (AgentKnowledgeService.ts:160 onward). I did not read it."
+   ]
+  },
+  {
+   "name": "claude-devtools (matt1398)",
+   "repo_url": "https://github.com/matt1398/claude-devtools",
+   "commit": "1486f2042c87bb547a4e34808ab54ab34a33f132",
+   "license": "MIT (LICENSE line 1: \"MIT License\", Copyright (c) 2026 claude-devtools contributors)",
+   "architecture_summary": "Electron 28 + React 18 + Zustand desktop app. It also ships a standalone Node/Fastify server for Docker on port 3456 (src/main/standalone.ts:41-43). Everything is passive and read-only over ~/.claude. The main process (src/main/services/*) has four parts: discovery (ProjectScanner, SubagentLocator, SubagentResolver, SessionSearcher), parsing (SessionParser, src/main/utils/jsonl.ts), analysis (ChunkBuilder, ChunkFactory, ProcessLinker, SemanticStepExtractor) and infrastructure (FileWatcher, DataCache LRU, ConfigManager, NotificationManager, HttpServer, SSH providers). The pipeline runs in this order: (1) a recursive fs.watch on ~/.claude/projects (FileWatcher.ts:283-291) and a separate watch on ~/.claude/todos (FileWatcher.ts:317). (2) A 100 ms per-file debounce (FileWatcher.ts:35, 962-976). (3) FileWatcher sorts each event into a session (<proj>/<sid>.jsonl) or a subagent (<proj>/<sid>/subagents/agent-*.jsonl) (FileWatcher.ts:549-557), invalidates caches (FileWatcher.ts:561-563) and emits 'file-change' {type, path, projectId, sessionId, isSubagent} (FileWatcher.ts:569-577). (4) src/main/index.ts:128-134 forwards the event to the renderer over Electron IPC (webContents.send) and to browser clients over SSE (httpServer.broadcast). (5) The renderer throttles refreshes per session with an adaptive 150-1000 ms window (src/renderer/store/index.ts:76-115). It then calls get-session-detail, which RE-PARSES THE WHOLE session and all of its subagent files: SessionParser.parseSession -> SubagentResolver.resolveSubagents -> ChunkBuilder.buildSessionDetail (src/main/ipc/sessions.ts:250-279). A parent-file mtime+size fingerprint short-circuits a request that finds no change (src/main/ipc/sessions.ts:221-245). The byte-offset append parser (FileWatcher.ts:733-788) and the 30 s catch-up scan (FileWatcher.ts:900-953) feed ONLY the error-detection and notification pipeline. They do not feed the live UI view.",
+   "collection": [
+    {
+     "mechanism": "Recursive fs.watch on ~/.claude/projects (sessions, subagent JSONL, memory/*.md) with 100 ms per-file debounce and 2 s auto-retry if the directory is missing or the watcher errors/closes",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing in the observed session. User installs the claude-devtools app (dmg/AppImage/exe/brew cask) or runs the Docker image with ~/.claude mounted read-only.",
+     "data_it_yields": "Change notifications (add/change/unlink) keyed by projectId, sessionId and isSubagent. No content: content comes from a full re-parse on refresh.",
+     "evidence": [
+      "src/main/services/infrastructure/FileWatcher.ts:34-41",
+      "src/main/services/infrastructure/FileWatcher.ts:283-291",
+      "src/main/services/infrastructure/FileWatcher.ts:345-378",
+      "src/main/services/infrastructure/FileWatcher.ts:490-514",
+      "src/main/services/infrastructure/FileWatcher.ts:519-605",
+      "README.md (section 'Not a Wrapper': 'does not wrap, modify, or interfere with Claude Code')"
+     ]
+    },
+    {
+     "mechanism": "fs.watch on ~/.claude/todos/{sessionId}.json (TodoWrite state)",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing",
+     "data_it_yields": "todo-change events. ProjectScanner loads the todo data into session metadata.",
+     "evidence": [
+      "src/main/services/infrastructure/FileWatcher.ts:305-330",
+      "src/main/services/infrastructure/FileWatcher.ts:793-834",
+      "src/main/services/discovery/ProjectScanner.ts:740-743"
+     ]
+    },
+    {
+     "mechanism": "Full JSONL parse on every refresh (line-by-line stream), with streaming-entry de-duplication by requestId and an LRU DataCache (50 entries, 10 min TTL) keyed by an mtime+size fingerprint of the parent file",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing",
+     "data_it_yields": "ParsedMessage objects: uuid, parentUuid, type, timestamp, content blocks, usage, model, requestId, cwd, gitBranch, agentId, isSidechain, isMeta, userType, sourceToolUseID, sourceToolAssistantUUID, toolUseResult, isCompactSummary, plus extracted toolCalls and toolResults",
+     "evidence": [
+      "src/main/utils/jsonl.ts:88-194",
+      "src/main/utils/jsonl.ts:199-217",
+      "src/main/utils/jsonl.ts:233-252",
+      "src/main/ipc/sessions.ts:221-292",
+      "src/main/services/infrastructure/DataCache.ts:39-42"
+     ]
+    },
+    {
+     "mechanism": "Byte-offset incremental append parser (keeps a lastProcessedSize per file, reads from that offset, and holds a trailing partial line until it is complete), used only for error and notification detection",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing. Triggers are off by default and the user enables them in Settings.",
+     "data_it_yields": "Only the new messages, run through ErrorDetector triggers (tool_result error_status, tool_use content_match such as '/.env', token_threshold). The result is DetectedError notifications.",
+     "evidence": [
+      "src/main/services/infrastructure/FileWatcher.ts:615-709",
+      "src/main/services/infrastructure/FileWatcher.ts:733-788",
+      "src/main/services/infrastructure/TriggerManager.ts:30-66"
+     ]
+    },
+    {
+     "mechanism": "30 s catch-up scan over 'active' files (mtime < 1 h, seeded at startup) to recover fs.watch/FSEvents drops",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing",
+     "data_it_yields": "Re-runs error detection on unprocessed growth. It does NOT emit file-change, so it does not repair a missed UI refresh. The startup seed covers only top-level session files, not subagent files.",
+     "evidence": [
+      "src/main/services/infrastructure/FileWatcher.ts:39-41",
+      "src/main/services/infrastructure/FileWatcher.ts:845-889",
+      "src/main/services/infrastructure/FileWatcher.ts:900-953"
+     ]
+    },
+    {
+     "mechanism": "SSH remote mode: an SFTP FileSystemProvider plus 3 s size-polling in place of fs.watch",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "SSH access to the remote host (reads ~/.ssh/config). Nothing in the remote Claude Code session.",
+     "data_it_yields": "The same file-change events, from remote ~/.claude. The poller lists only <proj>/*.jsonl, not subagents/ subdirectories.",
+     "evidence": [
+      "src/main/services/infrastructure/FileWatcher.ts:78",
+      "src/main/services/infrastructure/FileWatcher.ts:388-481",
+      "src/main/services/infrastructure/SshFileSystemProvider.ts"
+     ]
+    },
+    {
+     "mechanism": "Static reads of other ~/.claude artifacts: CLAUDE.md files, project memory/*.md, .claude/agents/*.md (agent colors)",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing",
+     "data_it_yields": "Context-injection attribution (CLAUDE.md tokens), memory index, and per-subagent-type colors",
+     "evidence": [
+      "src/main/services/parsing/ClaudeMdReader.ts",
+      "src/main/services/discovery/MemoryReader.ts",
+      "src/main/services/parsing/AgentConfigReader.ts",
+      "src/renderer/components/chat/items/SubagentItem.tsx:79-84"
+     ]
+    },
+    {
+     "mechanism": "Hooks, plugins, skills, OTel, proxies, SDK wrappers: NONE found",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "N/A",
+     "data_it_yields": "N/A. A grep over src/ for settings.json, opentelemetry, OTEL_ and hook installation found no observed-session integration. The 'hooks' matches are React hooks and a groupTransformer label.",
+     "evidence": [
+      "src/main/services/infrastructure/HttpServer.ts:4-5 (binds 127.0.0.1)",
+      "README.md 'Zero configuration. No API keys. No wrappers.'"
+     ]
+    }
+   ],
+   "subagent_linking": "There are two levels: file location to parent session, then subagent to spawning call.\n\n(1) File location to parent session (SubagentLocator.ts:86-116):\n- The NEW layout is {proj}/{sessionId}/subagents/agent-{id}.jsonl. Directory containment alone ties the file to the parent session (SubagentLocator.ts:90-101; FileWatcher.ts:553-557).\n- The LEGACY layout is {proj}/agent-{id}.jsonl. The locator reads the file's first line and compares entry.sessionId (SubagentLocator.ts:129-183).\n- Warmup agents (first user message 'Warmup') are dropped, and so are 'acompact*' compaction files (SubagentResolver.ts:97-110, 144-153).\n- agent-<id>.meta.json and workflows/<runId>/ are NEVER read. A grep for 'meta.json' and 'workflows' under src/main returns nothing.\n\n(2) Subagent to spawning Task call (SubagentResolver.linkToTaskCalls, SubagentResolver.ts:207-309):\n- Phase 1, result-based: scan the parent messages for toolUseResult.agentId (or agent_id) and map it to sourceToolUseID or toolResults[0].toolUseId. That gives the spawning tool_use id (lines 221-255).\n- Phase 2, Agent Teams: a teammate spawn's agent_id is 'name@team', so match the Task input.description against the summary=\"...\" attribute of the subagent's first <\\teammate-message> (lines 257-296, 160-167).\n- Phase 3: positional fallback by start time for anything left unmatched (lines 298-308).\n- Team continuation files inherit team metadata by following the chain from a file's first message parentUuid to another file's last message uuid, at most 10 hops (lines 363-403).\n- Subagents whose start times fall within 100 ms of each other are flagged isParallel (lines 413-457).\n\n(3) Subagent to UI chunk (ProcessLinker.ts:22-61):\n- Primary: parentTaskId is in the chunk's Task tool_use ids.\n- Fallback for orphans with no parentTaskId: subagent startTime falls inside the chunk's time window.\n\nCaveats found in the code:\n- (a) toolExtraction.ts:20 sets isTask only when block.name === 'Task'. Current Claude Code names this tool 'Agent': in a sample of 60 recent local sessions, 9 files use name 'Agent' and none use 'Task'. linkToTaskCalls therefore returns early (SubagentResolver.ts:213-217), and current sessions fall through to ProcessLinker's timing fallback.\n- (b) Phase 1 needs the Task tool_result, which only exists after the subagent finishes. A RUNNING subagent can therefore only be linked by position or timing.\n- (c) Nested subagents are not linked to their real parent. All agent files sit flat in the session's subagents/ directory and get linked against the main session's Task calls. The inline SubagentItem renders a subagent's trace with an empty subagent list (SubagentItem.tsx:123, buildDisplayItemsFromMessages(subagent.messages, [])), so nested Task calls show up as plain tool rows.\n- The drill-down builder that would recurse has two problems. It looks for {projectsDir}/{projectId}/subagents/agent-{id}.jsonl, with no sessionId segment (SubagentDetailBuilder.ts:55-60). It also resolves nested agents by passing subagentId as the sessionId (SubagentDetailBuilder.ts:72-76). drillDownSubagent is never called from any component (grep finds it only in store/slices/subagentSlice.ts).",
+   "events_and_fields": [
+    "FileChangeEvent {type: 'add'|'change'|'unlink', path, projectId, sessionId, isSubagent} (FileWatcher.ts:569-575)",
+    "SSE/IPC channels: 'file-change', 'todo-change', 'memory:changed' (index.ts:127-154), plus notification:new and notification:updated",
+    "JSONL entry types parsed: user, assistant, system, summary, file-history-snapshot, queue-operation. Every other type (for example 'progress') is skipped, and so is any entry without a uuid (jsonl.ts:105-108, 199-217)",
+    "Per-message fields: uuid, parentUuid, type, timestamp, role, content, usage{input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens}, model, requestId, cwd, gitBranch, agentId, isSidechain, isMeta, userType, isCompactSummary, sourceToolUseID, sourceToolAssistantUUID, toolUseResult (jsonl.ts:169-193)",
+    "ToolCall {id, name, input, isTask, taskDescription, taskSubagentType} (toolExtraction.ts:17-35); ToolResult {toolUseId, content, isError} (toolExtraction.ts:52-58)",
+    "toolUseResult.agentId / agent_id (link key), toolUseResult.status === 'teammate_spawned' and .color (SubagentResolver.ts:221-234, 334-352)",
+    "Process (subagent) {id, filePath, messages, startTime, endTime, durationMs, metrics, isParallel, isOngoing, parentTaskId, description, subagentType, team{teamName, memberName, memberColor}} (SubagentResolver.ts:121-131, 315-328)",
+    "Ongoing heuristic: AI activity (thinking, tool_use or tool_result) after the last ending event. Ending events are text output, '[Request interrupted by user', a 'User rejected tool use' result, ExitPlanMode, or a SendMessage shutdown_response (sessionStateDetection.ts:43-150). A session is also stale if its file mtime is more than 5 min old (ProjectScanner.ts:751-755)",
+    "Teammate messages: <\\teammate-message teammate_id color summary> in user content (CLAUDE.md 'Agent Teams')",
+    "Session metrics: input, output, cacheRead and cacheCreation tokens, messageCount, durationMs (jsonl.ts:262-309). costUsd is hard-coded to 0, so it is always undefined (jsonl.ts:274, 307)"
+   ],
+   "realtime_transport": "Two transports, picked by host:\n- Electron: IPC push (webContents.send('file-change')) from main to renderer (src/main/index.ts:128-134, preload/index.ts:361).\n- Browser/Docker: Server-Sent Events at GET /api/events (src/main/http/events.ts:22-63), with a ':ping' keep-alive every 30 s. The client is a native EventSource with built-in auto-reconnect (src/renderer/api/httpClient.ts:55-78).\n\nEvents carry only 'something changed' notifications. The renderer then pulls a full session detail through IPC get-session-detail or HTTP GET.\n\nEnd-to-end latency:\n- fs.watch delivery.\n- The 100 ms main-process debounce (FileWatcher.ts:35).\n- A renderer throttle of 150/300/500/1000 ms, scaled by the session's AI-group count (store/index.ts:84-113).\n- A full re-parse of the parent and every subagent JSONL (ipc/sessions.ts:250-279). This is O(session size) per update, softened by the mtime+size fingerprint short-circuit (ipc/sessions.ts:239-245) and a renderer chunk-shape fingerprint (sessionDetailSlice.ts:609-615).\n\nIn SSH mode, 3 s polling replaces fs.watch (FileWatcher.ts:78, 388-410).",
+   "storage": "No database. Parsed data lives in memory:\n- DataCache LRU: 50 sessions, 10 min TTL, fingerprint-validated (DataCache.ts:31-42).\n- SearchTextCache LRU: 1000 entries, mtime-invalidated (SearchTextCache.ts:20-25).\n\nPersisted files, both written into ~/.claude:\n- Config: ~/.claude/claude-devtools-config.json (ConfigManager.ts:25-28). Under Docker it goes to $CLAUDE_ROOT (standalone.ts:99-101).\n- Notification history: ~/.claude/claude-devtools-notifications.json, capped at 100 entries (NotificationManager.ts:5, 74, 80, 187-192).\n\nSession data is never copied, so it is lost when Claude Code rotates or deletes JSONL files.",
+   "ui_views": [
+    "Dashboard: projects/repository grid with command search (components/dashboard/DashboardView.tsx:396)",
+    "Sidebar: date-grouped session list with pin/hide, worktree grouping (components/sidebar/DateGroupedSessions.tsx; discovery/WorktreeGrouper.ts)",
+    "Session transcript as chunk timeline (UserChunk/AIChunk/SystemChunk/CompactChunk), with ChatHistory, AIChatGroup and UserChatGroup (components/chat/*)",
+    "Inline subagent cards (SubagentItem.tsx) with expandable ExecutionTrace: type/team color, model, tool count, last usage, multi-phase context breakdown (SubagentItem.tsx:63-165; items/ExecutionTrace.tsx)",
+    "Teammate message cards for Agent Teams (items/TeammateMessageItem.tsx)",
+    "Tool call inspector with specialized viewers: Read with syntax highlighting, Edit diffs, Bash output, Mermaid (components/chat/items/linkedTool, components/chat/viewers)",
+    "Session Context Panel: per-turn token attribution across categories (claude-md, mentioned-file, tool-output, thinking-text, team-coordination, user-message) with compaction phases (components/chat/SessionContextPanel; renderer/utils/contextTracker.ts). Token counts for injections are estimated as chars/4 (main/utils/tokenizer.ts:19-26)",
+    "Compaction boundary visualization (components/chat/CompactBoundary.tsx)",
+    "Multi-pane split layout with drag-and-drop tabs (components/layout/PaneContainer.tsx, TabbedLayout.tsx)",
+    "Cmd+K command palette and cross-session search, which matches user text plus the AI's last text output (discovery/SessionSearcher.ts:1-12)",
+    "Notifications panel plus native OS notifications for trigger hits (components/notifications; NotificationManager.ts:375-409)",
+    "Settings: notification trigger editor, SSH connection, general/advanced (components/settings/*)",
+    "Project memory viewer (components/memory, components/sidebar/memory)",
+    "Export of a session to Markdown/JSON/plain text (renderer/utils/sessionExporter.ts)",
+    "Waterfall chart: the BACKEND ONLY exists (ChunkBuilder.ts:201; ipc/sessions.ts:382-398; http/sessions.ts:292). No React component calls getWaterfallData; only httpClient.ts:249 defines it"
+   ],
+   "query_chat_or_learning_features": "There is no chatbot, LLM integration, or learning loop. What exists:\n- Keyword search across sessions (SessionSearcher, scoped to user text plus the last AI output).\n- Session-ID lookup in Cmd+K.\n- A rule-based 'notification triggers' engine. The user writes regex or threshold rules over tool_use, tool_result and token counts (ErrorDetector.ts:1-17; TriggerManager.ts:30-66). The built-in rules are '.env File Access Alert', 'Tool Result Error' and 'High Token Usage' (>8000 tokens), all disabled by default. Each rule has repository scoping and ignore patterns. Detected errors are deep-linked to toolUseId, subagentId and line number (ipc/config.ts:493-502).\n\nThis is the closest thing to 'learning from mistakes', but it is static matching only, with no aggregation and no memory across sessions.",
+   "could_work_without_session_changes": "Everything it does works from passive reading of ~/.claude. It installs nothing into the observed session, so every feature could be rebuilt from passive JSONL reading. That includes:\n- the live 'ongoing' indicator (heuristic plus 5-minute mtime staleness);\n- per-subagent execution trees with tokens and duration;\n- parallel-subagent detection (100 ms start window);\n- Agent Teams reconstruction (teammate-message tags, teammate_spawned results, parentUuid chain across continuation files);\n- context-window attribution and compaction phases;\n- tool-call inspectors;\n- todo state (~/.claude/todos);\n- trigger-based error notifications;\n- search;\n- SSH remote viewing.\n\nClaude Explorer could do better passively in five places:\n- (1) Read agent-<id>.meta.json and workflows/<runId>/. claude-devtools ignores both, and they would give agent type and description before the Task result exists.\n- (2) Recognize the 'Agent' tool name as well as 'Task'.\n- (3) Link nested subagents to the subagent JSONL that holds the spawning tool_use, not to the main session.\n- (4) Tail incrementally with byte offsets for the UI path too, so updates are deltas and not a full re-parse.\n- (5) Send subagent-only file changes to the UI. In Electron mode the parent-file fingerprint can suppress them.\n\nNot available from JSONL, and claude-devtools does not attempt any of it:\n- true sub-second in-flight state between JSONL flushes (streaming tokens before a line is written);\n- exact cost, since its costUsd is hard-coded to 0;\n- hook-only signals such as permission prompts awaiting approval or PreToolUse timing before the tool_use line is written;\n- process liveness. Its 'ongoing' state is a content heuristic plus a 5-minute mtime timeout, not a PID check.",
+   "limitations": [
+    "Only the tool name 'Task' counts as a subagent spawn (src/main/utils/toolExtraction.ts:20). Current Claude Code writes 'Agent': 9 of 60 recent local sessions use 'Agent' and none use 'Task'. linkToTaskCalls therefore exits early (SubagentResolver.ts:213-217), and subagents attach by timing alone (ProcessLinker.ts:44-58). Task-with-subagent de-duplication (displayItemBuilder.ts:166-167) also fails, so the Agent call and the subagent card both appear.",
+    "The live UI path re-parses the whole session and every subagent file on each change (ipc/sessions.ts:250-279). The efficient byte-offset tailer serves only error detection (FileWatcher.ts:615-709, 733-788).",
+    "In Electron IPC mode the no-change short-circuit uses a fingerprint of the PARENT file only (ipc/sessions.ts:221-245). A write that touches only a subagent file can come back 'unchanged' and skip the refresh. The renderer's second guard also checks only chunk count plus the last chunk's raw message count (sessionDetailSlice.ts:609-615). (Code path confirmed; runtime effect PLAUSIBLE, not observed.)",
+    "The 30 s catch-up scan re-runs only error detection and never emits file-change (FileWatcher.ts:916-953), so a dropped FSEvents event can leave the open view stale until the next write. Startup seeding covers only top-level session files (FileWatcher.ts:864-876).",
+    "SSH polling lists only <proj>/*.jsonl, not <sid>/subagents/ (FileWatcher.ts:430-431), so remote subagent activity sets off no events of its own.",
+    "Linking a running subagent to its spawning call relies on positional order. The authoritative agentId only appears in the Task tool_result after the subagent finishes (SubagentResolver.ts:219-255, 298-308).",
+    "Nested subagents do not render recursively, although the README says 'Nested agents render recursively'. The inline trace passes an empty subagent list (SubagentItem.tsx:123). The drill-down builder uses a path without the sessionId segment (SubagentDetailBuilder.ts:55-60) and resolves nested agents as if subagentId were a sessionId (SubagentDetailBuilder.ts:72-76). drillDownSubagent has no caller in any component.",
+    "It ignores agent-<id>.meta.json and workflows/<runId>/ (no references under src/main), and it drops unknown JSONL entry types such as 'progress' (jsonl.ts:199-217).",
+    "No cost calculation at HEAD: costUsd = 0, so it is always undefined (jsonl.ts:274, 307), although the README promises cost. Thinking and context token counts are chars/4 estimates (tokenizer.ts:19-26).",
+    "The waterfall chart exists only in the backend (ChunkBuilder.ts:201). No UI renders it.",
+    "Ongoing detection is heuristic: activity after the last text output, plus 5-minute mtime staleness (sessionStateDetection.ts:43-150; ProjectScanner.ts:751-755). It has no process or PID liveness.",
+    "No persistence of its own and no index. Data rotated out of ~/.claude is gone, and search is a linear scan with an LRU cache.",
+    "Standalone/Docker mode binds 0.0.0.0 by default (standalone.ts:41). The Electron sidecar binds 127.0.0.1 (HttpServer.ts:4, 61)."
+   ],
+   "ideas_to_borrow": [
+    "Belt and braces for watching: event-driven watch, per-file debounce (about 100 ms), automatic watcher re-creation on error or close with a 2 s retry, and a periodic catch-up stat scan over an 'active set' of files modified in the last hour (FileWatcher.ts:345-378, 845-953). Our watchdog plus a 600 s backstop could add a short-interval scan over the active set while a session is live. Unlike theirs, the catch-up should emit UI events, not just error checks.",
+    "Byte-offset append parsing with a 'pin the offset until the trailing partial line completes' rule, and a full-parse fallback on truncation or rewrite (FileWatcher.ts:644-662, 769-781). Apply it to the live DAG path, which they do not do, and push deltas over SSE.",
+    "A throttle with adaptive delay rather than a trailing debounce: one pending refresh per session, with the delay scaled by session size, so continuous appends cannot starve updates (store/index.ts:76-115).",
+    "An mtime+size fingerprint round-trip so no-op refreshes cost one stat() (ipc/sessions.ts:221-245). Include the subagent files' fingerprints, which they leave out.",
+    "Stream de-duplication by requestId, keeping only the last entry, to avoid about 2x token overcounting (jsonl.ts:233-252).",
+    "Three-phase subagent linking: toolUseResult.agentId to sourceToolUseID, then the teammate-message summary match for teams, then a positional fallback, with team metadata carried across continuation files through the parentUuid chain (SubagentResolver.ts:207-403). Add meta.json and the 'Agent' tool name ahead of these.",
+    "The parallel-group heuristic (start times within 100 ms) for drawing fan-out lanes in a live DAG (SubagentResolver.ts:413-457).",
+    "The ongoing-state heuristic and its ending events: ExitPlanMode, user rejection, an interrupt marker, a SendMessage shutdown_response, and a mtime staleness timeout (sessionStateDetection.ts; ProjectScanner.ts:751-755). It gives cheap running/finished badges on DAG nodes.",
+    "Filters for noise subagents: 'Warmup' first message and 'acompact*' files (SubagentResolver.ts:97-110).",
+    "A user-defined trigger engine (regex, error status, token threshold, repository scope, ignore patterns) with deep links to toolUseId, subagentId and line (TriggerManager.ts:30-66; ipc/config.ts:493-502). It is a seed for our learning loop, which could turn trigger hits into an indexed 'mistakes' corpus that a chatbot can query.",
+    "A FileSystemProvider abstraction (local vs SFTP) so one pipeline also serves remote machines (infrastructure/FileSystemProvider.ts, SshFileSystemProvider.ts).",
+    "Per-turn context attribution by category, with compaction phases (renderer/utils/contextTracker.ts). It is a useful overlay on DAG nodes ('what filled this agent's context')."
+   ],
+   "unverified": [
+    "The runtime effect of the parent-only fingerprint: that subagent-only writes leave the Electron view stale while a subagent runs. The code path is confirmed (ipc/sessions.ts:221-245; sessionDetailSlice.ts:609-615), but the app was not run. It depends on whether Claude Code also writes to the parent JSONL during a subagent run. My grep of 60 recent local sessions found no 'type':'progress' parent entries.",
+    "Whether a later release normalizes 'Agent' to 'Task' somewhere I did not find. A grep for 'Agent' as a string literal across src/ found no such check at this commit.",
+    "The popularity figures in the brief (3,993 stars, 304 forks, HN 69 points, a Reddit launch with 500+ upvotes, Product Hunt). I did not check them against GitHub, HN or Reddit, and they are not in the code.",
+    "The README claim 'Full execution trees per agent with ... cost': no cost computation exists at this commit. CHANGELOG lines 116 and 123 mention a cost metric and a 'shared pricing module', but no pricing module exists in src/.",
+    "The README claim 'Nested agents render recursively': the code paths I read (SubagentItem.tsx:123; SubagentDetailBuilder.ts:55-76) suggest it does not work for current on-disk layouts. I did not test it.",
+    "Whether the HTTP/browser route GET session detail honors a fingerprint. I found no fingerprint handling in src/main/http/sessions.ts, so browser mode probably always does the full fetch, but I did not trace it end to end.",
+    "How SessionParser and ChunkBuilder treat isSidechain messages that appear inside the main file (SessionParser.ts:118). I did not read this in full."
+   ]
+  },
+  {
+   "name": "zoetrope (furkankly)",
+   "repo_url": "https://github.com/furkankly/zoetrope",
+   "commit": "b1f31dd26bd4e9e513885e39edb78d0850a5d1fe (shallow clone, HEAD dated 2026-09-11; crate version 0.2.0 per Cargo.toml)",
+   "license": "MIT (LICENSE, Copyright (c) 2026 Furkan Kalaycioglu; Cargo.toml `license = \"MIT\"`)",
+   "architecture_summary": "A single Rust crate. One portable core holds the model, the timeline, the graph projection, the ratatui rendering and the providers, with no IO of its own. Two frontends sit on that core. The native `zoe` binary (tokio + crossterm) runs a TUI. The browser build (`web/wasm`, compiled to WASM via ratzilla) is hosted at zoetrope.furkankly.dev/app (Cargo.toml [features] native; README.md:228-232). The data path is fully passive. (1) Discovery. A per-provider `discovery.rs` classifies paths: `~/.claude/projects/<sanitized-cwd>/<uuid>.jsonl` is the root, `<uuid>/subagents/agent-<id>.jsonl` is an agent, `agent-<id>.meta.json` is a sidecar read whole, and `subagents/workflows/<wf>/journal.jsonl` is a ledger that is tailed (src/provider/claude/discovery.rs:232-296, 309-330). (2) Tailing. One poll loop runs per session, every 200 ms. Each tick it stats each tracked file, reads the bytes appended past a stored offset, splits them on newlines, buffers any trailing partial line, and detects truncation or inode replacement (src/tailer/live.rs:27, 250-371; src/tailer/bytes.rs:49-137). It calls `Session::rescan()` on every tick to pick up newly spawned agent files (src/tailer/live.rs:406-418). (3) Provider. A per-file `Stream::push(line)` turns each JSONL record into a `Statement` of format-neutral `Fact`s: Agent, Activity, Label, Model, Tokens, Prompt, Reasoning, ToolStart, ToolEnd, Spawn, Ended, Session, Tally, Title (src/provider/claude/mod.rs:104-342; src/fact.rs:50-109). (4) Fold. `SessionModel` folds facts into agents, tool calls and prompts. The fold is idempotent, order-independent and built on imbl persistent collections, so a snapshot ladder (one rung every 1024 items) supports exact backward seek (src/state/session.rs:24-70; src/state/mod.rs:128, 664). (5) Projection. Agents map to rataflow nodes, plus one parent edge per child, laid out with Sugiyama (src/state/graph.rs:112-216). A 16 ms render tick draws the frame (src/tui.rs:22). The tailer sends `UiEvent::Batch`, `ReplayLoaded`, `SessionReset` and `Error` over a tokio mpsc channel (src/tailer/mod.rs:73-94; src/main.rs:265-276). Replay mode bulk-parses every file, merges and dates the records by timestamp, then switches to the same live tail loop, seeded with the byte offsets the bulk parse consumed (src/tailer/replay.rs:26-85, 101-109). The README says the tool needs zero network, and the design gives `tokio` no `net` feature (README.md:224-226; Cargo.toml tokio features).",
+   "collection": [
+    {
+     "mechanism": "Passive JSONL tailing by offset polling, every 200 ms, with no inotify or FSEvents (the `notify` crate is not used). Each tick stats the root file and each tracked agent and journal file, reads only the appended bytes, splits them on newlines, buffers partial lines (capped at 8 MB), and resets on truncation or an inode change.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing in the observed Claude Code session. The user runs `zoe` (in the project directory, or with a dir, file or id) in another terminal. Install routes are brew, cargo, or prebuilt binaries.",
+     "data_it_yields": "Every transcript line of the main session and of each subagent and workflow agent, plus workflow journal ledger lines, at about 200 ms latency.",
+     "evidence": [
+      "src/tailer/mod.rs:3-9 (poll-based, 200 ms, no notify dep)",
+      "src/tailer/live.rs:27 (POLL_INTERVAL 200ms)",
+      "src/tailer/live.rs:279-371 (poll_live: root, scan_files, read_tracked, emit Batch)",
+      "src/tailer/bytes.rs:49-90 (read_appended: stat, offset seek, truncation/inode reset)",
+      "src/tailer/bytes.rs:96-137 (consume_bytes partial-line buffering, MAX_PARTIAL 8MB at :13)"
+     ]
+    },
+    {
+     "mechanism": "Directory discovery by layout, rescanned every tick. Rescan lists `<uuid>/subagents/agent-*.jsonl` with its `.meta.json`, and `subagents/workflows/<wf>/journal.jsonl` with that workflow's agents. Files that fail to classify are remembered and skipped.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing",
+     "data_it_yields": "New subagent and workflow files as soon as they appear, so new agents enter the graph live.",
+     "evidence": [
+      "src/provider/claude/discovery.rs:88-162 (subagents_dir, scan_subagent_files, scan_workflow_ids, workflow_journal)",
+      "src/provider/claude/discovery.rs:232-296 (classify_path roles + ReadMode)",
+      "src/provider/claude/discovery.rs:309-330 (related_paths)",
+      "src/provider/mod.rs:195-210 (rejected set; Session::rescan)",
+      "src/tailer/live.rs:406-418 (scan_files each tick)"
+     ]
+    },
+    {
+     "mechanism": "Whole-file sidecar read of `agent-<id>.meta.json`. The file is re-read on every tick until it parses (to tolerate a read caught mid-write), then stated once.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing",
+     "data_it_yields": "agentType, description, toolUseId (the join key to the spawning Agent tool_use), and stoppedByUser, which is parsed but deliberately not used.",
+     "evidence": [
+      "src/tailer/live.rs:420-442 (emit_whole retry-until-parse)",
+      "src/provider/claude/wire.rs:441-464 (SubagentMeta fields; linkage comment)",
+      "src/provider/claude/mod.rs:344-364 (meta_facts)",
+      "src/provider/claude/mod.rs:11-15 (stoppedByUser never emitted)"
+     ]
+    },
+    {
+     "mechanism": "Auto-follow of the newest session. In follow mode it sweeps the project directory every 10 ticks (about 2 s) for a newer `<uuid>.jsonl`, looking back 24 h. It switches only after the current session has been idle for 150 ticks (about 30 s).",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing. `zoe` with no args follows the current project directory.",
+     "data_it_yields": "A switch to the newest live session in a project directory, without flapping between two concurrent sessions.",
+     "evidence": [
+      "src/tailer/live.rs:29-45 (SWITCH_SCAN_EVERY, SWITCH_IDLE_TICKS, SWITCH_LOOKBACK)",
+      "src/tailer/live.rs:342-368 (auto-switch)",
+      "src/tailer/live.rs:162-191 (await_first_session)"
+     ]
+    },
+    {
+     "mechanism": "Browser (WASM) frontend. On Chromium it uses the File System Access API (`showDirectoryPicker`) to get re-readable file handles, then polls every 1 s with `file.slice(offset)` and passes the new lines to `zoetrope_append`. Firefox and Safari fall back to a `webkitdirectory` snapshot, which can only replay. Drag-and-drop is also replay-only.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing in the session. The user grants the browser read access to the `~/.claude/projects` folder. The hosted page loads Vercel Analytics and Umami page analytics; that is page-visit tracking, not session data.",
+     "data_it_yields": "The same graph as the TUI, with live follow on Chromium only.",
+     "evidence": [
+      "web/src/pages/app.astro:1019 (showDirectoryPicker)",
+      "web/src/pages/app.astro:600-611 (freshLines offset slicing)",
+      "web/src/pages/app.astro:1256-1323 (loadSession, readNew, pollLive 1000ms)",
+      "web/wasm/src/main.rs:267-314 (zoetrope_load / zoetrope_append)",
+      "web/src/pages/app.astro:8,19 + web/src/components/Analytics.astro (Vercel + Umami page analytics)"
+     ]
+    },
+    {
+     "mechanism": "Optional Herdr plugin (a terminal multiplexer integration). It asks Herdr for the focused pane's agent session id and opens `zoe <id>`. Herdr learns that id from a SessionStart hook installed into Claude Code by `herdr integration install claude`.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "Optional, and only for this convenience path. The user installs Herdr, runs `herdr integration install claude` (which adds a SessionStart hook to the observed CC session), and installs the plugin. Core zoe does not need it.",
+     "data_it_yields": "Only the session id of the focused pane, used to pick which session to open. No telemetry.",
+     "evidence": [
+      "herdr-plugin/herdr/resolve.sh:11-15 (id comes from agent SessionStart hook via Herdr)",
+      "herdr-plugin/herdr/resolve.sh:43-55 (error text telling user to install integration)",
+      "README.md:81-99",
+      "docs/HERDR-PLUGIN.md:122-130"
+     ]
+    }
+   ],
+   "subagent_linking": "Zoetrope uses ground-truth joins only and never infers parentage from timing.\n(a) Session membership comes from the path. Any file under `<uuid>/subagents/` belongs to session `<uuid>`, and its role is `Agent { parent: session }` (src/provider/claude/discovery.rs:261-296).\n(b) Agent identity comes from the filename. `agent-<id>.jsonl` gives the agent id, and the file decides which agent a line is *by* (`Source::Sub(id)`), not any `agentId` field inside the line (src/provider/claude/mod.rs:30-42, 366-374; src/provider/claude/discovery.rs:94-103). wire.rs:121 says not to rely on `attributionAgent`.\n(c) The parent node is `main`, or the workflow run id when the file sits under `subagents/workflows/<wf>/` (src/provider/claude/mod.rs:349-356). A workflow group node is created on demand from its first child (src/state/session.rs:378-392). It is labelled from the main-transcript `toolUseResult` when `taskType == \"local_workflow\"`, using `runId`, `workflowName` and `summary` (src/provider/claude/wire.rs:250-288; src/provider/claude/mod.rs:247-258).\n(d) The spawning call comes from `meta.json` `toolUseId`, which equals the `id` of the `Agent`/`Task`/`Workflow` tool_use block. That id is stored as `spawned_by` (src/provider/claude/wire.rs:446-458; src/provider/claude/mod.rs:358). The parent's tool_use emits `FactKind::Spawn{call}`, which records a `SpawnContext`: the spawn ts plus the parent's latest Reasoning text/thinking (src/provider/claude/mod.rs:221-233; src/state/session.rs:520-528). The detail panel joins `spawn_context[spawned_by]` for provenance, and `prompt_for_ts` finds the triggering human prompt (src/state/session.rs:836-845).\n(e) Completion uses three signals. A `<\\task-notification>` `<task-id>` in a main-thread user message gives `Ended(status)` (src/provider/claude/wire.rs:491-512; src/provider/claude/mod.rs:262-270). A workflow journal `result` with an `agentId` gives `Ended(Done)` (src/provider/claude/mod.rs:306-316). Otherwise the spawning tool_result's timestamp is compared with the agent's own last activity: if the agent was active after the ack, the subagent is async and still running; if not, the subagent was sync and is done (src/state/session.rs:588-631).\nLimitation: for Claude, `meta_facts` always sets parent to `main` or the workflow (mod.rs:355). A subagent spawned by another subagent is therefore drawn under main, not under the subagent whose tool_use it came from. The provider does not use `toolUseId` to re-parent. Codex, by contrast, parents by owner thread (src/provider/codex/mod.rs:135, 370).",
+   "events_and_fields": [
+    "Record types parsed (`type`): user, assistant, system, attachment, ai-title, last-prompt, mode, permission-mode, file-history-snapshot, queue-operation, started, result, plus a catch-all Unknown that is skipped (src/provider/claude/wire.rs:23-76)",
+    "Envelope fields: uuid, parentUuid (as Option<Option>, to tell the root apart), sessionId, timestamp, isSidechain, promptId, requestId, agentId, attributionAgent, origin.kind ('human' vs 'task-notification'), cwd (src/provider/claude/wire.rs:96-140)",
+    "assistant.message: model, usage.output_tokens (deduped by requestId, because one turn repeats its cumulative usage across lines), content blocks text / thinking / tool_use{id,name,input,caller} (src/provider/claude/mod.rs:197-237)",
+    "user.message content: a string prompt, or blocks with tool_result{tool_use_id,is_error}. A missing is_error is treated as success (src/provider/claude/mod.rs:279-303)",
+    "user.toolUseResult with taskType=local_workflow, runId, workflowName, summary: names the workflow group (src/provider/claude/wire.rs:250-288)",
+    "<\\task-notification> XML in a main-thread user text: <task-id>, <status> completed/stopped/failed (src/provider/claude/wire.rs:466-512)",
+    "Spawn tool names: Agent, Task (legacy), Workflow (src/provider/claude/wire.rs:83-85)",
+    "agent-<id>.meta.json: agentType, description, toolUseId, stoppedByUser (unused); workflow subagents carry agentType 'workflow-subagent' and spawnDepth (assets/claude/demo/subagents/workflows/wf_demo01/agent-w1000000000000001.meta.json; src/provider/claude/wire.rs:441-464)",
+    "subagents/workflows/<wf>/journal.jsonl: {type: started|result, key, agentId, result} (src/provider/claude/wire.rs:427-438; assets/claude/demo/subagents/workflows/wf_demo01/journal.jsonl)",
+    "Session-info metadata: aiTitle, mode, permissionMode, lastPrompt, queue-operation enqueue count, file-history-snapshot count (src/provider/claude/mod.rs:317-337)",
+    "Per-tool one-line summaries: Bash command, Read/Write/Edit file_path made relative to cwd, Agent description/subagent_type, WebFetch url, ToolSearch query (src/provider/claude/mod.rs:425-459)",
+    "Not used: input/cache tokens, cost, tool_result content bodies, the session-level <session>/workflows/<runId>.json, attachments, system records"
+   ],
+   "realtime_transport": "There is no network transport. Native: a tokio task polls the files every 200 ms (POLL_INTERVAL, src/tailer/live.rs:27) and sends `UiEvent::Batch` over an in-process `tokio::sync::mpsc` channel to the UI loop (src/tailer/mod.rs:73-94; src/main.rs:265-276). The UI redraws on a 16 ms tick (src/tui.rs:22). End-to-end latency from a line being written to it showing on screen is therefore about 200-216 ms plus parse time. Events stamped with a stale session id are dropped (src/state/mod.rs:361-371, 807). A 'live' dot depends on a batch arriving within 10 s (LIVE_FRESH, src/state/mod.rs:78). Browser: a JS `setTimeout` loop polls every 1000 ms over File System Access handles (web/src/pages/app.astro:1271, 1314-1323) and calls WASM `zoetrope_append` directly. The README states the binary has no network: no HTTP client in the dependency tree, and tokio without `net` (README.md:224-226).",
+   "storage": "None of its own. It writes nothing to disk and keeps no database or cache. All state lives in memory: the `SessionModel` uses imbl persistent collections, so a clone is O(1), and a snapshot ladder keeps one rung every 1024 folded items for fast backward seek (src/state/session.rs:24-70; src/state/mod.rs:128, 511-553). The transcript files themselves serve as the durable log (README.md:203-206).",
+   "ui_views": [
+    "Flow graph (DAG/tree) in a TUI: one card per agent (main, subagents, workflow groups with children nested), with step-routed parent edges laid out by Sugiyama. Edges animate while the target agent is running (src/state/graph.rs:16-216; README.md:127-134)",
+    "Agent card: status, current tool, tool count, output tokens (src/ui/nodes.rs:46-170)",
+    "Tool-call chips under each agent: runs of same-name calls such as '\u2692 bash \u00d75' or a ticking duration, settling to \u2713 or \u2717, with an afterglow that ages in watch time (src/ui/chips.rs; docs/ARCHITECTURE.md:269-310)",
+    "Event-indexed scrubber timeline: a tool-activity sparkline with spawn and fail markers and prompt-era chapter ticks, plus a log line narrating the latest prompt/spawn/failure (src/ui/mod.rs:37-60, 176-198; src/state/session.rs:850-900)",
+    "Time travel: play/pause, speed (default 8x), gap compression, step between prompt eras, jump to live, exact backward seek (src/state/mod.rs:292-308, 664; README.md:136-143)",
+    "Agent detail panel (provenance): the triggering prompt, the reasoning before the spawn, the model, and every tool call with timings, grouped by prompt era (src/ui/panel.rs:66-330; src/state/session.rs:836-845)",
+    "Session info overlay: mode, permissions, queued ops, file edits, last prompt, title (src/ui/mod.rs:107-141)",
+    "Minimap, camera Overview/Follow modes (the camera glides to the active agent), pan/zoom, relayout (src/ui/mod.rs:676-690; README.md:166-196)",
+    "Headless `zoe inspect`: prints the session tree and info as text (src/main.rs:213-240)",
+    "Browser app: the same TUI rendered via ratzilla/WASM, with a Sessions browser listing sessions by recency and flagging one modified in the last 60 s as live (web/src/pages/app.astro:1008-1009, 1220-1240)",
+    "No cost view and no input/cache token view: only output tokens are tracked (src/fact.rs:76-79)"
+   ],
+   "query_chat_or_learning_features": "none. It has no chatbot, no search across sessions, no analytics dashboard, and no error mining or learning loop. The nearest features are the headless `zoe inspect` tree dump (src/main.rs:213-240), a scrubber log line that narrates the latest prompt, spawn or tool failure (src/state/session.rs:850-900), and red \u2717 chips for failed tool calls. Failures are only counted and colored: tool_result error content is never read or classified (src/provider/claude/mod.rs:279-303 keeps only is_error).",
+   "could_work_without_session_changes": "All of the core features already run on passive reading alone. Zoetrope is an existence proof that a live subagent DAG needs no hooks, plugins or env vars in the observed session. The only exception is the optional Herdr pane-to-session convenience, which relies on a SessionStart hook.\n\nClaude Explorer could rebuild each of these from its existing watchdog plus JSONL reading:\n- the live agent tree, with workflow groups (subagents/ and subagents/workflows/<wf>/ layout, plus a meta.json toolUseId join to the spawning tool_use id)\n- per-agent status, using zoetrope's three ground-truth completion signals (<\\task-notification> status, journal `result`, sync spawn ack) plus a reversible 120 s activity window, with a pending tool_call counting as proof of work\n- tool-call chips with durations and \u2713/\u2717 (tool_use id joined to tool_result tool_use_id, is_error)\n- provenance (spawn reasoning from the preceding text/thinking block, plus the prompt era by timestamp)\n- model and output tokens, deduped by requestId\n- workflow naming from toolUseResult.runId/workflowName\n- prompt-era scrubbing and replay at recorded timestamps\n- newest-session auto-follow\n\nTwo parts would need extra work. Nested subagent parentage needs an improvement over zoetrope: match meta.toolUseId against tool_use ids in every subagent transcript, not only main. Live web transport needs a push channel from FastAPI to React, such as SSE or WebSocket fed by the watchdog. That is our own server design, not a dependency on the observed session.\n\nNothing zoetrope does required a session change.\n\nSome things are unavailable passively for zoetrope and for us. A tool call's real-time stdout before its tool_result line lands is not in the transcript. The same goes for anything Claude Code buffers before flushing a line, for permission-prompt waiting state beyond what is written, and for exact completion of a zero-activity async agent. Zoetrope's ARCHITECTURE.md \u00a77 documents that last case as a soft spot.",
+   "limitations": [
+    "TUI and WASM-in-browser only. No server and no multi-client web app, and nothing is persisted, so it has no history, search or cross-session analysis",
+    "One session at a time. It follows the newest session in one project and auto-switches after 30 s idle. There is no workspace-wide live view of all running sessions yet (DISCOVERY.md \u00a74 mentions a future 'rail')",
+    "Claude nested subagents (a subagent spawning a subagent) are parented to `main`, not to their real spawner: meta_facts hard-codes parent = workflow or MAIN_ID (src/provider/claude/mod.rs:355)",
+    "Polling rather than event-driven: a 200 ms stat loop over every tracked file (src/tailer/live.rs:27). Fine for one session, but it scales linearly with files tracked",
+    "Only output tokens: no input/cache tokens and no cost (src/fact.rs:76-79; src/provider/claude/mod.rs:201-210)",
+    "Tool result bodies, error messages and Bash output are never read. Failures are a boolean \u2717",
+    "Does not read the session-level `<session>/workflows/<runId>.json` files that exist on local disk (verified on this machine: ~/.claude/projects/*/<uuid>/workflows/wf_*.json); only `subagents/workflows/<wf>/journal.jsonl` and agent files (src/provider/claude/discovery.rs:134-162)",
+    "Provenance and spawn-ack completion depend on `toolUseId` in meta.json. An older meta.json on this machine lacks it (~/.claude/projects/-Users-rpeck/c772c4ef-.../subagents/agent-a44d3f43acf31bcad.meta.json has only agentType/description), so those agents get no spawned_by join",
+    "Known soft spot: an async agent with a spawn ack but no activity of its own yet is classified terminal Done (docs/ARCHITECTURE.md:340-346; src/state/session.rs:621-630)",
+    "Browser live-follow works only in Chromium (File System Access API). Firefox and Safari replay only (web/src/pages/app.astro:1081, 1220)",
+    "The transcript format is undocumented, so it degrades by skipping unknown records (README.md:237-243)"
+   ],
+   "ideas_to_borrow": [
+    "Provider/fact boundary: 'A provider states what its records contain; the core decides what it means when nothing was recorded.' Normalize CC, Codex and Cowork records into a small Fact vocabulary (Agent, ToolStart, ToolEnd, Spawn, Ended, Reasoning, Prompt, Tokens, Model) and fold those (docs/ARCHITECTURE.md:18-55; src/fact.rs:50-109)",
+    "Order-independent, idempotent fold, with keyed join stores (completed_calls, ended, labels, spawn_context) so a subagent's end can arrive before its birth across files. Guard it with a shuffle-invariance property test (src/state/session.rs:40-60; docs/ARCHITECTURE.md:77-103)",
+    "A spawn ack is not completion. 'Async agent launched successfully' and 'Workflow launched in background' are handles. Completion signals: <\\task-notification> <task-id>/<status>, journal `result`, or a sync ack not superseded by the agent's later activity (src/state/session.rs:588-631; src/provider/claude/wire.rs:466-512)",
+    "A pending tool_call is ground truth that the agent is working, and outranks quiet-time heuristics. Liveness is a reversible 120 s window and never monotonic (docs/ARCHITECTURE.md:206-215, 243-266)",
+    "Workflow group naming from main-transcript toolUseResult {taskType:'local_workflow', runId, workflowName, summary}, where runId equals the subagents/workflows/<runId> directory (src/provider/claude/wire.rs:250-288)",
+    "Spawn provenance: capture the parent's last text or thinking block before the Agent tool_use as 'why this agent exists', plus the prompt era by timestamp (src/state/session.rs:520-528, 836-845)",
+    "Re-read a meta.json sidecar until it parses (mid-write tolerance), then state it once; remember files that failed to classify, so rescans stay cheap (src/tailer/live.rs:420-442; src/provider/mod.rs:195-200)",
+    "Byte-offset tailing with a partial-line buffer, a runaway-line cap, and inode-change detection; on truncation, re-attach the whole session instead of patching in place (src/tailer/bytes.rs:49-137; src/tailer/live.rs:288-324)",
+    "Replay-then-live handoff: bulk-parse, record the byte offsets consumed, then start the tail at exactly those offsets so lines appended during the parse are not lost (src/tailer/replay.rs:79-109; src/tailer/live.rs:119-151)",
+    "Output-token dedup by requestId, because one turn repeats cumulative usage across lines (src/provider/claude/mod.rs:201-210)",
+    "Two clocks: model state comes from content time (the session timestamps at the playhead), animation from watch time. Use an event-indexed scrubber rather than a time-linear one, with a sparkline of tool activity and markers for prompts, spawns and failures (docs/ARCHITECTURE.md:133-164, 314-333)",
+    "Snapshot ladder over persistent collections for exact backward seek, with live and replay as one timeline that differs only in whether the edge grows (src/state/mod.rs:128, 664; docs/ARCHITECTURE.md:105-127)",
+    "Auto-follow the newest session only after the current one has been idle for about 30 s, to avoid flapping between two concurrent sessions (src/tailer/live.rs:29-45, 342-368)",
+    "Differentiator gaps zoetrope leaves open for us: correct nested-subagent parentage via toolUseId matched in subagent transcripts; tool-error bodies and classification (feeding a learn-from-mistakes loop); input/cache tokens and cost; a multi-session workspace live view; persistent history plus search and chat over the activity"
+   ],
+   "unverified": [
+    "The star and fork counts (1,096 / 78) and the 2026-10-14 push date come from the task brief. The shallow clone's HEAD commit is dated 2026-09-11, so the clone may not match the latest push date. I did not check GitHub metadata",
+    "That the hosted web app never uploads session file contents. The code I read passes file text only to local WASM (web/src/pages/app.astro:624-632, 1314-1318), but the page also loads third-party analytics scripts (Vercel, Umami). I did not audit every network call in app.astro's 1,451 lines",
+    "That Claude Code always writes nested sub-subagents flat into the same `<session>/subagents/` directory. Zoetrope's code assumes it, and I inferred the resulting mis-parenting from mod.rs:355; I did not test it against a real nested session",
+    "The exact keys and contents of the herdr SessionStart hook that `herdr integration install claude` writes into Claude Code settings. That code lives in Herdr, not in this repo",
+    "Whether zoetrope's 200 ms polling holds up on very large sessions with many subagent files. No benchmark covers live tailing; benches/ covers only the timeline and memory folds",
+    "Codex-provider parent linking (src/provider/codex/mod.rs:135, 370). I skimmed it only for comparison and did not trace it fully"
+   ]
+  },
+  {
+   "name": "Agent Flow (patoles/agent-flow)",
+   "repo_url": "https://github.com/patoles/agent-flow",
+   "commit": "de99a3712bf69e6ac63b320c0a04af3fd51d2703",
+   "license": "Apache-2.0 (LICENSE; gh repo view reports apache-2.0). The name and logo are trademarks (TRADEMARK.md). 1,735 stars, 214 forks, pushed 2026-10-10 (verified with gh).",
+   "architecture_summary": "A TypeScript monorepo with three entry points that share one backend core. (1) A VS Code extension (extension/src/extension.ts:47-134) starts a Claude runtime and a Codex runtime. (2) A standalone `npx agent-flow-app` (app/src/app.ts:21-29) runs a Node HTTP server that serves the built webview and an SSE endpoint `/events` (app/src/server.ts:33-46). (3) A dev relay (scripts/dev-relay.ts:16-46). Both standalone paths reuse the extension's classes through a vscode shim (scripts/vscode-shim.js:19-28) and the shared relay (scripts/relay.ts). The Claude runtime merges two event sources (extension/src/claude-runtime.ts:1-14): a localhost HTTP HookServer (extension/src/hook-server.ts:66-128) and a passive SessionWatcher that tails ~/.claude/projects/<encoded>/<session>.jsonl and <session>/subagents/*.jsonl (extension/src/session-watcher.ts:40,141-177,387-477; extension/src/subagent-watcher.ts:44-188). Both sources normalize to one small AgentEvent protocol of 12 types (extension/src/protocol.ts:10-29). The front end is a React and canvas 'simulation' (web/hooks/simulation/process-event.ts:61-98). It replays the event stream into agents, tool-call nodes, edges, particles, timeline blocks, file attention and per-agent conversations, and draws them as an animated force-directed node graph (web/components/agent-visualizer/canvas.tsx; canvas/draw-*.ts). Codex support is passive only: it tails ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl (extension/src/codex-session-watcher.ts:1-12,59-60).",
+   "collection": [
+    {
+     "mechanism": "Claude Code command hooks written into the GLOBAL ~/.claude/settings.json. The extension (or setup script) adds one entry per event (SessionStart, PreToolUse, PostToolUse, PostToolUseFailure, SubagentStart, SubagentStop, Notification, Stop, SessionEnd) that runs `\"<node>\" \"~/.claude/agent-flow/hook.js\"` with a 2s timeout. It merges without touching other tools' hooks, and refuses to overwrite settings it cannot parse.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "Hook entries in ~/.claude/settings.json plus a hook script at ~/.claude/agent-flow/hook.js. The VS Code extension adds them automatically the first time the panel opens (promptHookSetupIfNeeded calls configureClaudeHooks with no prompt). `npx agent-flow-app` adds them on every start through ensureSetup(), again without asking. `pnpm run setup` adds them by hand. Node must be on PATH. Hooks stay installed after the visualizer exits, so every observed CC session spawns a node process per hook event.",
+     "data_it_yields": "Hook stdin JSON: session_id, transcript_path, cwd, hook_event_name, tool_name, tool_input, tool_use_id, tool_response, agent_id, agent_type, agent_transcript_path, notification_type, message, title. Agent Flow uses it to emit agent_spawn on SessionStart, tool_call_start/end, a [FAILED] tool_call_end on PostToolUseFailure, permission_requested on a real Notification permission_prompt, subagent_return/agent_complete on SubagentStop, and orchestrator completion on Stop/SessionEnd. tool_use_id arrives but is dropped: no emitted event carries it.",
+     "evidence": [
+      "extension/src/hooks-config.ts:18",
+      "extension/src/hooks-config.ts:60-87",
+      "extension/src/hooks-config.ts:133-136",
+      "extension/src/extension.ts:69-82",
+      "extension/src/hook-entries.ts:76-88",
+      "extension/src/discovery.ts:23-28",
+      "extension/src/discovery.ts:54-57",
+      "extension/src/constants.ts:60-67",
+      "scripts/setup.js:160-163",
+      "scripts/setup.js:204-225",
+      "scripts/setup.js:243-249",
+      "app/src/app.ts:20-21",
+      "extension/src/hook-server.ts:27-47",
+      "extension/src/hook-server.ts:148-322",
+      "extension/src/claude-runtime.ts:135-141"
+     ]
+    },
+    {
+     "mechanism": "Hook forwarder plus file-based service discovery. hook.js reads the hook JSON on stdin, lists ~/.claude/agent-flow/{workspaceHash}-{pid}.json discovery files, drops dead PIDs, and matches the payload cwd to a workspace by longest containment. It then HTTP-POSTs the raw payload to 127.0.0.1:<port> of the matching visualizer instance or instances, with a 1s request timeout and a hard exit at 1.5s. The HookServer binds 127.0.0.1 on an OS-assigned port, always answers 200 with an empty body, and caps bodies at 1MB.",
+     "requires_change_in_observed_session": true,
+     "what_the_user_must_install_or_set": "Same hook install as above. Discovery files are written by the visualizer process and need nothing from the user.",
+     "data_it_yields": "Low-latency delivery of hook events, scoped by cwd to the right visualizer window.",
+     "evidence": [
+      "extension/src/discovery.ts:1-11",
+      "extension/src/discovery.ts:72-91",
+      "extension/src/discovery.ts:144-248",
+      "extension/src/hook-server.ts:66-128",
+      "extension/src/constants.ts:57-67",
+      "extension/src/constants.ts:167-168",
+      "scripts/relay.ts:338-349"
+     ]
+    },
+    {
+     "mechanism": "Passive JSONL tailing of Claude Code transcripts. Discovery: a 1s setInterval scan plus fs.watch on the encoded project dir and on ~/.claude/projects itself. The project dir name is the realpath'd workspace with every non-alphanumeric character replaced by '-'. Sibling dirs count when the 'cwd' field in their JSONL head (first 8KB) lies inside the workspace. A session counts as active when its main JSONL, or any subagents/*.jsonl, has an mtime within 10 minutes. Tailing: a full prescan of existing content builds dedup sets and token estimates, then reading starts from EOF. Each read uses fs.watch('change') plus a 3s poll fallback (macOS fs.watch goes silent) and pulls the new bytes from the last offset.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing in the observed session. The watcher is scoped to the VS Code workspace folder, or to process.cwd() for the npx app. It scans all projects only when the extension has no workspace open.",
+     "data_it_yields": "From user/assistant entries: tool_use (name, id, input), tool_result (tool_use_id, content), text, thinking (including redacted-signature placeholders), message.model, entry uuid, cwd, and the entry-level toolUseResult (status 'async_launched', isAsync, resolvedModel). From type:'progress' entries with data.type 'agent_progress': inline subagent entries keyed by parentToolUseID. From user text: <\\task-notification> blocks carrying <tool-use-id>, <status>, <result>/<summary>, which close background subagents. It emits the same AgentEvent types as the hook path. Permission waits are guessed (any non-Agent tool pending for 5s with no file activity), errors are guessed from result text, and session end means 5 minutes of inactivity.",
+     "evidence": [
+      "extension/src/session-watcher.ts:40",
+      "extension/src/session-watcher.ts:141-177",
+      "extension/src/session-watcher.ts:180-221",
+      "extension/src/session-watcher.ts:245-294",
+      "extension/src/session-watcher.ts:296-385",
+      "extension/src/session-watcher.ts:387-477",
+      "extension/src/session-watcher.ts:479-542",
+      "extension/src/constants.ts:8-31",
+      "extension/src/transcript-parser.ts:152-266",
+      "extension/src/transcript-parser.ts:84-117",
+      "extension/src/transcript-parser.ts:490-526",
+      "extension/src/transcript-parser.ts:533-626",
+      "extension/src/permission-detection.ts:1-84",
+      "extension/src/tool-summarizer.ts:220-228",
+      "scripts/relay.ts:193-322"
+     ]
+    },
+    {
+     "mechanism": "Passive tailing of subagent transcripts in <session>/subagents/*.jsonl. fs.watch covers the subagents dir and each file, the 3s session poll rescans, and the display name comes from the sibling agent-<id>.meta.json (description, then subagent_type). When inline 'progress' events already cover a subagent, the file watcher still advances its offset but skips emitting, to avoid duplicates.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing.",
+     "data_it_yields": "The subagent's own tool calls, messages, thinking and model, attributed to a name taken from meta.json. It spawns the subagent node only when the file has unmatched tool_use blocks, or lazily on the first new bytes.",
+     "evidence": [
+      "extension/src/subagent-watcher.ts:28-41",
+      "extension/src/subagent-watcher.ts:44-73",
+      "extension/src/subagent-watcher.ts:75-143",
+      "extension/src/subagent-watcher.ts:145-188",
+      "extension/src/session-watcher.ts:462-473"
+     ]
+    },
+    {
+     "mechanism": "Passive tailing of Codex rollout JSONL at $CODEX_HOME/sessions/YYYY/MM/DD/rollout-*.jsonl, last 3 days, matched by session_meta cwd. It reassembles split lines correctly through fileTail.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Nothing (CODEX_HOME only for non-default installs).",
+     "data_it_yields": "Codex tool calls, reasoning, and real token counts (last_token_usage / total_token_usage).",
+     "evidence": [
+      "extension/src/codex-session-watcher.ts:1-12",
+      "extension/src/codex-session-watcher.ts:32-60",
+      "extension/src/codex-session-watcher.ts:191-214",
+      "extension/src/codex-session-watcher.ts:329-346",
+      "extension/src/codex-rollout-parser.ts:526-555"
+     ]
+    },
+    {
+     "mechanism": "Manual JSONL event-log source: the user points agentVisualizer.eventLogPath, or the 'Watch JSONL File' command, at a file of pre-normalized AgentEvent lines, which is replayed and tailed.",
+     "requires_change_in_observed_session": false,
+     "what_the_user_must_install_or_set": "Something has to write AgentEvent-shaped JSONL. Not Claude Code's native format.",
+     "data_it_yields": "Whatever AgentEvents the file contains (needs `type` string and `time` number).",
+     "evidence": [
+      "extension/src/event-source.ts:7-78",
+      "extension/src/extension.ts:99-110",
+      "extension/src/extension.ts:224-245"
+     ]
+    }
+   ],
+   "subagent_linking": "The link is a display-name string, not an ID. Parent and child are matched by a name derived from the spawning call's input. (1) Spawn from the parent transcript: on a tool_use named 'Task' or 'Agent', childName = String(input.description || input.subagent_type || 'subagent').slice(0,30) (extension/src/constants.ts:193-195). The parser stores subagentChildNames[tool_use.id] = childName and emits subagent_dispatch plus agent_spawn {name: child, parent: agentName} (extension/src/transcript-parser.ts:347-357; extension/src/protocol.ts:125-142). (2) Subagent file: the agent's name comes from agent-<id>.meta.json through the same description/subagent_type rule (extension/src/subagent-watcher.ts:32-41). The file joins the spawning call only through string equality with spawnedSubagents (extension/src/subagent-watcher.ts:130-135,171-177). File-discovered subagents are always parented to the literal 'orchestrator' (extension/src/subagent-watcher.ts:134,175), so nesting from files is lost. (3) Inline progress entries carry parentToolUseID, the Agent tool_use id, which resolves to childName through subagentChildNames. Only this path keys on the spawning call id (extension/src/transcript-parser.ts:490-526). (4) Completion: a synchronous Agent's tool_result with a matching tool_use_id emits subagent_return/agent_complete (extension/src/transcript-parser.ts:403-418). An async launch, toolUseResult.status === 'async_launched', waits for a <\\task-notification> whose <tool-use-id> matches (extension/src/transcript-parser.ts:84-117,408-411,470-483). (5) Hooks: SubagentStart only records agent_id -> `${agent_type}-${last6(agent_id)}` and does not spawn, to avoid a duplicate node under a different name (extension/src/hook-server.ts:257-270). claude-runtime drops hook subagent lifecycle events for watched sessions (extension/src/claude-runtime.ts:34-39,108-110). Consequences: two subagents with the same description collide into one node. The agentId in the subagent filename, the meta.json fields beyond description/subagent_type, parentUuid, isSidechain and workflows/ are never read (grep found no use of parentUuid, isSidechain or workflows in extension/src).",
+   "events_and_fields": [
+    "AgentEvent envelope: {time: seconds since the visualizer first saw the session (wall-clock at receipt, not the JSONL timestamp), type, payload, sessionId?} (extension/src/protocol.ts:24-29; extension/src/session-watcher.ts:563-571)",
+    "Event types: agent_spawn, agent_complete, agent_idle, message, context_update, model_detected, tool_call_start, tool_call_end, subagent_dispatch, subagent_return, permission_requested, error (extension/src/protocol.ts:10-22)",
+    "agent_spawn payload: name, isMain?, parent?, task, model? (extension/src/session-watcher.ts:433-442; extension/src/protocol.ts:137-141)",
+    "tool_call_start payload: agent, tool, args (summary <=80), preview (<=60), inputData (extract of the input). No tool_use_id (extension/src/transcript-parser.ts:359-369; extension/src/hook-server.ts:207-216)",
+    "tool_call_end payload: agent, tool, result (<=200 chars), tokenCost (chars/4 estimate), discovery?, isError?, errorMessage? (extension/src/transcript-parser.ts:424-435; extension/src/constants.ts:97-98,145)",
+    "message payload: agent, role user|assistant|thinking, content <=2000 chars (extension/src/transcript-parser.ts:291-295,318-326; extension/src/constants.ts:100-101)",
+    "context_update payload: agent, tokens, breakdown {systemPrompt (fixed 5000), userMessages, toolResults, reasoning, subagentResults}, all estimated (extension/src/session-watcher.ts:574-586; extension/src/constants.ts:159-160)",
+    "model_detected payload: agent, model; skips '<synthetic>'-style ids (extension/src/transcript-parser.ts:76-80,207-217)",
+    "subagent_dispatch/return payload: parent, child, task|summary (extension/src/protocol.ts:132-136; extension/src/transcript-parser.ts:444-455)",
+    "permission_requested payload: agent, message, title?. From the hook it is real (Notification permission_prompt); from the transcript it is a 5s heuristic (extension/src/hook-server.ts:291-303; extension/src/permission-detection.ts:50-82)",
+    "CC JSONL fields consumed: type (user|assistant|progress), message.role, message.content[] blocks (tool_use id/name/input, tool_result tool_use_id/content, text, thinking/signature), message.model, uuid, sessionId, cwd, toolUseResult.status/isAsync/resolvedModel, progress.data.type=='agent_progress', progress.data.message, progress.parentToolUseID (extension/src/transcript-parser.ts:84-90,152-266,490-526; extension/src/session-watcher.ts:276-289)",
+    "CC JSONL fields NOT consumed: message.usage (no real token counts for Claude), timestamp, parentUuid, isSidechain, agentId, promptId, requestId, workflows/ dirs (grep of extension/src for usage|parentUuid|isSidechain|workflows found no Claude-side use)",
+    "Hook payload fields: session_id, transcript_path, cwd, hook_event_name, tool_name, tool_input, tool_use_id, tool_response, agent_id, agent_type, agent_transcript_path, notification_type, message, title (extension/src/hook-server.ts:27-47)",
+    "Webview messages: connection-status, agent-event, agent-event-batch, reset, config, session-list, session-started, session-ended, session-updated (extension/src/protocol.ts:41-50)"
+   ],
+   "realtime_transport": "Two hops. Hop 1, observed session to backend: either the hook path, where a command hook spawns node hook.js, which POSTs to 127.0.0.1:<random port> (extension/src/discovery.ts:185-247; extension/src/hook-server.ts:66-128) and arrives at hook time, or the passive path, which uses fs.watch('change') with a 3s poll fallback per session and a 1s directory rescan (extension/src/session-watcher.ts:454-469,174-176; extension/src/constants.ts:13-17). Passive latency is fs.watch latency, near-instant when it fires and up to 3s worst case. A new session attaches within about 1s of its first write (extension/src/constants.ts:23-31). Hop 2, backend to UI: in VS Code, webview.postMessage per event with no batching (extension/src/webview-provider.ts:110-120), relayed into an iframe by postMessage (extension/src/webview-provider.ts:201-222). Standalone and dev use Server-Sent Events at GET /events (scripts/relay.ts:473-516; app/src/server.ts:35-37), consumed with a browser EventSource and re-posted as window messages (web/hooks/use-vscode-bridge.ts:79-91). On SSE connect the relay sends session-list plus an agent-event-batch of up to 5000 buffered events for the most recent session only (scripts/relay.ts:26,91-98,503-515). Hook events in the relay are broadcast but never buffered, and they skip the dedup filter the extension applies (scripts/relay.ts:405-407 vs extension/src/claude-runtime.ts:89-119). The UI draws the canvas every frame from a ref and commits React state every 250ms (web/hooks/simulation/ui-throttle.ts:1-22). No WebSocket.",
+   "storage": "No persistent store of agent activity. Everything is in memory: the Maps of WatchedSession in the backend (extension/src/protocol.ts:168-203), the relay's per-session ring buffer capped at 5000 events (scripts/relay.ts:26,80-98), and an uncapped per-session event array in the browser (web/hooks/use-vscode-bridge.ts:60,122-126). The simulation event log is capped at MAX_EVENT_LOG (web/hooks/use-agent-simulation.ts:257-258). Files on disk: ~/.claude/agent-flow/hook.js, discovery files {hash}-{pid}.json, and workspaces.json, a manifest of workspaces with project-level hooks used by the uninstaller (extension/src/discovery.ts:23-25,72-116). Telemetry goes to ~/.agent-flow/telemetry/events.jsonl and installation-id; it is opt-out and only on the npx binary (app/src/server.ts:24-29; README 'Privacy & Telemetry'). Only localStorage use is the sound on/off preference (web/hooks/use-audio-effects.ts:22-59). History before attach is not replayed: the prescan only builds dedup state and emits the last user turn's text (extension/src/transcript-parser.ts:628-671).",
+   "ui_views": [
+    "Live animated node graph on canvas: orchestrator and subagent nodes, tool-call nodes, dispatch/return edges with moving particles, a force-directed layout, bloom, and optional audio (web/components/agent-visualizer/canvas.tsx; canvas/draw-agents.ts, draw-edges.ts, draw-particles.ts, draw-tool-calls.ts; bloom-renderer.ts; web/hooks/use-audio-effects.ts)",
+    "Message bubbles on nodes (canvas/draw-bubbles.ts; web/hooks/simulation/animate.ts:33-34)",
+    "Per-agent cost overlay: $ estimate from estimated tokens times a blended per-model-family rate (canvas/draw-cost.ts:8-21; web/lib/canvas-constants.ts:186-192)",
+    "Context-window breakdown per agent (context_update -> web/hooks/simulation/handle-message-events.ts)",
+    "Discovery cards for file reads and greps (canvas/draw-discoveries.ts; discovery-detail-popup.tsx)",
+    "Timeline panel: per-agent swimlanes of tool_call and thinking blocks; failed tools turn red (timeline-panel.tsx:155; web/hooks/simulation/handle-tool-events.ts:68-72,140-151)",
+    "File attention heatmap: reads, edits, tokens and agents per file path (file-attention-panel.tsx:15; handle-tool-events.ts:74-88,153-163)",
+    "Session transcript panel and message feed panel (session-transcript-panel.tsx:25; message-feed-panel.tsx:30)",
+    "Per-agent 'chat' panel: a read-only view of that agent's conversation messages, with no input (chat-panel.tsx:19-75)",
+    "Agent detail card, tool detail popup with tool-content renderer (and open-file in VS Code), context menu (agent-detail-card.tsx; tool-detail-popup.tsx; tool-content-renderer.tsx; extension/src/extension.ts:256-272)",
+    "Session tabs for concurrent sessions with background-activity badges; Claude and Codex side by side (session-tabs.tsx; web/hooks/use-vscode-bridge.ts:143-151)",
+    "Control bar: play/pause, restart, speed. Mainly for replaying mock/demo data (control-bar.tsx:7-14; web/lib/mock-scenario.ts)"
+   ],
+   "query_chat_or_learning_features": "None. The 'chat panel' is a read-only per-agent message log with no input box and no LLM call (web/components/agent-visualizer/chat-panel.tsx:19-75). There is no search, no cross-session analytics, no persistence, and no detection of mistakes, retry loops or repeated file reads. The nearest features are the file-attention heatmap's read/edit counts (handle-tool-events.ts:74-88), a substring-based error flag on tool results (extension/src/tool-summarizer.ts:220-228), and real PostToolUseFailure events on the hook path (extension/src/hook-server.ts:241-255). An HN commenter on the Show HN thread (item 47529156, verified via the Algolia API) asked for a timeline highlight 'when the agent re-reads a file it already read' as a stuck-loop signal. The author replied that it was a great idea; no such feature is in the code.",
+   "could_work_without_session_changes": "Rebuildable from passive JSONL reading alone, and most of it already IS passive in Agent Flow (the SessionWatcher runs with no hooks; claude-runtime falls back to 'Session watcher' only, extension/src/claude-runtime.ts:69-71,130-133): session discovery and attach; orchestrator and subagent nodes; tool_call start/end; Agent/Task dispatch and return, sync and async (toolUseResult.status 'async_launched' plus <\\task-notification>); inline progress subagents through parentToolUseID; subagent names from meta.json; model detection; messages and thinking; timeline swimlanes; file-attention heatmap; context and cost estimates (they are estimates even in Agent Flow, and we could do better from message.usage); and error flags from tool_result content (we could use the tool_result is_error flag rather than substrings). What the hook channel adds that passive reading cannot fully match: (a) real permission_prompt notifications, which passive reading guesses with a 5s pending-tool heuristic (extension/src/permission-detection.ts:50-82); (b) explicit Stop/SessionEnd, which passive reading infers from 5 minutes of inactivity (extension/src/constants.ts:8-11); (c) a SessionStart signal before the first JSONL line exists; (d) PostToolUseFailure as an explicit failure event; (e) PreToolUse timing at the moment of invocation, though CC writes the tool_use line at about the same moment, so the gain is small. In the extension, watched sessions route hook subagent lifecycle events through the transcript anyway, and the front end dedups hook-versus-watcher tool starts within 3s (web/lib/canvas-constants.ts:42; handle-tool-events.ts:25-34). That shows the authors treat the transcript as the source of truth and hooks mostly as a faster, lower-fidelity duplicate. Nothing in Agent Flow needs data that exists only in hooks except the real permission prompt and explicit stop and end signals.",
+   "limitations": [
+    "Writes hooks into the user's GLOBAL ~/.claude/settings.json without asking: on panel open in VS Code (extension/src/extension.ts:69-82 -> hooks-config.ts:133-136) and on every `npx agent-flow-app` start (app/src/app.ts:20-21; scripts/setup.js:243-249). Hooks persist after the visualizer exits (extension/src/claude-runtime.ts:136-141), so every CC session pays a node spawn per hook event, up to a 2s timeout each.",
+    "Split JSONL lines are lost on the Claude path. readNewFileLines returns a `tail` and its own doc comment warns callers who ignore it lose partial lines (extension/src/fs-utils.ts:18-25). The Claude session and subagent readers call it without a tail and still advance fileSize (extension/src/session-watcher.ts:483-485; extension/src/subagent-watcher.ts:156-158; scripts/relay.ts:256-258). The Codex watcher handles this correctly (extension/src/codex-session-watcher.ts:343-346).",
+    "Events carry no tool_use_id. tool_call_end pairs with the first running call of the same (agent, toolName), so parallel calls of one tool can complete the wrong node (web/hooks/simulation/handle-tool-events.ts:119-123). Start dedup drops a second genuine same-tool call within 3s (handle-tool-events.ts:25-34; web/lib/canvas-constants.ts:42).",
+    "Subagent identity is a <=30-char description string. Duplicate descriptions merge into one node, and file-discovered subagents are always parented to 'orchestrator', so nested agents from subagent files lose their real parent (extension/src/constants.ts:193-195; extension/src/subagent-watcher.ts:130-135,171-177).",
+    "Scoped to one workspace (VS Code folder or the npx cwd). There is no global 'all running sessions' view in the standalone app (scripts/relay.ts:270-322; extension/src/session-watcher.ts:141-164).",
+    "Discovery relies on lossy path encoding plus a cwd sniff in the first 8KB of a JSONL. Issues #4 (Windows backslashes), #18 and #22 (underscores) were real discovery failures, now closed and fixed by replace(/[^a-zA-Z0-9]/g,'-') and case-folding (extension/src/session-watcher.ts:145-160,227-238,245-294).",
+    "Performance: processEvent copies every Map and array on every event (web/hooks/simulation/process-event.ts:62-71), tool start/end scan all tool calls (handle-tool-events.ts:28-33,120), and the browser's per-session event buffer is uncapped (web/hooks/use-vscode-bridge.ts:122-126). Issue #20 (heavy lag in long sessions) is closed; faded-node cleanup exists in web/hooks/simulation/animate.ts:80-113, but the O(n)-per-event copying remains.",
+    "No history: attaching mid-session shows only the last user turn's text; earlier tool calls are prescanned for dedup but never drawn (extension/src/transcript-parser.ts:628-671). Sessions idle for more than 10 minutes are not attached until they write again (extension/src/constants.ts:23-31).",
+    "Event time is wall-clock at receipt relative to attach, not the JSONL timestamp (extension/src/session-watcher.ts:563-571), so replay timing and durations are distorted when the watcher lags or attaches late.",
+    "Token and cost numbers for Claude are chars/4 heuristics with a fixed 5000-token system prompt; message.usage is ignored (extension/src/constants.ts:142-160; extension/src/token-estimator.ts).",
+    "Error detection on the passive path is substring matching ('failed', 'not found', ...) on result text, which gives false positives on benign output (extension/src/tool-summarizer.ts:220-228).",
+    "In the standalone relay, hook events are broadcast raw with no watcher dedup and no buffering (scripts/relay.ts:405-407), unlike the extension's filter (extension/src/claude-runtime.ts:89-119).",
+    "A Windows PID liveness check is skipped in hook.js, so stale discovery files can receive POSTs (extension/src/discovery.ts:177-183)."
+   ],
+   "ideas_to_borrow": [
+    "Use the transcript as the source of truth: Agent Flow already prefers JSONL over hooks for subagent lifecycle (extension/src/claude-runtime.ts:34-39,108-110). This supports our zero-hook position.",
+    "Async subagent completion: treat toolUseResult.status === 'async_launched' as 'still running' and close the node on the <\\task-notification> with a matching <tool-use-id> (extension/src/transcript-parser.ts:84-117,403-418,470-483). Also rebuild the open background set during the initial prescan (transcript-parser.ts:545-575).",
+    "Handle type:'progress' / data.type 'agent_progress' entries keyed by parentToolUseID as an inline subagent stream, and suppress the file-tail duplicate while it flows (extension/src/transcript-parser.ts:490-526; extension/src/subagent-watcher.ts:160-168).",
+    "Count a session as active by the newest mtime across the main JSONL AND subagents/*.jsonl, since the parent file is quiet while subagents work (extension/src/session-watcher.ts:344-357).",
+    "Pair fs.watch with a 3s poll fallback for each tailed file, because macOS fs.watch silently stops on long-lived watchers (extension/src/session-watcher.ts:460-469). Our watchdog/FSEvents setup should keep a similar backstop for open live sessions.",
+    "Find project dirs by reading the authoritative cwd from the JSONL head rather than decoding the lossy dir name (extension/src/session-watcher.ts:240-294). That avoids the #4/#18/#22 class of bugs.",
+    "A passive permission-wait heuristic: a non-Agent tool pending N seconds with no write to any of the session's files means 'probably awaiting approval' (extension/src/permission-detection.ts:50-82). A useful 'blocked' badge without hooks.",
+    "Filter system-injected user content by prefix (<\\system-reminder, <\\task-notification, <command-name, 'This session is being continued', ...) when labeling sessions and showing user turns (extension/src/constants.ts:205-215).",
+    "Skip '<synthetic>' model ids written by local errors and interrupts (extension/src/transcript-parser.ts:76-80).",
+    "A per-file attention heatmap (reads/edits/tokens/agents) is cheap and is the natural base for the learning-loop 'repeated re-read / retry loop' detector the HN commenter asked for (handle-tool-events.ts:74-88).",
+    "Do better than Agent Flow: carry tool_use_id and the agentId from the subagent filename through every event, link the subagent to its spawning Agent tool_use by ID (meta.json or the parentToolUseID or toolUseResult fields), keep the line-tail buffer, use JSONL timestamps, read message.usage for real tokens, and use tool_result is_error rather than substring heuristics.",
+    "Lifecycle event shape for our SSE stream: session-list / session-started / session-ended / session-updated plus agent-event and agent-event-batch, with a per-session replay buffer sent on connect (extension/src/protocol.ts:41-50; scripts/relay.ts:473-516)."
+   ],
+   "unverified": [
+    "Whether CC's PreToolUse/PostToolUse hook payloads for tools run inside a subagent include agent_id. If they do, hook-path subagent tool events are named `${agent_type}-${id6}` (extension/src/hook-server.ts:264-269,326-333), which does not match the transcript name, so the front end probably drops them (handle-tool-events.ts:22-24 is a no-op for unknown agents). Inferred from the code and not run.",
+    "The real latency gap between a hook firing and CC appending the matching tool_use line to the JSONL. The README claims 'zero-latency streaming' for hooks, but the code contains no measurement.",
+    "Whether the faded-node cleanup in web/hooks/simulation/animate.ts:80-113 is the fix that closed issue #20. The issue is closed; I did not trace the closing commit.",
+    "How the meta.json written by current CC versions is shaped beyond the description/subagent_type keys Agent Flow reads. The repo has no meta.json test fixture that I inspected.",
+    "The exact value of MAX_EVENT_LOG in web/hooks/simulation/types.ts (cited as a cap, value not read).",
+    "The Codex rollout parser was skimmed only for token handling and line-tail handling; I did not trace its event mapping in full."
+   ]
+  }
+ ],
+ "discovery_search_logs": [
+  [
+   "gh api search/repositories (sort=stars) for: 'claude code observability', 'claude code monitor subagents', 'claude code dashboard realtime', 'claude-code hooks dashboard', 'claude code agent monitoring', 'claude code session viewer', 'claude code multi-agent visualization', 'claude code telemetry', 'subagent visualization', 'claude code live timeline'",
+   "gh api search/repositories for: 'claude code otel', 'claude code opentelemetry', 'claude code langfuse', 'claude code tracing', 'claude code agent teams dashboard', 'claude code jsonl live', 'claude code tui sessions', 'claude code web ui sessions', 'agent observability claude code', 'claude code flow graph', 'agentsview', 'claude code transcript watch'",
+   "gh api repos/<r> and repos/<r>/readme for ~60 candidates (stars, forks, pushed_at, README keyword scan for hook/jsonl/otel/plugin/proxy/subagent/watch)",
+   "gh api search/code in matt1398/claude-devtools (FileWatcher), stefanprodan/cctop, kibitzsh/kibitz (src/core/watcher.ts), graykode/abtop (collector) to confirm passive file-reading",
+   "awesome list: hesreallyhim/awesome-claude-code README, 'Observability & Monitoring' and 'Session Monitors' sections (found cc-harness, seedeep, c9watch, ccxray, so-agentbar, wattop, agentwatch)",
+   "WebSearch: 'reddit claude code subagents real-time dashboard monitor tool' (found nyanko3141592/subagent-viewer aka aiwatch, sky-xo/june)",
+   "WebSearch: 'Show HN Claude Code session viewer subagents live' (found damir-tahirovic/Claude-agent-viewer, Ben-Drucker/subagent-viewer, stefanivic/agent-activity, enginahmetbodur/subagent-monitor, OmarAlsaed01/live-view-mod: mostly tiny plugin mods)",
+   "WebSearch: 'claude-devtools matt1398 reddit OR hacker news' (HN 47004712, Product Hunt, blog reviews citing the Reddit launch)",
+   "WebSearch: 'disler claude-code-hooks-multi-agent-observability medium' (no Medium article; many forks)",
+   "WebSearch: zoetrope, abtop, agentsview regard queries (GIGAZINE, trendshift, Agentlore HN)",
+   "WebSearch: site:reddit.com queries returned no Reddit threads; reddit.com/search.json blocked (non-JSON response), so Reddit signal is mostly unverified",
+   "WebSearch: 'medium.com claude code multi-agent observability hooks dashboard' (found anthropics/claude-code issue #24537 'Agent Hierarchy Dashboard' feature request, adrianpetcu substack 'Micromanaging Your Agents', brightcoding blog on agents-observe)",
+   "HN Algolia API (hn.algolia.com/api/v1/search, tags=story) for claude-devtools, zoetrope, abtop, agentsview, agents-observe, Claude Code Agent Monitor, flightdeck, rungraph, cctop, ccxray, agtop, claude code observability; resolved item URLs via /api/v1/items/<id>",
+   "Candidates examined but left out of the main list (lower signal, duplicates, or non-subagent): donvito/agent-monitor (85 stars, JSONL subagent traces), Entelligence-AI/agentplay (305 stars, replay-only map, JSONL incl subagents), kibitzsh/kibitz (494 stars, JSONL watcher with live commentary), FlorianBruniaux/ccboard (98 stars, file watcher + optional hooks), honorstudio/claude-ville (file watcher, teams), atc-net/atc-claude-kanban (JSONL + task files, SSE), hulryung/mohano (hooks), mpolatcan/flowpane (function-hooks mod), chicongst/kortex (plugin), legalmindcode/claude-theater (plugin/mod), onikan27/claude-code-monitor (314 stars, hooks), alibaba/loongsuite-pilot (hooks \u2192 OTLP), FankChen/tracecrate (offline import), mishanefedov/agentwatch (JSONL + OTel export), sotthang/so-agentbar (FSEvents JSONL), ccusage (cost-only live mode), simple OTel/langfuse wrappers"
+  ],
+  [
+   "WebSearch: 'real-time Claude Code subagent monitoring dashboard reddit' -> CCAM forks, Stargx, scope, june (no reddit.com results)",
+   "WebSearch: 'Claude Code multi-agent observability hooks dashboard Hacker News' -> agents-observe, disler, dev.to bredmond1019",
+   "WebSearch: 'flightdeck Claude Code agents github' -> scasella/claude-flightdeck, flightdeckhq, NorthGate flightdeck-plugin, other flightdeck forks",
+   "WebSearch allowed_domains=[reddit.com] -> API Error 400: reddit.com not accessible to the user agent",
+   "WebFetch old.reddit.com search -> 'unable to fetch'; curl reddit search.json -> non-JSON (blocked). Reddit could not be reached at all, so this run has no reddit scores.",
+   "WebSearch allowed_domains=[news.ycombinator.com] 'Show HN Claude Code agents dashboard real-time' and 'Show HN Claude Code subagent viewer transcripts tail'",
+   "HN Algolia API (curl hn.algolia.com/api/v1/search, tags=story), queries: claude code dashboard / subagents / observability / agents real-time / session viewer / flightdeck / monitor / agent flow claude / hooks / claude-flightdeck / Claude Code Agent Monitor / claudedash / agent view claude code / claude-view / cogpit / claude code tree subagents / agentsview / multi-agent observability",
+   "HN Algolia items API (comment text) for 47602986, 48612844, 47569708, 47004712, 48104699, 48124057, 45081711, 45325410, 48466954, 47792924, 44317012, 47807159, 47391414",
+   "WebFetch HN items 47602986, 47528814, 47314375, 47004712, 47223232, 46545981 (47119339 returned 429)",
+   "WebSearch: 'claudedash Claude Code dashboard npx'; '\"Claude Code\" subagents visualize tool calls live \"no hooks\" JSONL'",
+   "WebSearch allowed_domains=[medium.com] 'Claude Code observability dashboard subagents hooks review'; WebFetch cobusgreyling Medium Agent View -> 403",
+   "WebSearch allowed_domains=[dev.to] 'Claude Code real-time agent monitor subagents dashboard'; WebFetch dev.to bargan (ccdeck) and recca0120 (claude-view)",
+   "WebSearch: 'r/ClaudeCode I built a dashboard to watch subagents in real time' and 'r/ClaudeAI claude-devtools OR agent-flow OR agents-observe' -> GitHub and directory results only, no reddit threads",
+   "WebSearch: 'x.com OR bsky.app claude code subagents dashboard live ...' -> one X listicle article, no substantive X or Bluesky threads indexed",
+   "WebSearch allowed_domains=[slashdot.org, lobste.rs] -> only Slashdot software-directory pages, no discussion threads",
+   "WebSearch: flightdeckhq and justinchuby flightdeck reviews -> only directory listings and the project's own docs, no community discussion found",
+   "WebFetch code.claude.com/docs/en/agent-view -> official Agent View lists background sessions only, not subagents",
+   "gh api repos/<repo> for stars, forks, and last push on 30+ candidate repos; gh api readme grep for collection mechanism (scasella, patoles, hoangsonww, matt1398, justinchuby, flightdeckhq, dlupiak, d-kimuson, claude-pulse)",
+   "gh api search/issues (sorted by comments) for patoles/agent-flow, disler, matt1398, simple10, hoangsonww, scasella, justinchuby; read the bodies of the complaint issues (disler #11, agents-observe #7, agent-flow #20, devtools #84, CCAM #315)"
+  ],
+  [
+   "WebSearch: 'Claude Code subagent real-time monitoring dashboard hooks github' -> hoangsonww/Claude-Code-Agent-Monitor, disler, agentwatch, Stargx dashboard",
+   "WebSearch: 'claude code multi-agent observability hooks PreToolUse SubagentStop dashboard' -> disler, kcwoodfield fork, anthropics/claude-code#16424, agentsroom.dev",
+   "WebSearch: 'Claude Code OpenTelemetry CLAUDE_CODE_ENABLE_TELEMETRY Grafana dashboard github' -> ColeMurray/claude-code-otel, Bowl42, acreeger, rockdarko, freeCodeCamp",
+   "WebSearch: 'tail ~/.claude/projects jsonl live session viewer claude code github' -> claude-code-trace, claude-tail, claude-view, claude-session-viewer",
+   "WebSearch: 'claude code proxy ANTHROPIC_BASE_URL observability trace subagents claude-trace' -> seifghazi/claude-code-proxy, CC monitoring docs",
+   "WebSearch: 'Claude Agent SDK observability wrapper Langfuse trace subagents Claude Code' -> Langfuse plugin, OpenInference, nexus-labs plugin",
+   "WebSearch: 'claude code plugin observability dashboard subagents marketplace' -> simple10/agents-observe, laminar",
+   "WebSearch: 'claude-code-log OR claude-devtools session subagent visualization github' -> matt1398/claude-devtools, HN 47004712",
+   "WebSearch: reddit ClaudeAI real-time dashboard subagents (no useful Reddit threads returned; Omnara surfaced)",
+   "WebSearch: HN Show HN Claude Code dashboard subagents live -> HN 47602986, 47314375, 47528814",
+   "WebSearch: openinference-instrumentation-claude-agent-sdk github -> Arize issues #3255, #3774",
+   "WebSearch: Langfuse claude-observability-plugin Stop hook transcript -> mechanism details, doneyli template",
+   "WebFetch: github.com/flightdeckhq/flightdeck, github.com/justinchuby/flightdeck, tombelieber/claude-view, matt1398/claude-devtools, simple10/agents-observe, hoangsonww/Claude-Code-Agent-Monitor, seifghazi/claude-code-proxy, badlogic/lemmy claude-trace, code.claude.com/docs/en/monitoring-usage, laminar.sh article",
+   "WebFetch: HN items 47528814, 47314375, 47602986, 47004712 for points, comments, and gist",
+   "gh api repos/<r>: stars, forks, and push dates for about 35 repos",
+   "gh api contents: matt1398/claude-devtools FileWatcher.ts; delexw/claude-code-trace watcher.rs; tombelieber/claude-view hook_registrar.rs and sessions_watcher.rs; README greps for disler, flightdeckhq, justinchuby, patoles/agent-flow",
+   "Local read-only check: ~/.claude/sessions/<pid>.json exists on this machine with fields pid, sessionId, cwd, status (e.g. idle), statusUpdatedAt, kind, entrypoint, name, version. This is a passive, hook-free source for liveness and busy/idle state in Phase 2.",
+   "SUMMARY of which methods need NO change in the observed session: only (d) passive JSONL tailing, plus the ~/.claude/sessions/<pid>.json lifecycle files. Every other method needs a change: (a) hooks, (b) plugins, skills, or commands, (c) OTel env vars, (e) ANTHROPIC_BASE_URL or a mitmproxy launch, and (f) SDK wrappers or launchers that own the process. claude-view and Agent Flow are hybrids whose live channel auto-edits ~/.claude/settings.json."
+  ]
+ ]
+}
