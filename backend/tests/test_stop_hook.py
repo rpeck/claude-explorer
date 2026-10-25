@@ -162,3 +162,23 @@ def test_the_hook_never_runs_a_worktrees_script(tmp_path: Path, repo: Path) -> N
     (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
     assert _stop(repo, _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py"))).returncode == 2
     assert not canary.exists(), "the hook ran the worktree's check.py"
+
+
+@pytest.mark.parametrize(
+    ("command", "windows", "expected"),
+    [
+        ("cd /a/wt && ls", False, ["/a/wt"]),
+        ("cd '/a/my wt'; ls", False, ["/a/my wt"]),
+        # Windows (CI ran `cd C:\...\wt`, and POSIX quoting removed the backslashes)
+        (r"cd C:\a\wt && ls", True, [r"C:\a\wt"]),
+        (r'cd "C:\a\my wt" && ls', True, [r"C:\a\my wt"]),
+        ("cd C:/a/wt && ls", True, ["C:/a/wt"]),
+        ("cd /c/a/wt && ls", True, ["C:/a/wt"]),  # the Git Bash form
+        ("cd /c && ls", True, ["C:/"]),
+    ],
+)
+def test_cd_targets_on_each_platform(command: str, windows: bool, expected: list[str]) -> None:
+    import runpy
+
+    hook = runpy.run_path(str(HOOK))
+    assert hook["_cd_targets"](command, windows=windows) == expected

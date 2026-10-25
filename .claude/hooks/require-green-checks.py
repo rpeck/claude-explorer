@@ -40,6 +40,8 @@ CHECK = Path(__file__).resolve().parents[2] / "scripts" / "check.py"
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 # `cd <path>` at the start of a command or after && ; || |
 CD = re.compile(r"(?:^|&&|;|\|\|?)\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|]+)")
+# Git Bash writes C:\x as /c/x
+GIT_BASH_DRIVE = re.compile(r"^/([A-Za-z])(?:/|$)")
 
 
 def _worktrees(cwd: str) -> list[Path]:
@@ -52,6 +54,24 @@ def _worktrees(cwd: str) -> list[Path]:
     if out.returncode != 0:
         return []
     return [Path(line[len("worktree "):]) for line in out.stdout.splitlines() if line.startswith("worktree ")]
+
+
+def _cd_targets(command: str, windows: bool = os.name == "nt") -> list[str]:
+    """The directories that the ``cd`` commands in ``command`` go to."""
+    out = []
+    for target in CD.findall(command):
+        if windows:
+            # A backslash is a path separator here: POSIX quoting removed it,
+            # and no worktree matched on the Windows CI (2026-10-25).
+            path = target[1:-1] if target[0] in "\"'" else target
+            path = GIT_BASH_DRIVE.sub(lambda m: m.group(1).upper() + ":/", path)
+            out.append(path)
+            continue
+        try:
+            out.extend(shlex.split(target))
+        except ValueError:
+            continue
+    return out
 
 
 def _touched_paths(transcript: Path) -> list[str]:
@@ -78,11 +98,7 @@ def _touched_paths(transcript: Path) -> list[str]:
                         if isinstance(path, str):
                             paths.append(path)
                     elif block.get("name") == "Bash" and isinstance(tool_input.get("command"), str):
-                        for target in CD.findall(tool_input["command"]):
-                            try:
-                                paths.extend(shlex.split(target))
-                            except ValueError:
-                                continue
+                        paths.extend(_cd_targets(tool_input["command"]))
     except OSError:
         return []
     return paths
