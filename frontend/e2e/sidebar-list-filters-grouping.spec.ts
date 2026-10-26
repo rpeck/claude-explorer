@@ -13,10 +13,11 @@ import {
   listMenu,
   messageUuid,
   pickOption,
+  pickProject,
+  pickTime,
   row,
   sidebar,
   startClock,
-  typeHours,
 } from './sidebar-list-filters.helpers'
 import type { ConversationSummary } from '../src/lib/types'
 
@@ -183,8 +184,8 @@ test.describe('Sidebar list filters: grouping', () => {
     await expect(folderHeader(page, 'other')).toContainText('(1)')
     await expect(folderHeader(page, 'gone')).toHaveCount(0)
 
-    // Turn the recent filter off: the old rows and the folder return.
-    await page.getByTestId('sidebar-recent-toggle').click()
+    // Turn the recent filter off ("Forever"): the old rows and the folder return.
+    await pickTime(page, 'Forever')
     await expect(folderHeader(page, 'gone')).toContainText('(2)')
     await expect(folderHeader(page, 'keep')).toContainText('(3)')
   })
@@ -279,12 +280,12 @@ test.describe('Sidebar list filters: console (case 16)', () => {
     await expect(page.locator(`[data-message-uuid="${messageUuid(a)}"]`)).toBeVisible()
     await expectRows(page, [a, d], [b, c])
 
-    await typeHours(page, '48')
+    await pickTime(page, '3 days')
     await expectRows(page, [a, b, d], [c])
-    await page.getByTestId('sidebar-recent-toggle').click()
+    await pickTime(page, 'Forever')
     await expectRows(page, rows, [])
 
-    await pickOption(page, 'sidebar-project-select', 'foo')
+    await pickProject(page, 'foo')
     await expectRows(page, [a, b], [c, d])
     await listMenu(page, 'list-filter-path')
     await expectRows(page, [a], [b, c, d])

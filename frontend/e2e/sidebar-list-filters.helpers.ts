@@ -234,10 +234,69 @@ export async function listMenu(
   await entry.click()
 }
 
-/** Set the recent-hours field and leave it (blur). */
-export async function typeHours(page: Page, value: string): Promise<void> {
-  const field = page.getByTestId('sidebar-recent-hours')
-  await field.click()
-  await field.fill(value)
-  await field.blur()
+/**
+ * Time dropdown (round 2, PLANS/2026.10.26-list-filter-dropdowns.md): its
+ * options in table order, with the hours each one means (null = Forever).
+ */
+export const TIME_OPTIONS: ReadonlyArray<readonly [string, number | null]> = [
+  ['8 hours', 8],
+  ['1 day', 24],
+  ['3 days', 72],
+  ['1 week', 168],
+  ['2 weeks', 336],
+  ['1 month', 720],
+  ['3 months', 2160],
+  ['6 months', 4320],
+  ['1 year', 8760],
+  ['Forever', null],
+]
+
+export const TIME_LABELS: string[] = TIME_OPTIONS.map(([label]) => label)
+
+/** The time dropdown trigger. */
+export function timeSelect(page: Page) {
+  return page.getByTestId('sidebar-recent-select')
+}
+
+/** Pick a window in the time dropdown; the trigger then shows "Last: <option>". */
+export async function pickTime(page: Page, option: string): Promise<void> {
+  await pickOption(page, 'sidebar-recent-select', option)
+  await expect(timeSelect(page)).toContainText(`Last: ${option}`)
+}
+
+/** The project picker's filter field. */
+export function projectFilter(page: Page) {
+  return page.getByTestId('sidebar-project-filter')
+}
+
+/** Open the project picker; the filter field shows and has the focus. */
+export async function openProjectPicker(page: Page): Promise<void> {
+  await page.getByTestId('sidebar-project-select').click()
+  await expect(projectFilter(page)).toBeVisible()
+  await expect(projectFilter(page)).toBeFocused()
+}
+
+/** The entries (role="option") on the page, top to bottom. */
+export async function projectEntries(page: Page): Promise<string[]> {
+  return (await page.getByRole('option').allInnerTexts()).map((t) => t.trim())
+}
+
+/** Poll until the open picker lists exactly `want`, in order. */
+export async function expectProjectEntries(page: Page, want: string[]): Promise<void> {
+  await expect.poll(() => projectEntries(page)).toEqual(want)
+}
+
+/** Close the open project picker with Escape. */
+export async function closeProjectPicker(page: Page): Promise<void> {
+  await page.keyboard.press('Escape')
+  await expect(projectFilter(page)).toBeHidden()
+}
+
+/** Open the project picker and click one entry by its exact text. */
+export async function pickProject(page: Page, entry: string): Promise<void> {
+  await openProjectPicker(page)
+  const opt = page.getByRole('option', { name: entry, exact: true })
+  await expect(opt).toBeVisible()
+  await opt.click()
+  await expect(projectFilter(page)).toBeHidden()
 }

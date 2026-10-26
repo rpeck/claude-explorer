@@ -11,24 +11,31 @@ import {
   hoursAgo,
   listHonoringSource,
   listMenu,
+  closeProjectPicker,
+  expectProjectEntries,
   messageUuid,
-  openOptions,
-  pickOption,
+  openProjectPicker,
+  pickProject,
+  pickTime,
   sentPrefValues,
   sidebar,
   startClock,
-  typeHours,
+  timeSelect,
   urlParam,
 } from './sidebar-list-filters.helpers'
 
 /**
  * Sidebar list filters, project and path: test cases 5-8, 10, and 15 of
- * PLANS/2026.10.25-sidebar-list-filters.md. Black-box, from the spec.
+ * PLANS/2026.10.25-sidebar-list-filters.md, changed to the round-2 project
+ * picker and time dropdown of PLANS/2026.10.26-list-filter-dropdowns.md.
+ * Black-box, from the spec.
  * Case 16 (no console errors or warnings) holds for every test through
  * the auto `consoleAssertions` fixture.
  */
 
 // ---- Case 5: three projects (names differ in case), and a Desktop chat.
+// Newest first: zeta (2 h), Alpha (3 h), beta (4 h); A to Z would give
+// Alpha, beta, zeta.
 const zeta1 = ccSession('Zeta first session', '/w/zeta', hoursAgo(2))
 const alpha1 = ccSession('Alpha first session', '/w/Alpha', hoursAgo(3))
 const beta1 = ccSession('Beta first session', '/w/beta', hoursAgo(4))
@@ -47,32 +54,40 @@ const SET6 = [fooA1, fooA2, fooB1, barC1, desk6]
 const label = (page: import('./fixtures').Page) => page.getByTestId('list-filter-button')
 
 test.describe('Sidebar list filters: project select', () => {
-  test('5 project select: options are "All projects" then the names sorted ignoring case; a pick sets ?project= and shows only that project; "All projects" shows all and clears the URL', async ({
+  test('5 project picker: entries are "All projects" then the project names, newest first; a pick sets ?project= and shows only that project; "All projects" shows all and clears the URL', async ({
     page,
     mockBackend,
   }) => {
     await mockBackend({ conversations: SET5, extraRoutes: listHonoringSource(SET5) })
+    await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, SET5, [])
 
-    const select = page.getByTestId('sidebar-project-select')
-    await expect(select).toBeVisible()
-    expect(await openOptions(page, 'sidebar-project-select')).toEqual(['All projects', 'Alpha', 'beta', 'zeta'])
+    const button = page.getByTestId('sidebar-project-select')
+    await expect(button).toBeVisible()
+    await expect(button).toContainText('All projects')
+    await openProjectPicker(page)
+    await expectProjectEntries(page, ['All projects', 'zeta', 'Alpha', 'beta'])
+    await closeProjectPicker(page)
 
-    await pickOption(page, 'sidebar-project-select', 'beta')
+    await pickProject(page, 'beta')
     await expectUrlParams(page, { project: 'beta', path: null })
+    await expect(button).toContainText('beta')
     // One project can hold several paths (/w/beta and /x/beta).
     await expectRows(page, [beta1, beta2], [zeta1, alpha1, desk5])
 
-    // The options come from the list before the project filter.
-    expect(await openOptions(page, 'sidebar-project-select')).toEqual(['All projects', 'Alpha', 'beta', 'zeta'])
+    // The entries come from the list before the project filter.
+    await openProjectPicker(page)
+    await expectProjectEntries(page, ['All projects', 'zeta', 'Alpha', 'beta'])
+    await closeProjectPicker(page)
 
-    await pickOption(page, 'sidebar-project-select', 'All projects')
+    await pickProject(page, 'All projects')
     await expectUrlParams(page, { project: null, path: null })
+    await expect(button).toContainText('All projects')
     await expectRows(page, SET5, [])
   })
 
-  test('5 project select: options do not change when the recent filter hides a whole project', async ({
+  test('5 project picker: entries do not change when the recent filter hides a whole project', async ({
     page,
     mockBackend,
   }) => {
@@ -87,7 +102,10 @@ test.describe('Sidebar list filters: project select', () => {
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, [alpha1, beta1], [oldZeta])
 
-    expect(await openOptions(page, 'sidebar-project-select')).toEqual(['All projects', 'Alpha', 'beta', 'zeta'])
+    // Newest first: Alpha (3 h), beta (4 h), zeta (30 days, hidden from the list).
+    await openProjectPicker(page)
+    await expectProjectEntries(page, ['All projects', 'Alpha', 'beta', 'zeta'])
+    await closeProjectPicker(page)
   })
 })
 
@@ -232,13 +250,14 @@ test.describe('Sidebar list filters: empty state', () => {
     // Settle: the empty-state message rendered (the list loaded rows).
     await expect(side).toContainText(/hidden by/i)
     await expect(side).toContainText('project=foo')
-    await expect(side).toContainText(/last 24 h/)
+    // The empty state names the window by its dropdown label.
+    await expect(side).toContainText('last 1 day')
     await expectRows(page, [], SET10)
     await expect(page.getByTestId('list-empty-clear-project')).toBeVisible()
     await expect(page.getByTestId('list-empty-show-older')).toBeVisible()
   }
 
-  test('10 empty state: names the project and recent filters; "Show older sessions" turns the checkbox off', async ({
+  test('10 empty state: names the project and recent filters; "Show older sessions" sets "Forever"', async ({
     page,
     mockBackend,
   }) => {
@@ -250,7 +269,7 @@ test.describe('Sidebar list filters: empty state', () => {
     await openHiddenByBoth(page)
 
     await page.getByTestId('list-empty-show-older').click()
-    await expect(page.getByTestId('sidebar-recent-toggle')).not.toBeChecked()
+    await expect(timeSelect(page)).toContainText('Last: Forever')
     await expectRows(page, [fooOld1, fooOld2], [barNew])
     await expectUrlParams(page, { project: 'foo' })
     await expect.poll(() => sentPrefValues(page, 'listRecentOnly')).toContain(false)
@@ -267,7 +286,7 @@ test.describe('Sidebar list filters: empty state', () => {
     await page.getByTestId('list-empty-clear-project').click()
     await expectUrlParams(page, { project: null, path: null })
     await expectRows(page, [barNew], [fooOld1, fooOld2])
-    await expect(page.getByTestId('sidebar-recent-toggle')).toBeChecked()
+    await expect(timeSelect(page)).toContainText('Last: 1 day')
   })
 })
 
@@ -278,7 +297,7 @@ test.describe('Sidebar list filters: reload', () => {
   const barNew = ccSession('Bar reload new', '/c/bar', hoursAgo(2))
   const SET15 = [fooNew, fooDay, fooAncient, barNew]
 
-  test('15 reload keeps state: the project filter (URL) and the recent setting (N = 48, on) survive a reload', async ({
+  test('15 reload keeps state: the project filter (URL) and the time window ("3 days") survive a reload', async ({
     page,
     mockBackend,
   }) => {
@@ -292,21 +311,20 @@ test.describe('Sidebar list filters: reload', () => {
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, [fooNew, barNew], [fooDay, fooAncient])
 
-    await typeHours(page, '48')
-    await expect.poll(() => sentPrefValues(page, 'listRecentHours')).toContain(48)
-    await pickOption(page, 'sidebar-project-select', 'foo')
+    await pickTime(page, '3 days')
+    await expect.poll(() => sentPrefValues(page, 'listRecentHours')).toContain(72)
+    await pickProject(page, 'foo')
     await expectUrlParams(page, { project: 'foo', path: null })
     await expectRows(page, [fooNew, fooDay], [barNew, fooAncient])
 
     await withNetRetry(page, () => page.reload())
     await expectUrlParams(page, { project: 'foo', path: null })
     await expectRows(page, [fooNew, fooDay], [barNew, fooAncient])
-    await expect(page.getByTestId('sidebar-recent-toggle')).toBeChecked()
-    await expect(page.getByTestId('sidebar-recent-hours')).toHaveValue('48')
+    await expect(timeSelect(page)).toContainText('Last: 3 days')
     await expect(page.getByTestId('sidebar-project-select')).toContainText('foo')
   })
 
-  test('15 reload keeps state: the path filter (URL) and the recent checkbox turned off survive a reload', async ({
+  test('15 reload keeps state: the path filter (URL) and "Forever" survive a reload', async ({
     page,
     mockBackend,
   }) => {
@@ -323,16 +341,15 @@ test.describe('Sidebar list filters: reload', () => {
 
     await listMenu(page, 'list-filter-path')
     await expectUrlParams(page, { path: '/a/foo', project: null })
-    await page.getByTestId('sidebar-recent-toggle').click()
-    await expect(page.getByTestId('sidebar-recent-toggle')).not.toBeChecked()
+    await pickTime(page, 'Forever')
     await expect.poll(() => sentPrefValues(page, 'listRecentOnly')).toContain(false)
     await expectRows(page, [fooNew, fooAncient], [fooDay, barNew])
 
     await withNetRetry(page, () => page.reload())
     await expectUrlParams(page, { path: '/a/foo', project: null })
     await expectRows(page, [fooNew, fooAncient], [fooDay, barNew])
-    await expect(page.getByTestId('sidebar-recent-toggle')).not.toBeChecked()
-    // While ?path= is active, the project select shows "Path: <path>".
+    await expect(timeSelect(page)).toContainText('Last: Forever')
+    // While ?path= is active, the project picker button shows "Path: <path>".
     await expect(page.getByTestId('sidebar-project-select')).toContainText('Path: /a/foo')
     await expect(label(page)).toHaveAttribute('data-list-filter', 'path')
   })
