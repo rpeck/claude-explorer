@@ -10,7 +10,7 @@
  *   - The sentinel `_migratedV1: true` prevents re-migration on reload.
  */
 
-import { test, expect, withNetRetry, recordPreferencePatches, preferencePatchesSent } from './fixtures'
+import { test, expect, withNetRetry, recordPreferencePatches, preferencePatchesSent, E2E_DEFAULT_PREFS } from './fixtures'
 import type { Route } from './fixtures'
 
 interface PrefsState {
@@ -25,7 +25,8 @@ async function installPrefsRoute(
   page: import('@playwright/test').Page,
   initial: Record<string, unknown> = {},
 ): Promise<{ state: PrefsState; patches: PatchLog }> {
-  const state: PrefsState = { data: { ...initial } }
+  // E2E_DEFAULT_PREFS: the recent-sessions filter is off (fixture dates are in the past).
+  const state: PrefsState = { data: { ...E2E_DEFAULT_PREFS, ...initial } }
   const patches: PatchLog = { bodies: [] }
 
   await page.route('**/api/preferences', (route: Route) => {

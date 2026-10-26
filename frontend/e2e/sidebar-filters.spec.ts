@@ -1,4 +1,4 @@
-import { test, expect, Route, withNetRetry } from './fixtures';
+import { test, expect, Route, withNetRetry, E2E_DEFAULT_PREFS } from './fixtures';
 
 /**
  * Persistent rich title-based sidebar filters (Build-5).
@@ -19,7 +19,8 @@ function seedFiltersBlob(filters: Record<string, unknown>) {
 }
 
 async function seedPrefs(page: import('@playwright/test').Page, prefs: Record<string, unknown>) {
-  const data: Record<string, unknown> = { ...prefs };
+  // E2E_DEFAULT_PREFS: the recent-sessions filter is off (fixture dates are in the past).
+  const data: Record<string, unknown> = { ...E2E_DEFAULT_PREFS, ...prefs };
   await page.route('**/api/preferences', (route: Route) => {
     const req = route.request();
     if (req.method() === 'PATCH') {

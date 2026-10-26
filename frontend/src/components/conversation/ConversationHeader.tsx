@@ -6,6 +6,8 @@
  * Renders:
  *   - Conversation title (truncated, "Untitled" fallback)
  *   - PinScopeButton (turns the title into a search-scope pin)
+ *   - ListFilterButton (Claude Code only: filter the Conversation List
+ *     to this project or path)
  *   - Source badge (Code/Cowork/Desktop), model badge, date, message
  *     count, and "View branches" button when has_branches.
  *   - <details> collapsible (open by default) with:
@@ -27,6 +29,7 @@
 import { GitBranch, Copy, Check, FolderCode, ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { PinScopeButton } from '@/components/search/PinScopeButton'
+import { ListFilterButton } from '@/components/conversation/ListFilterButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { formatFullDate } from '@/lib/utils'
 import type { ConversationDetail } from '@/lib/types'
@@ -60,6 +63,17 @@ export function ConversationHeader({
           projectPath={conversation.project_path}
           projectName={conversation.project_path?.split('/').filter(Boolean).pop() || null}
         />
+        {conversation.source === 'CLAUDE_CODE' && conversation.project_path && (
+          <ListFilterButton
+            projectPath={conversation.project_path}
+            // The backend's project_name: the last folder of the path.
+            projectName={
+              conversation.project_name ||
+              conversation.project_path.split('/').filter(Boolean).pop() ||
+              conversation.project_path
+            }
+          />
+        )}
       </div>
       <div className="mt-1 flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
         {/* F12 (2026-05-29) → SourceBadge (2026-05-30 P1.2): Cowork is

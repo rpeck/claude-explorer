@@ -1,4 +1,4 @@
-import { test, expect, withNetRetry, expectNetworkError } from './fixtures'
+import { test, expect, withNetRetry, expectNetworkError, E2E_DEFAULT_PREFS } from './fixtures'
 
 /**
  * M1 of the mock-data conversion plan
@@ -99,11 +99,21 @@ test.describe('mockBackend default routes (M1)', () => {
     expect(JSON.parse(r.body)).toEqual([])
   })
 
-  test('GET /api/preferences returns empty envelope by default', async ({ page, mockBackend }) => {
+  test('GET /api/preferences returns the E2E default blob by default', async ({ page, mockBackend }) => {
     await mockBackend({})
     const r = await fetchOnPage(page, '/api/preferences')
     expect(r.status).toBe(200)
     expect(r.contentType).toMatch(/application\/json/)
+    // Fixture dates are in the past, so the recent-sessions list filter is off.
+    expect(JSON.parse(r.body)).toEqual({ version: 1, data: { listRecentOnly: false } })
+  })
+
+  test('a preference set to undefined leaves the E2E default out of the blob', async ({
+    page,
+    mockBackend,
+  }) => {
+    await mockBackend({ preferences: { listRecentOnly: undefined } })
+    const r = await fetchOnPage(page, '/api/preferences')
     expect(JSON.parse(r.body)).toEqual({ version: 1, data: {} })
   })
 
@@ -113,9 +123,9 @@ test.describe('mockBackend default routes (M1)', () => {
   }) => {
     await mockBackend({})
 
-    // Initial GET — empty.
+    // Initial GET: only the E2E defaults.
     const g0 = await fetchOnPage(page, '/api/preferences')
-    expect(JSON.parse(g0.body)).toEqual({ version: 1, data: {} })
+    expect(JSON.parse(g0.body)).toEqual({ version: 1, data: { ...E2E_DEFAULT_PREFS } })
 
     // PATCH — set theme.
     const p1 = await fetchOnPage(page, '/api/preferences', {
@@ -124,11 +134,11 @@ test.describe('mockBackend default routes (M1)', () => {
       body: JSON.stringify({ data: { theme: 'dark' } }),
     })
     expect(p1.status).toBe(200)
-    expect(JSON.parse(p1.body)).toEqual({ version: 1, data: { theme: 'dark' } })
+    expect(JSON.parse(p1.body)).toEqual({ version: 1, data: { ...E2E_DEFAULT_PREFS, theme: 'dark' } })
 
     // GET — reflects the patch.
     const g1 = await fetchOnPage(page, '/api/preferences')
-    expect(JSON.parse(g1.body)).toEqual({ version: 1, data: { theme: 'dark' } })
+    expect(JSON.parse(g1.body)).toEqual({ version: 1, data: { ...E2E_DEFAULT_PREFS, theme: 'dark' } })
 
     // Second PATCH — adds another key, prior key survives.
     const p2 = await fetchOnPage(page, '/api/preferences', {
@@ -138,7 +148,7 @@ test.describe('mockBackend default routes (M1)', () => {
     })
     expect(JSON.parse(p2.body)).toEqual({
       version: 1,
-      data: { theme: 'dark', fontSize: 14 },
+      data: { ...E2E_DEFAULT_PREFS, theme: 'dark', fontSize: 14 },
     })
   })
 
@@ -150,7 +160,7 @@ test.describe('mockBackend default routes (M1)', () => {
     const r = await fetchOnPage(page, '/api/preferences')
     expect(JSON.parse(r.body)).toEqual({
       version: 1,
-      data: { sidebarWidth: 320 },
+      data: { ...E2E_DEFAULT_PREFS, sidebarWidth: 320 },
     })
   })
 

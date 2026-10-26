@@ -10,6 +10,15 @@ import { applyActiveFilter, patternMatches, type FilterMode } from '@/lib/filter
 import { useFilters } from '@/contexts/FilterContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
+import { useNow } from '@/hooks/useNow'
+import {
+  buildFolders,
+  displayOrder,
+  groupingApplies,
+  isRecent,
+  listQueryFilters,
+  matchesProjectFilter,
+} from '@/lib/conversationListView'
 // Import the skinny list-payload type under an alias to avoid colliding
 // with the `ConversationListItem` component defined below in this file.
 // The post-split `/api/conversations` returns ConversationListItem[]
@@ -33,6 +42,14 @@ interface ConversationListProps {
   sortOrder?: SortOrder
   groupByProject?: boolean
   projectSlug?: string
+  // `?path=`: one exact project_path (UX.md → "Conversation List filters").
+  projectPath?: string
+  // Show only rows active in the last N hours; null = off.
+  recentHours?: number | null
+  // Empty-state actions: clear the project / path filter, turn off the
+  // recent filter. The Sidebar owns both states.
+  onShowAllProjects?: () => void
+  onShowOlder?: () => void
   titleFilter?: string
   titleFilterMode?: FilterMode
   // cowork-multi-org C6: workspace filter (null = "All workspaces").
@@ -94,6 +111,10 @@ export function ConversationList({
   sortOrder = 'desc',
   groupByProject = false,
   projectSlug,
+  projectPath,
+  recentHours = null,
+  onShowAllProjects,
+  onShowOlder,
   titleFilter,
   titleFilterMode = 'glob',
   organizationId,
@@ -114,22 +135,30 @@ export function ConversationList({
     if (pinScope.kind === 'conversation') return conv.uuid === pinScope.uuid
     return (conv.project_path ?? '') === pinScope.path
   }
-  const filters = {
-    ...(searchQuery && { search: searchQuery }),
-    ...(sourceFilter && sourceFilter !== 'all' && { source: sourceFilter }),
-    ...(includePhantom && { includePhantom: true }),
-    ...(showArchived && { showArchived: true }),
-    ...(organizationId && { organization_id: organizationId }),
-    sort: sortField,
-    sortOrder: sortOrder,
-  }
+  const filters = listQueryFilters({
+    searchQuery,
+    sourceFilter,
+    includePhantom,
+    showArchived,
+    organizationId,
+    sortField,
+    sortOrder,
+  })
   const { data: rawConversations, isLoading, error } = useConversations(filters)
+  const now = useNow(recentHours != null)
+  // The list groups only where the checkbox shows (Sidebar): a hidden
+  // checkbox must not keep the list grouped under Desktop or Cowork.
+  const grouped = groupingApplies(groupByProject, sourceFilter)
 
   const conversations = useMemo(() => {
     if (!rawConversations) return rawConversations
     let list = rawConversations
-    if (projectSlug) {
-      list = list.filter((c) => (c.project_name ?? '').toLowerCase() === projectSlug.toLowerCase())
+    if (projectSlug || projectPath) {
+      const projectFilter = { project: projectSlug ?? '', path: projectPath ?? '' }
+      list = list.filter((c) => matchesProjectFilter(c, projectFilter))
+    }
+    if (recentHours != null) {
+      list = list.filter((c) => isRecent(c, now, recentHours))
     }
     if (titleFilter) {
       list = list.filter((c) => patternMatches(c.name, titleFilter, titleFilterMode))
@@ -138,34 +167,51 @@ export function ConversationList({
     // active id, missing/disabled active node, and cycle defense.
     list = list.filter((c) => applyActiveFilter(c.name, filtersState))
     return list
-  }, [rawConversations, projectSlug, titleFilter, titleFilterMode, filtersState])
+  }, [rawConversations, projectSlug, projectPath, recentHours, now, titleFilter, titleFilterMode, filtersState])
 
-  // Register conversation IDs with navigation context (in display order: starred first)
+  const folders = useMemo(
+    () => (grouped && conversations ? buildFolders(conversations, sortField, sortOrder) : null),
+    [grouped, conversations, sortField, sortOrder],
+  )
+
+  // Row UUIDs in display order. Keyboard navigation (j/k, arrows) walks
+  // this list, so it must match what the user sees: folder by folder
+  // without collapsed folders when grouped, else starred first.
+  //
+  // Keyed by content: the recent filter's clock makes a new
+  // `conversations` array once a minute, and a new ID array each time
+  // would re-run the sync below and undo the user's keyboard selection.
+  const orderedIdsKey = useMemo(() => {
+    if (!conversations) return null
+    if (folders) return displayOrder(folders, collapsedGroups).join('\n')
+    return [
+      ...conversations.filter((c) => c.is_starred),
+      ...conversations.filter((c) => !c.is_starred),
+    ].map((c) => c.uuid).join('\n')
+  }, [conversations, folders, collapsedGroups])
+  const orderedIds = useMemo(
+    () => (orderedIdsKey === null ? null : orderedIdsKey ? orderedIdsKey.split('\n') : []),
+    [orderedIdsKey],
+  )
+
+  // Register conversation IDs with navigation context (in display order)
   useEffect(() => {
-    if (conversations) {
-      // Order IDs to match display: starred first, then unstarred
-      const starred = conversations.filter((c) => c.is_starred)
-      const unstarred = conversations.filter((c) => !c.is_starred)
-      const orderedConversations = [...starred, ...unstarred]
-      const ids = orderedConversations.map((c) => c.uuid)
-      setConversationIds(ids)
-    }
-  }, [conversations, setConversationIds])
+    if (orderedIds) setConversationIds(orderedIds)
+  }, [orderedIds, setConversationIds])
 
   // Sync selectedIndex with the currently viewed conversation (from URL)
   // Only runs when the URL or conversation list changes, NOT when selectedIndex changes
-  // (otherwise it would override keyboard navigation)
+  // (otherwise it would override keyboard navigation).
+  //
+  // A filter can hide the open conversation (no exceptions; UX.md →
+  // "Conversation List filters"). Then no row is selected (-1). A stale
+  // index would select another row, and ConversationPage would show its
+  // "Press Enter to open" hint in place of the open conversation.
   useEffect(() => {
-    if (selectedUuid && conversations) {
-      const starred = conversations.filter((c) => c.is_starred)
-      const unstarred = conversations.filter((c) => !c.is_starred)
-      const orderedConversations = [...starred, ...unstarred]
-      const index = orderedConversations.findIndex((c) => c.uuid === selectedUuid)
-      if (index !== -1) {
-        setSelectedIndex(index)
-      }
+    if (selectedUuid && orderedIds) {
+      setSelectedIndex(orderedIds.indexOf(selectedUuid))
     }
-  }, [selectedUuid, conversations, setSelectedIndex])
+  }, [selectedUuid, orderedIds, setSelectedIndex])
 
   if (isLoading) {
     return <ConversationListSkeleton />
@@ -181,28 +227,48 @@ export function ConversationList({
 
   if (!conversations || conversations.length === 0) {
     const totalLoaded = rawConversations?.length ?? 0
-    const hidByFilters = totalLoaded > 0 && (hasActiveFilter || !!titleFilter || !!projectSlug)
-    if (hidByFilters) {
+    const hiddenBy = [
+      hasActiveFilter && `filter "${activeNode?.name}"`,
+      titleFilter && 'a URL title filter',
+      projectSlug && `project=${projectSlug}`,
+      projectPath && `path=${projectPath}`,
+      recentHours != null && `last ${recentHours} h`,
+    ].filter(Boolean)
+    if (totalLoaded > 0 && hiddenBy.length > 0) {
+      const buttonClass =
+        'rounded border border-zinc-300 bg-white px-3 py-1 text-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800'
       return (
         <div className="p-4 text-sm text-zinc-600 dark:text-zinc-400">
           <div className="mb-2">
-            All {totalLoaded} conversations hidden by
-            {hasActiveFilter && ` filter "${activeNode?.name}"`}
-            {hasActiveFilter && titleFilter && ' and'}
-            {titleFilter && ' a URL title filter'}
-            {(hasActiveFilter || titleFilter) && projectSlug && ' and'}
-            {projectSlug && ` project=${projectSlug}`}
-            .
+            All {totalLoaded} conversations hidden by {hiddenBy.join(' and ')}.
           </div>
-          {hasActiveFilter && (
-            <button
-              type="button"
-              onClick={() => setActiveId(null)}
-              className="rounded border border-zinc-300 bg-white px-3 py-1 text-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-            >
-              Clear active filter
-            </button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {hasActiveFilter && (
+              <button type="button" onClick={() => setActiveId(null)} className={buttonClass}>
+                Clear active filter
+              </button>
+            )}
+            {(projectSlug || projectPath) && onShowAllProjects && (
+              <button
+                type="button"
+                onClick={onShowAllProjects}
+                className={buttonClass}
+                data-testid="list-empty-clear-project"
+              >
+                Show all projects
+              </button>
+            )}
+            {recentHours != null && onShowOlder && (
+              <button
+                type="button"
+                onClick={onShowOlder}
+                className={buttonClass}
+                data-testid="list-empty-show-older"
+              >
+                Show older sessions
+              </button>
+            )}
+          </div>
         </div>
       )
     }
@@ -226,28 +292,18 @@ export function ConversationList({
     })
   }
 
-  // Separate starred and unstarred (display order: starred first)
-  const starred = conversations.filter((c) => c.is_starred)
-  const unstarred = conversations.filter((c) => !c.is_starred)
-  const orderedConversations = [...starred, ...unstarred]
-
   // Helper to check if a conversation is keyboard-selected (uses display order)
   const isKeyboardSelected = (uuid: string) => {
     if (focusArea !== 'list') return false
-    const displayIndex = orderedConversations.findIndex((c) => c.uuid === uuid)
-    return displayIndex === selectedIndex
+    return (orderedIds ?? []).indexOf(uuid) === selectedIndex
   }
 
   // Group by project if enabled
-  if (groupByProject) {
-    // Group all conversations by project (Claude Code) or workspace (Claude.ai).
-    // cowork-multi-org C6 / Council P1-1 + NEW2-P1-β:
-    //   * CLAUDE_CODE → project_name
-    //   * CLAUDE_AI tagged → organization_name (or Workspace (<prefix>) when
-    //     mitm-only-captured org has null name)
-    //   * CLAUDE_AI untagged (legacy pre-migration) → "Untagged
-    //     (re-fetch to assign workspace)"
-    //   * The string 'Claude Desktop' no longer appears here.
+  if (folders) {
+    // Folders: project (Claude Code) or workspace (Claude.ai). The names
+    // and the folder order live in lib/conversationListView.ts
+    // (buildFolders): a folder takes the value of its first session in
+    // the chosen sort order (UX.md → "Conversation List filters").
     //
     // This path is intentionally NOT virtualized: per-group collapse
     // already gives the user a coarse-grained "hide rows I don't care
@@ -256,47 +312,19 @@ export function ConversationList({
     // view most users don't keep open. If grouped corpora start
     // hitting their own first-paint cliff we'll come back. (Phase 2.2
     // virtualization scope, OPTIMIZE_FIRST_PAINT.md.)
-    const groups = new Map<string, ConvListItem[]>()
-
-    for (const conv of conversations) {
-      let groupKey: string
-      if (conv.source === 'CLAUDE_CODE') {
-        groupKey = conv.project_name || 'Unknown Project'
-      } else if (conv.organization_name) {
-        groupKey = conv.organization_name
-      } else if (conv.organization_id) {
-        // mitm-only-captured org — same fallback as the Sidebar selector.
-        groupKey = `Workspace (${conv.organization_id.slice(0, 8)})`
-      } else {
-        groupKey = 'Untagged (re-fetch to assign workspace)'
-      }
-      // Insert-or-get pattern (was: `groups.get(k)!.push(conv)` with a
-      // non-null assertion that only satisfied the type checker). Holding
-      // the bucket reference directly removes the assertion without
-      // changing behavior.
-      let bucket = groups.get(groupKey)
-      if (!bucket) {
-        bucket = []
-        groups.set(groupKey, bucket)
-      }
-      bucket.push(conv)
-    }
-
-    // Groups inherit sort order from their first member (conversations is already sorted by sortField/sortOrder)
-    const sortedGroups = Array.from(groups.entries())
-
     return (
       <div className="flex flex-col">
-        {sortedGroups.map(([groupName, groupConvs]) => {
+        {folders.map(({ name: groupName, convs: groupConvs }) => {
           const isCollapsed = collapsedGroups.has(groupName)
-          const starredInGroup = groupConvs.filter((c) => c.is_starred)
-          const unstarredInGroup = groupConvs.filter((c) => !c.is_starred)
 
           return (
             <div key={groupName}>
               <button
                 type="button"
                 onClick={() => toggleGroup(groupName)}
+                data-testid="list-group-header"
+                data-group-name={groupName}
+                aria-expanded={!isCollapsed}
                 className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
                 <ChevronDown
@@ -323,18 +351,8 @@ export function ConversationList({
               </button>
               {!isCollapsed && (
                 <div className="ml-2 border-l border-zinc-200 dark:border-zinc-700">
-                  {starredInGroup.map((conv) => (
-                    <ConversationListItem
-                      key={conv.uuid}
-                      conversation={conv}
-                      isSelected={conv.uuid === selectedUuid}
-                      isKeyboardSelected={isKeyboardSelected(conv.uuid)}
-                      onClick={() => { setNavSource('list'); navigate(`/conversations/${conv.uuid}`) }}
-                      showProject={false}
-                      outOfScope={!isInScope(conv)}
-                    />
-                  ))}
-                  {unstarredInGroup.map((conv) => (
+                  {/* buildFolders already puts starred rows first. */}
+                  {groupConvs.map((conv) => (
                     <ConversationListItem
                       key={conv.uuid}
                       conversation={conv}
