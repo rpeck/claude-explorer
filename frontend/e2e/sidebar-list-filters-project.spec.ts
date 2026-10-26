@@ -20,6 +20,7 @@ import {
   sentPrefValues,
   sidebar,
   startClock,
+  timeLabel,
   timeSelect,
   urlParam,
 } from './sidebar-list-filters.helpers'
@@ -269,7 +270,7 @@ test.describe('Sidebar list filters: empty state', () => {
     await openHiddenByBoth(page)
 
     await page.getByTestId('list-empty-show-older').click()
-    await expect(timeSelect(page)).toContainText('Last: Forever')
+    await expect(timeSelect(page)).toContainText(timeLabel('Forever'))
     await expectRows(page, [fooOld1, fooOld2], [barNew])
     await expectUrlParams(page, { project: 'foo' })
     await expect.poll(() => sentPrefValues(page, 'listRecentOnly')).toContain(false)
@@ -286,7 +287,7 @@ test.describe('Sidebar list filters: empty state', () => {
     await page.getByTestId('list-empty-clear-project').click()
     await expectUrlParams(page, { project: null, path: null })
     await expectRows(page, [barNew], [fooOld1, fooOld2])
-    await expect(timeSelect(page)).toContainText('Last: 1 day')
+    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
   })
 })
 
@@ -320,7 +321,7 @@ test.describe('Sidebar list filters: reload', () => {
     await withNetRetry(page, () => page.reload())
     await expectUrlParams(page, { project: 'foo', path: null })
     await expectRows(page, [fooNew, fooDay], [barNew, fooAncient])
-    await expect(timeSelect(page)).toContainText('Last: 3 days')
+    await expect(timeSelect(page)).toContainText(timeLabel('3 days'))
     await expect(page.getByTestId('sidebar-project-select')).toContainText('foo')
   })
 
@@ -348,7 +349,7 @@ test.describe('Sidebar list filters: reload', () => {
     await withNetRetry(page, () => page.reload())
     await expectUrlParams(page, { path: '/a/foo', project: null })
     await expectRows(page, [fooNew, fooAncient], [fooDay, barNew])
-    await expect(timeSelect(page)).toContainText('Last: Forever')
+    await expect(timeSelect(page)).toContainText(timeLabel('Forever'))
     // While ?path= is active, the project picker button shows "Path: <path>".
     await expect(page.getByTestId('sidebar-project-select')).toContainText('Path: /a/foo')
     await expect(label(page)).toHaveAttribute('data-list-filter', 'path')

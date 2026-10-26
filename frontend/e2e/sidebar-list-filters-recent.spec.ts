@@ -13,6 +13,7 @@ import {
   sidebar,
   pickTime,
   startClock,
+  timeLabel,
   timeSelect,
 } from './sidebar-list-filters.helpers'
 
@@ -50,7 +51,7 @@ test.describe('Sidebar list filters: recent sessions', () => {
     await withNetRetry(page, () => page.goto('/'))
 
     await expectRows(page, [oneHour, twentyThree], [twentyFive, tenDays])
-    await expect(timeSelect(page)).toContainText('Last: 1 day')
+    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
 
     await pickTime(page, 'Forever')
     await expectRows(page, FOUR, [])
@@ -70,7 +71,7 @@ test.describe('Sidebar list filters: recent sessions', () => {
     await recordPreferencePatches(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, [oneHour, twentyThree], [twentyFive, tenDays])
-    await expect(timeSelect(page)).toContainText('Last: 1 day')
+    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
 
     await pickTime(page, '3 days')
     await expectRows(page, [oneHour, twentyThree, twentyFive], [tenDays])

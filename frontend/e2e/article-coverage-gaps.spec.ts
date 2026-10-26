@@ -184,8 +184,11 @@ test.describe('Clicking pane background sets focus to that pane', () => {
     // has an onClick that flips focusArea to 'list'; the focus ring is
     // a Tailwind 'ring-2 ring-inset ring-blue-500/50' applied to the
     // <aside> element itself when focusArea === 'list'.
+    // Its background: a non-interactive spot (the heading). The middle of
+    // the sidebar is a control (the time dropdown), and a click there
+    // opens it instead.
     const sidebar = page.locator('aside.w-80')
-    await sidebar.click()
+    await sidebar.getByRole('heading', { name: 'Claude Explorer' }).click()
     await expect(sidebar).toHaveClass(/ring-blue-500\/50|ring-2/)
   })
 })

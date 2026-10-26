@@ -20,6 +20,7 @@ import {
   sentPrefValues,
   sidebar,
   startClock,
+  timeLabel,
   timeSelect,
 } from './sidebar-list-filters.helpers'
 import type { ConversationSummary } from '../src/lib/types'
@@ -56,7 +57,7 @@ test.describe('Sidebar list filters: time dropdown', () => {
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, rows, [])
 
-    await expect(timeSelect(page)).toContainText('Last: 1 day')
+    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
     expect(await openOptions(page, 'sidebar-recent-select')).toEqual(TIME_LABELS)
   })
 
@@ -76,7 +77,7 @@ test.describe('Sidebar list filters: time dropdown', () => {
       await page.clock.setFixedTime(NOW)
       await withNetRetry(page, () => page.goto('/'))
       await expectRows(page, rows, [])
-      await expect(timeSelect(page)).toContainText('Last: Forever')
+      await expect(timeSelect(page)).toContainText(timeLabel('Forever'))
 
       await pickTime(page, label)
       await expectRows(page, [inside], [outside])
@@ -95,7 +96,7 @@ test.describe('Sidebar list filters: time dropdown', () => {
     await page.clock.setFixedTime(NOW)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, [recent], [twoYears])
-    await expect(timeSelect(page)).toContainText('Last: 1 year')
+    await expect(timeSelect(page)).toContainText(timeLabel('1 year'))
 
     await pickTime(page, 'Forever')
     await expectRows(page, [recent, twoYears], [])
@@ -120,7 +121,7 @@ test.describe('Sidebar list filters: time dropdown', () => {
     await expect.poll(() => sentPrefValues(page, 'listRecentHours')).toContain(336)
 
     await withNetRetry(page, () => page.reload())
-    await expect(timeSelect(page)).toContainText('Last: 2 weeks')
+    await expect(timeSelect(page)).toContainText(timeLabel('2 weeks'))
     await expectRows(page, [tenDays], [twentyDays])
 
     await pickTime(page, 'Forever')
@@ -128,7 +129,7 @@ test.describe('Sidebar list filters: time dropdown', () => {
     await expect.poll(() => sentPrefValues(page, 'listRecentOnly')).toContain(false)
 
     await withNetRetry(page, () => page.reload())
-    await expect(timeSelect(page)).toContainText('Last: Forever')
+    await expect(timeSelect(page)).toContainText(timeLabel('Forever'))
     await expectRows(page, rows, [])
   })
 
@@ -147,7 +148,7 @@ test.describe('Sidebar list filters: time dropdown', () => {
     await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
 
-    await expect(timeSelect(page)).toContainText('Last: 48 hours')
+    await expect(timeSelect(page)).toContainText(timeLabel('48 hours'))
     await expectRows(page, [h30], [h50])
     expect(await openOptions(page, 'sidebar-recent-select')).toEqual([
       '8 hours',
@@ -184,13 +185,13 @@ test.describe('Sidebar list filters: time dropdown', () => {
     await recordPreferencePatches(page)
     await withNetRetry(page, () => page.goto('/'))
 
-    await expect(timeSelect(page)).toContainText('Last: 1 week')
+    await expect(timeSelect(page)).toContainText(timeLabel('1 week'))
     await expect(sidebar(page)).toContainText(/hidden by/i)
     await expect(sidebar(page)).toContainText('last 1 week')
     await expectRows(page, [], rows)
 
     await page.getByTestId('list-empty-show-older').click()
-    await expect(timeSelect(page)).toContainText('Last: Forever')
+    await expect(timeSelect(page)).toContainText(timeLabel('Forever'))
     await expectRows(page, rows, [])
     await expect.poll(() => sentPrefValues(page, 'listRecentOnly')).toContain(false)
   })

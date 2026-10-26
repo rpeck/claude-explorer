@@ -6,6 +6,8 @@ import {
   isRecent,
   matchesProjectFilter,
   projectOptions,
+  recentLabel,
+  recentOptions,
 } from './conversationListView'
 import type { ConversationListItem, SortField, SortOrder } from './types'
 
@@ -133,14 +135,57 @@ describe('isRecent', () => {
 })
 
 describe('projectOptions', () => {
-  it('lists each project name once, sorted, ignoring case', () => {
+  it('lists each project name once, newest first by its latest session', () => {
     const rows = [
-      conv({ uuid: '1', project_name: 'zeta' }),
-      conv({ uuid: '2', project_name: 'Alpha' }),
-      conv({ uuid: '3', project_name: 'alpha' }),
-      conv({ uuid: '4', source: 'CLAUDE_AI', project_name: null }),
+      conv({ uuid: '1', project_name: 'alpha', updated_at: '2026-01-01T00:00:00Z' }),
+      conv({ uuid: '2', project_name: 'zeta', updated_at: '2026-01-08T00:00:00Z' }),
+      conv({ uuid: '3', project_name: 'Alpha', updated_at: '2026-01-09T00:00:00Z' }),
+      conv({ uuid: '4', project_name: 'mid', updated_at: '2026-01-02T00:00:00Z' }),
+      conv({ uuid: '5', source: 'CLAUDE_AI', project_name: null, updated_at: '2026-02-01T00:00:00Z' }),
     ]
-    expect(projectOptions(rows)).toEqual(['Alpha', 'zeta'])
+    // alpha's newest session (01-09, spelled "Alpha") puts it first; the
+    // first spelling seen names it.
+    // A to Z would give alpha, mid, zeta.
+    expect(projectOptions(rows)).toEqual(['alpha', 'zeta', 'mid'])
+  })
+
+  it('breaks a tie by name, A to Z, ignoring case', () => {
+    const rows = [
+      conv({ uuid: '1', project_name: 'Zed', updated_at: '2026-01-01T00:00:00Z' }),
+      conv({ uuid: '2', project_name: 'ann', updated_at: '2026-01-01T00:00:00Z' }),
+    ]
+    expect(projectOptions(rows)).toEqual(['ann', 'Zed'])
+  })
+})
+
+describe('recentOptions', () => {
+  const labels = (o: { label: string }[]) => o.map((x) => x.label)
+
+  it('lists the 10 windows in order, with their hours', () => {
+    const opts = recentOptions(true, 24)
+    expect(labels(opts)).toEqual([
+      '8 hours', '1 day', '3 days', '1 week', '2 weeks',
+      '1 month', '3 months', '6 months', '1 year', 'Forever',
+    ])
+    expect(opts.map((o) => o.hours)).toEqual([8, 24, 72, 168, 336, 720, 2160, 4320, 8760, null])
+  })
+
+  it('adds a saved hours value that is not in the table, in its place by size', () => {
+    const opts = recentOptions(true, 48)
+    expect(labels(opts).slice(0, 4)).toEqual(['8 hours', '1 day', '48 hours', '3 days'])
+    expect(recentOptions(true, 1).map((o) => o.label)[0]).toBe('1 hour')
+    expect(recentOptions(true, 99999).map((o) => o.label).slice(-2)).toEqual(['99999 hours', 'Forever'])
+  })
+
+  it('adds nothing when the filter is off or the hours are in the table', () => {
+    expect(recentOptions(false, 48)).toHaveLength(10)
+    expect(recentOptions(true, 336)).toHaveLength(10)
+  })
+
+  it('names the selected window', () => {
+    expect(recentLabel(true, 24)).toBe('1 day')
+    expect(recentLabel(true, 48)).toBe('48 hours')
+    expect(recentLabel(false, 24)).toBe('Forever')
   })
 })
 

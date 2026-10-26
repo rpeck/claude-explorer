@@ -677,16 +677,18 @@ project. These controls hide the other rows. Spec and test cases:
 conversation is hidden when a filter excludes it. The Conversation Pane
 still shows it.
 
-**Recent sessions** (`[x] Last [N] h`, a sidebar row below the sort
-controls):
+**Recent sessions** (the "Last:" dropdown, a sidebar row below the sort
+controls; round 2 of the spec,
+[PLANS/2026.10.26-list-filter-dropdowns.md](./PLANS/2026.10.26-list-filter-dropdowns.md)):
 
-- Default: on, N = 24. Per-user preferences `listRecentOnly` and
-  `listRecentHours`.
-- When on, the list hides each row whose `updated_at` is older than now
-  minus N hours. The list applies the cutoff again once a minute.
-- N is a whole number, 1 or more. The field saves no other input, and on
-  blur it shows the saved value again. It is disabled while the checkbox
-  is off.
+- Windows: 8 hours, 1 day, 3 days, 1 week, 2 weeks, 1 month (30 days),
+  3 months (90 days), 6 months (180 days), 1 year (365 days), and Forever,
+  which turns the filter off. Default: 1 day.
+- The list hides each row whose `updated_at` is older than now minus the
+  window. The list applies the cutoff again once a minute.
+- Per-user preferences `listRecentOnly` (false for Forever) and
+  `listRecentHours`. A saved number of hours that is not a window (from
+  the old hours field) shows as its own option, such as "48 hours".
 
 **Project or path** (per tab, in the URL):
 
@@ -696,10 +698,14 @@ controls):
 - `?path=<path>` shows the rows whose `project_path` equals `<path>`.
 - Only one of the two is active. Rows without a project (Claude Desktop,
   Cowork) do not match either.
-- **Sidebar select:** "All projects", then each project name of the
-  loaded list, A to Z. While a path filter is active, it also shows
-  "Path: <path>". It is always shown, so that it can clear a filter that
-  a URL or the header set.
+- **Sidebar project picker:** a button that opens a list with a field,
+  "Type to filter projects". The list has "All projects" first (also
+  while the user types), "Path: <path>" while a path filter is active,
+  and then each project name of the loaded list, newest first by its
+  latest session. Typing keeps the names that contain the text, ignoring
+  case. The arrow keys and Enter pick an entry; Escape closes the list.
+  The button is always shown, so that it can clear a filter that a URL
+  or the header set.
 - **Conversation header, "List" menu** (Claude Code sessions with a
   path): "Show only this project", "Show only this path", and "Show all
   projects". The label is "List: all", "List: project", "List: path",
@@ -709,8 +715,9 @@ controls):
 
 **Empty state:** when the filters hide every loaded row, the list names
 each active filter ("All 12 conversations hidden by project=foo and
-last 24 h."). It gives a button for each filter that it can clear:
-"Clear active filter", "Show all projects", and "Show older sessions".
+last 1 day."). It gives a button for each filter that it can clear:
+"Clear active filter", "Show all projects", and "Show older sessions"
+(which sets Forever).
 
 **Group sessions by project** (the folder-tree checkbox):
 

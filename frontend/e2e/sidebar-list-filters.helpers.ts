@@ -258,10 +258,20 @@ export function timeSelect(page: Page) {
   return page.getByTestId('sidebar-recent-select')
 }
 
+/**
+ * The trigger label "Last: <option>". "Last:" and the option may be
+ * separate elements, spaced by layout rather than by a space character
+ * (the accessible value reads "Last: 1 day" while textContent is
+ * "Last:1 day"), so the whitespace between them is optional.
+ */
+export function timeLabel(option: string): RegExp {
+  return new RegExp(`Last:\\s*${option.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
+}
+
 /** Pick a window in the time dropdown; the trigger then shows "Last: <option>". */
 export async function pickTime(page: Page, option: string): Promise<void> {
   await pickOption(page, 'sidebar-recent-select', option)
-  await expect(timeSelect(page)).toContainText(`Last: ${option}`)
+  await expect(timeSelect(page)).toContainText(timeLabel(option))
 }
 
 /** The project picker's filter field. */
