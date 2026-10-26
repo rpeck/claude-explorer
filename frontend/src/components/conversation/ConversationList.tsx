@@ -14,6 +14,8 @@ import { useNow } from '@/hooks/useNow'
 import {
   buildFolders,
   displayOrder,
+  nameFolderOf,
+  pathFolderOf,
   groupingApplies,
   isRecent,
   listQueryFilters,
@@ -25,6 +27,7 @@ import {
 // The post-split `/api/conversations` returns ConversationListItem[]
 // (no summary, no human_message_count, no git_branch) — none of which
 // this component reads. See PLANS/SPLIT_CONVERSATION_SCHEMA.md.
+import type { ProjectKey } from '@/lib/conversationListView'
 import type {
   ConversationListItem as ConvListItem,
   SubagentSummary,
@@ -51,6 +54,10 @@ interface ConversationListProps {
   // recent filter. The Sidebar owns both states.
   onShowAllProjects?: () => void
   onShowOlder?: () => void
+  // What a folder is when grouped: one project_path (default) or one name.
+  projectKey?: ProjectKey
+  // The home folder, for ~/... folder tooltips.
+  homeDir?: string
   titleFilter?: string
   titleFilterMode?: FilterMode
   // cowork-multi-org C6: workspace filter (null = "All workspaces").
@@ -116,6 +123,8 @@ export function ConversationList({
   recentHours = null,
   onShowAllProjects,
   onShowOlder,
+  projectKey = 'path',
+  homeDir,
   titleFilter,
   titleFilterMode = 'glob',
   organizationId,
@@ -146,6 +155,10 @@ export function ConversationList({
     sortOrder,
   })
   const { data: rawConversations, isLoading, error } = useConversations(filters)
+  // The inventory for folder labels: the same query without the local
+  // title search (one cache entry), so typing a search does not rename
+  // the folders.
+  const { data: inventory } = useConversations({ ...filters, search: undefined })
   const now = useNow(recentHours != null)
   // The list groups only where the checkbox shows (Sidebar): a hidden
   // checkbox must not keep the list grouped under Desktop or Cowork.
@@ -171,8 +184,12 @@ export function ConversationList({
   }, [rawConversations, projectSlug, projectPath, recentHours, now, titleFilter, titleFilterMode, filtersState])
 
   const folders = useMemo(
-    () => (grouped && conversations ? buildFolders(conversations, sortField, sortOrder) : null),
-    [grouped, conversations, sortField, sortOrder],
+    () => {
+      if (!grouped || !conversations) return null
+      const folderOf = projectKey === 'path' ? pathFolderOf(inventory ?? conversations, homeDir) : nameFolderOf
+      return buildFolders(conversations, sortField, sortOrder, folderOf)
+    },
+    [grouped, conversations, sortField, sortOrder, projectKey, inventory, homeDir],
   )
 
   // Row UUIDs in display order. Keyboard navigation (j/k, arrows) walks
@@ -315,16 +332,17 @@ export function ConversationList({
     // virtualization scope, OPTIMIZE_FIRST_PAINT.md.)
     return (
       <div className="flex flex-col">
-        {folders.map(({ name: groupName, convs: groupConvs }) => {
-          const isCollapsed = collapsedGroups.has(groupName)
+        {folders.map(({ key: groupKey, name: groupName, title: groupTitle, convs: groupConvs }) => {
+          const isCollapsed = collapsedGroups.has(groupKey)
 
           return (
-            <div key={groupName}>
+            <div key={groupKey}>
               <button
                 type="button"
-                onClick={() => toggleGroup(groupName)}
+                onClick={() => toggleGroup(groupKey)}
                 data-testid="list-group-header"
                 data-group-name={groupName}
+                title={groupTitle}
                 aria-expanded={!isCollapsed}
                 className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >

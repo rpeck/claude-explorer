@@ -1,5 +1,7 @@
 """Config router."""
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends
 
 from mcp_server import __version__
@@ -61,6 +63,7 @@ def get_config() -> AppConfig:
         data_dir=str(settings.data_dir),
         config_corrupt_reason=settings.config_corrupt_reason,
         version=__version__,
+        home_dir=str(Path.home()),
     )
 
 
@@ -82,4 +85,5 @@ async def get_config_stats(
         data_dir=str(settings.data_dir),
         conversation_count=store.count_conversations(),
         version=__version__,
+        home_dir=str(Path.home()),
     )

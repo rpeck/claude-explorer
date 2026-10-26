@@ -3,6 +3,9 @@ import { ChevronDown, ListFilter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSetListProjectFilter, useUrlFilters } from '@/hooks/useUrlFilters'
 import { cn } from '@/lib/utils'
+import { useSettings } from '@/contexts/SettingsContext'
+import { useConfig } from '@/hooks/useConversations'
+import { displayPath } from '@/lib/conversationListView'
 
 /**
  * "List" menu in the conversation header: filter the Conversation List to
@@ -41,15 +44,26 @@ export function ListFilterButton({
     }
   }, [open])
 
-  const state: 'all' | 'project' | 'path' | 'other' = path
-    ? path === projectPath
-      ? 'path'
-      : 'other'
-    : project
-      ? project.toLowerCase() === projectName.toLowerCase()
-        ? 'project'
-        : 'other'
-      : 'all'
+  // What a "project" is: one folder path (default) or one folder name
+  // (PLANS/2026.10.26-list-project-key.md). In path mode, "this project"
+  // is this conversation's folder, and the menu needs no separate
+  // folder item.
+  const { listProjectKey } = useSettings()
+  const { data: appConfig } = useConfig()
+  const shownPath = displayPath(projectPath, appConfig?.home_dir)
+  const byPath = listProjectKey === 'path'
+
+  let state: 'all' | 'project' | 'path' | 'other' = 'all'
+  if (path) state = path === projectPath ? 'path' : 'other'
+  else if (project) state = !byPath && project.toLowerCase() === projectName.toLowerCase() ? 'project' : 'other'
+  const label =
+    state === 'all'
+      ? 'Filter list'
+      : state === 'other'
+        ? 'List: other project'
+        : state === 'path' && !byPath
+          ? 'List: this folder'
+          : 'List: this project'
 
   const choose = (next: { project?: string; path?: string }) => {
     setListProjectFilter(next)
@@ -65,12 +79,12 @@ export function ListFilterButton({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Filter the conversation list to this project or path"
+        title="Filter the conversation list to this project"
         data-testid="list-filter-button"
         data-list-filter={state}
       >
         <ListFilter className="h-4 w-4" />
-        <span className="ml-2">List: {state}</span>
+        <span className="ml-2">{label}</span>
         <ChevronDown className="ml-1 h-3 w-3 opacity-60" />
       </Button>
       {open && (
@@ -81,20 +95,32 @@ export function ListFilterButton({
             'dark:border-zinc-700 dark:bg-zinc-900',
           )}
         >
-          <MenuItem
-            onClick={() => choose({ project: projectName })}
-            active={state === 'project'}
-            label="Show only this project"
-            sub={projectName}
-            testId="list-filter-project"
-          />
-          <MenuItem
-            onClick={() => choose({ path: projectPath })}
-            active={state === 'path'}
-            label="Show only this path"
-            sub={projectPath}
-            testId="list-filter-path"
-          />
+          {byPath ? (
+            <MenuItem
+              onClick={() => choose({ path: projectPath })}
+              active={state === 'path'}
+              label="Show only this project"
+              sub={shownPath}
+              testId="list-filter-project"
+            />
+          ) : (
+            <>
+              <MenuItem
+                onClick={() => choose({ project: projectName })}
+                active={state === 'project'}
+                label="Show only this project"
+                sub={projectName}
+                testId="list-filter-project"
+              />
+              <MenuItem
+                onClick={() => choose({ path: projectPath })}
+                active={state === 'path'}
+                label="Show only this folder"
+                sub={shownPath}
+                testId="list-filter-path"
+              />
+            </>
+          )}
           <div className="my-1 h-px bg-zinc-200 dark:bg-zinc-700" />
           <button
             type="button"

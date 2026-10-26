@@ -34,8 +34,27 @@ export function listQueryFilters(o: {
 }
 
 export interface Folder {
+  /** The folder's identity: a project_path in path mode, else the name. */
+  key: string
+  /** The folder header's text. */
   name: string
+  /** The folder header's tooltip (the display path in path mode). */
+  title?: string
   convs: ConversationListItem[]
+}
+
+/** Where a row goes when the list groups by project. */
+export interface FolderId {
+  key: string
+  label: string
+  title?: string
+}
+
+/** What a "project" is (PLANS/2026.10.26-list-project-key.md). */
+export type ProjectKey = 'path' | 'name'
+
+export function isProjectKey(v: unknown): v is ProjectKey {
+  return v === 'path' || v === 'name'
 }
 
 export interface ProjectFilter {
@@ -56,8 +75,8 @@ export function folderName(conv: ConversationListItem): string {
   return 'Untagged (re-fetch to assign workspace)'
 }
 
-/** The value of one row for a sort field. Project sorts by folder name. */
-function sortValue(conv: ConversationListItem, field: SortField): number | string {
+/** The value of one row for a sort field. Project sorts by the folder's label. */
+function sortValue(conv: ConversationListItem, field: SortField, folderLabel: string): number | string {
   switch (field) {
     case 'updated_at':
       return Date.parse(conv.updated_at)
@@ -66,7 +85,30 @@ function sortValue(conv: ConversationListItem, field: SortField): number | strin
     case 'name':
       return (conv.name ?? '').toLowerCase()
     case 'project':
-      return folderName(conv).toLowerCase()
+      return folderLabel.toLowerCase()
+  }
+}
+
+/** Name mode (and every row that is not a Claude Code session): the folder name. */
+export function nameFolderOf(conv: ConversationListItem): FolderId {
+  const name = folderName(conv)
+  return { key: name, label: name }
+}
+
+/**
+ * Path mode: one folder per project_path, named by its label. The labels
+ * come from the paths of `inventory`, so that a filter does not change them.
+ */
+export function pathFolderOf(
+  inventory: ConversationListItem[],
+  home: string | undefined,
+): (conv: ConversationListItem) => FolderId {
+  const labels = pathLabels(claudeCodePaths(inventory), home)
+  return (conv) => {
+    if (conv.source !== 'CLAUDE_CODE') return nameFolderOf(conv)
+    const path = conv.project_path
+    if (!path) return { key: 'Unknown Project', label: 'Unknown Project' }
+    return { key: path, label: labels.get(path) ?? displayPath(path, home), title: displayPath(path, home) }
   }
 }
 
@@ -85,33 +127,42 @@ export function buildFolders(
   convs: ConversationListItem[],
   field: SortField,
   order: SortOrder,
+  folderOf: (conv: ConversationListItem) => FolderId = nameFolderOf,
 ): Folder[] {
-  const byName = new Map<string, ConversationListItem[]>()
+  const byKey = new Map<string, { id: FolderId; rows: ConversationListItem[] }>()
   for (const conv of convs) {
-    const name = folderName(conv)
-    let bucket = byName.get(name)
+    const id = folderOf(conv)
+    let bucket = byKey.get(id.key)
     if (!bucket) {
-      bucket = []
-      byName.set(name, bucket)
+      bucket = { id, rows: [] }
+      byKey.set(id.key, bucket)
     }
-    bucket.push(conv)
+    bucket.rows.push(conv)
   }
   const sign = order === 'desc' ? -1 : 1
-  const keyed = Array.from(byName, ([name, rows]) => {
-    let key = sortValue(rows[0], field)
+  const keyed = Array.from(byKey.values(), ({ id, rows }) => {
+    let sortKey = sortValue(rows[0], field, id.label)
     for (const row of rows) {
-      const value = sortValue(row, field)
-      if (compare(value, key) * sign < 0) key = value
+      const value = sortValue(row, field, id.label)
+      if (compare(value, sortKey) * sign < 0) sortKey = value
     }
-    return { name, key, convs: [...rows.filter((c) => c.is_starred), ...rows.filter((c) => !c.is_starred)] }
+    const ordered = [...rows.filter((c) => c.is_starred), ...rows.filter((c) => !c.is_starred)]
+    return { id, sortKey, convs: ordered }
   })
-  keyed.sort((a, b) => compare(a.key, b.key) * sign || compare(a.name.toLowerCase(), b.name.toLowerCase()))
-  return keyed.map(({ name, convs: rows }) => ({ name, convs: rows }))
+  keyed.sort(
+    (a, b) => compare(a.sortKey, b.sortKey) * sign || compare(a.id.label.toLowerCase(), b.id.label.toLowerCase()),
+  )
+  return keyed.map(({ id, convs: rows }) => ({
+    key: id.key,
+    name: id.label,
+    ...(id.title !== undefined && { title: id.title }),
+    convs: rows,
+  }))
 }
 
 /** Row UUIDs in display order, folder by folder, without collapsed folders. */
 export function displayOrder(folders: Folder[], collapsed: Set<string>): string[] {
-  return folders.filter((f) => !collapsed.has(f.name)).flatMap((f) => f.convs.map((c) => c.uuid))
+  return folders.filter((f) => !collapsed.has(f.key)).flatMap((f) => f.convs.map((c) => c.uuid))
 }
 
 export function matchesProjectFilter(conv: ConversationListItem, filter: ProjectFilter): boolean {
@@ -124,26 +175,115 @@ export function isRecent(conv: ConversationListItem, nowMs: number, hours: numbe
   return Date.parse(conv.updated_at) >= nowMs - hours * HOUR_MS
 }
 
+const SEPARATOR = /[\\/]/
+
 /**
- * Each project name once (the first spelling wins), newest first: a
- * project sorts by the latest `updated_at` of its sessions, so the
- * projects that the user works in now come first. A tie sorts by name,
- * A to Z, ignoring case.
+ * A path as the user reads it: inside the home folder it starts with `~`
+ * (`~/Source/clientco/ai`); any other path stays as it is. Works with `/`
+ * and with `\\` (Windows).
  */
-export function projectOptions(convs: ConversationListItem[]): string[] {
-  const seen = new Map<string, { name: string; latest: number }>()
-  for (const conv of convs) {
-    const name = conv.project_name
-    if (!name) continue
-    const key = name.toLowerCase()
-    const at = Date.parse(conv.updated_at)
-    const entry = seen.get(key)
-    if (!entry) seen.set(key, { name, latest: at })
-    else if (at > entry.latest) entry.latest = at
+export function displayPath(path: string, home: string | undefined): string {
+  if (!home) return path
+  const h = home.replace(/[\\/]+$/, '')
+  const p = path.replace(/[\\/]+$/, '')
+  if (p === h) return '~'
+  if (h && p.startsWith(h) && SEPARATOR.test(p.charAt(h.length))) return '~' + p.slice(h.length)
+  return path
+}
+
+function claudeCodePaths(convs: ConversationListItem[]): string[] {
+  const paths = new Set<string>()
+  for (const c of convs) if (c.source === 'CLAUDE_CODE' && c.project_path) paths.add(c.project_path)
+  return [...paths]
+}
+
+/**
+ * Path-mode labels: the last 2 parts of each display path. When two or
+ * more labels are the same, each of them grows by one part, until every
+ * label is unique or a path has no parts left. A display path with 2
+ * parts or fewer is its own label (`~/foo`, `/tmp`).
+ */
+function pathLabels(paths: string[], home: string | undefined): Map<string, string> {
+  const items = paths.map((path) => {
+    const shown = displayPath(path, home)
+    return { path, shown, parts: shown.split(SEPARATOR).filter(Boolean), n: 2 }
+  })
+  const labelOf = (i: (typeof items)[number]) =>
+    i.parts.length <= i.n ? i.shown : i.parts.slice(-i.n).join('/')
+  for (;;) {
+    const groups = new Map<string, typeof items>()
+    for (const i of items) {
+      const label = labelOf(i)
+      const group = groups.get(label)
+      if (group) group.push(i)
+      else groups.set(label, [i])
+    }
+    let grew = false
+    for (const group of groups.values()) {
+      if (group.length < 2) continue
+      for (const i of group) {
+        if (i.parts.length > i.n) {
+          i.n += 1
+          grew = true
+        }
+      }
+    }
+    if (!grew) break
   }
-  return Array.from(seen.values())
-    .sort((a, b) => b.latest - a.latest || compare(a.name.toLowerCase(), b.name.toLowerCase()))
-    .map((e) => e.name)
+  return new Map(items.map((i) => [i.path, labelOf(i)]))
+}
+
+/** One entry of the project picker. */
+export interface ProjectEntry {
+  /** What a pick sets: the project_path (path mode) or the name (name mode). */
+  id: string
+  label: string
+  /** The second line: the display path, or "N folders" in name mode. */
+  detail: string
+  /** The tooltip: every display path of the entry, one per line. */
+  title: string
+  latest: number
+}
+
+/**
+ * The picker's entries from the inventory (the loaded Claude Code
+ * sessions), newest first by each entry's latest session; a tie sorts by
+ * label, A to Z, ignoring case.
+ */
+export function projectEntries(
+  convs: ConversationListItem[],
+  key: ProjectKey,
+  home: string | undefined,
+): ProjectEntry[] {
+  const groups = new Map<string, { id: string; paths: Set<string>; latest: number }>()
+  for (const conv of convs) {
+    if (conv.source !== 'CLAUDE_CODE' || !conv.project_path) continue
+    const id = key === 'path' ? conv.project_path : conv.project_name
+    if (!id) continue
+    const groupKey = key === 'path' ? id : id.toLowerCase()
+    const at = Date.parse(conv.updated_at)
+    const group = groups.get(groupKey)
+    if (!group) groups.set(groupKey, { id, paths: new Set([conv.project_path]), latest: at })
+    else {
+      group.paths.add(conv.project_path)
+      if (at > group.latest) group.latest = at
+    }
+  }
+  const labels = key === 'path' ? pathLabels([...groups.keys()], home) : null
+  const entries = Array.from(groups.values(), ({ id, paths, latest }) => {
+    const shown = [...paths].map((p) => displayPath(p, home)).sort()
+    const label = labels ? (labels.get(id) ?? shown[0]) : id
+    const detail = shown.length === 1 ? shown[0] : `${shown.length} folders`
+    return { id, label, detail, title: shown.join('\n'), latest }
+  })
+  return entries.sort((a, b) => b.latest - a.latest || compare(a.label.toLowerCase(), b.label.toLowerCase()))
+}
+
+/** Typing in the picker: the label, the second line, or a path contains the text. */
+export function entryMatches(entry: ProjectEntry, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return [entry.label, entry.detail, entry.title].some((text) => text.toLowerCase().includes(q))
 }
 
 export interface RecentOption {
