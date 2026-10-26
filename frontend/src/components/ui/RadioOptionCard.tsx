@@ -46,6 +46,8 @@ interface RadioOptionCardProps {
   icon?: ReactNode
   active: boolean
   layout: 'inline' | 'stacked'
+  /** data-testid on the card. */
+  testId?: string
 }
 
 const ACTIVE_BORDER =
@@ -61,6 +63,7 @@ export function RadioOptionCard({
   icon,
   active,
   layout,
+  testId,
 }: RadioOptionCardProps) {
   const borderClass = active ? ACTIVE_BORDER : INACTIVE_BORDER
   const itemId = id ?? value
@@ -70,6 +73,7 @@ export function RadioOptionCard({
       // oxlint-disable-next-line react-doctor/label-has-associated-control -- Radix RadioGroupItem renders as <button role="radio">; oxlint can't see through the abstraction. Click-on-label works via DOM containment + React event bubbling.
       <label
         className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${borderClass}`}
+        data-testid={testId}
       >
         <RadioGroupItem value={value} id={itemId} />
         {icon}
@@ -83,6 +87,7 @@ export function RadioOptionCard({
     // oxlint-disable-next-line react-doctor/label-has-associated-control -- See inline-variant rationale above.
     <label
       className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${borderClass}`}
+      data-testid={testId}
     >
       <RadioGroupItem value={value} id={itemId} className="mt-0.5" />
       <div className="flex flex-col">

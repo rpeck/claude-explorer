@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- safe: context Provider, hook, and three runtime predicates (isTheme/isKeyboardMode/isMarkdownExportMode) co-located by intent. The predicates pair-narrow the Settings unions; splitting them into a separate file would force every consumer to track two imports. HMR fast refresh falls back to full reload for this file; no runtime impact. */
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { isProjectKey, type ProjectKey } from '@/lib/conversationListView'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { SortField, SortOrder } from '@/lib/types'
 import { usePreferences } from '@/hooks/usePreferences'
@@ -88,6 +89,10 @@ interface SettingsContextType {
   setListRecentOnly: (on: boolean) => void
   listRecentHours: number
   setListRecentHours: (hours: number) => void
+  // What a "project" is in the list's picker and folders: one folder path
+  // (default) or one folder name (PLANS/2026.10.26-list-project-key.md).
+  listProjectKey: ProjectKey
+  setListProjectKey: (key: ProjectKey) => void
   // Theme settings
   theme: Theme
   setTheme: (theme: Theme) => void
@@ -169,6 +174,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   )
   const [listRecentOnly, setListRecentOnly] = usePreferences<boolean>('listRecentOnly', true)
   const [listRecentHours, setListRecentHours] = usePreferences<number>('listRecentHours', 24)
+  const [rawListProjectKey, setListProjectKey] = usePreferences<ProjectKey>('listProjectKey', 'path')
+  // A missing or unknown saved value means "path".
+  const listProjectKey: ProjectKey = isProjectKey(rawListProjectKey) ? rawListProjectKey : 'path'
   const [theme, setTheme] = usePreferences<Theme>('theme', 'system')
   const [keyboardMode, setKeyboardMode] = usePreferences<KeyboardMode>(
     'keyboardMode',
@@ -300,6 +308,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setListRecentOnly,
       listRecentHours,
       setListRecentHours,
+      listProjectKey,
+      setListProjectKey,
       theme,
       setTheme,
       effectiveTheme,
@@ -329,6 +339,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setListRecentOnly,
       listRecentHours,
       setListRecentHours,
+      listProjectKey,
+      setListProjectKey,
       theme,
       setTheme,
       effectiveTheme,

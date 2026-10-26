@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { Sun, Moon, Monitor, Settings, Keyboard, Database, Info, ExternalLink, FileText } from 'lucide-react'
+import { Sun, Moon, Monitor, Settings, Keyboard, Database, Info, ExternalLink, FileText, FolderTree } from 'lucide-react'
+import { isProjectKey } from '@/lib/conversationListView'
 import {
   useSettings,
   isTheme,
@@ -19,6 +20,8 @@ export function SettingsPage() {
     setKeyboardMode,
     markdownExportMode,
     setMarkdownExportMode,
+    listProjectKey,
+    setListProjectKey,
   } = useSettings()
   // V1 polish 2026-05-24 (Bug 2) — the previous
   // `export.includeCompactContent` pref + checkbox was REMOVED. The
@@ -169,6 +172,50 @@ export function SettingsPage() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Press <kbd className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs dark:bg-zinc-800">?</kbd> anywhere to see all keyboard shortcuts
               </p>
+            </div>
+          </section>
+
+          {/* Conversation List: what a "project" is in the list's project
+              picker and its folders (PLANS/2026.10.26-list-project-key.md). */}
+          <section className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800" data-section="conversation-list">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              <FolderTree className="h-5 w-5" />
+              Conversation List
+            </h2>
+            <div className="space-y-3">
+              <div
+                id="settings-project-key-label"
+                className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              >
+                Projects are
+              </div>
+              <RadioGroup
+                value={listProjectKey}
+                onValueChange={(value) => {
+                  if (isProjectKey(value)) setListProjectKey(value)
+                }}
+                className="grid grid-cols-2 gap-3"
+                aria-labelledby="settings-project-key-label"
+              >
+                <RadioOptionCard
+                  value="path"
+                  id="settings-project-key-path-radio"
+                  title="Folder path"
+                  description="Each folder is its own project."
+                  active={listProjectKey === 'path'}
+                  layout="stacked"
+                  testId="settings-project-key-path"
+                />
+                <RadioOptionCard
+                  value="name"
+                  id="settings-project-key-name-radio"
+                  title="Folder name"
+                  description="Folders with the same name are one project."
+                  active={listProjectKey === 'name'}
+                  layout="stacked"
+                  testId="settings-project-key-name"
+                />
+              </RadioGroup>
             </div>
           </section>
 

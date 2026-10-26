@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useSetListProjectFilter, useUrlFilters } from '@/hooks/useUrlFilters'
-import { useConversations } from '@/hooks/useConversations'
-import { listQueryFilters, projectOptions, recentOptions } from '@/lib/conversationListView'
+import { useConfig, useConversations } from '@/hooks/useConversations'
+import { listQueryFilters, projectEntries, recentOptions } from '@/lib/conversationListView'
 import { ProjectPicker } from '@/components/layout/ProjectPicker'
 import { useFilters } from '@/contexts/FilterContext'
 import { ManageFiltersModal } from '@/components/filters/ManageFiltersModal'
@@ -97,6 +97,7 @@ export function Sidebar({ className }: SidebarProps) {
     listRecentOnly,
     setListRecentOnly,
     listRecentHours,
+    listProjectKey,
     setListRecentHours,
     theme,
     setTheme,
@@ -117,7 +118,13 @@ export function Sidebar({ className }: SidebarProps) {
       sortOrder,
     }),
   )
-  const projects = useMemo(() => projectOptions(loadedConversations ?? []), [loadedConversations])
+  // The home folder makes paths read as ~/... (PLANS/2026.10.26-list-project-key.md).
+  const { data: appConfig } = useConfig()
+  const homeDir = appConfig?.home_dir
+  const projects = useMemo(
+    () => projectEntries(loadedConversations ?? [], listProjectKey, homeDir),
+    [loadedConversations, listProjectKey, homeDir],
+  )
 
   // Time dropdown: "Forever" turns the recent filter off; every other
   // window sets its hours. The two preferences stay as before.
@@ -298,9 +305,11 @@ export function Sidebar({ className }: SidebarProps) {
             Always shown: a hidden control could not clear a filter that
             a URL or the conversation header set. */}
         <ProjectPicker
-          projects={projects}
+          entries={projects}
+          mode={listProjectKey}
           project={urlFilters.project}
           path={urlFilters.path}
+          home={homeDir}
           onChange={setListProjectFilter}
         />
         {/* Sort controls */}
@@ -441,6 +450,8 @@ export function Sidebar({ className }: SidebarProps) {
           projectSlug={urlFilters.project || undefined}
           projectPath={urlFilters.path || undefined}
           recentHours={listRecentOnly ? listRecentHours : null}
+          projectKey={listProjectKey}
+          homeDir={homeDir}
           onShowAllProjects={() => setListProjectFilter({})}
           onShowOlder={() => setListRecentOnly(false)}
           titleFilter={urlFilters.title || undefined}

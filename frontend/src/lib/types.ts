@@ -435,6 +435,10 @@ export interface AppConfig {
   // Settings page's About section. Optional: servers before 2026-10-21
   // do not send it.
   version?: string
+  // The home folder of the user that runs the server, so the page can
+  // show project paths as ~/... (PLANS/2026.10.26-list-project-key.md).
+  // Absent from an older server: the page then shows absolute paths.
+  home_dir?: string
 }
 
 export interface AppConfigStats extends AppConfig {

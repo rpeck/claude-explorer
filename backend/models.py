@@ -450,6 +450,10 @@ class AppConfig(BaseModel):
     #: The installed release (``mcp_server.__version__``), for the Settings
     #: page's About section.
     version: str
+    #: The home folder of the user that runs the server, so the web page can
+    #: show project paths as ``~/...`` (PLANS/2026.10.26-list-project-key.md).
+    #: A browser has no other way to know it.
+    home_dir: str
 
 
 class AppConfigStats(AppConfig):
