@@ -804,16 +804,17 @@ function ConversationListItem({
   // bottom then sat below the visible area (2026-10-26). Only the
   // selected row that is mounted watches, so a row that the user
   // scrolled far away from (unmounted by the virtualizer) cannot pull the
-  // list back. The first callback reports the size at observe time; it
-  // is skipped, because the effect above already scrolled.
+  // list back. The height is read when watching starts: the browser can
+  // deliver the first callback late, after the list already shrank, so
+  // "skip the first callback" missed exactly this case.
   useEffect(() => {
     const el = itemRef.current
     const viewport = el?.closest<HTMLElement>('[data-radix-scroll-area-viewport]')
     if (!isSelected || !el || !viewport || typeof ResizeObserver === 'undefined') return
-    let lastHeight: number | null = null
+    let lastHeight = viewport.clientHeight
     const observer = new ResizeObserver(() => {
       const height = viewport.clientHeight
-      if (lastHeight !== null && height !== lastHeight) {
+      if (height !== lastHeight) {
         el.scrollIntoView({ block: 'nearest' })
       }
       lastHeight = height
