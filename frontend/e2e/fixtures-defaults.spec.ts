@@ -1,4 +1,4 @@
-import { test, expect, withNetRetry, expectNetworkError, E2E_DEFAULT_PREFS } from './fixtures'
+import { test, expect, withNetRetry, expectNetworkError, E2E_DEFAULT_PREFS, E2E_HOME_DIR } from './fixtures'
 
 /**
  * M1 of the mock-data conversion plan
@@ -72,6 +72,9 @@ test.describe('mockBackend default routes (M1)', () => {
     const body = JSON.parse(r.body)
     expect(body).toHaveProperty('data_dir')
     expect(body).not.toHaveProperty('conversation_count')
+    // The page shows paths under the home folder as ~/... (round 3 of the
+    // list filters), so the mock reports a fixture home folder.
+    expect(body.home_dir).toBe(E2E_HOME_DIR)
   })
 
   test('GET /api/config/stats returns AppConfigStats JSON with conversation_count', async ({ page, mockBackend }) => {

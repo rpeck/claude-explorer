@@ -286,14 +286,46 @@ export async function openProjectPicker(page: Page): Promise<void> {
   await expect(projectFilter(page)).toBeFocused()
 }
 
-/** The entries (role="option") on the page, top to bottom. */
-export async function projectEntries(page: Page): Promise<string[]> {
-  return (await page.getByRole('option').allInnerTexts()).map((t) => t.trim())
+export interface ProjectEntry {
+  /** The entry's text without its second line. */
+  label: string
+  /** The second line (`project-entry-detail`), or null when there is none. */
+  detail: string | null
 }
 
-/** Poll until the open picker lists exactly `want`, in order. */
+/**
+ * The entries (role="option") on the page, top to bottom, each split into
+ * its label and its second line (round 3: `project-entry-detail`).
+ */
+export async function projectEntryParts(page: Page): Promise<ProjectEntry[]> {
+  return page.getByRole('option').evaluateAll((els) =>
+    els.map((el) => {
+      const detailEl = el.querySelector('[data-testid="project-entry-detail"]')
+      const clone = el.cloneNode(true) as HTMLElement
+      clone.querySelector('[data-testid="project-entry-detail"]')?.remove()
+      return {
+        label: (clone.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        detail: detailEl ? (detailEl.textContent ?? '').replace(/\s+/g, ' ').trim() : null,
+      }
+    }),
+  )
+}
+
+/** The entry labels (without the second line), top to bottom. */
+export async function projectEntries(page: Page): Promise<string[]> {
+  return (await projectEntryParts(page)).map((e) => e.label)
+}
+
+/** Poll until the open picker lists exactly `want` (labels), in order. */
 export async function expectProjectEntries(page: Page, want: string[]): Promise<void> {
   await expect.poll(() => projectEntries(page)).toEqual(want)
+}
+
+/** The option whose label (without its second line) is `label`. */
+export async function projectOption(page: Page, label: string) {
+  await expect.poll(() => projectEntries(page), { message: `entry "${label}" in the picker` }).toContain(label)
+  const index = (await projectEntries(page)).indexOf(label)
+  return page.getByRole('option').nth(index)
 }
 
 /** Close the open project picker with Escape. */
@@ -302,11 +334,18 @@ export async function closeProjectPicker(page: Page): Promise<void> {
   await expect(projectFilter(page)).toBeHidden()
 }
 
-/** Open the project picker and click one entry by its exact text. */
+/** Open the project picker and click one entry by its label. */
 export async function pickProject(page: Page, entry: string): Promise<void> {
   await openProjectPicker(page)
-  const opt = page.getByRole('option', { name: entry, exact: true })
+  const opt = await projectOption(page, entry)
   await expect(opt).toBeVisible()
   await opt.click()
   await expect(projectFilter(page)).toBeHidden()
 }
+
+/**
+ * Preferences for the tests that mean name mode (round 3,
+ * `listProjectKey: "name"`): the name merge, `?project=` from the picker,
+ * folders by name, and the header's project and folder items.
+ */
+export const NAME_MODE = { listProjectKey: 'name' } as const

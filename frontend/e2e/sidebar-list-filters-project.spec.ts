@@ -20,6 +20,7 @@ import {
   sentPrefValues,
   sidebar,
   startClock,
+  NAME_MODE,
   timeLabel,
   timeSelect,
   urlParam,
@@ -29,7 +30,9 @@ import {
  * Sidebar list filters, project and path: test cases 5-8, 10, and 15 of
  * PLANS/2026.10.25-sidebar-list-filters.md, changed to the round-2 project
  * picker and time dropdown of PLANS/2026.10.26-list-filter-dropdowns.md.
- * Black-box, from the spec.
+ * Black-box, from the spec. Round 3 (PLANS/2026.10.26-list-project-key.md):
+ * the tests that mean name mode set `listProjectKey: "name"` (NAME_MODE),
+ * and the header labels follow the round-3 table.
  * Case 16 (no console errors or warnings) holds for every test through
  * the auto `consoleAssertions` fixture.
  */
@@ -59,7 +62,8 @@ test.describe('Sidebar list filters: project select', () => {
     page,
     mockBackend,
   }) => {
-    await mockBackend({ conversations: SET5, extraRoutes: listHonoringSource(SET5) })
+    // Name mode: beta joins /w/beta and /x/beta (round 3).
+    await mockBackend({ conversations: SET5, preferences: NAME_MODE, extraRoutes: listHonoringSource(SET5) })
     await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, SET5, [])
@@ -96,7 +100,7 @@ test.describe('Sidebar list filters: project select', () => {
     const rows = [oldZeta, alpha1, beta1]
     await mockBackend({
       conversations: rows,
-      preferences: { listRecentOnly: true, listRecentHours: 24 },
+      preferences: { ...NAME_MODE, listRecentOnly: true, listRecentHours: 24 },
       extraRoutes: listHonoringSource(rows),
     })
     await startClock(page)
@@ -111,13 +115,15 @@ test.describe('Sidebar list filters: project select', () => {
 })
 
 test.describe('Sidebar list filters: conversation-header "List" menu', () => {
-  test('6 header, path vs project: from a /b/foo session, path shows only /b/foo; project shows /a/foo and /b/foo; "Show all projects" shows all', async ({
+  test('6 header, folder vs project (name mode): from a /b/foo session, "Show only this folder" shows only /b/foo ("List: this folder"); "Show only this project" shows /a/foo and /b/foo ("List: this project"); "Show all projects" shows all ("Filter list")', async ({
     page,
     mockBackend,
   }) => {
     await mockBackend({
       conversations: SET6,
       details: detailsFor(SET6),
+      // Name mode: the menu has the project and the folder items (round 3).
+      preferences: NAME_MODE,
       extraRoutes: listHonoringSource(SET6),
     })
     await withNetRetry(page, () => page.goto(`/conversations/${fooB1.uuid}`))
@@ -125,7 +131,7 @@ test.describe('Sidebar list filters: conversation-header "List" menu', () => {
     await expectRows(page, SET6, [])
 
     await expect(label(page)).toHaveAttribute('data-list-filter', 'all')
-    await expect(label(page)).toContainText('List: all')
+    await expect(label(page)).toContainText('Filter list')
 
     // "Show all projects" is disabled while no project or path filter is active.
     await page.getByTestId('list-filter-button').click()
@@ -138,30 +144,32 @@ test.describe('Sidebar list filters: conversation-header "List" menu', () => {
     await expectUrlParams(page, { path: '/b/foo', project: null })
     await expectRows(page, [fooB1], [fooA1, fooA2, barC1, desk6])
     await expect(label(page)).toHaveAttribute('data-list-filter', 'path')
-    await expect(label(page)).toContainText('List: path')
+    await expect(label(page)).toContainText('List: this folder')
 
     await listMenu(page, 'list-filter-project')
     await expectUrlParams(page, { project: 'foo', path: null })
     await expectRows(page, [fooA1, fooA2, fooB1], [barC1, desk6])
     await expect(label(page)).toHaveAttribute('data-list-filter', 'project')
-    await expect(label(page)).toContainText('List: project')
+    await expect(label(page)).toContainText('List: this project')
 
     await listMenu(page, 'list-filter-clear')
     await expectUrlParams(page, { project: null, path: null })
     await expectRows(page, SET6, [])
     await expect(label(page)).toHaveAttribute('data-list-filter', 'all')
-    await expect(label(page)).toContainText('List: all')
+    await expect(label(page)).toContainText('Filter list')
     // The open conversation stays open throughout.
     await expect(page).toHaveURL(new RegExp(`/conversations/${fooB1.uuid}`))
   })
 
-  test('6 header, other: a filter for another project or path shows "List: other", and "Show all projects" is enabled', async ({
+  test('6 header, other: a filter for another project or path shows "List: other project", and "Show all projects" is enabled', async ({
     page,
     mockBackend,
   }) => {
     await mockBackend({
       conversations: SET6,
       details: detailsFor(SET6),
+      // Name mode: the menu has the project and the folder items (round 3).
+      preferences: NAME_MODE,
       extraRoutes: listHonoringSource(SET6),
     })
     // A /c/bar session, while the list shows project foo.
@@ -169,7 +177,7 @@ test.describe('Sidebar list filters: conversation-header "List" menu', () => {
     await expect(page.locator(`[data-message-uuid="${messageUuid(barC1)}"]`)).toBeVisible()
     await expectRows(page, [fooA1, fooA2, fooB1], [barC1, desk6])
     await expect(label(page)).toHaveAttribute('data-list-filter', 'other')
-    await expect(label(page)).toContainText('List: other')
+    await expect(label(page)).toContainText('List: other project')
 
     await page.getByTestId('list-filter-button').click()
     await expect(page.getByTestId('list-filter-clear')).toBeEnabled()
@@ -181,7 +189,7 @@ test.describe('Sidebar list filters: conversation-header "List" menu', () => {
     await expect(page.locator(`[data-message-uuid="${messageUuid(fooB1)}"]`)).toBeVisible()
     await expectRows(page, [fooA1, fooA2], [fooB1, barC1, desk6])
     await expect(label(page)).toHaveAttribute('data-list-filter', 'other')
-    await expect(label(page)).toContainText('List: other')
+    await expect(label(page)).toContainText('List: other project')
 
     await listMenu(page, 'list-filter-clear')
     await expectUrlParams(page, { project: null, path: null })
@@ -212,6 +220,8 @@ test.describe('Sidebar list filters: conversation-header "List" menu', () => {
     await mockBackend({
       conversations: SET6,
       details: detailsFor(SET6),
+      // Name mode: the menu has the project and the folder items (round 3).
+      preferences: NAME_MODE,
       extraRoutes: listHonoringSource(SET6),
     })
     await withNetRetry(page, () => page.goto(`/conversations/${fooB1.uuid}?q=o`))
@@ -264,7 +274,7 @@ test.describe('Sidebar list filters: empty state', () => {
   }) => {
     await mockBackend({
       conversations: SET10,
-      preferences: { listRecentOnly: true, listRecentHours: 24 },
+      preferences: { ...NAME_MODE, listRecentOnly: true, listRecentHours: 24 },
       extraRoutes: listHonoringSource(SET10),
     })
     await openHiddenByBoth(page)
@@ -279,7 +289,7 @@ test.describe('Sidebar list filters: empty state', () => {
   test('10 empty state: "Show all projects" removes the URL filter', async ({ page, mockBackend }) => {
     await mockBackend({
       conversations: SET10,
-      preferences: { listRecentOnly: true, listRecentHours: 24 },
+      preferences: { ...NAME_MODE, listRecentOnly: true, listRecentHours: 24 },
       extraRoutes: listHonoringSource(SET10),
     })
     await openHiddenByBoth(page)
@@ -304,7 +314,7 @@ test.describe('Sidebar list filters: reload', () => {
   }) => {
     await mockBackend({
       conversations: SET15,
-      preferences: { listRecentOnly: true },
+      preferences: { ...NAME_MODE, listRecentOnly: true },
       extraRoutes: listHonoringSource(SET15),
     })
     await startClock(page)
@@ -332,7 +342,7 @@ test.describe('Sidebar list filters: reload', () => {
     await mockBackend({
       conversations: SET15,
       details: detailsFor(SET15),
-      preferences: { listRecentOnly: true, listRecentHours: 24 },
+      preferences: { ...NAME_MODE, listRecentOnly: true, listRecentHours: 24 },
       extraRoutes: listHonoringSource(SET15),
     })
     await startClock(page)
