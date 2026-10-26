@@ -140,8 +140,14 @@ jobs:
       # error-context.md page snapshot per failed test) is in test-results/.
       # Before 2026-10-25 this step uploaded only playwright-report/, so a
       # failed run kept nothing.
-      - name: Upload Playwright results on failure
-        if: failure()
+      #
+      # Upload on success too: a flaky test fails once, passes on a retry,
+      # and the job passes, but its failed attempt still leaves a screenshot
+      # and a page snapshot in test-results/. With `if: failure()` those
+      # were thrown away, and three flakes on main (2026-10-26) had no
+      # evidence at all.
+      - name: Upload Playwright results (failures and flaky retries)
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: playwright-results
