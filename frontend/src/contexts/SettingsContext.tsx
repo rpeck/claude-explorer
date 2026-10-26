@@ -84,7 +84,8 @@ interface SettingsContextType {
   groupByProject: boolean
   setGroupByProject: (group: boolean) => void
   // Conversation List: show only sessions active in the last N hours
-  // (UX.md → "Conversation List filters"). Default on, 24.
+  // (UX.md → "Conversation List filters"). Default off ("Forever"); the
+  // hours stay 24, so that a later pick of "1 day" means one day.
   listRecentOnly: boolean
   setListRecentOnly: (on: boolean) => void
   listRecentHours: number
@@ -93,6 +94,9 @@ interface SettingsContextType {
   // (default) or one folder name (PLANS/2026.10.26-list-project-key.md).
   listProjectKey: ProjectKey
   setListProjectKey: (key: ProjectKey) => void
+  // Whether the sidebar's "Filters and Sorting" section is open.
+  sidebarFiltersOpen: boolean
+  setSidebarFiltersOpen: (open: boolean) => void
   // Theme settings
   theme: Theme
   setTheme: (theme: Theme) => void
@@ -172,7 +176,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     'groupByProject',
     false,
   )
-  const [listRecentOnly, setListRecentOnly] = usePreferences<boolean>('listRecentOnly', true)
+  // Default off since 2026-10-26: opening the app to find an old
+  // conversation must not need a filter change first.
+  const [listRecentOnly, setListRecentOnly] = usePreferences<boolean>('listRecentOnly', false)
+  // The sidebar's "Filters and Sorting" section: closed by default; the
+  // user's choice is kept across reloads and restarts.
+  const [sidebarFiltersOpen, setSidebarFiltersOpen] = usePreferences<boolean>('sidebarFiltersOpen', false)
   const [listRecentHours, setListRecentHours] = usePreferences<number>('listRecentHours', 24)
   const [rawListProjectKey, setListProjectKey] = usePreferences<ProjectKey>('listProjectKey', 'path')
   // A missing or unknown saved value means "path".
@@ -310,6 +319,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setListRecentHours,
       listProjectKey,
       setListProjectKey,
+      sidebarFiltersOpen,
+      setSidebarFiltersOpen,
       theme,
       setTheme,
       effectiveTheme,
@@ -341,6 +352,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setListRecentHours,
       listProjectKey,
       setListProjectKey,
+      sidebarFiltersOpen,
+      setSidebarFiltersOpen,
       theme,
       setTheme,
       effectiveTheme,

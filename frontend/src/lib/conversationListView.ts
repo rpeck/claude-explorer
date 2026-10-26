@@ -335,3 +335,30 @@ export function recentLabel(recentOnly: boolean, hours: number): string {
 export function groupingApplies(groupByProject: boolean, source: SourceFilter | undefined): boolean {
   return groupByProject && (source === undefined || source === 'all' || source === 'CLAUDE_CODE')
 }
+
+/**
+ * How many list filters differ from their defaults, for the "N active"
+ * count on the "Filters and Sorting" header
+ * (PLANS/2026.10.26-sidebar-filters-accordion.md). Sorting and grouping do
+ * not count: they order the list; they hide no rows.
+ */
+export function activeFilterCount(f: {
+  namedFilter: boolean
+  source: SourceFilter
+  workspace: string | null
+  project: string
+  path: string
+  recentOnly: boolean
+  showEmpty: boolean
+  showArchived: boolean
+}): number {
+  return [
+    f.namedFilter,
+    f.source !== 'all',
+    !!f.workspace,
+    !!(f.project || f.path),
+    f.recentOnly,
+    f.showEmpty,
+    f.showArchived,
+  ].filter(Boolean).length
+}

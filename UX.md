@@ -677,13 +677,26 @@ project. These controls hide the other rows. Spec and test cases:
 conversation is hidden when a filter excludes it. The Conversation Pane
 still shows it.
 
+**Filters and Sorting** (round 4 of the spec,
+[PLANS/2026.10.26-sidebar-filters-accordion.md](./PLANS/2026.10.26-sidebar-filters-accordion.md)):
+every control below the "Search titles and projects" field sits in one
+section that opens and closes from its header.
+
+- Closed by default. The per-user preference `sidebarFiltersOpen` keeps
+  the user's choice across reloads and restarts.
+- The header shows "N active" when N filters differ from their defaults:
+  the active filter, the source, the workspace, a project or path
+  filter, a time window other than Forever, "Empty", and "Archived". The
+  sort and the grouping do not count, because they hide no rows.
+
 **Recent sessions** (the "Last:" dropdown, a sidebar row below the sort
 controls; round 2 of the spec,
 [PLANS/2026.10.26-list-filter-dropdowns.md](./PLANS/2026.10.26-list-filter-dropdowns.md)):
 
 - Windows: 8 hours, 1 day, 3 days, 1 week, 2 weeks, 1 month (30 days),
   3 months (90 days), 6 months (180 days), 1 year (365 days), and Forever,
-  which turns the filter off. Default: 1 day.
+  which turns the filter off. Default: Forever (since 2026-10-26), so a
+  new user sees every session; a saved window does not change.
 - The list hides each row whose `updated_at` is older than now minus the
   window. The list applies the cutoff again once a minute.
 - Per-user preferences `listRecentOnly` (false for Forever) and
@@ -756,7 +769,9 @@ last 1 day."). It gives a button for each filter that it can clear:
   folder by folder, and skips the rows of a collapsed folder.
 
 **Layout:** the list keeps a minimum height of 12rem (about two rows).
-On a short screen, the block of controls above it scrolls. Before
+On a short screen, the block of controls above it scrolls; with
+"Filters and Sorting" closed, the list starts right below the search
+field. Before
 2026-10-25, the controls and two banners could leave the list 0 px high,
 with no row shown.
 

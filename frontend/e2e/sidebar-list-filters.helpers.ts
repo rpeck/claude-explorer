@@ -137,9 +137,13 @@ export function listHonoringSource(all: ConversationSummary[]) {
   }
 }
 
-/** The Conversation List sidebar (the <aside> that holds the source select). */
+/**
+ * The Conversation List sidebar: the <aside> that holds the title search.
+ * The search field stays in the page while the "Filters and Sorting"
+ * section is closed (round 4); the source select does not.
+ */
 export function sidebar(page: Page) {
-  return page.locator('aside').filter({ has: page.getByTestId('source-filter-select') })
+  return page.locator('aside').filter({ has: page.getByTestId('sidebar-title-search') })
 }
 
 /**
