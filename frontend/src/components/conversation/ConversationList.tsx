@@ -558,6 +558,20 @@ function VirtualizedFlatList({
   const orderedRef = useRef(orderedConversations)
   orderedRef.current = orderedConversations
 
+  // When the target row is already mounted, scroll that element into
+  // view, not to an estimate. The estimate (itemsIndex * ROW_HEIGHT)
+  // can be off by many rows near the end of a long list, and writing
+  // scrollTop cancels a smooth scroll that the row itself started. When
+  // "Filters and Sorting" opened in the same render in which a
+  // deep-linked row mounted, the estimate moved the row back out of
+  // view (18 of 100 throttled runs, 2026-10-26).
+  const scrollMountedRow = (itemsIndex: number): boolean => {
+    const node = parentRef.current?.querySelector<HTMLElement>(`[data-index="${itemsIndex}"]`)
+    if (!node) return false
+    node.scrollIntoView({ block: 'nearest' })
+    return true
+  }
+
   // Drive virtualizer scroll on keyboard navigation. The
   // KeyboardNavigationContext sets `selectedIndex` into
   // `orderedConversations`; we map that back to the `items` index
@@ -588,6 +602,10 @@ function VirtualizedFlatList({
       (it) => it.kind === 'conv' && it.conv.uuid === conv.uuid
     )
     if (itemsIndex < 0) return
+    // A mounted row scrolls itself into view; the estimate below only
+    // brings an unmounted row into the rendered window (see
+    // scrollMountedRow).
+    if (scrollMountedRow(itemsIndex)) return
     // Only pre-scroll if the target is outside the currently
     // rendered window. `align: 'auto'` semantics: keep the row in
     // view; if it already is, do nothing. We replicate that here.
@@ -624,6 +642,7 @@ function VirtualizedFlatList({
       (it) => it.kind === 'conv' && it.conv.uuid === selectedUuid
     )
     if (itemsIndex < 0) return
+    if (scrollMountedRow(itemsIndex)) return
     // Scroll directly via scrollEl.scrollTop using an estimated offset
     // for the target index. Rationale: react-virtual's
     // `scrollToIndex` triggers a scroll → re-render → measure cycle
@@ -791,11 +810,18 @@ function ConversationListItem({
   }, [isKeyboardSelected])
 
   // Also scroll URL-selected item into view (e.g., when Cmd+G navigates
-  // cross-conversation and focusArea is still 'search')
+  // cross-conversation and focusArea is still 'search').
+  //
+  // In the next animation frame, not in the effect itself: the list's own
+  // scroll effects belong to the parent, and React runs them after this
+  // child's effects in the same commit. A scrollTop write there cancelled
+  // this smooth scroll and left a deep-linked row out of view (2026-10-26).
   useEffect(() => {
-    if (isSelected && itemRef.current) {
-      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
+    if (!isSelected) return
+    const frame = requestAnimationFrame(() => {
+      itemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [isSelected])
 
   // Keep the selected row in view when the list's viewport changes size.
