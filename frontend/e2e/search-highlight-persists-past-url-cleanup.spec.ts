@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, searchEnvelopeJson, type Page, type Route, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, searchEnvelopeJson, type Page, type Route, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { Message } from '../src/lib/types'
 
 /**
@@ -100,6 +100,8 @@ test.describe('Search-hit highlights persist past the URL-cleanup timer (2026-05
     await mockSearch(page)
     await page.clock.install()
     await withNetRetry(page, () => page.goto(`/conversations/${CONV}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
 
     // Open search panel, type the needle. Auto-promote should land on
     // msg-with-needle.
@@ -145,6 +147,8 @@ test.describe('Search-hit highlights persist past the URL-cleanup timer (2026-05
     })
     await mockSearch(page)
     await withNetRetry(page, () => page.goto(`/conversations/${CONV}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
 
     const isMac = process.platform === 'darwin'
     await page.keyboard.press(isMac ? 'Meta+f' : 'Control+f')

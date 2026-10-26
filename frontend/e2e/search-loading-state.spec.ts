@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { SearchResult } from '../src/lib/types'
 
 /**
@@ -73,6 +73,8 @@ test.describe('Search panel loading state (Bug B)', () => {
     })
 
     await withNetRetry(page, () => page.goto(`/conversations/${C}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.locator('main').click()
     await page.keyboard.press('Meta+k')
     const input = page.locator('input[placeholder="Search messages..."]')
@@ -137,6 +139,8 @@ test.describe('Search panel loading state (Bug B)', () => {
     })
 
     await withNetRetry(page, () => page.goto(`/conversations/${C}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.locator('main').click()
     await page.keyboard.press('Meta+k')
     const input = page.locator('input[placeholder="Search messages..."]')

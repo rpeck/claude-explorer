@@ -19,7 +19,7 @@
  * deterministic DOM signal (result-card count + mark count) instead of
  * any bare `waitForTimeout`.
  */
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { SearchResult } from '../src/lib/types'
 import type { Route } from './fixtures'
 
@@ -116,6 +116,8 @@ test.describe('Search highlight rendering (all tokens, 2026-05-14)', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await expect(input).toBeVisible()
@@ -155,6 +157,8 @@ test.describe('Search highlight rendering (all tokens, 2026-05-14)', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await input.fill('comprehensive')
@@ -208,6 +212,8 @@ test.describe('Search highlight rendering (all tokens, 2026-05-14)', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await input.fill('tensorflow kubernetes rustlang')

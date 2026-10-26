@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, type Route, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, type Route, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { Message } from '../src/lib/types'
 
 /**
@@ -130,6 +130,8 @@ test.describe('Search pin scope (manual finding 2026-05-04)', () => {
   test('SearchPanel header shows scope chip mirroring the pin', async ({ page, mockBackend }) => {
     await mockBackend({ conversations: summaries, details })
     await withNetRetry(page, () => page.goto(`/conversations/${A}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
 
     await page.getByTestId('pin-scope-button').click()
     await page.getByTestId('pin-this-conversation').click()
@@ -169,6 +171,8 @@ test.describe('Search pin scope (manual finding 2026-05-04)', () => {
     })
 
     await withNetRetry(page, () => page.goto(`/conversations/${A}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.getByTestId('pin-scope-button').click()
     await page.getByTestId('pin-this-conversation').click()
 
@@ -189,6 +193,8 @@ test.describe('Search pin scope (manual finding 2026-05-04)', () => {
     await mockBackend({ conversations: summaries, details })
     await mockSearch(page, () => [])
     await withNetRetry(page, () => page.goto(`/conversations/${A}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.getByTestId('pin-scope-button').click()
     await page.getByTestId('pin-this-conversation').click()
 
@@ -232,6 +238,8 @@ test.describe('Search pin scope (manual finding 2026-05-04)', () => {
   test('Pin survives reload via URL param', async ({ page, mockBackend }) => {
     await mockBackend({ conversations: summaries, details })
     await withNetRetry(page, () => page.goto(`/conversations/${A}?pin=conv:${A}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
 
     // Chip visible after Cmd+F without re-pinning.
     const isMac = process.platform === 'darwin'

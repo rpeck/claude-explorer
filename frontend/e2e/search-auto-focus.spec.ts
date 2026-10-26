@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForScrollQuiet, recordJumps, jumps, expectNoRevert } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForScrollQuiet, recordJumps, jumps, expectNoRevert, waitForKeyboardShortcuts } from './fixtures'
 import type { SearchResult } from '../src/lib/types'
 
 /**
@@ -163,6 +163,8 @@ test.describe('Search — auto-focus first match on results land (V1 polish)', (
     await recordJumps(page)
 
     await withNetRetry(page, () => page.goto(`/conversations/${SM}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.locator('main').click()
     await page.keyboard.press('Meta+k')
     const searchInput = page.locator('input[placeholder="Search messages..."]')

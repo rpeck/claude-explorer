@@ -272,13 +272,7 @@ test.describe('Claude Code [Image: source: <path>] text markers (Pattern B)', ()
   // This test asserts the desired behavior: the marker is replaced
   // with an <img> in the bubble. Failing == we still need to ship
   // the fix (preprocessor + image-cache proxy).
-  test('text marker [Image: source: <path>] renders as an <img>, not literal text', async ({ page, mockBackend, consoleAssertions }) => {
-    // §5.15: /fixture/cc-image-cache/... is not on disk; the marker
-    // preprocessor's image fetch 404s and Chromium logs the network
-    // line. Either the success path (200) or the fallback (404) is OK
-    // for this assertion — we only check that the literal marker text
-    // is replaced. Allowlist the 404 shape for the fallback path.
-    expectNetworkError(consoleAssertions, 404)
+  test('text marker [Image: source: <path>] renders as an <img>, not literal text', async ({ page, mockBackend }) => {
     const summary = makeSummary({
       uuid: C,
       source: 'CLAUDE_CODE',
@@ -301,7 +295,22 @@ test.describe('Claude Code [Image: source: <path>] text markers (Pattern B)', ()
       ],
     } as Partial<Message> & { uuid: string })
     const detail = makeDetail(summary, [m])
-    await mockBackend({ conversations: [summary], details: { [C]: detail } })
+    // Serve real PNG bytes from the image proxy. With the fixture's
+    // default 404, the <img> renders, fails, retries, and is then swapped
+    // for the broken-image fallback button (product behavior, pinned by
+    // cc-image-broken-fallback.spec.ts). The old version of this test read
+    // the <img> after counting it, and when the swap came in between, the
+    // read waited for a gone element until the 60 s test timeout
+    // (2026-10-26 CI flake). The success path keeps the <img>.
+    await mockBackend({
+      conversations: [summary],
+      details: { [C]: detail },
+      extraRoutes: async (p) => {
+        await p.route('**/api/cc-image**', (route: Route) => {
+          route.fulfill({ status: 200, contentType: 'image/png', body: PNG_BYTES })
+        })
+      },
+    })
 
     await withNetRetry(page, () => page.goto(`/conversations/${C}`))
     const bubble = page.locator('[data-message-uuid="cc-marker"]')
@@ -314,28 +323,18 @@ test.describe('Claude Code [Image: source: <path>] text markers (Pattern B)', ()
     // /fixture/cc-image-cache/... is not on disk).
     await expect(bubble).not.toContainText('[Image: source:')
 
-    // The marker is replaced with an image-rendering tile — either an
-    // actual <img> (success path) OR a fallback button with the
-    // ImageOff glyph (manual finding 2026-05-04 broken-image fallback).
-    // Cold-vite-compile + two-round-trip 404 retry render path (initial
-    // <img onError> → cache-busted retry → setErrored → fallback button)
-    // can exceed the 5s default on a freshly-started dev server. The
-    // surrounding tests already cover both success and failure paths;
-    // here we only assert the marker is replaced, so a generous timeout
-    // is the right synchronization rather than coupling to the specific
-    // request count. (Flake repro 2026-05-12, council fix.)
-    const tile = bubble.locator('[data-cc-image-marker]').first()
-    await expect(tile).toBeVisible({ timeout: 10_000 })
-
-    // If rendered as <img>, the src must NOT be the raw absolute path
-    // that the browser can't fetch.
-    const imgCount = await tile.locator('img').count()
-    if (imgCount > 0) {
-      const src = await tile.locator('img').first().getAttribute('src')
-      expect(src).toBeTruthy()
-      expect(src).not.toMatch(/^\/Users\//)
-      expect(src).not.toMatch(/^file:/)
-    }
+    // The marker is replaced with an <img> that loaded through the image
+    // proxy, not with the raw absolute path the browser cannot fetch.
+    const img = bubble.locator('[data-cc-image-marker] img')
+    await expect(img).toHaveCount(1)
+    await expect
+      .poll(() => img.evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0))
+      .toBe(true)
+    const src = await img.getAttribute('src')
+    expect(src).toBeTruthy()
+    expect(src).not.toMatch(/^\/fixture\//)
+    expect(src).not.toMatch(/^\/Users\//)
+    expect(src).not.toMatch(/^file:/)
   })
 
   test('multiple [Image: source:] markers in one message render multiple <img>s', async ({ page, mockBackend }) => {

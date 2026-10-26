@@ -1,4 +1,4 @@
-import { test, expect, withNetRetry } from './fixtures'
+import { test, expect, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 
 /**
  * M5.5: converted to `./fixtures` `mockBackend`. Without mocked
@@ -26,6 +26,8 @@ test.describe('Toast position must not be occluded by the search panel', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const searchPanel = page.locator('[data-testid="search-panel"], aside[aria-label*="earch"]').first()
     // The panel is open (2026-10-24: a 300 ms sleep, and the overlap check

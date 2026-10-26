@@ -15,7 +15,7 @@
  * Style: active voice, no em-dash, muted, beneath the results list.
  */
 
-import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { Route } from './fixtures'
 
 const NEEDLE = 'truncationcanary'
@@ -95,6 +95,8 @@ test.describe('Search truncation footer', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await expect(input).toBeVisible()
@@ -132,6 +134,8 @@ test.describe('Search truncation footer', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await expect(input).toBeVisible()
