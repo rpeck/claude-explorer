@@ -217,6 +217,11 @@ describe('projectEntries, path mode', () => {
     ])
   })
 
+  it('keeps a path of 2 parts or fewer whole, also outside home', () => {
+    const two = [conv({ uuid: 's', project_path: '/srv/web', project_name: 'web' })]
+    expect(projectEntries(two, 'path', home).map((x) => x.label)).toEqual(['/srv/web'])
+  })
+
   it('matches typing against the label and the path, ignoring case', () => {
     const e = projectEntries(rows, 'path', home)
     expect(e.filter((x) => entryMatches(x, 'work')).map((x) => x.label)).toEqual(['Work/clientco/ai'])
