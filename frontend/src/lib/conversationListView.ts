@@ -124,14 +124,67 @@ export function isRecent(conv: ConversationListItem, nowMs: number, hours: numbe
   return Date.parse(conv.updated_at) >= nowMs - hours * HOUR_MS
 }
 
-/** Each project name once (the first spelling wins), sorted ignoring case. */
+/**
+ * Each project name once (the first spelling wins), newest first: a
+ * project sorts by the latest `updated_at` of its sessions, so the
+ * projects that the user works in now come first. A tie sorts by name,
+ * A to Z, ignoring case.
+ */
 export function projectOptions(convs: ConversationListItem[]): string[] {
-  const seen = new Map<string, string>()
+  const seen = new Map<string, { name: string; latest: number }>()
   for (const conv of convs) {
     const name = conv.project_name
-    if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name)
+    if (!name) continue
+    const key = name.toLowerCase()
+    const at = Date.parse(conv.updated_at)
+    const entry = seen.get(key)
+    if (!entry) seen.set(key, { name, latest: at })
+    else if (at > entry.latest) entry.latest = at
   }
-  return Array.from(seen.values()).sort((a, b) => compare(a.toLowerCase(), b.toLowerCase()))
+  return Array.from(seen.values())
+    .sort((a, b) => b.latest - a.latest || compare(a.name.toLowerCase(), b.name.toLowerCase()))
+    .map((e) => e.name)
+}
+
+export interface RecentOption {
+  label: string
+  /** null = "Forever" (the recent filter is off). */
+  hours: number | null
+}
+
+/** The time dropdown's windows (PLANS/2026.10.26-list-filter-dropdowns.md). */
+export const RECENT_WINDOWS: readonly RecentOption[] = [
+  { label: '8 hours', hours: 8 },
+  { label: '1 day', hours: 24 },
+  { label: '3 days', hours: 72 },
+  { label: '1 week', hours: 168 },
+  { label: '2 weeks', hours: 336 },
+  { label: '1 month', hours: 720 },
+  { label: '3 months', hours: 2160 },
+  { label: '6 months', hours: 4320 },
+  { label: '1 year', hours: 8760 },
+  { label: 'Forever', hours: null },
+]
+
+function hoursLabel(hours: number): string {
+  return hours === 1 ? '1 hour' : `${hours} hours`
+}
+
+/**
+ * The dropdown's options. A saved number of hours that is not a window
+ * (from the old "Last [N] h" field) gets its own option, in its place by
+ * size, so the dropdown can show what the filter does.
+ */
+export function recentOptions(recentOnly: boolean, hours: number): RecentOption[] {
+  if (!recentOnly || RECENT_WINDOWS.some((w) => w.hours === hours)) return [...RECENT_WINDOWS]
+  const at = RECENT_WINDOWS.findIndex((w) => w.hours === null || w.hours > hours)
+  return [...RECENT_WINDOWS.slice(0, at), { label: hoursLabel(hours), hours }, ...RECENT_WINDOWS.slice(at)]
+}
+
+/** The label of the window that the saved preferences select. */
+export function recentLabel(recentOnly: boolean, hours: number): string {
+  if (!recentOnly) return 'Forever'
+  return RECENT_WINDOWS.find((w) => w.hours === hours)?.label ?? hoursLabel(hours)
 }
 
 /**
