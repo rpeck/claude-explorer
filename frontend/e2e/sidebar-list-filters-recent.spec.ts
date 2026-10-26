@@ -36,13 +36,13 @@ const tenDays = ccSession('Old ten days', '/w/beta', daysAgo(10))
 const FOUR = [oneHour, twentyThree, twentyFive, tenDays]
 
 test.describe('Sidebar list filters: recent sessions', () => {
-  test('1 recent, default on: with no saved preference only the last 1 day shows and the trigger reads "Last: 1 day"; "Forever" shows all and saves listRecentOnly: false', async ({
+  test('1 recent, default Forever: with no saved preference every session shows and the trigger reads "Last: Forever"; "1 day" shows only the last 24 h and saves listRecentOnly: true; "Forever" shows all again and saves listRecentOnly: false', async ({
     page,
     mockBackend,
   }) => {
     await mockBackend({
       conversations: FOUR,
-      // No saved value: the app's own default applies (1 day).
+      // No saved value: the app's own default applies (Forever, round 4).
       preferences: { listRecentOnly: undefined },
       extraRoutes: listHonoringSource(FOUR),
     })
@@ -50,8 +50,13 @@ test.describe('Sidebar list filters: recent sessions', () => {
     await recordPreferencePatches(page)
     await withNetRetry(page, () => page.goto('/'))
 
+    await expectRows(page, FOUR, [])
+    await expect(timeSelect(page)).toContainText(timeLabel('Forever'))
+
+    // "1 day" means 24 hours (listRecentHours keeps its default of 24).
+    await pickTime(page, '1 day')
     await expectRows(page, [oneHour, twentyThree], [twentyFive, tenDays])
-    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
+    await expect.poll(() => sentPrefValues(page, 'listRecentOnly')).toContain(true)
 
     await pickTime(page, 'Forever')
     await expectRows(page, FOUR, [])

@@ -192,15 +192,23 @@ export function expectNetworkError(
  * spec would show an empty list. A test of the recent filter turns it on,
  * and sets the browser clock with `page.clock`.
  *
- * A test that needs the app's own default (no saved value) passes
- * `preferences: { listRecentOnly: undefined }` to `mockBackend`: the seed
- * is copied through JSON, which drops `undefined` keys.
+ * `sidebarFiltersOpen: true`: the sidebar's "Filters and Sorting" section
+ * is closed by default (PLANS/2026.10.26-sidebar-filters-accordion.md),
+ * and a closed section takes its controls out of the page. The seed keeps
+ * them in the page for the specs that use them. A test of the section's
+ * default omits it on purpose.
+ *
+ * A test that needs the app's own default (no saved value) passes the key
+ * as `undefined`, for example `preferences: { listRecentOnly: undefined }`,
+ * to `mockBackend`: the seed is copied through JSON, which drops
+ * `undefined` keys.
  *
  * Specs with their own `/api/preferences` mock spread this into their
  * initial blob too.
  */
 export const E2E_DEFAULT_PREFS: Readonly<Record<string, unknown>> = Object.freeze({
   listRecentOnly: false,
+  sidebarFiltersOpen: true,
 })
 
 /**

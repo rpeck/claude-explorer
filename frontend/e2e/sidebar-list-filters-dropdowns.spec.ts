@@ -45,14 +45,14 @@ const HOUR = 3_600_000
 // ---------------------------------------------------------------------------
 
 test.describe('Sidebar list filters: time dropdown', () => {
-  test('18 time options: the dropdown lists the 10 options in table order, and the default is "Last: 1 day"', async ({
+  test('18 time options: the dropdown lists the 10 options in table order, and the default is "Last: Forever"', async ({
     page,
     mockBackend,
   }) => {
     const rows = [ccSession('Options one hour', '/w/opts', hoursAgo(1))]
     await mockBackend({
       conversations: rows,
-      // No saved value: the app's own default applies.
+      // No saved value: the app's own default applies (Forever, round 4).
       preferences: { listRecentOnly: undefined },
       extraRoutes: listHonoringSource(rows),
     })
@@ -60,7 +60,7 @@ test.describe('Sidebar list filters: time dropdown', () => {
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, rows, [])
 
-    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
+    await expect(timeSelect(page)).toContainText(timeLabel('Forever'))
     expect(await openOptions(page, 'sidebar-recent-select')).toEqual(TIME_LABELS)
   })
 
