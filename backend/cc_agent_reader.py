@@ -33,6 +33,7 @@ continue to resolve.
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,32 @@ import orjson
 from .cc_jsonl_io import DEFAULT_CLAUDE_DIR, parse_jsonl_file
 from .parsing import _parse_iso_opt
 from .parsing import parse_datetime as _parse_datetime
+
+_TAIL_BYTES = 64 * 1024
+
+
+def _last_timestamp(path: Path) -> str | None:
+    """The latest ``timestamp`` in the last 64 KB of a JSONL file, or None."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            f.seek(max(0, size - _TAIL_BYTES))
+            tail = f.read()
+    except OSError:
+        return None
+    lines = tail.splitlines()
+    if size > _TAIL_BYTES and lines:
+        lines = lines[1:]  # the first line can be cut in two
+    latest = None
+    for line in lines:
+        try:
+            ts = orjson.loads(line).get("timestamp")
+        except (orjson.JSONDecodeError, AttributeError):
+            continue
+        if isinstance(ts, str) and (latest is None or ts > latest):
+            latest = ts
+    return latest
 
 
 def read_agent_summary_fast(agent_path: Path) -> tuple[str | None, dict | None]:
@@ -119,13 +146,12 @@ def read_agent_summary_fast(agent_path: Path) -> tuple[str | None, dict | None]:
         msg = first_assistant.get("message", {})
         model = msg.get("model", "")
 
-    # Use file mtime for updated_at
+    # updated_at is the last row's time, not the file's mtime (see
+    # cc_jsonl_io.read_conversation_summary_fast). This reader stops after
+    # the first lines, so it reads the end of the file once for it.
     created_at = _parse_datetime(first_timestamp)
-    try:
-        mtime = agent_path.stat().st_mtime
-        updated_at = datetime.fromtimestamp(mtime, tz=UTC)
-    except OSError:
-        updated_at = created_at
+    last_timestamp = _last_timestamp(agent_path)
+    updated_at = _parse_datetime(last_timestamp) if last_timestamp else created_at
 
     summary = {
         "uuid": agent_id,

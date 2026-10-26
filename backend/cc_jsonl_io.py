@@ -36,7 +36,6 @@ from __future__ import annotations
 import hashlib
 import inspect
 from collections.abc import Iterator
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +66,8 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
     first_real_user = None  # First user message that's not a system "Caveat" message
     first_assistant = None
     first_timestamp = None
+    # The latest timestamp of any row: the session's last activity.
+    last_timestamp = None
 
     # Message counting
     user_count = 0
@@ -86,6 +87,10 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
                     ts = entry.get("timestamp")
                     if ts and first_timestamp is None:
                         first_timestamp = ts
+                    # Claude Code writes ISO-8601 UTC ("...Z") everywhere, so
+                    # a string compare orders them without a parse per row.
+                    if ts and (last_timestamp is None or ts > last_timestamp):
+                        last_timestamp = ts
 
                     # Title-event rows (custom-title / agent-name / summary):
                     # last non-empty value wins. See `_TITLE_FIELD_BY_TYPE`.
@@ -144,13 +149,12 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
         msg = first_assistant.get("message", {})
         model = msg.get("model", "")
 
-    # Use file mtime for updated_at (fast)
+    # updated_at is the last row's time, not the file's mtime: Claude Code
+    # writes rows without a timestamp (such as ``atis-latch``) into old
+    # session files, which moves the mtime with no new activity. The
+    # detail view (parse_jsonl_file) uses the last timestamp too.
     created_at = _parse_datetime(first_timestamp)
-    try:
-        mtime = jsonl_path.stat().st_mtime
-        updated_at = datetime.fromtimestamp(mtime, tz=UTC)
-    except OSError:
-        updated_at = created_at
+    updated_at = _parse_datetime(last_timestamp) if last_timestamp else created_at
 
     # Total messages = user messages + unique assistant responses
     message_count = user_count + len(assistant_message_ids)
