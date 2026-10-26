@@ -11,13 +11,17 @@ import {
   row,
   sentPrefValues,
   sidebar,
+  pickTime,
   startClock,
-  typeHours,
+  timeLabel,
+  timeSelect,
 } from './sidebar-list-filters.helpers'
 
 /**
  * Sidebar list filters, recent sessions: test cases 1-4 and 9 of
- * PLANS/2026.10.25-sidebar-list-filters.md. Black-box, from the spec.
+ * PLANS/2026.10.25-sidebar-list-filters.md, changed to the round-2 time
+ * dropdown of PLANS/2026.10.26-list-filter-dropdowns.md (the checkbox and
+ * the hours field are gone). Black-box, from the spec.
  *
  * Every test sets the browser clock to NOW with page.clock, because the
  * recent filter compares `updated_at` with the browser clock. Case 16 (no
@@ -32,13 +36,13 @@ const tenDays = ccSession('Old ten days', '/w/beta', daysAgo(10))
 const FOUR = [oneHour, twentyThree, twentyFive, tenDays]
 
 test.describe('Sidebar list filters: recent sessions', () => {
-  test('1 recent, default on: with no saved preference only the last 24 h show; turning it off shows all and saves listRecentOnly: false', async ({
+  test('1 recent, default on: with no saved preference only the last 1 day shows and the trigger reads "Last: 1 day"; "Forever" shows all and saves listRecentOnly: false', async ({
     page,
     mockBackend,
   }) => {
     await mockBackend({
       conversations: FOUR,
-      // No saved value: the app's own default applies (on, 24 h).
+      // No saved value: the app's own default applies (1 day).
       preferences: { listRecentOnly: undefined },
       extraRoutes: listHonoringSource(FOUR),
     })
@@ -47,50 +51,32 @@ test.describe('Sidebar list filters: recent sessions', () => {
     await withNetRetry(page, () => page.goto('/'))
 
     await expectRows(page, [oneHour, twentyThree], [twentyFive, tenDays])
-    const toggle = page.getByTestId('sidebar-recent-toggle')
-    await expect(toggle).toBeChecked()
-    await expect(page.getByTestId('sidebar-recent-hours')).toHaveValue('24')
+    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
 
-    await toggle.click()
-    await expect(toggle).not.toBeChecked()
+    await pickTime(page, 'Forever')
     await expectRows(page, FOUR, [])
     await expect.poll(() => sentPrefValues(page, 'listRecentOnly')).toContain(false)
   })
 
-  test('2 recent, N: 48 shows the 25-hour session; 0, empty, text, and a negative number are not saved and the field shows 48 again on blur', async ({
+  test('2 recent, N: picking "3 days" shows the 25-hour session, keeps the 10-day session hidden, and saves listRecentHours: 72', async ({
     page,
     mockBackend,
   }) => {
     await mockBackend({
       conversations: FOUR,
-      preferences: { listRecentOnly: true },
+      preferences: { listRecentOnly: true, listRecentHours: 24 },
       extraRoutes: listHonoringSource(FOUR),
     })
     await startClock(page)
     await recordPreferencePatches(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, [oneHour, twentyThree], [twentyFive, tenDays])
+    await expect(timeSelect(page)).toContainText(timeLabel('1 day'))
 
-    const field = page.getByTestId('sidebar-recent-hours')
-    // The field is a text field with a numeric keyboard (spec amendment).
-    await expect(field).toHaveAttribute('inputmode', 'numeric')
-    expect(await field.evaluate((el) => (el as HTMLInputElement).type)).toBe('text')
-
-    await typeHours(page, '48')
-    await expect(field).toHaveValue('48')
+    await pickTime(page, '3 days')
     await expectRows(page, [oneHour, twentyThree, twentyFive], [tenDays])
-    await expect.poll(() => sentPrefValues(page, 'listRecentHours')).toContain(48)
-
-    for (const bad of ['0', '', 'abc', '-5']) {
-      await typeHours(page, bad)
-      await expect(field, `after "${bad}" and blur`).toHaveValue('48')
-    }
-    // Let any debounced save run before checking that none was sent.
-    await page.clock.runFor(5_000)
-    const sent = await sentPrefValues(page, 'listRecentHours')
-    expect(sent, `listRecentHours PATCH values: ${JSON.stringify(sent)}`).toEqual(sent.map(() => 48))
-    // N is still 48: the 25-hour session still shows.
-    await expectRows(page, [oneHour, twentyThree, twentyFive], [tenDays])
+    await expect.poll(() => sentPrefValues(page, 'listRecentHours')).toContain(72)
+    expect(await sentPrefValues(page, 'listRecentOnly')).not.toContain(false)
   })
 
   test('3 recent, the clock moves: a session at now-23 h leaves the list 2 hours later, without a reload', async ({
@@ -118,52 +104,25 @@ test.describe('Sidebar list filters: recent sessions', () => {
     expect(navigations, 'the page reloaded').toEqual([])
   })
 
-  test('4 recent, field disabled while the checkbox is off', async ({ page, mockBackend }) => {
-    // The e2e default seeds listRecentOnly: false.
+  test('4 recent control layout: the time dropdown is on its own sidebar row, below the sort controls', async ({ page, mockBackend }) => {
     await mockBackend({ conversations: FOUR, extraRoutes: listHonoringSource(FOUR) })
     await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, FOUR, [])
 
-    const toggle = page.getByTestId('sidebar-recent-toggle')
-    const field = page.getByTestId('sidebar-recent-hours')
-    await expect(toggle).not.toBeChecked()
-    await expect(field).toBeDisabled()
-
-    await toggle.click()
-    await expect(toggle).toBeChecked()
-    await expect(field).toBeEnabled()
-    await expectRows(page, [oneHour, twentyThree], [twentyFive, tenDays])
-
-    await toggle.click()
-    await expect(toggle).not.toBeChecked()
-    await expect(field).toBeDisabled()
-    await expectRows(page, FOUR, [])
-  })
-
-  test('4 recent control layout: its own sidebar row, below the sort controls', async ({ page, mockBackend }) => {
-    await mockBackend({ conversations: FOUR, extraRoutes: listHonoringSource(FOUR) })
-    await startClock(page)
-    await withNetRetry(page, () => page.goto('/'))
-    await expectRows(page, FOUR, [])
-
-    const toggle = page.getByTestId('sidebar-recent-toggle')
-    await expect(toggle).toBeVisible()
+    await expect(timeSelect(page)).toBeVisible()
     const box = async (testId: string) => {
       const b = await page.getByTestId(testId).boundingBox()
       expect(b, `${testId} has no box`).not.toBeNull()
       return b!
     }
-    const recent = await box('sidebar-recent-toggle')
-    const hours = await box('sidebar-recent-hours')
+    const recent = await box('sidebar-recent-select')
     const empty = await box('show-phantom-sessions-toggle')
     // The sort-direction button sits on the sort row ("↑" or "↓").
     const sortDir = await sidebar(page).getByTitle(/^(Ascending|Descending)$/).boundingBox()
     expect(sortDir).not.toBeNull()
 
     const mid = (b: { y: number; height: number }) => b.y + b.height / 2
-    // Checkbox and field share one row.
-    expect(Math.abs(mid(recent) - mid(hours))).toBeLessThan(Math.max(recent.height, hours.height))
     // Below the sort controls.
     expect(mid(recent)).toBeGreaterThan(sortDir!.y + sortDir!.height)
     // Not on the row with "Empty" and "Archived".

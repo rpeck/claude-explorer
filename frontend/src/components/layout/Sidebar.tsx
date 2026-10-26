@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useSetListProjectFilter, useUrlFilters } from '@/hooks/useUrlFilters'
 import { useConversations } from '@/hooks/useConversations'
-import { listQueryFilters, projectOptions } from '@/lib/conversationListView'
+import { listQueryFilters, projectOptions, recentOptions } from '@/lib/conversationListView'
+import { ProjectPicker } from '@/components/layout/ProjectPicker'
 import { useFilters } from '@/contexts/FilterContext'
 import { ManageFiltersModal } from '@/components/filters/ManageFiltersModal'
 import { MigrationBanner } from '@/components/filters/MigrationBanner'
-import { Search, Settings, Settings2, Download, MessageSquare, Terminal, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Sparkles, FolderCode, Clock } from 'lucide-react'
+import { Search, Settings, Settings2, Download, MessageSquare, Terminal, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Sparkles, Clock } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -33,44 +34,6 @@ import { isSourceFilter, isSortField, type SortField } from '@/lib/types'
 
 interface SidebarProps {
   className?: string
-}
-
-const PROJECT_ALL = '__all__'
-const PROJECT_PATH = '__path__'
-
-/**
- * The N of "Last N h". A text field, so that any typing shows, but it
- * saves only a whole number of 1 or more. On blur it shows the saved
- * value again (UX.md → "Conversation List filters").
- */
-function RecentHoursField({
-  value,
-  onSave,
-  disabled,
-}: {
-  value: number
-  onSave: (hours: number) => void
-  disabled: boolean
-}) {
-  // null = not editing: show the saved value.
-  const [draft, setDraft] = useState<string | null>(null)
-  return (
-    <input
-      type="text"
-      inputMode="numeric"
-      aria-label="Hours of recent activity to show"
-      value={draft ?? String(value)}
-      disabled={disabled}
-      onChange={(e) => {
-        const text = e.target.value
-        setDraft(text)
-        if (/^\d+$/.test(text) && Number(text) >= 1) onSave(Number(text))
-      }}
-      onBlur={() => setDraft(null)}
-      className="h-6 w-10 rounded border border-zinc-300 bg-white px-1 text-center text-xs disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
-      data-testid="sidebar-recent-hours"
-    />
-  )
 }
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -155,13 +118,12 @@ export function Sidebar({ className }: SidebarProps) {
     }),
   )
   const projects = useMemo(() => projectOptions(loadedConversations ?? []), [loadedConversations])
-  // A `?project=` from a typed URL may name no loaded project; show it anyway.
-  const urlProjectOption = urlFilters.project
-    ? (projects.find((p) => p.toLowerCase() === urlFilters.project.toLowerCase()) ?? urlFilters.project)
-    : ''
-  const projectChoices =
-    urlProjectOption && !projects.includes(urlProjectOption) ? [urlProjectOption, ...projects] : projects
-  const projectValue = urlFilters.path ? PROJECT_PATH : urlProjectOption || PROJECT_ALL
+
+  // Time dropdown: "Forever" turns the recent filter off; every other
+  // window sets its hours. The two preferences stay as before.
+  const RECENT_FOREVER = 'forever'
+  const recentChoices = recentOptions(listRecentOnly, listRecentHours)
+  const recentValue = listRecentOnly ? String(listRecentHours) : RECENT_FOREVER
 
   const cycleTheme = () => {
     const themes = ['light', 'dark', 'system'] as const
@@ -335,28 +297,12 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Project / path filter (UX.md → "Conversation List filters").
             Always shown: a hidden control could not clear a filter that
             a URL or the conversation header set. */}
-        <Select
-          value={projectValue}
-          onValueChange={(v: string) => {
-            if (v === PROJECT_PATH) return
-            setListProjectFilter(v === PROJECT_ALL ? {} : { project: v })
-          }}
-        >
-          <SelectTrigger className="w-full" data-testid="sidebar-project-select" title={urlFilters.path || undefined}>
-            <FolderCode className="h-3 w-3 mr-1 text-amber-500" />
-            <SelectValue placeholder="All projects" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={PROJECT_ALL}>All projects</SelectItem>
-            {urlFilters.path && <SelectItem value={PROJECT_PATH}>Path: {urlFilters.path}</SelectItem>}
-            {projectChoices.length > 0 && <SelectSeparator />}
-            {projectChoices.map((name) => (
-              <SelectItem key={name} value={name}>
-                {name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ProjectPicker
+          projects={projects}
+          project={urlFilters.project}
+          path={urlFilters.path}
+          onChange={setListProjectFilter}
+        />
         {/* Sort controls */}
         <div className="flex items-center gap-1">
           <Select
@@ -387,23 +333,35 @@ export function Sidebar({ className }: SidebarProps) {
             {sortOrder === 'asc' ? '↑' : '↓'}
           </Button>
         </div>
-        {/* Recent sessions: "[x] Last [N] h" (default on, 24). */}
-        <div className="flex items-center gap-1 text-xs text-zinc-500">
-          <label className="flex items-center gap-1 cursor-pointer" title="Show only sessions active in the last N hours">
-            {/* oxlint-disable-next-line react-doctor/control-has-associated-label */}
-            <input
-              type="checkbox"
-              checked={listRecentOnly}
-              onChange={(e) => setListRecentOnly(e.target.checked)}
-              className="h-3 w-3 rounded border-zinc-300"
-              data-testid="sidebar-recent-toggle"
-            />
-            <Clock className="h-3 w-3" />
-            <span>Last</span>
-          </label>
-          <RecentHoursField value={listRecentHours} onSave={setListRecentHours} disabled={!listRecentOnly} />
-          <span>h</span>
-        </div>
+        {/* Recent sessions: "Last: 1 day" by default; "Forever" shows all. */}
+        <Select
+          value={recentValue}
+          onValueChange={(v: string) => {
+            if (v === RECENT_FOREVER) {
+              setListRecentOnly(false)
+              return
+            }
+            setListRecentHours(Number(v))
+            setListRecentOnly(true)
+          }}
+        >
+          <SelectTrigger
+            className="h-8 w-full text-xs"
+            title="Show only sessions with activity in this time"
+            data-testid="sidebar-recent-select"
+          >
+            <Clock className="h-3 w-3 mr-1 text-zinc-400" />
+            <span className="mr-1 text-zinc-500">Last:</span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {recentChoices.map((opt) => (
+              <SelectItem key={opt.label} value={opt.hours === null ? RECENT_FOREVER : String(opt.hours)}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex items-center justify-between">
           <div className="text-xs text-zinc-500">
             <kbd className="rounded bg-zinc-200 px-1 py-0.5 font-mono text-[10px] dark:bg-zinc-700">

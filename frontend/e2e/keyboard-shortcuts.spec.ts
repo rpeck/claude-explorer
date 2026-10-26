@@ -398,7 +398,9 @@ test.describe('Keyboard — Vim navigation (B15, article-corrected)', () => {
     // The sidebar search placeholder is "Search titles and projects"
     // (renamed when project filtering shipped). Click the sidebar to
     // set focusArea to 'list' first.
-    await page.locator('aside.w-80').click()
+    // Click a non-interactive spot of the sidebar (its heading): the middle
+    // of the sidebar is a control (the time dropdown), not background.
+    await page.locator('aside.w-80').getByRole('heading', { name: 'Claude Explorer' }).click()
     await page.keyboard.press('/')
     const sidebarSearch = page.getByPlaceholder('Search titles and projects')
     await expect(sidebarSearch).toBeFocused()
@@ -421,7 +423,9 @@ test.describe('Keyboard — Cmd+C copies focused message (B16)', () => {
     // selectedMessageIndex; we use 'a' (next assistant) to ensure we land on
     // a known message regardless of click semantics.
     // Simpler: mimic Enter from list to set focus deterministically.
-    await page.locator('aside.w-80').click()
+    // Click a non-interactive spot of the sidebar (its heading): the middle
+    // of the sidebar is a control (the time dropdown), not background.
+    await page.locator('aside.w-80').getByRole('heading', { name: 'Claude Explorer' }).click()
     await page.keyboard.press('Enter')
     // Now in detail pane with the first message selected (index 0).
 
@@ -448,7 +452,9 @@ test.describe('Keyboard — HintState when sidebar selection differs (B17)', () 
     await expect(page.locator('[data-message-uuid="c1-m1"]')).toBeVisible()
 
     // Step the sidebar selection forward without opening a new conversation.
-    await page.locator('aside.w-80').click()
+    // Click a non-interactive spot of the sidebar (its heading): the middle
+    // of the sidebar is a control (the time dropdown), not background.
+    await page.locator('aside.w-80').getByRole('heading', { name: 'Claude Explorer' }).click()
     // Use ArrowDown to advance the keyboard-selected sidebar row.
     await page.keyboard.press('ArrowDown')
 

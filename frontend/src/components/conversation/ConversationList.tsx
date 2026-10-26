@@ -18,6 +18,7 @@ import {
   isRecent,
   listQueryFilters,
   matchesProjectFilter,
+  recentLabel,
 } from '@/lib/conversationListView'
 // Import the skinny list-payload type under an alias to avoid colliding
 // with the `ConversationListItem` component defined below in this file.
@@ -232,7 +233,7 @@ export function ConversationList({
       titleFilter && 'a URL title filter',
       projectSlug && `project=${projectSlug}`,
       projectPath && `path=${projectPath}`,
-      recentHours != null && `last ${recentHours} h`,
+      recentHours != null && `last ${recentLabel(true, recentHours)}`,
     ].filter(Boolean)
     if (totalLoaded > 0 && hiddenBy.length > 0) {
       const buttonClass =
