@@ -107,8 +107,9 @@ test.describe('mockBackend default routes (M1)', () => {
     const r = await fetchOnPage(page, '/api/preferences')
     expect(r.status).toBe(200)
     expect(r.contentType).toMatch(/application\/json/)
-    // Fixture dates are in the past, so the recent-sessions list filter is off.
-    expect(JSON.parse(r.body)).toEqual({ version: 1, data: { listRecentOnly: false } })
+    // Fixture dates are in the past, so the recent-sessions list filter is
+    // off; the sidebar's filters section is open so specs find its controls.
+    expect(JSON.parse(r.body)).toEqual({ version: 1, data: { listRecentOnly: false, sidebarFiltersOpen: true } })
   })
 
   test('a preference set to undefined leaves the E2E default out of the blob', async ({
@@ -117,7 +118,7 @@ test.describe('mockBackend default routes (M1)', () => {
   }) => {
     await mockBackend({ preferences: { listRecentOnly: undefined } })
     const r = await fetchOnPage(page, '/api/preferences')
-    expect(JSON.parse(r.body)).toEqual({ version: 1, data: {} })
+    expect(JSON.parse(r.body)).toEqual({ version: 1, data: { sidebarFiltersOpen: true } })
   })
 
   test('PATCH /api/preferences echoes merged data and persists within the test', async ({

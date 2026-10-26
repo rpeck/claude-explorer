@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useSetListProjectFilter, useUrlFilters } from '@/hooks/useUrlFilters'
 import { useConfig, useConversations } from '@/hooks/useConversations'
-import { listQueryFilters, projectEntries, recentOptions } from '@/lib/conversationListView'
+import { activeFilterCount, listQueryFilters, projectEntries, recentOptions } from '@/lib/conversationListView'
 import { ProjectPicker } from '@/components/layout/ProjectPicker'
 import { useFilters } from '@/contexts/FilterContext'
 import { ManageFiltersModal } from '@/components/filters/ManageFiltersModal'
 import { MigrationBanner } from '@/components/filters/MigrationBanner'
-import { Search, Settings, Settings2, Download, MessageSquare, Terminal, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Sparkles, Clock } from 'lucide-react'
+import { Search, Settings, Settings2, Download, MessageSquare, Terminal, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Sparkles, Clock, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -98,6 +98,8 @@ export function Sidebar({ className }: SidebarProps) {
     setListRecentOnly,
     listRecentHours,
     listProjectKey,
+    sidebarFiltersOpen,
+    setSidebarFiltersOpen,
     setListRecentHours,
     theme,
     setTheme,
@@ -125,6 +127,17 @@ export function Sidebar({ className }: SidebarProps) {
     () => projectEntries(loadedConversations ?? [], listProjectKey, homeDir),
     [loadedConversations, listProjectKey, homeDir],
   )
+
+  const activeCount = activeFilterCount({
+    namedFilter: pickerValue !== ACTIVE_NONE,
+    source: sourceFilter,
+    workspace: organizationId,
+    project: urlFilters.project,
+    path: urlFilters.path,
+    recentOnly: listRecentOnly,
+    showEmpty: showPhantomSessions,
+    showArchived: showArchivedSessions,
+  })
 
   // Time dropdown: "Forever" turns the recent filter off; every other
   // window sets its hours. The two preferences stay as before.
@@ -205,229 +218,257 @@ export function Sidebar({ className }: SidebarProps) {
             data-testid="sidebar-title-search"
           />
         </div>
-        {/* CF1: active-filter picker. Replaces the old chip rail.
-            "All conversations" maps to activeId=null. */}
-        <Select
-          value={pickerValue}
-          onValueChange={(v: string) => {
-            if (v === ACTIVE_MANAGE) {
-              setIsManageOpen(true)
-              return
-            }
-            setActiveId(v === ACTIVE_NONE ? null : v)
-          }}
+        {/* "Filters and Sorting": the controls below fold away, closed by
+            default, so the list starts near the top (PLANS/2026.10.26-
+            sidebar-filters-accordion.md). The header counts the active
+            filters, so a closed section still says why the list is short. */}
+        <button
+          type="button"
+          onClick={() => setSidebarFiltersOpen(!sidebarFiltersOpen)}
+          aria-expanded={sidebarFiltersOpen}
+          aria-controls="sidebar-filters"
+          data-testid="sidebar-filters-toggle"
+          className="flex w-full items-center gap-2 rounded px-1 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
-          <SelectTrigger className="w-full" data-testid="active-filter-select">
-            <FilterIcon className="h-3 w-3 mr-1 text-zinc-400" />
-            <SelectValue placeholder="All conversations" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ACTIVE_NONE}>All conversations</SelectItem>
-            {pickerOptions.length > 0 && <SelectSeparator />}
-            {pickerOptions.map((node) => (
-              <SelectItem key={node.id} value={node.id}>
-                {node.name}
-              </SelectItem>
-            ))}
-            <SelectSeparator />
-            <SelectItem value={ACTIVE_MANAGE} data-testid="active-filter-manage">
-              <span className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                <Settings2 className="h-3 w-3" />
-                Manage filters…
-              </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={sourceFilter}
-          onValueChange={(v: string) => {
-            // shadcn Select hands us a string; only accept values in the
-            // SourceFilter union. Unknown values are silently rejected
-            // (defense in depth — the SelectItem children below only
-            // ever supply known values).
-            if (isSourceFilter(v)) setSourceFilter(v)
-          }}
-        >
-          <SelectTrigger className="w-full" data-testid="source-filter-select">
-            <SelectValue placeholder="Filter by source" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">
-              <span className="flex items-center gap-2">
-                All Conversations
-              </span>
-            </SelectItem>
-            <SelectItem value="CLAUDE_AI">
-              <span className="flex items-center gap-2">
-                <MessageSquare className="h-3 w-3 text-blue-500" />
-                Claude Desktop
-              </span>
-            </SelectItem>
-            <SelectItem value="CLAUDE_CODE">
-              <span className="flex items-center gap-2">
-                <Terminal className="h-3 w-3 text-green-500" />
-                Claude Code
-              </span>
-            </SelectItem>
-            <SelectItem value="CLAUDE_COWORK">
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-purple-500" />
-                Claude Cowork
-              </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        {/* cowork-multi-org C6: workspace selector. Reserve the slot to
-            prevent layout shift mid-stream (P2-2); render the actual
-            <Select> only when there are ≥ 2 orgs. */}
-        <div className="h-9">
-          {showWorkspaceSelector && (
-            <Select
-              value={organizationId ?? '__all__'}
-              onValueChange={(v: string) => setOrganizationId(v === '__all__' ? null : v)}
+          <ChevronDown className={cn('h-3 w-3 transition-transform', !sidebarFiltersOpen && '-rotate-90')} />
+          <SlidersHorizontal className="h-3 w-3" />
+          <span className="flex-1 text-left">Filters and Sorting</span>
+          {activeCount > 0 && (
+            <span
+              className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+              data-testid="sidebar-filters-active-count"
             >
-              <SelectTrigger className="w-full" data-testid="workspace-select">
-                <SelectValue placeholder="Filter by workspace" />
+              {activeCount} active
+            </span>
+          )}
+        </button>
+        {sidebarFiltersOpen && (
+          <div id="sidebar-filters" className="space-y-2" data-testid="sidebar-filters">
+          {/* CF1: active-filter picker. Replaces the old chip rail.
+              "All conversations" maps to activeId=null. */}
+          <Select
+            value={pickerValue}
+            onValueChange={(v: string) => {
+              if (v === ACTIVE_MANAGE) {
+                setIsManageOpen(true)
+                return
+              }
+              setActiveId(v === ACTIVE_NONE ? null : v)
+            }}
+          >
+            <SelectTrigger className="w-full" data-testid="active-filter-select">
+              <FilterIcon className="h-3 w-3 mr-1 text-zinc-400" />
+              <SelectValue placeholder="All conversations" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ACTIVE_NONE}>All conversations</SelectItem>
+              {pickerOptions.length > 0 && <SelectSeparator />}
+              {pickerOptions.map((node) => (
+                <SelectItem key={node.id} value={node.id}>
+                  {node.name}
+                </SelectItem>
+              ))}
+              <SelectSeparator />
+              <SelectItem value={ACTIVE_MANAGE} data-testid="active-filter-manage">
+                <span className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                  <Settings2 className="h-3 w-3" />
+                  Manage filters…
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={sourceFilter}
+            onValueChange={(v: string) => {
+              // shadcn Select hands us a string; only accept values in the
+              // SourceFilter union. Unknown values are silently rejected
+              // (defense in depth — the SelectItem children below only
+              // ever supply known values).
+              if (isSourceFilter(v)) setSourceFilter(v)
+            }}
+          >
+            <SelectTrigger className="w-full" data-testid="source-filter-select">
+              <SelectValue placeholder="Filter by source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <span className="flex items-center gap-2">
+                  All Conversations
+                </span>
+              </SelectItem>
+              <SelectItem value="CLAUDE_AI">
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="h-3 w-3 text-blue-500" />
+                  Claude Desktop
+                </span>
+              </SelectItem>
+              <SelectItem value="CLAUDE_CODE">
+                <span className="flex items-center gap-2">
+                  <Terminal className="h-3 w-3 text-green-500" />
+                  Claude Code
+                </span>
+              </SelectItem>
+              <SelectItem value="CLAUDE_COWORK">
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-3 w-3 text-purple-500" />
+                  Claude Cowork
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {/* cowork-multi-org C6: workspace selector. Reserve the slot to
+              prevent layout shift mid-stream (P2-2); render the actual
+              <Select> only when there are ≥ 2 orgs. */}
+          <div className="h-9">
+            {showWorkspaceSelector && (
+              <Select
+                value={organizationId ?? '__all__'}
+                onValueChange={(v: string) => setOrganizationId(v === '__all__' ? null : v)}
+              >
+                <SelectTrigger className="w-full" data-testid="workspace-select">
+                  <SelectValue placeholder="Filter by workspace" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All workspaces</SelectItem>
+                  {orgs.map((org) => (
+                    <SelectItem key={org.org_id} value={org.org_id}>
+                      {org.name ?? `Workspace (${org.org_id.slice(0, 8)})`}
+                      {org.is_primary ? ' [primary]' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          {/* Project / path filter (UX.md → "Conversation List filters").
+              Always shown: a hidden control could not clear a filter that
+              a URL or the conversation header set. */}
+          <ProjectPicker
+            entries={projects}
+            mode={listProjectKey}
+            project={urlFilters.project}
+            path={urlFilters.path}
+            home={homeDir}
+            onChange={setListProjectFilter}
+          />
+          {/* Sort controls */}
+          <div className="flex items-center gap-1">
+            <Select
+              value={sortField}
+              onValueChange={(v: string) => {
+                if (isSortField(v)) setSortField(v)
+              }}
+            >
+              <SelectTrigger className="flex-1 h-8 text-xs">
+                <ArrowUpDown className="h-3 w-3 mr-1 text-zinc-400" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All workspaces</SelectItem>
-                {orgs.map((org) => (
-                  <SelectItem key={org.org_id} value={org.org_id}>
-                    {org.name ?? `Workspace (${org.org_id.slice(0, 8)})`}
-                    {org.is_primary ? ' [primary]' : ''}
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
-        </div>
-        {/* Project / path filter (UX.md → "Conversation List filters").
-            Always shown: a hidden control could not clear a filter that
-            a URL or the conversation header set. */}
-        <ProjectPicker
-          entries={projects}
-          mode={listProjectKey}
-          project={urlFilters.project}
-          path={urlFilters.path}
-          home={homeDir}
-          onChange={setListProjectFilter}
-        />
-        {/* Sort controls */}
-        <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              {sortOrder === 'asc' ? '↑' : '↓'}
+            </Button>
+          </div>
+          {/* Recent sessions: "Last: 1 day" by default; "Forever" shows all. */}
           <Select
-            value={sortField}
+            value={recentValue}
             onValueChange={(v: string) => {
-              if (isSortField(v)) setSortField(v)
+              if (v === RECENT_FOREVER) {
+                setListRecentOnly(false)
+                return
+              }
+              setListRecentHours(Number(v))
+              setListRecentOnly(true)
             }}
           >
-            <SelectTrigger className="flex-1 h-8 text-xs">
-              <ArrowUpDown className="h-3 w-3 mr-1 text-zinc-400" />
+            <SelectTrigger
+              className="h-8 w-full text-xs"
+              title="Show only sessions with activity in this time"
+              data-testid="sidebar-recent-select"
+            >
+              <Clock className="h-3 w-3 mr-1 text-zinc-400" />
+              <span className="mr-1 text-zinc-500">Last:</span>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
+              {recentChoices.map((opt) => (
+                <SelectItem key={opt.label} value={opt.hours === null ? RECENT_FOREVER : String(opt.hours)}>
                   {opt.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2"
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-          >
-            {sortOrder === 'asc' ? '↑' : '↓'}
-          </Button>
-        </div>
-        {/* Recent sessions: "Last: 1 day" by default; "Forever" shows all. */}
-        <Select
-          value={recentValue}
-          onValueChange={(v: string) => {
-            if (v === RECENT_FOREVER) {
-              setListRecentOnly(false)
-              return
-            }
-            setListRecentHours(Number(v))
-            setListRecentOnly(true)
-          }}
-        >
-          <SelectTrigger
-            className="h-8 w-full text-xs"
-            title="Show only sessions with activity in this time"
-            data-testid="sidebar-recent-select"
-          >
-            <Clock className="h-3 w-3 mr-1 text-zinc-400" />
-            <span className="mr-1 text-zinc-500">Last:</span>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {recentChoices.map((opt) => (
-              <SelectItem key={opt.label} value={opt.hours === null ? RECENT_FOREVER : String(opt.hours)}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-zinc-500">
-            <kbd className="rounded bg-zinc-200 px-1 py-0.5 font-mono text-[10px] dark:bg-zinc-700">
-              {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+K
-            </kbd>{' '}
-            to search messages
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Group by project toggle - only show when Claude Code sessions are visible.
-                Cowork (autonomous decision #3) is excluded: its project_path is a VM
-                sandbox path like /sessions/<vm>, which doesn't group meaningfully. */}
-            {sourceFilter !== 'CLAUDE_AI' && sourceFilter !== 'CLAUDE_COWORK' && (
-              <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Group sessions by project">
-                <input
-                  type="checkbox"
-                  aria-label="Group sessions by project"
-                  checked={groupByProject}
-                  onChange={(e) => setGroupByProject(e.target.checked)}
-                  className="h-3 w-3 rounded border-zinc-300"
-                />
-                <FolderTree className="h-3 w-3" />
-              </label>
-            )}
-            <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Show empty sessions created by local commands">
-              {/* Phase 1 a11y: WCAG-conformant nested label with sibling
-                  text. See SettingsPage for rationale. */}
-              {/* oxlint-disable-next-line react-doctor/control-has-associated-label */}
-              <input
-                type="checkbox"
-                checked={showPhantomSessions}
-                onChange={(e) => setShowPhantomSessions(e.target.checked)}
-                className="h-3 w-3 rounded border-zinc-300"
-                data-testid="show-phantom-sessions-toggle"
-              />
-              <span>Empty</span>
-            </label>
-            {/* D8 (Cowork): Show archived toggle. Only meaningful under
-                the Cowork filter (CC/Desktop have no archived flag) and
-                under 'all' (where an archived Cowork session could be
-                hidden). Hidden under CLAUDE_AI / CLAUDE_CODE to avoid
-                a UI element with no effect. */}
-            {(sourceFilter === 'CLAUDE_COWORK' || sourceFilter === 'all') && (
-              <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Show archived Cowork sessions">
-                {/* Phase 1 a11y: nested label with sibling text. */}
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-zinc-500">
+              <kbd className="rounded bg-zinc-200 px-1 py-0.5 font-mono text-[10px] dark:bg-zinc-700">
+                {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+K
+              </kbd>{' '}
+              to search messages
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Group by project toggle - only show when Claude Code sessions are visible.
+                  Cowork (autonomous decision #3) is excluded: its project_path is a VM
+                  sandbox path like /sessions/<vm>, which doesn't group meaningfully. */}
+              {sourceFilter !== 'CLAUDE_AI' && sourceFilter !== 'CLAUDE_COWORK' && (
+                <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Group sessions by project">
+                  <input
+                    type="checkbox"
+                    aria-label="Group sessions by project"
+                    checked={groupByProject}
+                    onChange={(e) => setGroupByProject(e.target.checked)}
+                    className="h-3 w-3 rounded border-zinc-300"
+                  />
+                  <FolderTree className="h-3 w-3" />
+                </label>
+              )}
+              <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Show empty sessions created by local commands">
+                {/* Phase 1 a11y: WCAG-conformant nested label with sibling
+                    text. See SettingsPage for rationale. */}
                 {/* oxlint-disable-next-line react-doctor/control-has-associated-label */}
                 <input
                   type="checkbox"
-                  checked={showArchivedSessions}
-                  onChange={(e) => setShowArchivedSessions(e.target.checked)}
+                  checked={showPhantomSessions}
+                  onChange={(e) => setShowPhantomSessions(e.target.checked)}
                   className="h-3 w-3 rounded border-zinc-300"
-                  data-testid="show-archived-sessions-toggle"
+                  data-testid="show-phantom-sessions-toggle"
                 />
-                <span>Archived</span>
+                <span>Empty</span>
               </label>
-            )}
+              {/* D8 (Cowork): Show archived toggle. Only meaningful under
+                  the Cowork filter (CC/Desktop have no archived flag) and
+                  under 'all' (where an archived Cowork session could be
+                  hidden). Hidden under CLAUDE_AI / CLAUDE_CODE to avoid
+                  a UI element with no effect. */}
+              {(sourceFilter === 'CLAUDE_COWORK' || sourceFilter === 'all') && (
+                <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Show archived Cowork sessions">
+                  {/* Phase 1 a11y: nested label with sibling text. */}
+                  {/* oxlint-disable-next-line react-doctor/control-has-associated-label */}
+                  <input
+                    type="checkbox"
+                    checked={showArchivedSessions}
+                    onChange={(e) => setShowArchivedSessions(e.target.checked)}
+                    className="h-3 w-3 rounded border-zinc-300"
+                    data-testid="show-archived-sessions-toggle"
+                  />
+                  <span>Archived</span>
+                </label>
+              )}
+            </div>
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* CF3: one-time migration banner. Placed directly above the
