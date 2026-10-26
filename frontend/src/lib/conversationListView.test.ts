@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  activeFilterCount,
   buildFolders,
   displayOrder,
   displayPath,
@@ -264,5 +265,28 @@ describe('buildFolders, keyed by path', () => {
       'Source/clientco/ai',
       'Work/clientco/ai',
     ])
+  })
+})
+
+describe('activeFilterCount', () => {
+  const none = {
+    namedFilter: false, source: 'all' as const, workspace: null, project: '', path: '',
+    recentOnly: false, showEmpty: false, showArchived: false,
+  }
+  it('is 0 with the defaults', () => {
+    expect(activeFilterCount(none)).toBe(0)
+  })
+  it('counts each filter that hides rows, one at a time', () => {
+    expect(activeFilterCount({ ...none, namedFilter: true })).toBe(1)
+    expect(activeFilterCount({ ...none, source: 'CLAUDE_CODE' })).toBe(1)
+    expect(activeFilterCount({ ...none, workspace: 'org-1' })).toBe(1)
+    expect(activeFilterCount({ ...none, project: 'ai' })).toBe(1)
+    expect(activeFilterCount({ ...none, path: '/w/ai' })).toBe(1)
+    expect(activeFilterCount({ ...none, recentOnly: true })).toBe(1)
+    expect(activeFilterCount({ ...none, showEmpty: true })).toBe(1)
+    expect(activeFilterCount({ ...none, showArchived: true })).toBe(1)
+  })
+  it('adds them up', () => {
+    expect(activeFilterCount({ ...none, namedFilter: true, source: 'CLAUDE_AI', recentOnly: true, showEmpty: true })).toBe(4)
   })
 })
