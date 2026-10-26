@@ -12,6 +12,7 @@ import {
   listHonoringSource,
   listMenu,
   messageUuid,
+  NAME_MODE,
   pickOption,
   pickProject,
   pickTime,
@@ -24,7 +25,9 @@ import type { ConversationSummary } from '../src/lib/types'
 /**
  * Sidebar list filters, grouping ("Group sessions by project"): test cases
  * 11-14 and 16 of PLANS/2026.10.25-sidebar-list-filters.md. Black-box,
- * from the spec. Case 16 (no console errors or warnings) holds for every
+ * from the spec. Round 3 (PLANS/2026.10.26-list-project-key.md): these
+ * tests group by folder name, so they set `listProjectKey: "name"`
+ * (NAME_MODE); case 33 covers the folders of path mode. Case 16 (no console errors or warnings) holds for every
  * test through the auto `consoleAssertions` fixture; the last test here
  * also checks it explicitly after using every new control.
  */
@@ -82,7 +85,7 @@ test.describe('Sidebar list filters: folder order (case 11)', () => {
     }) => {
       await mockBackend({
         conversations: FOLDER_ROWS,
-        preferences: { groupByProject: true, sortField: c.field, sortOrder: c.order },
+        preferences: { ...NAME_MODE, groupByProject: true, sortField: c.field, sortOrder: c.order },
         extraRoutes: listHonoringSource(FOLDER_ROWS),
       })
       await withNetRetry(page, () => page.goto('/'))
@@ -105,7 +108,7 @@ test.describe('Sidebar list filters: folder order (case 11)', () => {
     ]
     await mockBackend({
       conversations: rows,
-      preferences: { groupByProject: true, sortField: 'updated_at', sortOrder: 'desc' },
+      preferences: { ...NAME_MODE, groupByProject: true, sortField: 'updated_at', sortOrder: 'desc' },
       extraRoutes: listHonoringSource(rows),
     })
     await withNetRetry(page, () => page.goto('/'))
@@ -132,7 +135,7 @@ test.describe('Sidebar list filters: grouping', () => {
   }) => {
     await mockBackend({
       conversations: ROWS12,
-      preferences: { groupByProject: true },
+      preferences: { ...NAME_MODE, groupByProject: true },
       extraRoutes: listHonoringSource(ROWS12),
     })
     await withNetRetry(page, () => page.goto('/'))
@@ -172,7 +175,7 @@ test.describe('Sidebar list filters: grouping', () => {
     const rows = [gone1, keepOld, keep1, other, gone2, keep2]
     await mockBackend({
       conversations: rows,
-      preferences: { groupByProject: true, listRecentOnly: true, listRecentHours: 24 },
+      preferences: { ...NAME_MODE, groupByProject: true, listRecentOnly: true, listRecentHours: 24 },
       extraRoutes: listHonoringSource(rows),
     })
     await startClock(page)
@@ -207,7 +210,7 @@ test.describe('Sidebar list filters: grouping', () => {
     await mockBackend({
       conversations: rows,
       details: detailsFor(rows),
-      preferences: { groupByProject: true, keyboardMode: 'vim' },
+      preferences: { ...NAME_MODE, groupByProject: true, keyboardMode: 'vim' },
       extraRoutes: listHonoringSource(rows),
     })
     await withNetRetry(page, () => page.goto(`/conversations/${P1.uuid}`))
@@ -272,7 +275,7 @@ test.describe('Sidebar list filters: console (case 16)', () => {
     await mockBackend({
       conversations: rows,
       details: detailsFor(rows),
-      preferences: { listRecentOnly: true, listRecentHours: 24 },
+      preferences: { ...NAME_MODE, listRecentOnly: true, listRecentHours: 24 },
       extraRoutes: listHonoringSource(rows),
     })
     await startClock(page)

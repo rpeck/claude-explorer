@@ -32,9 +32,20 @@ import type {
  *   })
  */
 
+/**
+ * The home folder that the mocked `/api/config` reports as `home_dir`
+ * (PLANS/2026.10.26-list-project-key.md). A fixture project path under it,
+ * such as `/Users/tester/Source/app`, displays as `~/Source/app`; the older
+ * fixture paths (`/w/...`, `/a/foo`, `/tmp/proj`) are outside it.
+ */
+export const E2E_HOME_DIR = '/Users/tester'
+
+/** `/api/config` as the mock serves it: AppConfig plus `home_dir`. */
+type E2EAppConfig = AppConfig & { home_dir?: string }
+
 export interface MockBackendOptions {
-  /** Defaults: data_dir='/tmp', conversation_count = conversations.length */
-  config?: Partial<AppConfig>
+  /** Defaults: data_dir='/tmp', home_dir=E2E_HOME_DIR, conversation_count = conversations.length */
+  config?: Partial<E2EAppConfig>
   /** Sidebar list payload. Default: []. */
   conversations?: ConversationSummary[]
   /** Detail responses keyed by uuid. Tree payload synthesized if missing. */
@@ -483,8 +494,9 @@ export const test = base.extend<Fixtures>({
       const trees = opts.trees ?? {}
       const orgs = opts.orgs ?? DEFAULT_ORGS
       const account = opts.account ?? DEFAULT_ACCOUNT
-      const config: AppConfig = {
+      const config: E2EAppConfig = {
         data_dir: '/tmp',
+        home_dir: E2E_HOME_DIR,
         ...(opts.config ?? {}),
       }
       const configStats: AppConfigStats = {

@@ -12,11 +12,13 @@ import {
   hoursAgo,
   listHonoringSource,
   openOptions,
+  NAME_MODE,
   openProjectPicker,
   pickProject,
   pickTime,
   projectEntries,
   projectFilter,
+  projectOption,
   sentPrefValues,
   sidebar,
   startClock,
@@ -28,7 +30,8 @@ import type { ConversationSummary } from '../src/lib/types'
 /**
  * Sidebar list filters, round 2: the time dropdown and the project picker.
  * Test cases 18-27 of PLANS/2026.10.26-list-filter-dropdowns.md.
- * Black-box, from the spec. Case 27 (no console errors or warnings) holds
+ * Black-box, from the spec. Round 3 (PLANS/2026.10.26-list-project-key.md):
+ * the picker tests (23-27) mean name mode and set `listProjectKey: "name"`. Case 27 (no console errors or warnings) holds
  * for every test through the auto `consoleAssertions` fixture; the last
  * test also checks it explicitly after using both controls.
  */
@@ -227,7 +230,12 @@ const TYPE_ROWS = [mobileApp, docs, webapp, apiServer]
 /** Name of the highlighted entry, if the picker exposes one. */
 async function highlightedEntry(page: Page): Promise<string | null> {
   return page.evaluate(() => {
-    const text = (el: Element | null) => (el?.textContent ?? '').trim() || null
+    const text = (el: Element | null) => {
+      if (!el) return null
+      const clone = el.cloneNode(true) as Element
+      clone.querySelector('[data-testid="project-entry-detail"]')?.remove()
+      return (clone.textContent ?? '').replace(/\s+/g, ' ').trim() || null
+    }
     const field = document.querySelector('[data-testid="sidebar-project-filter"]')
     const active = field?.getAttribute('aria-activedescendant')
     if (active) return text(document.getElementById(active))
@@ -246,7 +254,8 @@ test.describe('Sidebar list filters: project picker', () => {
     page,
     mockBackend,
   }) => {
-    await mockBackend({ conversations: ORDER_ROWS, extraRoutes: listHonoringSource(ORDER_ROWS) })
+    // Name mode: mid joins /w/mid and /x/mid (round 3).
+    await mockBackend({ conversations: ORDER_ROWS, preferences: NAME_MODE, extraRoutes: listHonoringSource(ORDER_ROWS) })
     await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expect(sidebar(page).locator('[role="button"]', { hasText: 'Order zulu new' })).toBeVisible()
@@ -259,7 +268,8 @@ test.describe('Sidebar list filters: project picker', () => {
     page,
     mockBackend,
   }) => {
-    await mockBackend({ conversations: TYPE_ROWS, extraRoutes: listHonoringSource(TYPE_ROWS) })
+    // Name mode: a pick sets ?project= (round 3).
+    await mockBackend({ conversations: TYPE_ROWS, preferences: NAME_MODE, extraRoutes: listHonoringSource(TYPE_ROWS) })
     await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, TYPE_ROWS, [])
@@ -286,7 +296,7 @@ test.describe('Sidebar list filters: project picker', () => {
     // A click picks; picking closes the panel and clears the typed text.
     await field.fill('mobile')
     await expectProjectEntries(page, ['All projects', 'mobile-app'])
-    await page.getByRole('option', { name: 'mobile-app', exact: true }).click()
+    await (await projectOption(page, 'mobile-app')).click()
     await expect(field).toBeHidden()
     await expectUrlParams(page, { project: 'mobile-app', path: null })
     await expectRows(page, [mobileApp], [webapp, docs, apiServer])
@@ -301,7 +311,8 @@ test.describe('Sidebar list filters: project picker', () => {
     page,
     mockBackend,
   }) => {
-    await mockBackend({ conversations: TYPE_ROWS, extraRoutes: listHonoringSource(TYPE_ROWS) })
+    // Name mode: a pick sets ?project= (round 3).
+    await mockBackend({ conversations: TYPE_ROWS, preferences: NAME_MODE, extraRoutes: listHonoringSource(TYPE_ROWS) })
     await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, TYPE_ROWS, [])
@@ -342,7 +353,8 @@ test.describe('Sidebar list filters: project picker', () => {
     const fooB = ccSession('Path foo b', '/b/foo', hoursAgo(2))
     const bar = ccSession('Path bar c', '/c/bar', hoursAgo(3))
     const rows = [bar, fooB, fooA]
-    await mockBackend({ conversations: rows, extraRoutes: listHonoringSource(rows) })
+    // Name mode: foo joins /a/foo and /b/foo (round 3).
+    await mockBackend({ conversations: rows, preferences: NAME_MODE, extraRoutes: listHonoringSource(rows) })
     await startClock(page)
     await withNetRetry(page, () => page.goto('/conversations?path=/a/foo'))
     await expectRows(page, [fooA], [fooB, bar])
@@ -352,7 +364,7 @@ test.describe('Sidebar list filters: project picker', () => {
     await openProjectPicker(page)
     await expectProjectEntries(page, ['All projects', 'Path: /a/foo', 'foo', 'bar'])
 
-    await page.getByRole('option', { name: 'All projects', exact: true }).click()
+    await (await projectOption(page, 'All projects')).click()
     await expect(projectFilter(page)).toBeHidden()
     await expectUrlParams(page, { project: null, path: null })
     await expect(button).toContainText('All projects')
@@ -368,7 +380,8 @@ test.describe('Sidebar list filters: project picker', () => {
     mockBackend,
     consoleAssertions,
   }) => {
-    await mockBackend({ conversations: TYPE_ROWS, extraRoutes: listHonoringSource(TYPE_ROWS) })
+    // Name mode: a pick sets ?project= (round 3).
+    await mockBackend({ conversations: TYPE_ROWS, preferences: NAME_MODE, extraRoutes: listHonoringSource(TYPE_ROWS) })
     await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, TYPE_ROWS, [])

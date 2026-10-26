@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFolders,
   displayOrder,
+  displayPath,
+  entryMatches,
   groupingApplies,
   isRecent,
   matchesProjectFilter,
-  projectOptions,
+  pathFolderOf,
+  projectEntries,
   recentLabel,
   recentOptions,
 } from './conversationListView'
@@ -134,30 +137,6 @@ describe('isRecent', () => {
   })
 })
 
-describe('projectOptions', () => {
-  it('lists each project name once, newest first by its latest session', () => {
-    const rows = [
-      conv({ uuid: '1', project_name: 'alpha', updated_at: '2026-01-01T00:00:00Z' }),
-      conv({ uuid: '2', project_name: 'zeta', updated_at: '2026-01-08T00:00:00Z' }),
-      conv({ uuid: '3', project_name: 'Alpha', updated_at: '2026-01-09T00:00:00Z' }),
-      conv({ uuid: '4', project_name: 'mid', updated_at: '2026-01-02T00:00:00Z' }),
-      conv({ uuid: '5', source: 'CLAUDE_AI', project_name: null, updated_at: '2026-02-01T00:00:00Z' }),
-    ]
-    // alpha's newest session (01-09, spelled "Alpha") puts it first; the
-    // first spelling seen names it.
-    // A to Z would give alpha, mid, zeta.
-    expect(projectOptions(rows)).toEqual(['alpha', 'zeta', 'mid'])
-  })
-
-  it('breaks a tie by name, A to Z, ignoring case', () => {
-    const rows = [
-      conv({ uuid: '1', project_name: 'Zed', updated_at: '2026-01-01T00:00:00Z' }),
-      conv({ uuid: '2', project_name: 'ann', updated_at: '2026-01-01T00:00:00Z' }),
-    ]
-    expect(projectOptions(rows)).toEqual(['ann', 'Zed'])
-  })
-})
-
 describe('recentOptions', () => {
   const labels = (o: { label: string }[]) => o.map((x) => x.label)
 
@@ -196,5 +175,94 @@ describe('groupingApplies', () => {
     expect(groupingApplies(true, 'CLAUDE_AI')).toBe(false)
     expect(groupingApplies(true, 'CLAUDE_COWORK')).toBe(false)
     expect(groupingApplies(false, 'all')).toBe(false)
+  })
+})
+
+describe('displayPath', () => {
+  it('shows a path inside home with ~', () => {
+    expect(displayPath('/Users/me/Source/clientco/ai', '/Users/me')).toBe('~/Source/clientco/ai')
+    expect(displayPath('/Users/me', '/Users/me')).toBe('~')
+    expect(displayPath('/Users/me/', '/Users/me')).toBe('~')
+  })
+  it('leaves other paths as they are', () => {
+    expect(displayPath('/Users/meow/x', '/Users/me')).toBe('/Users/meow/x')
+    expect(displayPath('/opt/x', '/Users/me')).toBe('/opt/x')
+    expect(displayPath('/opt/x', undefined)).toBe('/opt/x')
+  })
+  it('works with Windows paths', () => {
+    expect(displayPath('C:\\Users\\me\\Source\\ai', 'C:\\Users\\me')).toBe('~\\Source\\ai')
+  })
+})
+
+describe('projectEntries, path mode', () => {
+  const home = '/Users/me'
+  const rows = [
+    conv({ uuid: '1', project_path: '/Users/me/Source/clientco/ai', project_name: 'ai', updated_at: '2026-01-03T00:00:00Z' }),
+    conv({ uuid: '2', project_path: '/Users/me/Work/clientco/ai', project_name: 'ai', updated_at: '2026-01-09T00:00:00Z' }),
+    conv({ uuid: '3', project_path: '/Users/me/Source/other/ai', project_name: 'ai', updated_at: '2026-01-05T00:00:00Z' }),
+    conv({ uuid: '4', project_path: '/Users/me/Source/clientco/ai', project_name: 'ai', updated_at: '2026-01-04T00:00:00Z' }),
+    conv({ uuid: '5', project_path: '/Users/me/foo', project_name: 'foo', updated_at: '2026-01-01T00:00:00Z' }),
+    conv({ uuid: '6', project_path: '/opt/tools/x', project_name: 'x', updated_at: '2026-01-02T00:00:00Z' }),
+    conv({ uuid: '7', source: 'CLAUDE_AI', project_path: null, project_name: null }),
+  ]
+
+  it('gives one entry per path, labels that grow until unique, newest first', () => {
+    const e = projectEntries(rows, 'path', home)
+    expect(e.map((x) => [x.id, x.label, x.detail])).toEqual([
+      ['/Users/me/Work/clientco/ai', 'Work/clientco/ai', '~/Work/clientco/ai'],
+      ['/Users/me/Source/other/ai', 'other/ai', '~/Source/other/ai'],
+      ['/Users/me/Source/clientco/ai', 'Source/clientco/ai', '~/Source/clientco/ai'],
+      ['/opt/tools/x', 'tools/x', '/opt/tools/x'],
+      ['/Users/me/foo', '~/foo', '~/foo'],
+    ])
+  })
+
+  it('keeps a path of 2 parts or fewer whole, also outside home', () => {
+    const two = [conv({ uuid: 's', project_path: '/srv/web', project_name: 'web' })]
+    expect(projectEntries(two, 'path', home).map((x) => x.label)).toEqual(['/srv/web'])
+  })
+
+  it('matches typing against the label and the path, ignoring case', () => {
+    const e = projectEntries(rows, 'path', home)
+    expect(e.filter((x) => entryMatches(x, 'work')).map((x) => x.label)).toEqual(['Work/clientco/ai'])
+    expect(e.filter((x) => entryMatches(x, 'AI')).length).toBe(3)
+    expect(e.filter((x) => entryMatches(x, '~/S')).length).toBe(2)
+  })
+})
+
+describe('projectEntries, name mode', () => {
+  it('joins folders with the same name, and says how many', () => {
+    const rows = [
+      conv({ uuid: '1', project_path: '/Users/me/Source/clientco/ai', project_name: 'ai', updated_at: '2026-01-03T00:00:00Z' }),
+      conv({ uuid: '2', project_path: '/Users/me/Work/clientco/ai', project_name: 'ai', updated_at: '2026-01-09T00:00:00Z' }),
+      conv({ uuid: '3', project_path: '/Users/me/foo', project_name: 'foo', updated_at: '2026-01-10T00:00:00Z' }),
+    ]
+    const e = projectEntries(rows, 'name', '/Users/me')
+    expect(e.map((x) => [x.id, x.label, x.detail])).toEqual([
+      ['foo', 'foo', '~/foo'],
+      ['ai', 'ai', '2 folders'],
+    ])
+    expect(e[1].title).toBe('~/Source/clientco/ai\n~/Work/clientco/ai')
+    expect(entryMatches(e[1], 'work')).toBe(true)
+  })
+})
+
+describe('buildFolders, keyed by path', () => {
+  it('makes one folder per path, named by its label, with the path as the title', () => {
+    const rows = [
+      conv({ uuid: 'a', project_path: '/Users/me/Source/clientco/ai', project_name: 'ai', updated_at: '2026-01-03T00:00:00Z' }),
+      conv({ uuid: 'b', project_path: '/Users/me/Work/clientco/ai', project_name: 'ai', updated_at: '2026-01-09T00:00:00Z' }),
+    ]
+    const folders = buildFolders(rows, 'updated_at', 'desc', pathFolderOf(rows, '/Users/me'))
+    expect(folders.map((f) => [f.key, f.name, f.title])).toEqual([
+      ['/Users/me/Work/clientco/ai', 'Work/clientco/ai', '~/Work/clientco/ai'],
+      ['/Users/me/Source/clientco/ai', 'Source/clientco/ai', '~/Source/clientco/ai'],
+    ])
+    expect(displayOrder(folders, new Set(['/Users/me/Work/clientco/ai']))).toEqual(['a'])
+    // The Project sort uses the label.
+    expect(buildFolders(rows, 'project', 'asc', pathFolderOf(rows, '/Users/me')).map((f) => f.name)).toEqual([
+      'Source/clientco/ai',
+      'Work/clientco/ai',
+    ])
   })
 })

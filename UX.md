@@ -690,6 +690,20 @@ controls; round 2 of the spec,
   `listRecentHours`. A saved number of hours that is not a window (from
   the old hours field) shows as its own option, such as "48 hours".
 
+**What a project is** (Settings → Conversation List → "Projects are";
+per-user preference `listProjectKey`; round 3 of the spec,
+[PLANS/2026.10.26-list-project-key.md](./PLANS/2026.10.26-list-project-key.md)):
+
+- **Folder path** (default): each folder is its own project. An entry's
+  label is the last two folders of its path, with more folders when two
+  labels would be the same, so `~/Source/clientco/ai` reads
+  "clientco/ai". The full path is the entry's second line.
+- **Folder name**: folders with the same last name are one project, as
+  before. The second line is the path, or "N folders" when the name
+  covers more than one.
+- Paths inside the home folder show as `~/...`; `/api/config` reports the
+  home folder as `home_dir`.
+
 **Project or path** (per tab, in the URL):
 
 - `?project=<name>` shows the rows whose `project_name` equals `<name>`,
@@ -700,16 +714,20 @@ controls; round 2 of the spec,
   Cowork) do not match either.
 - **Sidebar project picker:** a button that opens a list with a field,
   "Type to filter projects". The list has "All projects" first (also
-  while the user types), "Path: <path>" while a path filter is active,
-  and then each project name of the loaded list, newest first by its
-  latest session. Typing keeps the names that contain the text, ignoring
-  case. The arrow keys and Enter pick an entry; Escape closes the list.
-  The button is always shown, so that it can clear a filter that a URL
-  or the header set.
+  while the user types), then the active filter when no entry stands for
+  it (such as "ai (all folders)" for an old `?project=` link in path
+  mode), and then the projects of the loaded list, newest first by their
+  latest session. Typing keeps the entries whose label or path contains
+  the text, ignoring case. The arrow keys and Enter pick an entry;
+  Escape closes the list. In path mode a pick sets `?path=`; in name
+  mode, `?project=`. The button is always shown, so that it can clear a
+  filter that a URL or the header set.
 - **Conversation header, "List" menu** (Claude Code sessions with a
-  path): "Show only this project", "Show only this path", and "Show all
-  projects". The label is "List: all", "List: project", "List: path",
-  or "List: other" (a filter for another project or path).
+  path): "Show only this project" and "Show all projects"; name mode
+  also has "Show only this folder". The label is "Filter list" when no
+  project filter is on, "List: this project" (or "List: this folder" in
+  name mode) when the filter shows this conversation's project, and
+  "List: other project" for any other project filter.
 - This filter is separate from the search scope pin (Section 3), which
   dims rows and does not hide them.
 
@@ -725,11 +743,14 @@ last 1 day."). It gives a button for each filter that it can clear:
   shown for the sources "All Conversations" and "Claude Code".
 - Folders hold only the filtered rows. A folder with no visible row is
   not shown, and its count is its number of visible rows.
+- In path mode, each folder is one path: its header shows the picker's
+  label, and its tooltip shows the path. In name mode, a folder is one
+  name.
 - **Folder order:** a folder takes the value of its first session in the
   chosen sort order: the largest value for a descending sort, the
   smallest for an ascending sort. A tie sorts by folder name, A to Z.
   - Last Activity: `updated_at`. Start Time: `created_at`.
-  - Title: `name`, ignoring case. Project: the folder name.
+  - Title: `name`, ignoring case. Project: the folder's label.
 - Inside a folder, starred rows come first.
 - Keyboard navigation (`j`/`k`, arrows) follows the display order,
   folder by folder, and skips the rows of a collapsed folder.
