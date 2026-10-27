@@ -29,7 +29,7 @@
  * than `waitForTimeout`. The 200ms search debounce + React render is
  * absorbed by `expect.poll`.
  */
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { SearchResult } from '../src/lib/types'
 import type { Route } from './fixtures'
 
@@ -153,6 +153,8 @@ test.describe('Search highlight — Bug A v3: no single-char `m` marks', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await expect(input).toBeVisible()
@@ -206,6 +208,8 @@ test.describe('Search highlight — Bug A v3: no single-char `m` marks', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await input.fill('comprehensive')

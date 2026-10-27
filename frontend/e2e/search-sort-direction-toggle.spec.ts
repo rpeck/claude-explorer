@@ -23,7 +23,7 @@
  *     by polling on the request log + on the rendered card order being
  *     the desc/asc shape we mocked. Never bare-sleep.
  */
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { SearchResult } from '../src/lib/types'
 import type { Route } from './fixtures'
 
@@ -189,6 +189,8 @@ test.describe('Search panel sort-direction arrow (V1 polish 2026-05-14)', () => 
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     const input = page.getByPlaceholder('Search messages...')
     await expect(input).toBeVisible()
@@ -305,6 +307,8 @@ test.describe('Search panel sort-direction arrow (V1 polish 2026-05-14)', () => 
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     await page.getByPlaceholder('Search messages...').fill('needle')
 
@@ -336,6 +340,8 @@ test.describe('Search panel sort-direction arrow (V1 polish 2026-05-14)', () => 
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+k')
     await page.getByPlaceholder('Search messages...').fill('needle')
 

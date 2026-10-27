@@ -16,7 +16,7 @@
  * a soak window. Tests assert the dual side: server PATCH + local mirror.
  */
 
-import { test, expect, withNetRetry, E2E_DEFAULT_PREFS } from './fixtures'
+import { test, expect, withNetRetry, waitForKeyboardShortcuts, E2E_DEFAULT_PREFS } from './fixtures'
 import type { Route, Page } from './fixtures'
 
 interface PrefsState {
@@ -77,8 +77,13 @@ test.describe('SearchPanelContext preferences migration (P3e)', () => {
     await withNetRetry(page, () => page.reload())
 
     // Open the search panel via Cmd+F (works on both mac/linux due to
-    // the cmdOrCtrl branch in useKeyboardShortcuts).
+    // the cmdOrCtrl branch in useKeyboardShortcuts). Wait for the keydown
+    // listener first: it attaches in an effect after the first commit, and
+    // a key pressed before it is lost (2026-10-26 CI flake: the panel
+    // stayed closed, so the "Full" radio under aria-hidden was not found).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press('Meta+f')
+    await expect(page.getByRole('complementary', { name: 'Search panel' })).toHaveAttribute('aria-hidden', 'false')
 
     // Click the "Full" radio in the snippet/full segmented control.
     const fullRadio = page.getByRole('radio', { name: 'Full' })

@@ -219,27 +219,46 @@ test.describe('Conversation list (virtualized flat view)', () => {
     // Radix ScrollArea ancestor clips it (see TESTING.md
     // §3 "toBeVisible does NOT detect ancestor clipping"). Verify
     // the row's rect intersects the viewport's rect.
-    const insideViewport = await needleRow.evaluate((el) => {
-      const vp = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
-      if (!vp) return { ok: false, reason: 'no-viewport' }
-      const r = el.getBoundingClientRect()
-      const v = vp.getBoundingClientRect()
-      // Use a small epsilon — smooth scrolling can leave the row at
-      // the viewport edge by sub-pixel amounts.
-      const eps = 4
-      const overlapTop = Math.max(r.top, v.top)
-      const overlapBottom = Math.min(r.bottom, v.bottom)
-      const overlap = overlapBottom - overlapTop
-      return {
-        ok: overlap > 0 - eps,
-        rowTop: r.top,
-        rowBottom: r.bottom,
-        vpTop: v.top,
-        vpBottom: v.bottom,
-        overlap,
-      }
-    })
-    expect(insideViewport.ok, JSON.stringify(insideViewport)).toBe(true)
+    //
+    // Poll: the row arrives by a smooth scroll, so one instant check can
+    // measure it mid-scroll (2026-10-26: overlap -18 ... -163 on a slow
+    // runner). The signal is the row inside the viewport; a row that
+    // never arrives (the 2026-10-26 product bug: overlap -175 for good)
+    // still fails, with the last measurement in the message.
+    const measure = () =>
+      needleRow.evaluate((el) => {
+        const vp = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+        if (!vp) return { ok: false, reason: 'no-viewport' }
+        const r = el.getBoundingClientRect()
+        const v = vp.getBoundingClientRect()
+        // Use a small epsilon — smooth scrolling can leave the row at
+        // the viewport edge by sub-pixel amounts.
+        const eps = 4
+        const overlapTop = Math.max(r.top, v.top)
+        const overlapBottom = Math.min(r.bottom, v.bottom)
+        const overlap = overlapBottom - overlapTop
+        return {
+          ok: overlap > 0 - eps,
+          rowTop: r.top,
+          rowBottom: r.bottom,
+          vpTop: v.top,
+          vpBottom: v.bottom,
+          overlap,
+        }
+      })
+    let last: Awaited<ReturnType<typeof measure>> | null = null
+    await expect
+      .poll(
+        async () => {
+          last = await measure()
+          return last.ok
+        },
+        { message: 'the deep-linked row is inside the list viewport' },
+      )
+      .toBe(true)
+      .catch((e: Error) => {
+        throw new Error(`${e.message}\nlast measure: ${JSON.stringify(last)}`)
+      })
   })
 
   test('a row well past the initial viewport is NOT in the DOM until scrolled to', async ({ page }) => {

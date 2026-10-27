@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, type Route, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, type Route, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { Message } from '../src/lib/types'
 
 /**
@@ -102,7 +102,15 @@ async function mockSearchResults(page: Page) {
 
 async function openPanelAndType(page: Page, q: string) {
   const isMac = process.platform === 'darwin'
+  // The keydown listener attaches in an effect after the first commit; a
+  // Cmd/Ctrl+F before it is lost (2026-10-26 CI flake: the panel stayed
+  // closed). The closed panel is still in the page, slid off-screen, so
+  // toBeVisible() passed and input.click() waited for the off-screen
+  // input until the 60 s test timeout. Wait for the listener, then for
+  // the panel to report itself open.
+  await waitForKeyboardShortcuts(page, 'emacs')
   await page.keyboard.press(isMac ? 'Meta+f' : 'Control+f')
+  await expect(page.locator('[aria-label="Search panel"]')).toHaveAttribute('aria-hidden', 'false')
   const input = page.getByPlaceholder('Search messages...')
   await expect(input).toBeVisible({ timeout: 3000 })
   await input.click()
@@ -242,7 +250,10 @@ test.describe('Search focus model (manual finding 2026-05-04)', () => {
     // 3. The search input has focus (panel opened, ready to type).
     await withNetRetry(page, () => page.goto(`/conversations/${A}`))
     const isMac = process.platform === 'darwin'
+    // Wait for the keydown listener before Cmd/Ctrl+F (see openPanelAndType).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.keyboard.press(isMac ? 'Meta+f' : 'Control+f')
+    await expect(page.locator('[aria-label="Search panel"]')).toHaveAttribute('aria-hidden', 'false')
     const input = page.getByPlaceholder('Search messages...')
     await expect(input).toBeVisible({ timeout: 3000 })
 

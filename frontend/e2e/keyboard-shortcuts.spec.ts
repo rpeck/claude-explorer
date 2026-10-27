@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, type Page, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 import type { SearchResult } from '../src/lib/types'
 
 /**
@@ -147,6 +147,8 @@ test.describe('Keyboard — Cmd+G match navigation (B10, B12)', () => {
     await mockSearch(page, searchResultsWithinC1)
 
     await withNetRetry(page, () => page.goto(`/conversations/${C1}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
 
     // Open SearchPanel and type query.
     await page.locator('main').click()
@@ -473,6 +475,8 @@ test.describe('Keyboard — data-allow-shortcuts (B18)', () => {
     await mockSearch(page, searchResultsWithinC1)
 
     await withNetRetry(page, () => page.goto(`/conversations/${C1}`))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
 
     // Open the SearchPanel and put focus into its input.
     await page.locator('main').click()

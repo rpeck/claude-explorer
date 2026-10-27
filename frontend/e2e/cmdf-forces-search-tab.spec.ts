@@ -1,4 +1,4 @@
-import { test, expect, withNetRetry } from './fixtures'
+import { test, expect, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 
 /**
  * V1 polish — Cmd+F must always switch the right-pane tab to "search",
@@ -59,6 +59,8 @@ test('Cmd+F from a closed panel opens AND switches to search tab', async ({ page
   })
 
   await withNetRetry(page, () => page.goto('/'))
+  // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+  await waitForKeyboardShortcuts(page, 'emacs')
   await page.locator('main').click()
 
   // Press Cmd+F. Even though rightPaneTab=bookmarks in prefs, the

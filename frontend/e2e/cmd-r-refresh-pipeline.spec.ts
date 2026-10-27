@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, withNetRetry } from './fixtures'
+import { test, expect, makeSummary, withNetRetry, waitForKeyboardShortcuts } from './fixtures'
 
 /**
  * Stream C: Cmd+R must invoke the same Build-9 capture+fetch pipeline
@@ -61,6 +61,8 @@ test.describe('Stream C: Cmd+R triggers /api/fetch/refresh', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
 
     // Focus the main pane so the keydown listener runs against the
     // app, not an input element. The handler in
@@ -126,6 +128,8 @@ test.describe('Stream C: Cmd+R triggers /api/fetch/refresh', () => {
     })
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.locator('main').click()
 
     await page.keyboard.press('Control+r')
@@ -189,6 +193,8 @@ test.describe('Stream C: Cmd+R triggers /api/fetch/refresh', () => {
       page.evaluate(() => (window as unknown as { __refreshStreams: number }).__refreshStreams)
 
     await withNetRetry(page, () => page.goto('/'))
+    // The keydown listener attaches after the first commit; wait for it (2026-10-26 flakes).
+    await waitForKeyboardShortcuts(page, 'emacs')
     await page.locator('main').click()
 
     await page.keyboard.press('Meta+r')
