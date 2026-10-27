@@ -56,6 +56,11 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${E2E_WEB_PORT}`,
     trace: 'on-first-retry',
+    // A stuck action or navigation fails in 10 s / 30 s with its call log,
+    // instead of using up the 60 s test timeout with no call log
+    // (2026-10-26: a click on the off-screen, closed Search Pane input).
+    actionTimeout: 10_000,
+    navigationTimeout: 30_000,
     screenshot: 'only-on-failure',
   },
 
