@@ -1,17 +1,16 @@
 /**
  * useConversationCopyAndExports — clipboard-side-effect cohesion home.
  *
- * Owns the three independent "copied" feedback flags that previously
- * lived directly on ConversationPage:
- *
- *   - `copiedAll`   — Copy-as-Markdown affordance in the toolbar.
- *   - `copiedUuid`  — Copy-UUID button in the details collapsible.
- *   - `copiedPath`  — Copy-file-path button in the details collapsible.
- *
- * Each flag flips true on a resolved `navigator.clipboard.writeText`
+ * Owns the `copiedAll` feedback flag of the toolbar's Copy-as-Markdown
+ * button. It flips true on a resolved `navigator.clipboard.writeText`
  * and back to false 2 s later via `useUnmountSafeTimer`. The timer
  * resets if the user re-clicks before expiry (the next schedule
  * supersedes the pending one).
+ *
+ * The header's copy buttons (session name, UUID, file path, project
+ * path, git branch, sandbox path) do NOT live here: each is a
+ * CopyValueButton that owns its own state (2026-10-28,
+ * PLANS/2026.10.28-header-copy-buttons.md).
  *
  * Also owns the entire PDF-export pipeline: the `isExportingPdf`
  * state (drives the toolbar button's `disabled`), the synchronous
@@ -20,11 +19,8 @@
  * unmount cleanup effect, the toast spinner with elapsed-seconds
  * counter, the 504 timeout copy, and the AbortError branch suppression.
  *
- * Returns the same names the toolbar already expects (`copiedAll`,
- * `handleCopyAll`, `handleExportPdf`, `isExportingPdf`) plus the
- * details-collapsible callbacks (`onCopyUuid`, `onCopyPath`,
- * `copiedUuid`, `copiedPath`). ConversationHeader (Commit 5) consumes
- * those four directly.
+ * Returns the names the toolbar expects (`copiedAll`, `handleCopyAll`,
+ * `handleExportPdf`, `isExportingPdf`).
  *
  * Extracted from ConversationPage.tsx (2026-05-31, Commit 4 of
  * PLANS/2026.05.31-conversationpage-decomposition.md). Behavior-preserving.
@@ -46,11 +42,7 @@ interface UseConversationCopyAndExportsArgs {
 
 interface UseConversationCopyAndExportsResult {
   copiedAll: boolean
-  copiedUuid: boolean
-  copiedPath: boolean
   handleCopyAll: () => Promise<void>
-  onCopyUuid: () => Promise<void>
-  onCopyPath: () => Promise<void>
   handleExportPdf: () => Promise<void>
   isExportingPdf: boolean
 }
@@ -61,17 +53,13 @@ export function useConversationCopyAndExports({
   includeCompactInExports,
 }: UseConversationCopyAndExportsArgs): UseConversationCopyAndExportsResult {
   const [copiedAll, setCopiedAll] = useState(false)
-  const [copiedUuid, setCopiedUuid] = useState(false)
-  const [copiedPath, setCopiedPath] = useState(false)
 
   // S5 T2d (2026-05-20): unmount-safe scheduling for the 2 s copy-feedback
-  // flag clears. Bare setTimeout left orphan timers when the user clicked
+  // flag clear. Bare setTimeout left orphan timers when the user clicked
   // Copy then navigated away before the 2 s elapsed; React 18 silently
   // no-op'd the setState, but the warning surfaced in dev and React 19's
   // stricter semantics would surface it harder.
   const scheduleCopiedAllClear = useUnmountSafeTimer()
-  const scheduleCopiedUuidClear = useUnmountSafeTimer()
-  const scheduleCopiedPathClear = useUnmountSafeTimer()
 
   // Task A5 — PDF export spinner toast state.
   // `isExportingPdf` drives the `disabled` attribute on the button (needs
@@ -109,36 +97,6 @@ export function useConversationCopyAndExports({
       errorToast('Failed to copy conversation to clipboard.')
     }
   }, [conversation, showToolCalls, scheduleCopiedAllClear])
-
-  const onCopyUuid = useCallback(async () => {
-    if (!conversation) return
-    // LOW-1 (council follow-up): see MessageBubble.handleCopyMessage.
-    try {
-      await navigator.clipboard.writeText(conversation.uuid)
-      setCopiedUuid(true)
-      scheduleCopiedUuidClear(() => setCopiedUuid(false), 2000)
-    } catch {
-      errorToast('Failed to copy UUID to clipboard.')
-    }
-  }, [conversation, scheduleCopiedUuidClear])
-
-  const onCopyPath = useCallback(async () => {
-    if (!conversation) return
-    // Hunt #2: the rendered button is gated on `conversation.file_path`
-    // existing, but the closure captures `conversation` not the narrowed
-    // value — so TS doesn't carry the narrowing into the async callback.
-    // Capture an explicit local instead of the old `conversation.file_path!`.
-    const filePath = conversation.file_path
-    if (!filePath) return
-    // LOW-1 (council follow-up): see MessageBubble.handleCopyMessage.
-    try {
-      await navigator.clipboard.writeText(filePath)
-      setCopiedPath(true)
-      scheduleCopiedPathClear(() => setCopiedPath(false), 2000)
-    } catch {
-      errorToast('Failed to copy file path to clipboard.')
-    }
-  }, [conversation, scheduleCopiedPathClear])
 
   const handleExportPdf = useCallback(async () => {
     if (!conversation) return
@@ -234,11 +192,7 @@ export function useConversationCopyAndExports({
 
   return {
     copiedAll,
-    copiedUuid,
-    copiedPath,
     handleCopyAll,
-    onCopyUuid,
-    onCopyPath,
     handleExportPdf,
     isExportingPdf,
   }

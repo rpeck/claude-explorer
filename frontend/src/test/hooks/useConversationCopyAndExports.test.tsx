@@ -3,13 +3,15 @@
  *
  * Three behavior groups:
  *
- *   1. Copy flags: each onCopy* callback writes to navigator.clipboard,
- *      sets its copied* flag true, and schedules a 2 s reset. Bidirectional
- *      check: a second call before expiry RE-schedules (the older timer
- *      is cancelled, not stacked).
+ *   1. Copy flag: handleCopyAll writes to navigator.clipboard, sets
+ *      copiedAll true, and schedules a 2 s reset. Bidirectional check: a
+ *      second call before expiry RE-schedules (the older timer is
+ *      cancelled, not stacked). The header's UUID and file-path copy
+ *      buttons moved to CopyValueButton (2026-10-28), which has its own
+ *      tests.
  *
  *   2. Clipboard failure: navigator.clipboard.writeText rejection fires
- *      errorToast and does NOT set the copied* flag.
+ *      errorToast and does NOT set copiedAll.
  *
  *   3. PDF export: handleExportPdf flips isExportingPdf true, calls
  *      api.exportPdf with the correct args, downloads the blob on
@@ -125,60 +127,6 @@ describe('useConversationCopyAndExports — copy flags', () => {
     expect(result.current.copiedAll).toBe(false)
   })
 
-  it('onCopyUuid writes the conversation uuid and flips copiedUuid', async () => {
-    const writeText = installClipboardMock()
-    const conversation = makeConversation()
-    const { result } = renderHook(() =>
-      useConversationCopyAndExports({
-        conversation,
-        showToolCalls: false,
-        includeCompactInExports: true,
-      }),
-    )
-
-    await act(async () => {
-      await result.current.onCopyUuid()
-    })
-    expect(writeText).toHaveBeenCalledWith('conv-uuid-1')
-    expect(result.current.copiedUuid).toBe(true)
-  })
-
-  it('onCopyPath writes the file_path and flips copiedPath', async () => {
-    const writeText = installClipboardMock()
-    const conversation = makeConversation()
-    const { result } = renderHook(() =>
-      useConversationCopyAndExports({
-        conversation,
-        showToolCalls: false,
-        includeCompactInExports: true,
-      }),
-    )
-
-    await act(async () => {
-      await result.current.onCopyPath()
-    })
-    expect(writeText).toHaveBeenCalledWith('/Users/test/conv-uuid-1.json')
-    expect(result.current.copiedPath).toBe(true)
-  })
-
-  it('onCopyPath is a no-op when conversation.file_path is null', async () => {
-    const writeText = installClipboardMock()
-    const conversation = { ...makeConversation(), file_path: null } as unknown as ConversationDetail
-    const { result } = renderHook(() =>
-      useConversationCopyAndExports({
-        conversation,
-        showToolCalls: false,
-        includeCompactInExports: true,
-      }),
-    )
-
-    await act(async () => {
-      await result.current.onCopyPath()
-    })
-    expect(writeText).not.toHaveBeenCalled()
-    expect(result.current.copiedPath).toBe(false)
-  })
-
   it('second handleCopyAll before timer expiry re-schedules (does not stack)', async () => {
     installClipboardMock()
     const conversation = makeConversation()
@@ -263,8 +211,6 @@ describe('useConversationCopyAndExports — null conversation safety', () => {
 
     await act(async () => {
       await result.current.handleCopyAll()
-      await result.current.onCopyUuid()
-      await result.current.onCopyPath()
       await result.current.handleExportPdf()
     })
     expect(writeText).not.toHaveBeenCalled()
