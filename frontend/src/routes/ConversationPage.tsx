@@ -99,18 +99,13 @@ export function ConversationPage() {
   // 2026-05-31 (Commit 4 of decomposition plan): copy/export side-effects
   // moved into useConversationCopyAndExports (clipboard flags + 2 s timer
   // resets, PDF export pipeline with abort + spinner toast). The hook
-  // returns the same prop names the existing ConversationToolbar already
-  // consumes (`copiedAll`, `handleCopyAll`, `handleExportPdf`,
-  // `isExportingPdf`) plus the details-collapsible callbacks
-  // (`copiedUuid`, `copiedPath`, `onCopyUuid`, `onCopyPath`) that
-  // Commit 5's ConversationHeader will consume.
+  // returns the prop names that ConversationToolbar consumes
+  // (`copiedAll`, `handleCopyAll`, `handleExportPdf`, `isExportingPdf`).
+  // The header's copy buttons own their own state (CopyValueButton,
+  // 2026-10-28).
   const {
     copiedAll,
-    copiedUuid,
-    copiedPath,
     handleCopyAll,
-    onCopyUuid,
-    onCopyPath,
     handleExportPdf,
     isExportingPdf,
   } = useConversationCopyAndExports({
@@ -718,10 +713,6 @@ export function ConversationPage() {
       <header className="flex flex-col gap-3 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
         <ConversationHeader
           conversation={conversation}
-          copiedUuid={copiedUuid}
-          copiedPath={copiedPath}
-          onCopyUuid={onCopyUuid}
-          onCopyPath={onCopyPath}
           onOpenTree={() => setIsTreeOpen(true)}
         />
         <ConversationToolbar

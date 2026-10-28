@@ -5,58 +5,57 @@
  *
  * Renders:
  *   - Conversation title (truncated, "Untitled" fallback)
+ *   - Icon-only copy button for the session name (only when the session
+ *     has a name: "Untitled" is not its name)
  *   - PinScopeButton (turns the title into a search-scope pin)
  *   - ListFilterButton (Claude Code only: filter the Conversation List
  *     to this project or path)
  *   - Source badge (Code/Cowork/Desktop), model badge, date, message
  *     count, and "View branches" button when has_branches.
  *   - <details> collapsible (open by default) with:
- *       * Claude Code: project_path + git_branch
- *       * Claude Cowork: sandbox_path (labelled, not clickable)
+ *       * Claude Code: project_path + git_branch copy buttons
+ *       * Claude Cowork: sandbox_path copy button, after its
+ *         "Sandbox path:" label
  *       * UUID copy button (always shown)
  *       * file_path copy button (when present)
  *
- * Clean prop surface (Commit 5 of the decomposition plan):
+ * Every copy button is a CopyValueButton, which owns its own "copied"
+ * state and copies the exact API value (UX.md, "Conversation header:
+ * copy buttons"; PLANS/2026.10.28-header-copy-buttons.md).
+ *
+ * Props:
  *   - `conversation`: data
- *   - `copiedUuid`, `copiedPath`: feedback flags from
- *     useConversationCopyAndExports (Commit 4)
- *   - `onCopyUuid`, `onCopyPath`: callbacks from same hook
  *   - `onOpenTree`: opens the TreeViewModal (state owned by parent)
  *
  * Extracted from ConversationPage.tsx (2026-05-31, Commit 5 of
  * PLANS/2026.05.31-conversationpage-decomposition.md). Behavior-preserving.
  */
-import { GitBranch, Copy, Check, FolderCode, ChevronDown } from 'lucide-react'
+import { GitBranch, FolderCode, ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { PinScopeButton } from '@/components/search/PinScopeButton'
 import { ListFilterButton } from '@/components/conversation/ListFilterButton'
+import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { formatFullDate } from '@/lib/utils'
 import type { ConversationDetail } from '@/lib/types'
 
 interface ConversationHeaderProps {
   conversation: ConversationDetail
-  copiedUuid: boolean
-  copiedPath: boolean
-  onCopyUuid: () => void
-  onCopyPath: () => void
   onOpenTree: () => void
 }
 
-export function ConversationHeader({
-  conversation,
-  copiedUuid,
-  copiedPath,
-  onCopyUuid,
-  onCopyPath,
-  onOpenTree,
-}: ConversationHeaderProps) {
+export function ConversationHeader({ conversation, onOpenTree }: ConversationHeaderProps) {
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2">
         <h1 className="truncate text-xl font-semibold text-zinc-900 dark:text-zinc-100">
           {conversation.name || 'Untitled'}
         </h1>
+        {/* D1: an unnamed session has no title copy button, because
+            "Untitled" is not its name. */}
+        {conversation.name && (
+          <CopyValueButton value={conversation.name} label="session name" iconOnly />
+        )}
         <PinScopeButton
           conversationUuid={conversation.uuid}
           conversationName={conversation.name || 'Untitled'}
@@ -107,18 +106,23 @@ export function ConversationHeader({
           {conversation.source === 'CLAUDE_CODE' && conversation.project_path && (
             <div className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
               <FolderCode className="h-3 w-3" />
-              <span className="font-mono">{conversation.project_path}</span>
+              <CopyValueButton value={conversation.project_path} label="project path">
+                <span>{conversation.project_path}</span>
+              </CopyValueButton>
               {conversation.git_branch && (
                 <>
                   <GitBranch className="ml-2 h-3 w-3" />
-                  <span className="font-mono">{conversation.git_branch}</span>
+                  <CopyValueButton value={conversation.git_branch} label="git branch">
+                    <span>{conversation.git_branch}</span>
+                  </CopyValueButton>
                 </>
               )}
             </div>
           )}
           {/* D10 (Cowork): label cwd as "Sandbox path" — it's
               typically /sessions/<vm>, not a host filesystem path,
-              so don't render as a clickable link. */}
+              so don't render it as a link. It still gets a copy
+              button, like every other value in the header. */}
           {conversation.source === 'CLAUDE_COWORK' && conversation.sandbox_path && (
             <div
               className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500"
@@ -126,36 +130,18 @@ export function ConversationHeader({
             >
               <FolderCode className="h-3 w-3" />
               <span className="text-zinc-500">Sandbox path:</span>
-              <span className="font-mono">{conversation.sandbox_path}</span>
+              <CopyValueButton value={conversation.sandbox_path} label="sandbox path">
+                <span>{conversation.sandbox_path}</span>
+              </CopyValueButton>
             </div>
           )}
-          <button
-            type="button"
-            onClick={onCopyUuid}
-            className="flex items-center gap-1 font-mono text-xs text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-            title="Click to copy UUID"
-          >
-            {copiedUuid ? (
-              <Check className="h-3 w-3 text-green-500" />
-            ) : (
-              <Copy className="h-3 w-3" />
-            )}
+          <CopyValueButton value={conversation.uuid} label="UUID">
             <span>{conversation.uuid}</span>
-          </button>
+          </CopyValueButton>
           {conversation.file_path && (
-            <button
-              type="button"
-              onClick={onCopyPath}
-              className="flex items-center gap-1 font-mono text-xs text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-              title="Click to copy file path"
-            >
-              {copiedPath ? (
-                <Check className="h-3 w-3 text-green-500" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
+            <CopyValueButton value={conversation.file_path} label="file path">
               <span className="truncate max-w-lg">{conversation.file_path}</span>
-            </button>
+            </CopyValueButton>
           )}
         </div>
       </details>

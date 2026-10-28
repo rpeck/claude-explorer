@@ -602,6 +602,55 @@ created_at}`.
 
 ---
 
+## 16. Conversation header: copy buttons
+
+You often need a session's name or one of its paths somewhere else: in a
+terminal, a note, or a message. Every value in the Conversation Pane
+header has a one-click copy button, so you never select a long path by
+hand. A control works the same for every item in its scope, so all six
+buttons follow the same rules.
+
+| Value | Shows when | Where | Tooltip |
+|---|---|---|---|
+| Session name | The session has a name | Icon only, after the title, before the pin button | "Click to copy session name" |
+| Session UUID | Always | **Details** | "Click to copy UUID" |
+| File path | The API gives one | **Details** | "Click to copy file path" |
+| Project path | Claude Code sessions | **Details**, after the folder icon | "Click to copy project path" |
+| Git branch | Claude Code sessions with a branch | **Details**, after the branch icon | "Click to copy git branch" |
+| Sandbox path | Cowork sessions | **Details**, after "Sandbox path:" | "Click to copy sandbox path" |
+
+Rules:
+
+- A button MUST copy the exact value from the API, with nothing added or
+  removed. A path that the header truncates is still copied in full; a
+  Windows path is copied as the API returns it.
+- An unnamed session MUST NOT get a title copy button. Its title shows
+  "Untitled", which is not its name.
+- The title copy button shows only the icon, and its accessible name is
+  "Copy session name". The title itself stays plain, selectable text: a
+  heading that copies on click would surprise the user.
+- The other buttons show the copy icon, then the value in a monospace
+  font. The folder icon, the branch icon, and the "Sandbox path:" label
+  stay in front of the value, because they say what the value is.
+- After a successful copy, the copy icon changes to a green check mark
+  for 2 seconds. A second click restarts the 2 seconds.
+- If the clipboard write fails, an error toast says so, for example
+  "Failed to copy project path to clipboard.", and no check mark shows.
+- Each button has its own check mark; a click on one button never clears
+  another.
+- The check mark belongs to the value that was copied. The Conversation
+  Pane stays mounted when you open another conversation, so:
+  - opening another conversation MUST clear the check mark at once;
+  - a clipboard write that finishes after you opened another
+    conversation MUST NOT show the check mark on the new value.
+
+Implementation: `CopyValueButton`
+(`frontend/src/components/conversation/CopyValueButton.tsx`) owns each
+button's state. It reads no context (CLAUDE.md, "Performance Work",
+rule 1). Plan: `PLANS/2026.10.28-header-copy-buttons.md`.
+
+---
+
 ## Cross-cutting rules
 
 ### Toasts
