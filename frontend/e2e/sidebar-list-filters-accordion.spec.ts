@@ -371,6 +371,10 @@ test.describe('Sidebar list filters: the "Filters and Sorting" section', () => {
     consoleAssertions,
   }) => {
     await mockBackend({ conversations: ROWS, preferences: SECTION_CLOSED, extraRoutes: listHonoringSource(ROWS) })
+    // The rows are dated from the fixed NOW, and "3 days" below is measured
+    // from the browser's clock. Without the fake clock the rows passed out
+    // of the window three days after NOW, and the test failed on every run.
+    await startClock(page)
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, ROWS, [])
     await expectClosed(page)

@@ -6,12 +6,13 @@
  *   1. Copy flag: handleCopyAll writes to navigator.clipboard, sets
  *      copiedAll true, and schedules a 2 s reset. Bidirectional check: a
  *      second call before expiry RE-schedules (the older timer is
- *      cancelled, not stacked). The header's UUID and file-path copy
- *      buttons moved to CopyValueButton (2026-10-28), which has its own
- *      tests.
+ *      cancelled, not stacked). The UUID and file-path copy buttons own
+ *      their own state in CopyValueButton
+ *      (PLANS/2026.10.28-header-copy-buttons.md, D3); their contract lives
+ *      in CopyValueButton.test.tsx and ConversationHeader.test.tsx.
  *
  *   2. Clipboard failure: navigator.clipboard.writeText rejection fires
- *      errorToast and does NOT set copiedAll.
+ *      errorToast and does NOT set the copied* flag.
  *
  *   3. PDF export: handleExportPdf flips isExportingPdf true, calls
  *      api.exportPdf with the correct args, downloads the blob on
