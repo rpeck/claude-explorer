@@ -163,9 +163,9 @@ These decisions are the council's T1′–T7.
 1. **Sources (T1′).**
    - **Read:** the main JSONL, the `subagents/` transcripts and `.meta.json` files, the workflow journals, and `~/.claude/sessions/<pid>.json`. The `todos/` files are optional.
    - **Never:** read a `*.key` file, or connect to `messagingSocketPath`.
-   - **Parse the first JSON object** with `raw_decode`. Record trailing bytes as a diagnostic, not as a failure.
-   - **Cache the last valid object of each file,** keyed by `(inode, mtime, size)`. Read the file again on any change.
-   - **On a parse failure,** keep the last valid object, mark it stale, and retry on the next tick.
+   - **Use first-object parsing (`raw_decode`) only for single-object JSON sidecars** (`.meta.json` and `~/.claude/sessions/<pid>.json`). Skip leading whitespace, decode the first object, and record trailing bytes that are not whitespace as a diagnostic, not as a failure. Parse transcripts and workflow journals as JSONL (refined by plan review 3 and review 5; plan step 1.1 is the full rule).
+   - **Cache the last valid object of each sidecar,** keyed by `(inode, mtime_ns, size)`. Read the file again on any change.
+   - **On a parse failure of a changed sidecar,** keep the last valid object for the same owner and file, mark it stale with both fingerprints in the diagnostics, and retry on the next tick. On deletion, or when the owner changes, discard the kept object.
 2. **Liveness and the words that the UI uses (T2′).** Each of these is a separate field:
    - the process is alive;
    - the status that Claude Code reports, kept as raw text;
@@ -177,12 +177,14 @@ These decisions are the council's T1′–T7.
    | Evidence | The UI says |
    |---|---|
    | An open call, without stronger evidence | "call recorded N s ago; completion not observed" |
-   | Status `busy`, PID alive, start time equal to `procStart`, and the open call is the newest record in its transcript | "running: Bash, started N s ago" |
+   | Status `busy`, PID alive, start time equal to `procStart`, fresh lifecycle data, and the open call is the newest record in the **session's own** transcript | "running: Bash, started N s ago" |
+   | An open call in a subagent transcript, with any lifecycle state (plan review 5, decision V4: the lifecycle file describes the process, not one subagent) | "call recorded N s ago; completion not observed" |
    | An async launch without a notification | "launched; completion not observed" |
    | No new record | "no recorded activity for N min" |
    | No lifecycle file | session liveness "unknown" |
 
    - The UI never says "stuck" or "waiting for permission", because no file records either state (F3).
+   - A stale (last-valid) lifecycle object never gives "running" (plan review 5, V4).
 3. **A long tool call (T3).** The start shows at once (F1). The UI promises updates only after the data reaches the disk.
 4. **The active set and polling (T4′).**
    - **The active set holds:**
@@ -230,7 +232,7 @@ The ranking is a product hypothesis. Test it with users, including users who are
 - **Possible addition: keep the transcripts that the app has observed.** Reviewed by `chatgpt/gpt-6-astra` with Claude Opus 5.5 (2026-10-24; agreed in round 3), not by a full council.
   - **Evidence (2026-10-24):** 82 Agent results reference IDs with no transcript found anywhere under the home folder. They belong to two sessions that are not Claude Desktop sessions.
   - Missing-transcript calls precede 2026-01-25T18:56Z; calls with a kept transcript follow 2026-01-25T20:14Z. The parent session files remain.
-  - This pattern is consistent with one removal event. It does not prove that the transcripts were written, when they disappeared, or what removed them. Older calls without agent IDs do not prove missing transcripts that could be identified.
+  - The Time Machine backups (§12, item 2) explain the pattern by inference: the 2026-02-25 backup holds no file older than about 2026-01-25, which matches Claude Code's default 30-day cleanup on about 2026-02-24, and no backup covers 2025-12-19 to 2026-02-25. No log names the deleting process. Older calls without agent IDs do not prove missing transcripts that could be identified.
   - Keeping a copy could preserve transcripts that the app saw before their files disappeared. It cannot recover content that the app never saw.
   - This stays a backlog proposal. It needs its own design for storage, retention, deletion, and user control. The existing cache and search index follow the source files, so they are not a durable archive.
 
@@ -326,9 +328,9 @@ The ranking is a product hypothesis. Test it with users, including users who are
   - the localhost access controls (the Host-header guard);
   - path containment;
   - prompt injection from transcripts;
-  - no `.key` reads.
+  - no `~/.claude/sessions/*.key` reads, no connection to `messagingSocketPath`, no hook installed, and no write under `~/.claude` (test case 2-12).
 - **Coverage disclosure:** mark agents that are stale or not tailed (beyond the 64-file limit). Alerts and chat answers inherit that coverage.
-- **Platform:** the lifecycle files, `procStart`, and the PID checks are verified on macOS only. Linux and Windows are UNVERIFIED. On Windows, never use `os.kill(pid, 0)` (see CLAUDE.md).
+- **Platform:** the lifecycle files, `procStart`, and the PID checks are verified on macOS only. Linux and Windows are UNVERIFIED. On Windows, never use `os.kill(pid, 0)` (see AGENTS.md, "install-watcher").
 
 ## 10. Claims that we can make (T13′)
 
@@ -396,24 +398,29 @@ The ranking is a product hypothesis. Test it with users, including users who are
   - The same model answered after a 30 s wait, with a shorter prompt.
 - **Claude Opus 5.5:** agrees.
 
+### Later refinements
+
+- **Plan review 3 (2026-10-24):** T1′ applies first-object parsing to single-object sidecars only (§6.1).
+- **Plan review 5 (2026-10-27, Claude Fable 5.1, `chatgpt/gpt-6-astra`, `gemini-4-argon`):** T2′ says "running" only for an open call in the session's own transcript, and never from stale lifecycle data (§6.2, plan decision V4). §6.1 now matches the plan's step 1.1. §9 names the socket and the no-write rule. See the plan's §11, review 5.
+
 ## 12. Open items (UNVERIFIED)
 
 1. Whether lifecycle files exist, how often they update, and what they mean on Linux, on Windows, and for Cowork.
-2. **Answered by the Time Machine backups (2026-10-24):** Claude Code's default 30-day cleanup ran on about 2026-02-24. Older files were restored later from backups, but no backup covered 2025-12-19 to 2026-02-25, so the 82 transcripts from that window are lost. Who did the restore is UNVERIFIED. Details are in the recovery notes below.
+2. **Explained by the Time Machine backups (2026-10-24), by inference:** the backup contents match Claude Code's default 30-day cleanup on about 2026-02-24. No log names the deleting process or its exact date. Older files were restored later from backups, but no backup covered 2025-12-19 to 2026-02-25, so the 82 transcripts from that window are lost. Who did the restore is UNVERIFIED. Details are in the recovery notes below.
    - **Recovery research (2026-10-24):**
      - **No Anthropic API returns them.** The Messages API keeps no retrievable history. The Admin, usage, cost, and Claude Code analytics APIs return metrics only. The Compliance API covers sessions that Anthropic stores (cloud sessions), not local CLI files.
      - **Local CLI transcripts reach Anthropic only by an explicit share.** A "Yes" to the survey "Can Anthropic look at your session transcript?" uploads the transcript and its subagent transcripts, which are kept up to 6 months, so a January 2026 upload would have expired. `/feedback`, `/bug`, and `/share` uploads are kept 5 years, but the prompt history shows none in these two projects from 2026-01-13 to 2026-04-10. Neither path offers the user a download.
      - **The documented cleanup does not explain it.** The docs say that the cleanup deletes `<session>.jsonl` and `<session>/subagents/` together, by age (30 days by default). They do not mention the legacy top-level `agent-<id>.jsonl` files. And 191 main session files older than the 2026-01-25 boundary still exist, back to 2025-05-27, which a 30-day cleanup would have deleted.
      - **Time Machine search (2026-10-24): not recoverable.** The disk holds 42 backups. None is dated between 2025-12-19 and 2026-02-25. The 2026-02-25 backup has none of the 80 missing IDs, and the 2025-12-19 backup is older than the agents.
-     - **The cause, from the backups:**
-       - **The 2026-02-25 backup** holds only 26 main session files and 431 agent files, and no file older than 2026-01-25. That is exactly 30 days before the backup, so Claude Code's default 30-day cleanup ran on about 2026-02-24 and deleted every file older than about 2026-01-25, main sessions included.
+     - **The cause, inferred from the backups:**
+       - **The 2026-02-25 backup** holds only 26 main session files and 431 agent files, and no file older than 2026-01-25. That is exactly 30 days before the backup, which matches Claude Code's default 30-day cleanup on about 2026-02-24, with every file older than about 2026-01-25 deleted, main sessions included. The backup contents do not name the deleting process or its exact date.
        - **Later, older files were restored.** All 279 top-level files of the 2025-12-19 backup exist today with their old dates. 658 more files from before 2025-12-19 exist today from another source. Who restored them is UNVERIFIED.
        - **Today, no file in `~/.claude/projects` is dated between 2025-12-19 and 2026-01-25.** Files written in that window had no backup, so the restore could not bring them back. The 82 missing agent transcripts are in that window. Their two parent sessions survived because they were written after the cutoff.
        - **`cleanupPeriodDays` is now 3650,** so this cleanup does not repeat.
      - **One remaining lead, outside the API: a privacy access request.**
        - Anthropic's privacy policy gives a right to request a copy of your personal data, including your "Inputs" and "Outputs", by email to privacy@anthropic.com. Claude Code is not named in the policy.
        - For consumer accounts (Free, Pro, Max), the Claude Code docs say that Anthropic keeps Claude Code data 5 years if "allow data use for model improvement" is on, and 30 days if it is off.
-       - So the data can exist only if that setting was on in January 2026. With it off, the data was deleted in February 2026.
+       - The cited retention periods describe the documented policy. The account's January 2026 setting and the actual retention of these records are UNVERIFIED. The policy alone does not establish whether the records still exist or whether a privacy export can return them.
        - A copy would hold API request and response content, not Claude Code's JSONL files. Each subagent call sends the subagent's history so far, so the last request of each subagent would hold almost its whole transcript. Whether a privacy export includes Claude Code API traffic is UNVERIFIED.
      - **A lesson for the product:** an app that keeps its own copy of what it observes would have saved these files (§7.1).
      - **Partial data that exists today:** each ghost's prompt, final result, and usage in the parent transcript (already used for ghost nodes); one TodoWrite file (`~/.claude/todos/<session>-agent-a094ac6.json`); and, for the Money session only, a 246 MB debug log whose MCP stderr includes PAL's DEBUG request options for calls in that period.
