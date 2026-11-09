@@ -179,6 +179,30 @@ def test_a_root_file_changed_after_the_run_needs_a_new_run(repo: Path) -> None:
     assert _check(repo, "--verify").returncode == 1
 
 
+def test_a_new_python_version_file_needs_a_run(repo: Path) -> None:
+    """.python-version picks the Python that runs the checks, so it counts
+    like pyproject.toml, also while untracked."""
+    (repo / ".python-version").write_text("3.13\n", encoding="utf-8")
+    result = _check(repo, "--verify")
+    assert result.returncode == 1
+    assert ".python-version" in result.stdout + result.stderr
+
+
+def test_an_uncounted_file_that_no_check_read_is_refused_when_tracked(repo: Path) -> None:
+    """Some checks read only tracked files (test_resource_cleanup.py runs
+    `git ls-files "*.py"`). So an untracked file that did not count was not
+    tested, although it was on disk during the green run. A commit that
+    starts to track it needs a new run."""
+    _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "x.py").write_text("y = 1\n", encoding="utf-8")
+    _green_run(repo)
+    _git(repo, "add", "docs/x.py")
+    with pytest.raises(subprocess.CalledProcessError) as refused:
+        _git(repo, "commit", "-q", "-m", "untested")
+    assert "docs/x.py" in refused.value.stderr
+
+
 def test_the_hook_allows_a_commit_of_docs_only(repo: Path) -> None:
     _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
     (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")  # unstaged, untested

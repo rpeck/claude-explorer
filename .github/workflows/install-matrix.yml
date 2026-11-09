@@ -32,6 +32,7 @@ on:
     paths:
       - "pyproject.toml"
       - "uv.lock"
+      - ".python-version"
       - "cli/**"
       - "fetcher/**"
       - "backend/**"
@@ -42,6 +43,7 @@ on:
     paths:
       - "pyproject.toml"
       - "uv.lock"
+      - ".python-version"
       - "cli/**"
       - "fetcher/**"
       - "backend/**"
