@@ -41,6 +41,8 @@ from pathlib import Path
 # stay checked: tests read README.md, AGENTS.md, assets/, and every article.
 EXCLUDED_DIRS = ("PLANS/", "PROCESS/", "scripts/vm-setup/")
 # An untracked file counts only in a code folder, or as a root config file.
+# Other untracked files do not need a run, but a green run records their
+# content, so a commit that starts to track one unchanged is still covered.
 UNTRACKED_CODE_DIRS = (
     "backend/", "cli/", "fetcher/", "mcp_server/", "frontend/", "scripts/",
     "benchmarks/", "assets/", ".github/", ".claude/",
@@ -140,12 +142,27 @@ def _is_checked(path: str, tracked: bool) -> bool:
 
 def worktree_entries() -> dict[str, str]:
     """{path: blob} for the checked files as they are on disk now."""
-    root = _root()
     tracked = [p for p in _git("ls-files", "-c", "-z").split("\0") if p]
     untracked = [p for p in _git("ls-files", "-o", "--exclude-standard", "-z").split("\0") if p]
     paths = sorted(
         {p for p in tracked if _is_checked(p, True)} | {p for p in untracked if _is_checked(p, False)}
     )
+    return _blobs(paths)
+
+
+def uncounted_untracked_entries() -> dict[str, str]:
+    """{path: blob} for untracked files that count only once they are tracked.
+
+    An example is a new root file such as .python-version. A green run
+    records them: they were on disk while the checks ran, so a later commit
+    of the same content is tested content.
+    """
+    untracked = [p for p in _git("ls-files", "-o", "--exclude-standard", "-z").split("\0") if p]
+    return _blobs(sorted(p for p in untracked if _is_checked(p, True) and not _is_checked(p, False)))
+
+
+def _blobs(paths: list[str]) -> dict[str, str]:
+    root = _root()
     paths = [p for p in paths if (root / p).is_file() and "\n" not in p]  # deleted files and gitlinks drop out
     if not paths:
         return {}
@@ -203,11 +220,29 @@ def _read_marker() -> dict | None:
         return None
 
 
-def _write_marker(entries_digest: str, sections: list[str]) -> None:
+def _write_marker(entries_digest: str, sections: list[str], uncounted: dict[str, str]) -> None:
     _marker_path().write_text(
-        json.dumps({"digest": entries_digest, "sections": sections, "when": datetime.now(UTC).isoformat()}),
+        json.dumps({
+            "digest": entries_digest,
+            "sections": sections,
+            "uncounted_untracked": uncounted,
+            "when": datetime.now(UTC).isoformat(),
+        }),
         encoding="utf-8",
     )
+
+
+def _run_covers(entries: dict[str, str], marker: dict | None) -> bool:
+    """True if the green run in ``marker`` tested the checked files ``entries``.
+
+    A file that the run did not count, because it was untracked, still counts
+    as tested when it has the same content now.
+    """
+    if not marker:
+        return False
+    seen = marker.get("uncounted_untracked", {})
+    counted = {p: b for p, b in entries.items() if seen.get(p) != b}
+    return marker.get("digest") == digest(counted)
 
 
 # ----- the questions that the hooks ask -------------------------------------
@@ -231,8 +266,7 @@ def unverified_changes() -> list[str]:
     now, head = worktree_entries(), head_entries()
     if digest(now) == digest(head):
         return []
-    marker = _read_marker()
-    if marker and marker.get("digest") == digest(now):
+    if _run_covers(now, _read_marker()):
         return []
     return _changed(now, head)
 
@@ -256,8 +290,7 @@ def verify_index() -> int:
     staged, head = index_entries(), head_entries()
     if digest(staged) == digest(head):
         return 0
-    marker = _read_marker()
-    if marker and marker.get("digest") == digest(staged):
+    if _run_covers(staged, _read_marker()):
         return 0
     _report(
         "pre-commit: these staged checked files are not the content of a green run of scripts/check.py:",
@@ -295,7 +328,7 @@ def main(
         return 0
 
     chosen = args.only or ["python", "frontend"]
-    before = worktree_entries()
+    before, uncounted_before = worktree_entries(), uncounted_untracked_entries()
     for name in chosen:
         print(f"\n######## {name}", flush=True)
         code = run_steps(sections[name], on_start=on_start)
@@ -305,7 +338,9 @@ def main(
         if worktree_entries() != before:
             print("\nAll checks passed, but checked files changed during the run: nothing recorded. Run again.")
             return 1
-        _write_marker(digest(before), chosen)
+        # Keep only the uncounted files that did not change during the run.
+        uncounted = {p: b for p, b in uncounted_untracked_entries().items() if uncounted_before.get(p) == b}
+        _write_marker(digest(before), chosen, uncounted)
         print(f"\nAll checks passed ({', '.join(chosen)}). Recorded for the pre-commit and Stop hooks.")
     else:
         print(f"\nAll checks passed ({', '.join(chosen)}). Only python + frontend together record a green run.")

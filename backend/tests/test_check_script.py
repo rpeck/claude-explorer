@@ -145,6 +145,40 @@ def test_the_hook_refuses_a_part_of_the_tested_content(repo: Path) -> None:
         _git(repo, "commit", "-q", "-m", "half")
 
 
+def test_a_new_root_file_that_the_run_saw_can_be_committed(repo: Path) -> None:
+    """An untracked root file such as .python-version does not count until
+    it is tracked. The run had it on disk, so a commit of that same content
+    is tested content (2026-11-08: the hook refused it after a green run)."""
+    _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+    (repo / ".python-version").write_text("3.13\n", encoding="utf-8")
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    _green_run(repo)
+    _git(repo, "add", ".python-version", "backend/code.py")
+    _git(repo, "commit", "-q", "-m", "tested")
+
+
+def test_a_staged_root_file_that_the_run_saw_needs_no_new_run(repo: Path) -> None:
+    """The Stop hook asks --verify. Staging the file must not undo the run."""
+    (repo / ".python-version").write_text("3.13\n", encoding="utf-8")
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    _green_run(repo)
+    _git(repo, "add", ".python-version")
+    result = _check(repo, "--verify")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_a_root_file_changed_after_the_run_needs_a_new_run(repo: Path) -> None:
+    _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+    (repo / ".python-version").write_text("3.13\n", encoding="utf-8")
+    _green_run(repo)
+    (repo / ".python-version").write_text("3.12\n", encoding="utf-8")
+    _git(repo, "add", ".python-version")
+    with pytest.raises(subprocess.CalledProcessError) as refused:
+        _git(repo, "commit", "-q", "-m", "untested")
+    assert ".python-version" in refused.value.stderr
+    assert _check(repo, "--verify").returncode == 1
+
+
 def test_the_hook_allows_a_commit_of_docs_only(repo: Path) -> None:
     _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
     (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")  # unstaged, untested
