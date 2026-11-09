@@ -105,7 +105,8 @@ def get_account() -> AccountResponse:
             detail=f"Credentials file is corrupt: {e}. Re-run capture to refresh credentials.",
         )
 
-    primary = creds.get("primary_org_id") or creds.get("org_id")
+    # load_credentials validates primary_org_id; org_id is only its legacy mirror.
+    primary = creds["primary_org_id"]
     org_name = next(
         (o.get("name") for o in creds.get("orgs", []) if o.get("uuid") == primary),
         None,

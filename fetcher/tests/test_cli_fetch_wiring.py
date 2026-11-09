@@ -476,3 +476,59 @@ def test_cli_fetch_error_is_a_short_message_not_a_traceback(
     assert "Traceback" not in result.output
     for text in expected:
         assert text in result.output, (text, result.output)
+
+
+# ---------------------------------------------------------------------------
+# Issue #1 "related drift" (2026-11-08): ``fetch`` loads the credentials
+# with the one strict loader, ``fetcher.credentials.load_credentials``.
+# Its private ``json.load`` copy returned any JSON value, so a file that was
+# not an object crashed ``fetcher_credentials`` with a traceback.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(b'{"truncated json', id="truncated-json"),
+        pytest.param(b"", id="empty-file"),
+        pytest.param(b"[1, 2, 3]", id="list-root"),
+        pytest.param(b'"a-pasted-session-key"', id="string-root"),
+        # Windows PowerShell 5.1 ``Out-File`` writes UTF-16.
+        pytest.param(json.dumps({"schema_version": 2}).encode("utf-16"), id="utf-16"),
+    ],
+)
+def test_cli_fetch_unreadable_credentials_file_is_a_clear_error(
+    tmp_path: Path,
+    _patch_fetcher: None,
+    content: bytes,
+) -> None:
+    """Each bad file is a short message that names the file and the fix."""
+    creds = tmp_path / "credentials.json"
+    creds.write_bytes(content)
+
+    result = _invoke_fetch(tmp_path, creds)
+
+    assert result.exit_code == 1, (result.output, result.exception)
+    assert isinstance(result.exception, SystemExit), repr(result.exception)
+    assert "Traceback" not in result.output
+    assert str(creds) in result.output, result.output
+    assert "claude-explorer capture" in result.output, result.output
+    assert _StubFetcher.last_kwargs == {}, "no fetch may start from a bad file"
+
+
+def test_cli_fetch_missing_credentials_file_names_capture(
+    tmp_path: Path,
+    _patch_fetcher: None,
+) -> None:
+    """A missing file tells the user to run ``capture``. The old text said
+    "Run the mitmproxy addon first", which is not a command."""
+    creds = tmp_path / "nonexistent.json"
+
+    result = _invoke_fetch(tmp_path, creds)
+
+    assert result.exit_code == 1, (result.output, result.exception)
+    assert isinstance(result.exception, SystemExit), repr(result.exception)
+    assert str(creds) in result.output
+    assert "not found" in result.output
+    assert "claude-explorer capture" in result.output
+    assert "mitmproxy addon" not in result.output

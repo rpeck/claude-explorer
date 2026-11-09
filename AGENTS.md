@@ -83,11 +83,8 @@ to the GitHub Release alongside the wheel.
 After installing (`uv sync`), use the `claude-explorer` command:
 
 ```bash
-# Step 1: Capture credentials from Claude Desktop
+# Step 1: Capture credentials (a browser window opens; log in to Claude)
 claude-explorer capture
-
-# In another terminal, launch Claude Desktop through the proxy:
-open -a "Claude" --args --proxy-server="127.0.0.1:8080" --ignore-certificate-errors
 
 # Step 2: Fetch all conversations
 claude-explorer fetch
@@ -101,20 +98,30 @@ claude-explorer serve
 
 #### `claude-explorer capture`
 
-Start mitmproxy to intercept Claude Desktop session credentials.
+Capture the Claude session credentials into
+`~/.claude-explorer/credentials.json`.
 
 ```
 Options:
-  --port INTEGER    Proxy port (default: 8080)
+  -o, --output PATH      Where to save credentials
+  -t, --timeout INTEGER  Max seconds to wait for login (default: 300)
+  --proxy                Use mitmproxy and Claude Desktop instead of a browser
+  --port INTEGER         Proxy port when using --proxy (default: 8080)
 ```
 
-**How it works:**
-1. Starts a local HTTPS proxy using mitmproxy
-2. You launch Claude Desktop through the proxy
-3. The addon extracts `sessionKey` and `org_id` from API requests
-4. Credentials are saved to `~/.claude-explorer/credentials.json`
+**Default (browser):** `fetcher/playwright_capture.py` opens a Chromium
+window. After you log in, it reads the `sessionKey` cookie and the orgs.
 
-**Platform-specific launch commands:**
+**`--proxy` (mitmproxy):**
+1. Starts mitmproxy with the addon `fetcher/mitmproxy_addon.py`.
+   `cli/main.py` finds the addon through its module, not through a path
+   next to `cli/`. From v1.0.0 to v1.1.9 the path named
+   `cli/mitmproxy_addon.py`, which does not exist. mitmproxy stopped at
+   once with "No such script", and `--proxy` failed every time.
+2. You launch Claude Desktop through the proxy.
+3. The addon extracts `sessionKey` and the org ids from API requests.
+
+**Platform-specific launch commands for `--proxy`:**
 ```bash
 # macOS
 open -a "Claude" --args --proxy-server="127.0.0.1:8080" --ignore-certificate-errors
@@ -394,7 +401,11 @@ through `fetcher/remote_sessions.py`:
 
 If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_capture_phase_stream`, `_fetch_phase_stream`, and `refresh_pipeline_stream` async generators) and the two web-page consumers of the stream together — the SSE event schema is shared. The consumers are `frontend/src/contexts/FetchPipelineContext.tsx` (Refresh) and `frontend/src/components/fetch/FetchDialog.tsx` (Fetch New, Full Refresh); `frontend/src/components/fetch/FetchToast.tsx` holds their shared text helpers.
 
-**One credentials conversion.** Every caller that builds a `ClaudeFetcher` gets its credential arguments from `fetcher.credentials.fetcher_credentials`: the three fetch routes, `claude-explorer fetch`, and `claude-explorer rehydrate`. Do not write another copy. Five private copies drifted apart: one passed a removed `org_id=` keyword and crashed every `claude-explorer fetch` (issue #1), and the routes refused a v2 file without the legacy `org_id` mirror.
+**One credentials loader and one conversion.** Every caller that builds a `ClaudeFetcher` reads the file with `fetcher.credentials.load_credentials` and gets its credential arguments from `fetcher.credentials.fetcher_credentials`: the three fetch routes, `claude-explorer fetch`, and `claude-explorer rehydrate`. Do not write another copy of either.
+
+- Five private copies of the conversion drifted apart. One passed a removed `org_id=` keyword and crashed every `claude-explorer fetch` (issue #1). The routes refused a v2 file without the legacy `org_id` mirror.
+- A plain `json.load` copy of the loader in `fetcher/bulk_fetch.py` passed a list or a string on as credentials. `fetch` and the routes then failed with `AttributeError` instead of "run capture".
+- Read the primary org from `primary_org_id`. `org_id` is only a legacy mirror that `CredentialsV2` plans to drop. Only the v1 paths in `fetcher/credentials.py` read it.
 
 ## Development Setup
 

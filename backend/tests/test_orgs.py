@@ -166,6 +166,18 @@ def test__get_orgs__credentials_truncated_json__returns_503_corrupt(
     )
 
 
+def test__get_orgs__credentials_not_utf8__returns_503_corrupt(
+    client: TestClient, isolated_creds: Path
+) -> None:
+    """A UTF-16 file (Windows PowerShell 5.1 ``Out-File``) is corrupt: 503,
+    the same as truncated JSON. The decode error escaped the loader as a 500."""
+    isolated_creds.parent.mkdir(parents=True, exist_ok=True)
+    isolated_creds.write_bytes(json.dumps(_v2_creds()).encode("utf-16"))
+    r = client.get("/api/orgs")
+    assert r.status_code == 503, r.text
+    assert "corrupt" in r.json()["detail"].lower()
+
+
 def test__get_orgs__credentials_corrupt_detail_must_not_be_dict(
     client: TestClient, isolated_creds: Path
 ) -> None:

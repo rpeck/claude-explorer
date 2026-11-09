@@ -117,7 +117,6 @@ __all__ = [
     "with_retry",
     # Fetcher
     "ClaudeFetcher",
-    "load_credentials",
 ]
 
 # Claude API base URL
@@ -1316,43 +1315,11 @@ class ClaudeFetcher:
             )
 
 
-def load_credentials(credentials_path: Path) -> dict:
-    """Load credentials from JSON file.
-
-    A corrupt or unreadable credentials file is the most common
-    hand-edited failure mode for this tool — and the worst UX:
-    pre-fix, a malformed file surfaced as a raw Python stack trace at
-    the CLI top level. Wrap the parse so the user sees an actionable
-    ClickException with the same recovery copy as the missing-file
-    case.
-
-    Note: the canonical credential reader lives in
-    ``fetcher/credentials.py:load_credentials`` and does strict v1/v2
-    schema validation via ``_validate``. This legacy duplicate
-    deliberately stays permissive — it returns whatever shape the
-    JSON parses into (including non-dict roots) — because some
-    callers in this module hand-build their orgs list from
-    ``--session-key`` / ``--org-id`` overrides without writing a
-    schema-valid credentials file. Migrating to the canonical reader
-    is a separate refactor that requires aligning those override
-    paths first.
-    """
-    if not credentials_path.exists():
-        raise click.ClickException(
-            f"Credentials file not found: {credentials_path}\n"
-            f"Run the mitmproxy addon first to capture credentials."
-        )
-
-    try:
-        with open(credentials_path, encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError) as e:
-        raise click.ClickException(
-            f"Credentials file is corrupt or unreadable: {credentials_path}\n"
-            f"  Parse error: {e}\n"
-            f"Fix or remove the file and re-run "
-            f"`claude-explorer capture` to recapture credentials."
-        ) from e
+# NOTE: This module also had a second, plain ``load_credentials`` (a
+# ``json.load`` with no schema check and no v1 upgrade). Its last caller was
+# ``claude-explorer fetch``, which passed a list or a string from it on as
+# credentials and crashed (issue #1, "related drift"). Every caller now uses
+# ``fetcher.credentials.load_credentials``, the one loader.
 
 
 # NOTE: This module previously defined a second ``@click.command() def main``
