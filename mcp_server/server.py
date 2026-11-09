@@ -22,6 +22,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+from fastmcp.tools.base import ToolResult
 
 from backend.config import Settings
 from backend.export import (
@@ -69,6 +72,45 @@ MCP_SEARCH_LIMIT = 5000
 # a Cowork cloud session, so a tool that needs that name cannot be
 # called from Cowork (GitHub issue #33). A test pins this:
 # mcp_server/tests/test_conversation_id_param.py.
+#
+# The middleware below does not accept ``session_id``. It replaces the
+# generic pydantic errors with messages that tell the client model what
+# to send instead, because old prompts still say ``session_id``.
+CONVERSATION_ID_TOOLS = frozenset(
+    {"get_session_outline", "get_messages", "export_session"}
+)
+
+SESSION_ID_RENAMED = (
+    "'session_id' was renamed to 'conversation_id'. Send the session UUID "
+    "as 'conversation_id', and do not send 'session_id'."
+)
+CONVERSATION_ID_MISSING = (
+    "Missing required argument 'conversation_id': the session UUID (the "
+    "'uuid' field from list_sessions). It was formerly named 'session_id'. "
+    "Some MCP bridges remove an argument named 'session_id', so send "
+    "'conversation_id'."
+)
+
+
+class _ExplainSessionIdRename(Middleware):
+    async def on_call_tool(
+        self,
+        # The message is an ``mcp.types.CallToolRequestParams``. Importing
+        # ``mcp`` directly adds a dependency that the MCPB closure canary
+        # refuses (mcp_server/tests/test_mcpb_closure.py).
+        context: MiddlewareContext[Any],
+        call_next: CallNext[Any, ToolResult],
+    ) -> ToolResult:
+        if context.message.name in CONVERSATION_ID_TOOLS:
+            arguments = context.message.arguments or {}
+            if "session_id" in arguments:
+                raise ToolError(SESSION_ID_RENAMED)
+            if arguments.get("conversation_id") is None:
+                raise ToolError(CONVERSATION_ID_MISSING)
+        return await call_next(context)
+
+
+mcp.add_middleware(_ExplainSessionIdRename())
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -28,6 +28,25 @@ async def _call(tool: str, arguments: dict[str, Any]):
         return await client.call_tool(tool, arguments, raise_on_error=False)
 
 
+async def _wire_tools() -> dict[str, dict[str, Any]]:
+    """{tool name: inputSchema} as a client receives them, not the registry."""
+    async with Client(mcp) as client:
+        return {t.name: t.inputSchema for t in await client.list_tools()}
+
+
+def _property_names(schema: Any) -> set[str]:
+    """Every property name at any depth of a JSON schema."""
+    names: set[str] = set()
+    if isinstance(schema, dict):
+        names.update(schema.get("properties", {}))
+        for value in schema.values():
+            names |= _property_names(value)
+    elif isinstance(schema, list):
+        for value in schema:
+            names |= _property_names(value)
+    return names
+
+
 def _content_text(result) -> str:
     return " ".join(getattr(block, "text", "") for block in result.content)
 
@@ -48,19 +67,18 @@ async def test_no_tool_schema_has_a_session_id_property():
     The bridge removes that key, so a schema that offers it makes the
     tool impossible to call from a Cowork cloud session.
     """
-    tools = await mcp.list_tools()
-    assert tools, "the FastMCP registry returned no tools"
-    offenders = [
-        t.name for t in tools if "session_id" in t.parameters.get("properties", {})
-    ]
+    tools = await _wire_tools()
+    assert len(tools) == 5, sorted(tools)
+    # Positive control: the walk finds the properties that do exist.
+    assert {"conversation_id", "positions"} <= _property_names(tools["get_messages"])
+    offenders = [name for name, schema in tools.items() if "session_id" in _property_names(schema)]
     assert offenders == []
 
 
 @pytest.mark.parametrize("tool", PER_SESSION_TOOLS)
 async def test_per_session_tool_requires_conversation_id(tool):
     """Each per-session tool shows ``conversation_id`` as a required string."""
-    registered = {t.name: t for t in await mcp.list_tools()}
-    params = registered[tool].parameters
+    params = (await _wire_tools())[tool]
     assert params["properties"]["conversation_id"]["type"] == "string"
     assert "conversation_id" in params.get("required", [])
 
@@ -69,10 +87,8 @@ async def test_per_session_tool_requires_conversation_id(tool):
 async def test_conversation_id_description_names_the_former_name(tool):
     """A model reads this description when it builds the call. It must
     learn that a ``session_id`` in an old prompt means ``conversation_id``."""
-    registered = {t.name: t for t in await mcp.list_tools()}
-    description = registered[tool].parameters["properties"]["conversation_id"][
-        "description"
-    ]
+    raw = (await _wire_tools())[tool]["properties"]["conversation_id"]["description"]
+    description = " ".join(raw.split())  # a re-wrapped docstring must still pass
     assert "formerly named session_id" in description
     assert "send conversation_id" in description
 
@@ -94,10 +110,10 @@ async def test_call_with_conversation_id_succeeds(tool, mcp_data):
             "msg-a-1",
         ]
     elif tool == "get_messages":
-        payload = json.loads(result.content[0].text)
+        payload = json.loads(_content_text(result))
         assert [m["uuid"] for m in payload] == ["msg-h-1", "msg-a-1"]
     else:
-        markdown = result.content[0].text
+        markdown = _content_text(result)
         assert "# Conversation Fixture" in markdown
         assert "Tell me about FTS5 in SQLite." in markdown
 
@@ -124,28 +140,53 @@ async def test_outline_conversation_id_passes_on_to_get_messages(mcp_data):
         {"conversation_id": outline.data["conversation_id"], "positions": [1]},
     )
     assert not result.is_error, _content_text(result)
-    assert [m["uuid"] for m in json.loads(result.content[0].text)] == ["msg-a-1"]
+    assert [m["uuid"] for m in json.loads(_content_text(result))] == ["msg-a-1"]
 
 
 @pytest.mark.parametrize("tool", PER_SESSION_TOOLS)
-async def test_call_with_neither_name_names_conversation_id(tool, mcp_data):
+async def test_call_with_an_unknown_conversation_id_says_not_found(tool, mcp_data):
+    mcp_data.add_desktop_session("conv-known", name="Conversation Fixture")
+    missing = "11111111-0000-0000-0000-000000000000"
+    text = _error_text(await _call(tool, {"conversation_id": missing}))
+    assert f"Session '{missing}' not found." in text
+
+
+@pytest.mark.parametrize("tool", PER_SESSION_TOOLS)
+async def test_call_with_neither_name_explains_the_rename(tool, mcp_data):
     """This is the call that the bridge delivers when it removes ``session_id``.
 
-    The error must tell the caller which argument to send instead.
+    The error must tell the model to send ``conversation_id``, and say why the
+    ``session_id`` that it sent did not arrive.
     """
     mcp_data.add_desktop_session("conv-none", name="Conversation Fixture")
     text = _error_text(await _call(tool, {}))
-    assert "conversation_id" in text
-    assert "Missing required argument" in text
+    assert "Missing required argument 'conversation_id'" in text
+    assert "formerly named 'session_id'" in text
+    assert "bridges remove an argument named 'session_id'" in text
 
 
 @pytest.mark.parametrize("tool", PER_SESSION_TOOLS)
-async def test_call_with_old_session_id_names_conversation_id(tool, mcp_data):
+@pytest.mark.parametrize("with_conversation_id", [False, True])
+async def test_call_with_session_id_explains_the_rename(
+    tool, with_conversation_id, mcp_data
+):
     """An old prompt or script that still sends ``session_id`` gets an error
-    that names the argument to send instead, so a model can retry."""
+    that tells the model to send ``conversation_id`` instead. This holds also
+    when the call sends both names, with the same value."""
     uuid = mcp_data.add_desktop_session("conv-old", name="Conversation Fixture")
-    text = _error_text(await _call(tool, {"session_id": uuid}))
-    assert "conversation_id" in text
-    assert "Missing required argument" in text
-    assert "session_id" in text
+    arguments = {"session_id": uuid}
+    if with_conversation_id:
+        arguments["conversation_id"] = uuid
+    text = _error_text(await _call(tool, arguments))
+    assert "'session_id' was renamed to 'conversation_id'" in text
+    assert "Send the session UUID as 'conversation_id'" in text
+    # Negative space: the rename message replaces the generic pydantic one.
+    assert "Unexpected keyword argument" not in text
+
+
+async def test_other_tools_keep_the_generic_unknown_argument_error(mcp_data):
+    """The rename message is only for the 3 per-session tools.
+    ``list_projects`` never had a session argument."""
+    text = _error_text(await _call("list_projects", {"session_id": "x"}))
     assert "Unexpected keyword argument" in text
+    assert "renamed" not in text
