@@ -11,6 +11,7 @@ module in the project may touch the file directly after C1 lands;
 from __future__ import annotations
 
 import json
+import re
 import stat
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -154,7 +155,8 @@ def test_load_non_utf8_file_raises_corrupt(tmp_path: Path) -> None:
     creds_path = tmp_path / "credentials.json"
     creds_path.write_bytes(json.dumps(_v2_creds()).encode("utf-16"))
 
-    with pytest.raises(CredentialsCorruptError, match=str(creds_path)):
+    # ``match`` is a regex, and a Windows path holds backslashes.
+    with pytest.raises(CredentialsCorruptError, match=re.escape(str(creds_path))):
         load_credentials(creds_path)
 
 
