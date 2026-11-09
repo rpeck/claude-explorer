@@ -198,7 +198,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `conversation_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). See §6.6 for the legacy `session_id` alias. |
+| `conversation_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). See §6.6 for why it is not `session_id`. |
 
 **Return shape:**
 
@@ -363,25 +363,11 @@ Content-block filtering (`_filter_content_blocks`, lines 278-316):
 
 ---
 
-### 6.6 `conversation_id` and the legacy `session_id` alias
+### 6.6 Why the argument is `conversation_id`
 
-**Why the name is `conversation_id`:** the Claude desktop remote-devices bridge removes every tool argument whose key is `session_id`. The bridge carries calls from a Cowork cloud session to a local MCP server (tool names `mcp__remote-devices__claude-sessions__*`). Before the rename, `get_session_outline`, `get_messages`, and `export_session` always failed on that path with `session_id Missing required argument` (GitHub issue #33).
+**The bridge removes `session_id`.** The Claude desktop remote-devices bridge removes every tool argument whose key is `session_id`. The bridge carries calls from a Cowork cloud session to a local MCP server (tool names `mcp__remote-devices__claude-sessions__*`). Before the rename, `get_session_outline`, `get_messages`, and `export_session` always failed on that path with `session_id Missing required argument` (GitHub issue #33).
 
-**The alias:** the 3 tools still accept `session_id`, so Claude Code CLI callers and saved prompts keep working.
-
-- The JSON schema of the tools does not show `session_id`. A client that reads the schema sends only `conversation_id`.
-- `_LegacySessionIdAlias` (FastMCP middleware in `mcp_server/server.py`) moves `session_id` to `conversation_id` before FastMCP checks the arguments.
-- The alias applies only to these 3 tools. The other tools still refuse an unknown `session_id` argument.
-
-**Rules:**
-
-| Arguments sent | Result |
-|---|---|
-| `conversation_id` only | The tool runs. |
-| `session_id` only | The tool runs with that value. |
-| Both, same value | The tool runs. |
-| Both, different values | `ToolError`: the two values differ. |
-| Neither | `ToolError`: missing required argument `conversation_id`. This is also the result when a bridge removes `session_id`. |
+**No alias.** The tools do not accept `session_id`. A stdio client starts the server and then reads the tool list, so after an upgrade it sees only `conversation_id`. The description of `conversation_id` says that it was formerly named `session_id`, so a model that reads `session_id` in an old prompt sends `conversation_id`. A script that still sends `session_id` gets a pydantic error that names both keys: `conversation_id` is missing, and `session_id` is an unexpected argument.
 
 **The output key does not change.** `get_session_outline` still returns the session UUID as `"session_id"`. The bridge changes only the arguments of a call, and existing readers of the output use that key.
 

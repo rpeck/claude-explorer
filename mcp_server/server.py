@@ -22,9 +22,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastmcp import FastMCP
-from fastmcp.exceptions import ToolError
-from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-from fastmcp.tools.base import ToolResult
 
 from backend.config import Settings
 from backend.export import (
@@ -66,67 +63,12 @@ mcp = FastMCP(
 # whether to refine.
 MCP_SEARCH_LIMIT = 5000
 
-# ---------------------------------------------------------------------------
-# Legacy ``session_id`` argument (GitHub issue #33)
-# ---------------------------------------------------------------------------
-
-# The per-session tools take ``conversation_id``. The Claude desktop
-# remote-devices bridge removes every tool argument named ``session_id``
-# when it forwards a call from a Cowork cloud session, so a tool that
-# needs that name cannot be called from Cowork. Older callers (Claude
-# Code CLI, saved prompts) still send ``session_id``. The middleware
-# below maps it to ``conversation_id`` before FastMCP checks the
-# arguments, so the alias works without a ``session_id`` property in
-# the JSON schema. A pydantic ``AliasChoices`` alias also hides it from
-# the schema, but it refuses both names together with an unclear
-# "Unexpected keyword argument" error.
-CONVERSATION_ID_TOOLS = frozenset(
-    {"get_session_outline", "get_messages", "export_session"}
-)
-
-
-def _resolve_conversation_id(arguments: dict[str, Any]) -> dict[str, Any]:
-    """Return ``arguments`` with a legacy ``session_id`` moved to ``conversation_id``.
-
-    Raises ToolError if neither name has a value, or if the two values differ.
-    """
-    args = dict(arguments)
-    legacy = args.pop("session_id", None)
-    current = args.get("conversation_id")
-    if current is None and legacy is None:
-        raise ToolError(
-            "Missing required argument 'conversation_id': the session UUID "
-            "(the 'uuid' field from list_sessions). Some MCP bridges remove "
-            "an argument named 'session_id', so send 'conversation_id'."
-        )
-    if current is None:
-        args["conversation_id"] = legacy
-    elif legacy is not None and legacy != current:
-        raise ToolError(
-            f"'conversation_id' ({current!r}) and its legacy alias "
-            f"'session_id' ({legacy!r}) differ. Send only 'conversation_id'."
-        )
-    return args
-
-
-class _LegacySessionIdAlias(Middleware):
-    async def on_call_tool(
-        self,
-        # The message is an ``mcp.types.CallToolRequestParams``. Importing
-        # ``mcp`` directly adds a dependency that the MCPB closure canary
-        # refuses (mcp_server/tests/test_mcpb_closure.py).
-        context: MiddlewareContext[Any],
-        call_next: CallNext[Any, ToolResult],
-    ) -> ToolResult:
-        if context.message.name in CONVERSATION_ID_TOOLS:
-            arguments = _resolve_conversation_id(context.message.arguments or {})
-            context = context.copy(
-                message=context.message.model_copy(update={"arguments": arguments})
-            )
-        return await call_next(context)
-
-
-mcp.add_middleware(_LegacySessionIdAlias())
+# The per-session tools name their session argument ``conversation_id``,
+# never ``session_id``. The Claude desktop remote-devices bridge removes
+# every tool argument named ``session_id`` when it forwards a call from
+# a Cowork cloud session, so a tool that needs that name cannot be
+# called from Cowork (GitHub issue #33). A test pins this:
+# mcp_server/tests/test_conversation_id_param.py.
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -603,6 +545,8 @@ def get_session_outline(
 
     Args:
         conversation_id: The session UUID (the "uuid" field from list_sessions).
+                         This argument was formerly named session_id. If a
+                         prompt says session_id, send conversation_id.
     """
     store = _get_store()
     conversation = store.get_conversation(conversation_id)
@@ -644,6 +588,8 @@ def get_messages(
 
     Args:
         conversation_id: The session UUID (the "uuid" field from list_sessions).
+                         This argument was formerly named session_id. If a
+                         prompt says session_id, send conversation_id.
         positions: List of 0-indexed positions from the outline.
         message_uuids: List of message UUIDs.
         include_tool_calls: Include tool call names and inputs (default false).
@@ -705,6 +651,8 @@ def export_session(
 
     Args:
         conversation_id: The session UUID (the "uuid" field from list_sessions).
+                         This argument was formerly named session_id. If a
+                         prompt says session_id, send conversation_id.
         start_position: Start position (0-indexed, inclusive). Omit for beginning.
         end_position: End position (0-indexed, inclusive). Omit for end.
         include_tools: Include tool calls and results in output (default true).
