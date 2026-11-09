@@ -134,7 +134,11 @@ def main() -> int:
     mine = sorted(_session_worktrees(event, trees))
     if not mine:
         return 0
-    check = runpy.run_path(str(CHECK))
+    try:
+        check = runpy.run_path(str(CHECK))
+    except Exception as exc:  # noqa: BLE001 - a crash (exit 1) does not block, so it would let the turn end
+        print(f"Do not report this work as done yet: {CHECK} does not load: {exc!r}", file=sys.stderr)
+        return 2
 
     problems = []
     for tree in mine:
@@ -145,6 +149,9 @@ def main() -> int:
             changed = check["unverified_changes"]()
         except (OSError, subprocess.SubprocessError, ValueError):
             continue  # not a readable worktree
+        except Exception as exc:  # noqa: BLE001 - a crash (exit 1) does not block, so it would let the turn end
+            problems.append(f"{tree}:\n  scripts/check.py could not answer: {exc!r}")
+            continue
         if changed:
             shown = "\n".join(f"  {p}" for p in changed[:15])
             more = f"\n  ... and {len(changed) - 15} more" if len(changed) > 15 else ""

@@ -84,10 +84,12 @@ jobs:
     env:
       SOURCE: ${{ inputs.source }}
       PYSPEC: ${{ matrix.python }}
-      # .python-version pins 3.13 for development. UV_PYTHON has priority
-      # over it, so every uv command here, also a plain `uv run`, uses the
-      # matrix Python. Without it, `uv run` replaces the venv with 3.13.
-      UV_PYTHON: ${{ matrix.python }}
+      # No UV_PYTHON here, on purpose: this job runs the README's commands
+      # exactly as a user types them, and a user does not set it. Every row
+      # is the pinned 3.13 (.python-version), so a plain `uv run` keeps the
+      # venv; the Windows ARM64 row keeps its x86_64 3.13. The pytest job
+      # below tests other Pythons, so it sets UV_PYTHON.
+      # backend/tests/test_workflow_python.py pins this rule.
       FAMILY: ${{ matrix.family }}
 
     steps:
@@ -464,10 +466,14 @@ jobs:
           set -euo pipefail
           # Version, CPU type, and free-threaded or not (sys.abiflags is POSIX only).
           probe='import platform, sys, sysconfig; print(sys.version_info[:2], platform.machine(), bool(sysconfig.get_config_var("Py_GIL_DISABLED")))'
-          want=$("$(uv python find "$PYSPEC")" -c "$probe")
+          # --system: without it, `uv python find` can return the project
+          # venv itself, and the check would compare the venv with itself.
+          want=$("$(uv python find --system "$PYSPEC")" -c "$probe")
           got=$(uv run python -c "$probe")
           echo "want $want, got $got"
           [ "$want" = "$got" ]
+          # And `uv run` used the repo's .venv, not another environment.
+          uv run python -c "import os, sys; assert os.path.samefile(sys.prefix, '.venv'), sys.prefix"
       - name: Compile with warnings as errors
         # Python 3.14+ warns about syntax such as `return` in `finally`
         # (PEP 765). Users see those warnings at every start, so fail here.

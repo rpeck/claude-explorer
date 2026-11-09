@@ -756,7 +756,7 @@ claude-explorer mcp
 # It prints nothing and waits for MCP messages on stdin. Press Ctrl+C to exit.
 ```
 
-From a git checkout, run `uv run --directory /path/to/claude-explorer claude-explorer mcp` instead.
+From a git checkout, run `uv run --directory /path/to/claude-explorer claude-explorer mcp` instead. After each `git pull`, run `uv sync` once in the checkout. Otherwise the first MCP start after the pull can install packages, or a new Python, and the MCP client can time out while it waits.
 
 ### Claude Code setup (all platforms)
 

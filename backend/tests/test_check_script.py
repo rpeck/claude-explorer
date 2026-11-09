@@ -8,6 +8,7 @@ hook (.claude/hooks/) refuses to end a turn while checked files changed without 
 
 from __future__ import annotations
 
+import json
 import os
 import runpy
 import shutil
@@ -201,6 +202,90 @@ def test_an_uncounted_file_that_no_check_read_is_refused_when_tracked(repo: Path
     with pytest.raises(subprocess.CalledProcessError) as refused:
         _git(repo, "commit", "-q", "-m", "untested")
     assert "docs/x.py" in refused.value.stderr
+
+
+def _marker(repo: Path) -> Path:
+    return repo / _git(repo, "rev-parse", "--git-path", "check-passed.json").strip()
+
+
+posix_modes = pytest.mark.skipif(sys.platform == "win32", reason="Windows has no exec bit")
+
+
+@posix_modes
+def test_a_mode_change_needs_a_run(repo: Path) -> None:
+    """chmod changes what a commit records, for example whether a hook runs."""
+    (repo / "backend" / "code.py").chmod(0o755)
+    result = _check(repo, "--verify")
+    assert result.returncode == 1
+    assert "backend/code.py" in result.stdout + result.stderr
+
+
+@posix_modes
+def test_the_hook_refuses_a_mode_change_that_no_run_covers(repo: Path) -> None:
+    _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+    _green_run(repo)
+    (repo / "backend" / "code.py").chmod(0o755)
+    _git(repo, "add", "backend/code.py")
+    with pytest.raises(subprocess.CalledProcessError) as refused:
+        _git(repo, "commit", "-q", "-m", "untested mode")
+    assert "backend/code.py" in refused.value.stderr
+
+    _green_run(repo)
+    _git(repo, "commit", "-q", "-m", "tested mode")
+
+
+@posix_modes
+def test_a_marker_from_before_modes_still_covers_its_content(repo: Path) -> None:
+    """A marker that an older check.py wrote has no "modes" field. It still
+    covers its content, but not a mode change."""
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    _green_run(repo)
+    marker = json.loads(_marker(repo).read_text(encoding="utf-8"))
+    marker.pop("modes", None)
+    _marker(repo).write_text(json.dumps(marker), encoding="utf-8")
+    assert _check(repo, "--verify").returncode == 0
+
+    (repo / "backend" / "code.py").chmod(0o755)
+    assert _check(repo, "--verify").returncode == 1
+
+
+@pytest.mark.parametrize("content", ['[1]', '"text"', '{"digest": 7}', "not json"])
+def test_a_malformed_marker_counts_as_no_run(repo: Path, content: str) -> None:
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    _marker(repo).write_text(content, encoding="utf-8")
+    result = _check(repo, "--verify")
+    assert result.returncode == 1, result.stderr
+    assert "backend/code.py" in result.stdout
+    assert "Traceback" not in result.stderr
+
+
+def test_removing_a_tracked_file_needs_a_run(repo: Path) -> None:
+    """A green run with the file, then `git rm`: the commit is untested."""
+    _git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+    (repo / "backend" / "other.py").write_text("z = 1\n", encoding="utf-8")
+    _git(repo, "add", "backend/other.py")
+    _green_run(repo)
+    _git(repo, "commit", "-q", "-m", "tested")
+    _git(repo, "rm", "-q", "backend/other.py")
+    with pytest.raises(subprocess.CalledProcessError) as refused:
+        _git(repo, "commit", "-q", "-m", "untested removal")
+    assert "backend/other.py" in refused.value.stderr
+
+
+def test_a_tracked_python_file_in_an_excluded_dir_needs_a_run(repo: Path) -> None:
+    """ruff and test_resource_cleanup.py read every tracked .py file, also
+    in PROCESS/. Other files there still need no run."""
+    (repo / "PROCESS").mkdir()
+    (repo / "PROCESS" / "tool.py").write_text("a = 1\n", encoding="utf-8")
+    (repo / "PROCESS" / "notes.md").write_text("notes\n", encoding="utf-8")
+    _git(repo, "add", "PROCESS")
+    _git(repo, "commit", "-q", "-m", "process files")
+    (repo / "PROCESS" / "notes.md").write_text("changed\n", encoding="utf-8")
+    assert _check(repo, "--verify").returncode == 0
+    (repo / "PROCESS" / "tool.py").write_text("a = 2\n", encoding="utf-8")
+    result = _check(repo, "--verify")
+    assert result.returncode == 1
+    assert "PROCESS/tool.py" in result.stdout
 
 
 def test_the_hook_allows_a_commit_of_docs_only(repo: Path) -> None:
