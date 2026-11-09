@@ -63,7 +63,7 @@ def test_a_read_after_close_raises_instead_of_opening_a_new_connection(tmp_path:
     index.close()
     with pytest.raises(sqlite3.ProgrammingError):
         index.list_indexed_paths()
-    assert index._read_conns == [], "a read after close() opened a connection that nothing closes"
+    assert index._read_conns.open_count() == 0, "a read after close() opened a connection that nothing closes"
 
 
 def test_close_is_idempotent(tmp_path: Path) -> None:

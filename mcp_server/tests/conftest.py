@@ -119,19 +119,26 @@ def isolate_search_index_singleton(tmp_path_factory, monkeypatch) -> Iterator[No
     writes to the developer's real
     ``~/.claude-explorer/search-index.sqlite``.
 
-    Same strategy as ``backend/tests/conftest.py``.
+    Same strategy as ``backend/tests/conftest.py``. It also closes the
+    summary-cache singleton, which lives in the same SQLite file. Without
+    that reset, its connections stayed open until the interpreter exited,
+    and ``pytest mcp_server`` printed ``ResourceWarning: unclosed
+    database`` at exit (2026-11-08).
     """
 
     from backend import search_index as si
+    from backend import summary_cache as sc
 
     safe_path = tmp_path_factory.mktemp("mcp_search_index_root") / "search-index.sqlite"
     monkeypatch.setattr(si, "default_index_path", lambda: safe_path)
 
     si.reset_search_index_for_tests()
+    sc.reset_summary_cache_for_tests()
     try:
         yield
     finally:
         si.reset_search_index_for_tests()
+        sc.reset_summary_cache_for_tests()
 
 
 # ---------------------------------------------------------------------------

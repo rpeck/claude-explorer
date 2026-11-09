@@ -49,8 +49,10 @@ Lifecycle:
        (acceptable: the function is small and changes rarely).
 
 Threading model mirrors :class:`backend.search_index.SearchIndex`:
-    * per-thread read connections via ``threading.local`` (FastAPI
-      runs sync route handlers in a thread pool);
+    * per-thread read connections (FastAPI runs sync route handlers in
+      a thread pool) through
+      :class:`backend.sqlite_read_conns.PerThreadReadConns`; each closes
+      when its thread ends;
     * a single write connection guarded by ``threading.Lock``;
     * WAL mode so readers don't block on the writer.
 
@@ -78,6 +80,7 @@ from typing import Any
 import orjson
 
 from .search_index import default_index_path, fts5_available
+from .sqlite_read_conns import PerThreadReadConns
 
 logger = logging.getLogger(__name__)
 
@@ -127,16 +130,9 @@ class SummaryCache:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Per-thread read connections. SQLite forbids sharing connections
-        # across threads by default; one-per-thread is the robust pattern.
-        self._read_local = threading.local()
-        # threading.local hides a thread's connection from every other
-        # thread, so close() could never reach them. Keep a registry too.
-        # POSIX unlinks an open file happily, which hid this; Windows
-        # keeps the database locked while any connection is open.
-        # Same defect as SearchIndex.close(), fixed 2026-09-22.
-        self._read_conns: list[sqlite3.Connection] = []
-        self._read_conns_lock = threading.Lock()
+        # One read connection per thread. Each closes when its thread
+        # ends, and close() closes the rest (see sqlite_read_conns).
+        self._read_conns = PerThreadReadConns(self.path)
 
         # Single dedicated write connection guarded by a lock. WAL mode
         # ensures readers don't block on the writer.
@@ -217,24 +213,11 @@ class SummaryCache:
     # ----- read connections ------------------------------------------
 
     def _get_read_conn(self) -> sqlite3.Connection:
-        """Get the per-thread read connection, creating it on first call."""
-        conn = getattr(self._read_local, "conn", None)
-        if conn is None:
-            conn = sqlite3.connect(
-                str(self.path),
-                check_same_thread=False,
-                isolation_level=None,
-            )
-            # 2026-05-24 concurrency fix: same rationale as the writer
-            # connection. WAL mode permits a reader to proceed during
-            # a long writer transaction, but the reader still needs a
-            # busy_timeout for the rare cases where SQLite must
-            # synchronize on the file (e.g. checkpoint or VACUUM).
-            conn.execute("PRAGMA busy_timeout = 30000")
-            self._read_local.conn = conn
-            with self._read_conns_lock:
-                self._read_conns.append(conn)
-        return conn
+        """Get the per-thread read connection, creating it on first call.
+
+        The connection closes when the thread ends.
+        """
+        return self._read_conns.get()
 
     # ----- logic-version invalidation --------------------------------
 
@@ -479,16 +462,9 @@ class SummaryCache:
         except sqlite3.Error:
             pass
 
-        with self._read_conns_lock:
-            conns, self._read_conns = self._read_conns, []
-        for conn in conns:
-            try:
-                conn.close()
-            except sqlite3.Error:
-                pass
-        # Drop the per-thread handles so a later call builds fresh ones
-        # rather than handing back a closed connection.
-        self._read_local = threading.local()
+        # Also the connections of threads that are still alive. A later
+        # call builds a fresh one rather than handing back a closed one.
+        self._read_conns.close_all()
 
 
 # ----- module-level singleton --------------------------------------
