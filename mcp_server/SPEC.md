@@ -204,7 +204,8 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 ```json
 {
-  "session_id": "<uuid>",
+  "conversation_id": "<uuid>",
+  "session_id": "<uuid>",     // same value; kept for existing readers
   "name": "<title>",
   "model": "<model-or-empty>",
   "source": "CLAUDE_AI" | "CLAUDE_CODE",
@@ -369,7 +370,7 @@ Content-block filtering (`_filter_content_blocks`, lines 278-316):
 
 **No alias.** The tools do not accept `session_id`. A stdio client starts the server and then reads the tool list, so after an upgrade it sees only `conversation_id`. The description of `conversation_id` says that it was formerly named `session_id`, so a model that reads `session_id` in an old prompt sends `conversation_id`. A script that still sends `session_id` gets a pydantic error that names both keys: `conversation_id` is missing, and `session_id` is an unexpected argument.
 
-**The output key does not change.** `get_session_outline` still returns the session UUID as `"session_id"`. The bridge changes only the arguments of a call, and existing readers of the output use that key.
+**The output has both keys.** `get_session_outline` returns the session UUID as `"conversation_id"`, the same name as the argument, so a model can pass it on to `get_messages` unchanged. It also keeps `"session_id"` with the same value for existing readers of the output. The bridge changes only the arguments of a call, so the output key is safe.
 
 **Invariant:** no registered tool may have an input property named `session_id`. `mcp_server/tests/test_conversation_id_param.py` reads the schemas from the FastMCP registry and fails if one does.
 

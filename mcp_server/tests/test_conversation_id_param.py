@@ -88,7 +88,7 @@ async def test_call_with_conversation_id_succeeds(tool, mcp_data):
     result = await _call(tool, {"conversation_id": uuid})
     assert not result.is_error, _content_text(result)
     if tool == "get_session_outline":
-        assert result.data["session_id"] == uuid
+        assert result.data["conversation_id"] == uuid
         assert [m["message_uuid"] for m in result.data["messages"]] == [
             "msg-h-1",
             "msg-a-1",
@@ -100,6 +100,17 @@ async def test_call_with_conversation_id_succeeds(tool, mcp_data):
         markdown = result.content[0].text
         assert "# Conversation Fixture" in markdown
         assert "Tell me about FTS5 in SQLite." in markdown
+
+
+async def test_outline_output_uses_the_argument_name_and_keeps_session_id(mcp_data):
+    """The outline names the UUID ``conversation_id``, the same name as the
+    argument, so a model can pass it on to get_messages unchanged. It also
+    keeps ``session_id`` for existing readers of the output."""
+    uuid = mcp_data.add_desktop_session("conv-out", name="Conversation Fixture")
+    result = await _call("get_session_outline", {"conversation_id": uuid})
+    assert not result.is_error, _content_text(result)
+    assert result.data["conversation_id"] == uuid
+    assert result.data["session_id"] == uuid
 
 
 @pytest.mark.parametrize("tool", PER_SESSION_TOOLS)

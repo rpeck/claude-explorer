@@ -560,6 +560,9 @@ def get_session_outline(
         conn.close()
 
     return {
+        # Same name as the argument, so it passes on to get_messages as-is.
+        "conversation_id": conversation.uuid,
+        # Kept for existing readers of the output.
         "session_id": conversation.uuid,
         "name": conversation.name,
         "model": conversation.model,
