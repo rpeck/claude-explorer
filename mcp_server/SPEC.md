@@ -198,7 +198,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `session_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). |
+| `conversation_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). See §6.6 for the legacy `session_id` alias. |
 
 **Return shape:**
 
@@ -248,7 +248,7 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 
 **Errors:**
 
-- `ValueError("Session '<id>' not found.")` if `store.get_conversation(session_id)` returns `None`.
+- `ValueError("Session '<id>' not found.")` if `store.get_conversation(conversation_id)` returns `None`.
 
 ---
 
@@ -267,7 +267,7 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `session_id` | `str` | (required) | Session UUID. |
+| `conversation_id` | `str` | (required) | Session UUID. See §6.6. |
 | `positions` | `list[int] \| None` | `None` | 0-indexed positions from the outline. |
 | `message_uuids` | `list[str] \| None` | `None` | Message UUIDs to fetch. |
 | `include_tool_calls` | `bool` | `False` | Include tool call names and (truncated) inputs. |
@@ -340,7 +340,7 @@ Content-block filtering (`_filter_content_blocks`, lines 278-316):
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `session_id` | `str` | (required) | Session UUID. |
+| `conversation_id` | `str` | (required) | Session UUID. See §6.6. |
 | `start_position` | `int \| None` | `None` | 0-indexed start position (inclusive). Omit for beginning. |
 | `end_position` | `int \| None` | `None` | 0-indexed end position (inclusive). Omit for end. |
 | `include_tools` | `bool` | `True` | Include tool calls and results in output (note: opposite default from `get_messages`). |
@@ -360,6 +360,32 @@ Content-block filtering (`_filter_content_blocks`, lines 278-316):
 **Errors:**
 
 - `ValueError("Session '<id>' not found.")` if `store.get_conversation` returns `None`.
+
+---
+
+### 6.6 `conversation_id` and the legacy `session_id` alias
+
+**Why the name is `conversation_id`:** the Claude desktop remote-devices bridge removes every tool argument whose key is `session_id`. The bridge carries calls from a Cowork cloud session to a local MCP server (tool names `mcp__remote-devices__claude-sessions__*`). Before the rename, `get_session_outline`, `get_messages`, and `export_session` always failed on that path with `session_id Missing required argument` (GitHub issue #33).
+
+**The alias:** the 3 tools still accept `session_id`, so Claude Code CLI callers and saved prompts keep working.
+
+- The JSON schema of the tools does not show `session_id`. A client that reads the schema sends only `conversation_id`.
+- `_LegacySessionIdAlias` (FastMCP middleware in `mcp_server/server.py`) moves `session_id` to `conversation_id` before FastMCP checks the arguments.
+- The alias applies only to these 3 tools. The other tools still refuse an unknown `session_id` argument.
+
+**Rules:**
+
+| Arguments sent | Result |
+|---|---|
+| `conversation_id` only | The tool runs. |
+| `session_id` only | The tool runs with that value. |
+| Both, same value | The tool runs. |
+| Both, different values | `ToolError`: the two values differ. |
+| Neither | `ToolError`: missing required argument `conversation_id`. This is also the result when a bridge removes `session_id`. |
+
+**The output key does not change.** `get_session_outline` still returns the session UUID as `"session_id"`. The bridge changes only the arguments of a call, and existing readers of the output use that key.
+
+**Invariant:** no registered tool may have an input property named `session_id`. `mcp_server/tests/test_conversation_id_param.py` reads the schemas from the FastMCP registry and fails if one does.
 
 ---
 
