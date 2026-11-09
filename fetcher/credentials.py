@@ -1,8 +1,9 @@
 """Credentials I/O for the multi-org fetcher.
 
 This module is the **sole** reader/writer of ``credentials.json``. No other
-module in the project should touch the file directly. A grep audit (in C5)
-enforces this invariant.
+module in the project should touch the file directly.
+``fetcher/tests/test_credentials.py::test_one_credentials_loader`` enforces
+this for the loader.
 
 Schema versioning
 -----------------
@@ -410,7 +411,9 @@ def load_credentials(path: Path = DEFAULT_CREDENTIALS_PATH) -> CredentialsV2:
     try:
         with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        # UnicodeDecodeError: a file that is not UTF-8, for example the
+        # UTF-16 that Windows PowerShell 5.1 ``Out-File`` writes.
         raise CredentialsCorruptError(f"failed to parse {path}: {e}") from e
 
     if not isinstance(raw, dict):

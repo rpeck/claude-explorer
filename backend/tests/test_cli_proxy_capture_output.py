@@ -54,3 +54,24 @@ def test_macos_gets_no_windows_notes(no_mitmproxy, capsys, monkeypatch) -> None:
     out = capsys.readouterr().out
     assert "Microsoft Store" not in out
     assert 'open -a "Claude"' in out
+
+
+def test_proxy_capture_runs_mitmproxy_with_the_real_addon(monkeypatch) -> None:
+    """``capture --proxy`` gives mitmproxy a script that exists.
+
+    The move of ``fetcher/cli.py`` to ``cli/main.py`` (593f661e, v1.0.0) kept
+    ``Path(__file__).parent / "mitmproxy_addon.py"``, which now names
+    ``cli/mitmproxy_addon.py``. That file does not exist, so mitmproxy
+    stopped at once with "No such script" and ``capture --proxy`` failed.
+    """
+    from pathlib import Path
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(cli_main.subprocess, "run", lambda args, **k: calls.append(args))
+
+    cli_main._capture_via_proxy(8080)
+
+    (args,) = calls
+    script = Path(args[args.index("-s") + 1])
+    assert script.is_file(), f"mitmproxy -s {script}: the file does not exist"
+    assert "addons = [ClaudeCredentialCapture()]" in script.read_text(encoding="utf-8")

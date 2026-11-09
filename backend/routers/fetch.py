@@ -25,13 +25,13 @@ from fetcher.bulk_fetch import (
     PersistedErrorKind,
     extract_http_status_from_message,
     kind_from_http_status,
-    load_credentials,
     migrate_legacy_error_code,
     needs_refetch,
 )
 from fetcher.credentials import (
     CredentialsCorruptError,
     fetcher_credentials,
+    load_credentials,
     save_credentials,
 )
 from fetcher.playwright_capture import capture_credentials

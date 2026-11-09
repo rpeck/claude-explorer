@@ -96,7 +96,7 @@ def fetch(
 ) -> None:
     """Fetch all conversations from Claude Desktop.
 
-    Requires credentials captured via the mitmproxy addon.
+    Requires the credentials that 'claude-explorer capture' saves.
     Run 'claude-explorer capture' first if you haven't yet.
     """
     # Layer 2 of PLANS/2026.05.18-config-corruption-safe-mode.md:
@@ -128,8 +128,12 @@ def fetch(
     # or config.json can move it). A fixed ~/.claude-explorer/conversations
     # default fetched into a folder that the app never read (2026-10-23).
     from backend.config import files_dir_for
-    from fetcher.bulk_fetch import ClaudeFetcher, load_credentials
-    from fetcher.credentials import CredentialsCorruptError, fetcher_credentials
+    from fetcher.bulk_fetch import ClaudeFetcher
+    from fetcher.credentials import (
+        CredentialsCorruptError,
+        fetcher_credentials,
+        load_credentials,
+    )
 
     if output_dir is None:
         output_dir = settings.data_dir
@@ -138,14 +142,23 @@ def fetch(
 
     # ``--session-key`` plus ``--org-id`` need no credentials file. Otherwise
     # the file gives the rest, and an override replaces its value.
-    # fetcher_credentials is the one conversion that every ClaudeFetcher
-    # caller uses: a private copy here crashed every run once (issue #1).
-    creds = {} if (session_key and org_id) else load_credentials(credentials)
+    # load_credentials and fetcher_credentials are the one loader and the one
+    # conversion that every ClaudeFetcher caller uses: private copies here
+    # crashed every run once (issue #1), and a plain json.load passed a list
+    # or a string on as credentials.
     try:
+        creds = {} if (session_key and org_id) else load_credentials(credentials)
         args = fetcher_credentials(creds, session_key=session_key, org_id=org_id)
-    except CredentialsCorruptError as exc:
+    except FileNotFoundError as exc:
         raise click.ClickException(
-            f"{exc} Run `claude-explorer capture` to capture the credentials again."
+            f"Credentials file not found: {credentials}\n"
+            "Run `claude-explorer capture` first."
+        ) from exc
+    except (CredentialsCorruptError, OSError) as exc:
+        # OSError: the path exists but cannot be read (a folder, no permission).
+        raise click.ClickException(
+            f"The credentials file {credentials} cannot be used: {exc}\n"
+            "Run `claude-explorer capture` to capture the credentials again."
         ) from exc
 
     fetcher = ClaudeFetcher(
@@ -275,7 +288,7 @@ def _capture_via_browser(output: Path, timeout: int) -> None:
         # 20-char slice leaked ~7 chars of bearer-token entropy into
         # terminal scrollback, screenshots, CI logs, and shell history.
         # Saved-path + org-id remain as non-secret confirmation.
-        click.echo(f"   Org ID: {credentials['org_id']}")
+        click.echo(f"   Org ID: {credentials['primary_org_id']}")
         click.echo(f"   Saved to: {output}")
         click.echo()
         click.echo("   You can now fetch conversations:")
@@ -289,9 +302,20 @@ def _capture_via_browser(output: Path, timeout: int) -> None:
 
 def _capture_via_proxy(port: int) -> None:
     """Capture credentials via mitmproxy (for Claude Desktop)."""
+    import importlib.util
+
     from fetcher.install_hints import claude_desktop_launch_command
 
-    addon_path = Path(__file__).parent / "mitmproxy_addon.py"
+    # Find the addon through its module, not next to this file: this command
+    # moved from fetcher/ to cli/, and the old ``Path(__file__).parent`` path
+    # named a file that does not exist. find_spec does not import mitmproxy.
+    addon_spec = importlib.util.find_spec("fetcher.mitmproxy_addon")
+    if addon_spec is None or addon_spec.origin is None:
+        raise click.ClickException(
+            "The mitmproxy addon is missing, so this install is incomplete.\n"
+            "Reinstall: uv tool install --force claude-explorer"
+        )
+    addon_path = Path(addon_spec.origin)
 
     click.echo("=" * 60)
     click.echo("  Claude Credential Capture (Proxy)")

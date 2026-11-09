@@ -133,3 +133,31 @@ def test_capture_browser_banner_still_shows_non_secret_confirmation(tmp_path: Pa
     assert _FAKE_ORG_ID in output, (
         f"Org-id confirmation missing from CLI output:\n{output}"
     )
+
+
+def test_capture_browser_banner_shows_the_primary_org_without_the_legacy_mirror(
+    tmp_path: Path,
+) -> None:
+    """The banner reads ``primary_org_id``, the v2 field.
+
+    ``org_id`` is only a legacy mirror that ``CredentialsV2`` plans to drop.
+    A banner that read it raised ``KeyError`` after a successful save.
+    """
+    from cli.main import _capture_via_browser
+
+    creds = {k: v for k, v in _FAKE_CREDS.items() if k != "org_id"}
+
+    async def _capture(*args, **kwargs):
+        return creds
+
+    runner = CliRunner()
+    with runner.isolation() as (stdout, _stderr, _):
+        with patch(
+            "fetcher.playwright_capture.capture_credentials", side_effect=_capture
+        ), patch("fetcher.credentials.save_credentials", return_value=None):
+            _capture_via_browser(tmp_path / "creds.json", timeout=300)
+
+        output = stdout.getvalue().decode("utf-8", errors="replace")
+
+    assert "CAPTURED SUCCESSFULLY" in output
+    assert f"Org ID: {_FAKE_ORG_ID}" in output, output

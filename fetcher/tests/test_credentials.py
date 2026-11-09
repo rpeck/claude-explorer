@@ -4,13 +4,14 @@ Covers cowork-multi-org Commit 1 (NEW3-P0-C, NEW-P0-A, NEW-P1-H, NEW3-P2-A,
 NEW2-P2-α). See PLANS/cowork-multi-org.md.
 
 The module under test is the SOLE reader/writer of credentials.json. No other
-module in the project may touch the file directly after C1 lands; a final-step
-grep audit (in C5) enforces this.
+module in the project may touch the file directly after C1 lands;
+``test_one_credentials_loader`` enforces this for the loader.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import stat
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -141,6 +142,60 @@ def test_load_corrupt_file_raises(tmp_path: Path) -> None:
 
     with pytest.raises(CredentialsCorruptError):
         load_credentials(creds_path)
+
+
+def test_load_non_utf8_file_raises_corrupt(tmp_path: Path) -> None:
+    """A file that is not UTF-8 is corrupt, not a crash.
+
+    Windows PowerShell 5.1 ``Out-File`` writes UTF-16. The decode error is a
+    ``UnicodeDecodeError``, not a ``JSONDecodeError``, so it escaped the
+    loader: ``claude-explorer fetch`` printed a traceback, and ``/api/orgs``
+    returned 500 instead of its 503 for a corrupt file.
+    """
+    creds_path = tmp_path / "credentials.json"
+    creds_path.write_bytes(json.dumps(_v2_creds()).encode("utf-16"))
+
+    # ``match`` is a regex, and a Windows path holds backslashes.
+    with pytest.raises(CredentialsCorruptError, match=re.escape(str(creds_path))):
+        load_credentials(creds_path)
+
+
+def test_one_credentials_loader() -> None:
+    """Only ``fetcher.credentials`` defines ``load_credentials``, and every
+    module imports it from there.
+
+    ``fetcher.bulk_fetch`` had a second, plain ``json.load`` copy. The CLI
+    and the three fetch routes used it, and a file that was not a JSON
+    object crashed them (issue #1, "related drift"). This test is the audit
+    that the module docstrings name.
+    """
+    import ast
+
+    root = Path(__file__).resolve().parents[2]
+    canonical = root / "fetcher" / "credentials.py"
+    problems: list[str] = []
+    for package in ("backend", "cli", "fetcher", "mcp_server", "scripts"):
+        for path in sorted((root / package).rglob("*.py")):
+            if "tests" in path.relative_to(root).parts:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            rel = path.relative_to(root).as_posix()
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and node.name == "load_credentials"
+                    and path != canonical
+                ):
+                    problems.append(f"{rel}:{node.lineno} defines load_credentials")
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and any(a.name == "load_credentials" for a in node.names)
+                    and node.module != "fetcher.credentials"
+                ):
+                    problems.append(
+                        f"{rel}:{node.lineno} imports load_credentials from {node.module}"
+                    )
+    assert problems == [], "\n".join(problems)
 
 
 # ---------------------------------------------------------------------------
