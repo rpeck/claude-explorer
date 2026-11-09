@@ -121,7 +121,7 @@ Legend: ⬜ not started • 🟡 in progress • ✅ done • ⏸️ paused • 
 
 ## Phase D Sub-Tracker (per-phase extractions)
 
-Each subagent reads `PROCESS/a70251a5/outline.jsonl` + `phases.md`, pulls specific messages via `mcp__claude-sessions__get_messages(session_id="a70251a5-b932-4b61-aba1-16a70410b98e", positions=[…])`, and writes one `phase_NN_<slug>.md` in the Phase 01 template. Prompt template at end of this file.
+Each subagent reads `PROCESS/a70251a5/outline.jsonl` + `phases.md`, pulls specific messages via `mcp__claude-sessions__get_messages(conversation_id="a70251a5-b932-4b61-aba1-16a70410b98e", positions=[…])`, and writes one `phase_NN_<slug>.md` in the Phase 01 template. Prompt template at end of this file.
 
 | Phase | Slug | Positions | Status | File |
 |-------|------|-----------|--------|------|
@@ -176,7 +176,7 @@ Match phase_01_intent_and_planning.md: H1 + session/positions/dates header, then
 ## How
 
 1. `uv run python -c "..."` to filter PROCESS/a70251a5/outline.jsonl for <start> <= pos <= <end>, sender=="human", non-empty summary.
-2. mcp__claude-sessions__get_messages(session_id="a70251a5-b932-4b61-aba1-16a70410b98e", positions=[real prompts + +1 follow-ups], include_tool_calls=false, include_tool_results=false) — ~15 positions per call, 2 calls max.
+2. mcp__claude-sessions__get_messages(conversation_id="a70251a5-b932-4b61-aba1-16a70410b98e", positions=[real prompts + +1 follow-ups], include_tool_calls=false, include_tool_results=false) — ~15 positions per call, 2 calls max.
 3. Do NOT pull all <total> positions.
 
 ## Deliverable back

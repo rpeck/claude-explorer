@@ -113,6 +113,20 @@ async def test_outline_output_uses_the_argument_name_and_keeps_session_id(mcp_da
     assert result.data["session_id"] == uuid
 
 
+async def test_outline_conversation_id_passes_on_to_get_messages(mcp_data):
+    """A model copies the outline's ``conversation_id`` into get_messages.
+    That round trip must work through real MCP calls."""
+    uuid = mcp_data.add_desktop_session("conv-trip", name="Conversation Fixture")
+    outline = await _call("get_session_outline", {"conversation_id": uuid})
+    assert not outline.is_error, _content_text(outline)
+    result = await _call(
+        "get_messages",
+        {"conversation_id": outline.data["conversation_id"], "positions": [1]},
+    )
+    assert not result.is_error, _content_text(result)
+    assert [m["uuid"] for m in json.loads(result.content[0].text)] == ["msg-a-1"]
+
+
 @pytest.mark.parametrize("tool", PER_SESSION_TOOLS)
 async def test_call_with_neither_name_names_conversation_id(tool, mcp_data):
     """This is the call that the bridge delivers when it removes ``session_id``.
