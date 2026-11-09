@@ -478,6 +478,12 @@ def _fire_drift_pass() -> None:
     a top-of-file ``from x import y``) so tests can monkeypatch the
     function and have the patched version actually run. Same pattern
     ``scan_once`` uses for its own drift call.
+
+    Each pass runs on a new Timer thread, and the pass opens a read
+    connection for that thread. The connection closes when the thread
+    ends (``backend/sqlite_read_conns.py``). Before 2026-11-08 each pass
+    leaked one: the supervised watcher hit the open-file limit after
+    about 30 hours, and every later drift pass failed with EMFILE.
     """
     global _drift_timer
 

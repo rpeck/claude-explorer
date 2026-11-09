@@ -354,6 +354,18 @@ uv run claude-explorer reindex-search --drift
     once per backstop scan (600s default). It catches anything the other
     two missed.
 
+**Read connections close when their thread ends.** `SearchIndex` and
+`SummaryCache` open one SQLite read connection per thread through
+`backend/sqlite_read_conns.py`. Each event-driven drift pass runs on a new
+`threading.Timer` thread, and anyio workers end after 10 s idle.
+
+- Never keep a per-thread connection open past its thread. Before
+  2026-11-08 a registry kept them until `close()`. The supervised watcher
+  then held 1262 connections after 46 days, and every drift pass failed
+  with `Too many open files`, so the index lagged by days (issue #33).
+- `backend/tests/test_read_conn_thread_leak.py` pins this: it counts the
+  open file descriptors on the index file.
+
 If you change the schema, bump `backend/search_index.SCHEMA_VERSION`
 and the next process startup will drop+rebuild on its own.
 
