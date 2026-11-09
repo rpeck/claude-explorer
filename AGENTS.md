@@ -413,6 +413,15 @@ If you change capture or fetch logic, edit `backend/routers/fetch.py` (the `_cap
 
 Use `uv` to manage the Python virtual environment:
 
+- **`.python-version` pins Python 3.13 for development.** Without the pin,
+  `uv` can choose the newest Python on the machine. On 2026-11-08 that was
+  3.15, and `pydantic-core` and `rpds-py` from the lockfile had no wheels
+  for it, so `uv sync` failed.
+- **A job that tests another Python sets `UV_PYTHON`.** `uv sync --python X`
+  alone is not enough: the next plain `uv run` replaces the venv with the
+  `.python-version` Python. The matrix jobs in `install-matrix.yml` set
+  `UV_PYTHON`, and a step there checks the venv Python.
+
 ```bash
 # Create/sync the virtual environment
 uv sync
