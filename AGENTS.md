@@ -364,7 +364,8 @@ uv run claude-explorer reindex-search --drift
   then held 1262 connections after 46 days, and every drift pass failed
   with `Too many open files`, so the index lagged by days (issue #33).
 - `backend/tests/test_read_conn_thread_leak.py` pins this: it counts the
-  open file descriptors on the index file.
+  open file descriptors on the index file (on Windows, all the handles of
+  the process).
 
 If you change the schema, bump `backend/search_index.SCHEMA_VERSION`
 and the next process startup will drop+rebuild on its own.
