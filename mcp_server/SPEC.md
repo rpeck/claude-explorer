@@ -372,7 +372,7 @@ Content-block filtering (`_filter_content_blocks`):
 
 ### 6.6 Why the argument is `conversation_id`
 
-**The bridge removes `session_id`.** The Claude desktop remote-devices bridge removes every tool argument whose key is `session_id`. The bridge carries calls from a Cowork cloud session to a local MCP server (tool names `mcp__remote-devices__claude-sessions__*`). Before the rename, `get_session_outline`, `get_messages`, and `export_session` always failed on that path with `session_id Missing required argument` (GitHub issue #33).
+**The bridge removes `session_id`.** The Claude desktop remote-devices bridge removes every tool argument whose key is `session_id`. The bridge carries calls from a Cowork cloud session to a local MCP server (tool names `mcp__remote-devices__<server name>__*`: `Claude_Explorer__Conversation_Archive_` for the Desktop extension, `claude-sessions` for a server with that name). Before the rename, `get_session_outline`, `get_messages`, and `export_session` always failed on that path with `session_id Missing required argument` (GitHub issue #33).
 
 **No alias, but a clear error.** The tools do not accept `session_id`. A stdio client starts the server and then reads the tool list, so after an upgrade it sees only `conversation_id`. The description of `conversation_id` says that it was formerly named `session_id`. Old prompts still say `session_id`, so the middleware `_ExplainSessionIdRename` in `mcp_server/server.py` replaces the generic pydantic errors with messages that tell the client model what to send:
 
