@@ -42,6 +42,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -224,51 +225,48 @@ async def test_eager_fill_task_populates_summary_cache(
 async def test_eager_fill_task_is_non_blocking(
     cold_start_claude_dir: Path,
 ) -> None:
-    """Test 3: lifespan yield happens within 500 ms even when the
-    eager-fill takes 2 s. The server must be up immediately.
+    """Test 3: the lifespan yields while the eager-fill is still running.
 
-    To make this a true non-blocking assertion (rather than passing
-    trivially when no eager-fill exists), we ALSO assert the slow
-    function actually got called — i.e. the test would fail BOTH if
-    the eager-fill blocked startup AND if the eager-fill simply
-    never ran.
+    The fake fill blocks on an event that the test sets only after the
+    yield. If startup waited for the fill, the yield could not come
+    before the 30 s safety timeout, so the test fails for the right
+    reason. There is no wall-clock budget: on Windows CI (2026-11-10) the
+    other startup work, mostly creating the SQLite cache, took 1.76 s and
+    failed the former 0.5 s budget although the fill did not block.
+
+    We ALSO assert that the fill started, so the test fails if no
+    eager-fill exists.
     """
     from backend.main import app
 
-    call_count = 0
+    started = threading.Event()
+    release = threading.Event()
 
     def _slow(misses: list[Path], stop: Any = None) -> dict[Path, dict | None]:
-        nonlocal call_count
-        call_count += 1
-        time.sleep(2.0)
+        started.set()
+        release.wait(timeout=30)
         return {p: {"uuid": p.stem} for p in misses}
 
     with patch(
         "backend.claude_code_reader._read_summaries_parallel",
         side_effect=_slow,
     ):
-        t0 = time.monotonic()
-        async with app.router.lifespan_context(app):
-            yield_elapsed = time.monotonic() - t0
-            assert yield_elapsed < 0.5, (
-                f"Lifespan yield blocked for {yield_elapsed:.2f}s; "
-                "eager-fill must not block startup"
+        lifespan = app.router.lifespan_context(app)
+        try:
+            await asyncio.wait_for(lifespan.__aenter__(), timeout=30)
+        except TimeoutError:
+            release.set()
+            pytest.fail("Lifespan never yielded: startup waits for the eager-fill")
+        try:
+            # The yield came while the fill still waits on `release`. Now
+            # prove that a fill exists and began.
+            assert await asyncio.to_thread(started.wait, 10), (
+                "Eager-fill task never started; test 3 would trivially pass "
+                "without proving non-blocking"
             )
-            # Wait briefly so the eager-fill task gets scheduled and
-            # starts running. We don't need it to FINISH (that's 2s);
-            # we just need to prove it began. If no eager-fill task
-            # exists at all, call_count will still be 0 here and the
-            # test fails for the right reason.
-            for _ in range(20):
-                if call_count > 0:
-                    break
-                await asyncio.sleep(0.05)
-            assert call_count == 1, (
-                f"Eager-fill task never started (call_count={call_count}); "
-                "test 3 would trivially pass without proving non-blocking"
-            )
-            # Exit the lifespan without waiting for the slow fill to
-            # finish — shutdown handler must cancel it cleanly.
+        finally:
+            release.set()
+            await lifespan.__aexit__(None, None, None)
 
 
 async def test_eager_fill_respects_disable_env_var(
@@ -416,8 +414,12 @@ async def test_warm_image_scan_fires_only_when_fts5_disabled(
         "backend.cc_image_cache.warm_all_sessions_async",
         side_effect=_spy,
     ):
-        t0 = time.monotonic()
         async with app.router.lifespan_context(app):
+            # Measure from the yield, not from the start of the lifespan:
+            # the other startup work (mostly SQLite) is slow on a cold
+            # Windows runner (859 ms on PR #6, 2026-10-19; 1.76 s on
+            # 2026-11-10) and is not what this test is about.
+            t_yield = time.monotonic()
             for _ in range(200):
                 if call_times:
                     break
@@ -427,14 +429,14 @@ async def test_warm_image_scan_fires_only_when_fts5_disabled(
         "warm_all_sessions_async was never called even though FTS5 is "
         "disabled (the fallback path should fire it)"
     )
-    delay = call_times[0] - t0
-    # The 5 s legacy delay is gone; the task normally fires within ~200 ms.
-    # The limit sits halfway to the 5 s it guards against (2.5 s), not at
-    # 500 ms: a slow Windows CI runner measured 859 ms once (PR #6,
-    # 2026-10-19), and a returning 5 s delay still fails by a wide margin.
+    delay = call_times[0] - t_yield
+    # Without a delay, the task fires during startup or right after the
+    # yield, so `delay` is about 0 or negative. A returning 5 s delay,
+    # counted from the task's creation before the yield, still shows as
+    # more than 3 s here, so 2.5 s catches it.
     assert delay < 2.5, (
         f"warm_all_sessions_async fired {delay*1000:.0f}ms after "
-        f"lifespan start; expected <2500ms (legacy 5 s delay removed)"
+        f"the lifespan yield; expected <2500ms (legacy 5 s delay removed)"
     )
 
 
