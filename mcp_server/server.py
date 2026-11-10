@@ -66,6 +66,13 @@ mcp = FastMCP(
 # whether to refine.
 MCP_SEARCH_LIMIT = 5000
 
+# get_session_outline returns the outline in pages. A Cowork client refused
+# the whole outline of a 579-message session (126,470 characters) on
+# 2026-11-09. One entry is about 350 characters of JSON, so a page of 100 is
+# about 35,000 characters.
+OUTLINE_PAGE_DEFAULT = 100
+OUTLINE_PAGE_MAX = 500
+
 # The per-session tools name their session argument ``conversation_id``,
 # never ``session_id``. The Claude desktop remote-devices bridge removes
 # every tool argument named ``session_id`` when it forwards a call from
@@ -577,6 +584,8 @@ def list_projects(
 @mcp.tool()
 def get_session_outline(
     conversation_id: str,
+    start_position: int = 0,
+    limit: int = OUTLINE_PAGE_DEFAULT,
 ) -> dict[str, Any]:
     """Get lightweight per-message summaries for a session's active branch.
     Only call when the user explicitly asks to examine a specific session.
@@ -585,10 +594,16 @@ def get_session_outline(
     char_count, tool_count, timestamp. Use positions from the outline to
     fetch full content with get_messages.
 
+    The outline comes in pages. message_count is the size of the whole
+    session. If next_position is not null, call again with
+    start_position=next_position to get the next page.
+
     Args:
         conversation_id: The session UUID (the "uuid" field from list_sessions).
                          This argument was formerly named session_id. If a
                          prompt says session_id, send conversation_id.
+        start_position: First position of the page (0-indexed, default 0).
+        limit: Max entries in the page (default 100, max 500).
     """
     store = _get_store()
     conversation = store.get_conversation(conversation_id)
@@ -600,6 +615,10 @@ def get_session_outline(
         summaries = _build_outline(conn, conversation_id, conversation)
     finally:
         conn.close()
+
+    start = max(0, start_position)
+    end = start + min(max(1, limit), OUTLINE_PAGE_MAX)
+    next_position = end if end < len(summaries) else None
 
     return {
         # Same name as the argument, so it passes on to get_messages as-is.
@@ -613,7 +632,9 @@ def get_session_outline(
         "message_count": len(conversation.messages),
         "created_at": _format_dt(conversation.created_at),
         "updated_at": _format_dt(conversation.updated_at),
-        "messages": summaries,
+        "start_position": start,
+        "next_position": next_position,
+        "messages": summaries[start:end],
     }
 
 

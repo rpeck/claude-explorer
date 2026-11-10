@@ -65,7 +65,7 @@ Same JSON block as Claude Code. After editing, fully quit and relaunch Claude De
 
 ## 4. Fixed context cost
 
-Having the server attached injects the five tool definitions (plus the server-level instructions) into the client's context on every conversation, whether or not any tool is called. Measured on 2026-11-09: **4,804 characters, about 1,200 to 1,600 tokens**, for the 5 tool definitions.
+Having the server attached injects the five tool definitions (plus the server-level instructions) into the client's context on every conversation, whether or not any tool is called. Measured on 2026-11-09: **5,216 characters, about 1,300 to 1,700 tokens**, for the 5 tool definitions.
 
 - **Method:** `len(json.dumps({"name", "description", "inputSchema"}))` for each tool, as a FastMCP `Client` receives it from `list_tools()`.
 - **The earlier table** (4,681 characters, Phase 20) came from older code and an unrecorded method, so its numbers do not compare with these.
@@ -74,12 +74,12 @@ Having the server attached injects the five tool definitions (plus the server-le
 |---|---|
 | `list_sessions` | 1,418 |
 | `list_projects` | 424 |
-| `get_session_outline` | 731 |
+| `get_session_outline` | 1,143 |
 | `get_messages` | 1,275 |
 | `export_session` | 956 |
-| **Total** | **4,804** |
+| **Total** | **5,216** |
 
-The 3 per-session tools each carry 174 characters for the `conversation_id` description, which names the former `session_id` (§6.6).
+The 3 per-session tools each carry 174 characters for the `conversation_id` description, which names the former `session_id` (§6.6). The outline's page arguments and their description add 412 characters.
 
 This is the price paid even on conversations that never invoke a tool. The *"only when explicitly asked"* hardening keeps it from compounding.
 
@@ -199,12 +199,18 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 > Only call when the user explicitly asks to examine a specific session.
 >
 > Each entry has: position, message_uuid, sender, summary (first 200 chars), char_count, tool_count, timestamp. Use positions from the outline to fetch full content with get_messages.
+>
+> The outline comes in pages. message_count is the size of the whole session. If next_position is not null, call again with start_position=next_position to get the next page.
 
 **Arguments:**
 
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `conversation_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). See §6.6 for why it is not `session_id`. |
+| `start_position` | `int` | `0` | First position of the page. A negative value counts as `0`. |
+| `limit` | `int` | `100` (`OUTLINE_PAGE_DEFAULT`) | Max entries in the page. Clamped to `[1, 500]` (`OUTLINE_PAGE_MAX`). |
+
+**Why pages:** on 2026-11-09 a Cowork client refused the whole outline of a 579-message session: 126,470 characters, over its size limit for one tool result. One entry is about 350 characters of JSON, so the default page of 100 is about 35,000 characters. `mcp_server/tests/test_outline_pages.py` holds a page of the default size to 40,000 characters.
 
 **Return shape:**
 
@@ -219,7 +225,9 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
   "message_count": <int>,
   "created_at": "<iso8601>",
   "updated_at": "<iso8601>",
-  "messages": [
+  "start_position": <int>,    // first position of this page, after clamping
+  "next_position": <int> | null,  // start of the next page; null on the last page
+  "messages": [               // this page only: positions start_position .. start_position + limit - 1
     {
       "message_uuid": "<uuid>",
       "position": <int>,        // 0-indexed, monotonically increasing

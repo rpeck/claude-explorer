@@ -11,7 +11,7 @@ directly:
 |---|---|
 | `list_projects` | List distinct projects with session counts |
 | `list_sessions` | Search and list sessions, filtered by project, date, or text |
-| `get_session_outline` | Lightweight per-message summaries of a session |
+| `get_session_outline` | Lightweight per-message summaries of a session, in pages |
 | `get_messages` | Full content for specific message UUIDs |
 | `export_session` | Markdown export of a full or partial session |
 

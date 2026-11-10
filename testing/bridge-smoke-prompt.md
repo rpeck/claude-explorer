@@ -7,12 +7,14 @@ Rules:
 
 Calls:
 1. list_projects with {}
-2. list_sessions with {"limit": 20}. Of the sessions with a "message_count" of 2 or more, take the one with the smallest "message_count". Use its "uuid" as U for calls 3 to 8. A small session keeps the outline in call 3 under the client's size limit for a result.
+2. list_sessions with {"limit": 1}. Take the "uuid" of the first session as U for calls 3 to 8. It is usually a long session, which tests that the outline in call 3 comes in pages that fit in the client.
 3. get_session_outline with {"conversation_id": U}
 4. get_messages with {"conversation_id": U, "positions": [0]}
 5. export_session with {"conversation_id": U, "start_position": 0, "end_position": 0}
 6. get_session_outline with {"session_id": U}
 7. get_messages with {"session_id": U, "positions": [0]}
 8. export_session with {"session_id": U, "start_position": 0, "end_position": 0}
+
+For call 3, also report the values of "message_count", "start_position", and "next_position", and the number of entries in "messages".
 
 At the end, give a table with one row per call: call number, tool, OK or ERROR, and the first line of the error text.

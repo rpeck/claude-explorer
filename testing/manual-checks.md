@@ -150,8 +150,8 @@ The conversation list needs at least one conversation. On a clean machine, do th
 | Call | Tool and arguments | Expected |
 |---|---|---|
 | 1 | `list_projects` `{}` | OK |
-| 2 | `list_sessions` `{"limit": 20}` | OK. The prompt picks the smallest session, so that the outline in call 3 fits in the client. |
-| 3 | `get_session_outline` `{"conversation_id": U}` | OK |
+| 2 | `list_sessions` `{"limit": 1}` | OK |
+| 3 | `get_session_outline` `{"conversation_id": U}` | OK, with at most 100 entries. For a session of more than 100 messages, `next_position` is `100`. Before the pages (2026-11-09), Cowork refused a 579-message outline of 126,470 characters. |
 | 4 | `get_messages` `{"conversation_id": U, "positions": [0]}` | OK |
 | 5 | `export_session` `{"conversation_id": U, ...}` | OK |
 | 6 to 8 | the same 3 tools with `{"session_id": U, ...}` | ERROR: `Missing required argument 'conversation_id'` ... `formerly named 'session_id'`. The bridge removed `session_id`, so the server saw no session argument. |

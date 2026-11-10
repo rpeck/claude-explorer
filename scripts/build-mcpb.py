@@ -315,7 +315,7 @@ def _write_manifest(bundle_root: pathlib.Path, version: str) -> None:
                 "name": "get_session_outline",
                 "description": (
                     "Lightweight per-message summaries of a session, "
-                    "cached in SQLite"
+                    "cached in SQLite, in pages"
                 ),
             },
             {
