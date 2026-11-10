@@ -46,6 +46,8 @@ jobs:
           enable-cache: true
 
       - name: Sync Python deps
+        # uv uses the Python in .python-version (3.13), the development
+        # Python. install-matrix.yml runs pytest on 3.14 and 3.15 too.
         run: uv sync --extra dev
 
       # Every job runs a section of scripts/check.py, the same list that the
@@ -107,6 +109,8 @@ jobs:
           enable-cache: true
 
       - name: Sync Python deps
+        # uv uses the Python in .python-version (3.13), the development
+        # Python. install-matrix.yml runs pytest on 3.14 and 3.15 too.
         run: uv sync --extra dev
 
       - name: Set up Node

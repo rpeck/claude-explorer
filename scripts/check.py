@@ -29,6 +29,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -46,6 +47,10 @@ UNTRACKED_CODE_DIRS = (
     "benchmarks/", "assets/", ".github/", ".claude/",
 )
 UNTRACKED_ROOT_SUFFIXES = (".py", ".toml", ".lock", ".cfg", ".ini", ".json")
+# Root config files without one of those suffixes. .python-version picks the
+# Python that runs the checks. Without this entry, a green run did not count a
+# new .python-version, and the hook refused the commit that tracked it.
+UNTRACKED_ROOT_NAMES = (".python-version",)
 MARKER_NAME = "check-passed.json"
 RECORDING_SECTIONS = {"python", "frontend"}
 
@@ -132,10 +137,13 @@ def _root() -> Path:
 
 def _is_checked(path: str, tracked: bool) -> bool:
     if path.startswith(EXCLUDED_DIRS):
-        return False
+        # ruff and test_resource_cleanup.py read every tracked .py file, also here.
+        return tracked and path.endswith(".py")
     if tracked:
         return True
-    return path.startswith(UNTRACKED_CODE_DIRS) or ("/" not in path and path.endswith(UNTRACKED_ROOT_SUFFIXES))
+    return path.startswith(UNTRACKED_CODE_DIRS) or (
+        "/" not in path and (path.endswith(UNTRACKED_ROOT_SUFFIXES) or path in UNTRACKED_ROOT_NAMES)
+    )
 
 
 def worktree_entries() -> dict[str, str]:
@@ -155,29 +163,57 @@ def worktree_entries() -> dict[str, str]:
 
 def index_entries() -> dict[str, str]:
     """{path: blob} for the checked files in the index (what a commit takes)."""
-    entries = {}
+    return {p: blob for p, (_mode, blob) in _index_state().items()}
+
+
+def _index_state() -> dict[str, tuple[str, str]]:
+    """{path: (mode, blob)} for the checked files in the index."""
+    state = {}
     for line in _git("ls-files", "-s", "-z").split("\0"):
         if not line:
             continue
         meta, path = line.split("\t", 1)
         mode, blob, stage = meta.split()
         if mode != "160000" and stage == "0" and _is_checked(path, True):
-            entries[path] = blob
-    return entries
+            state[path] = (mode, blob)
+    return state
 
 
 def head_entries() -> dict[str, str]:
+    return {p: blob for p, (_mode, blob) in _head_state().items()}
+
+
+def _head_state() -> dict[str, tuple[str, str]]:
+    """{path: (mode, blob)} for the checked files in HEAD."""
     if subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], cwd=_root(), capture_output=True, check=False).returncode:
         return {}
-    entries = {}
+    state = {}
     for line in _git("ls-tree", "-r", "-z", "HEAD").split("\0"):
         if not line:
             continue
         meta, path = line.split("\t", 1)
-        _mode, kind, blob = meta.split()
+        mode, kind, blob = meta.split()
         if kind == "blob" and _is_checked(path, True):
-            entries[path] = blob
-    return entries
+            state[path] = (mode, blob)
+    return state
+
+
+def worktree_modes(entries: dict[str, str]) -> dict[str, str]:
+    """{path: mode} for the files in ``entries``, as `git add` would record them.
+
+    A chmod changes what a commit records, for example whether a hook runs,
+    so the modes count too. They are a separate digest, so that a marker
+    from before modes keeps its meaning.
+    """
+    file_mode = subprocess.run(
+        ["git", "config", "--bool", "--get", "core.fileMode"],
+        cwd=_root(), capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    if file_mode == "false":  # Windows: no exec bit on disk; Git keeps the index mode
+        index = {p: mode for p, (mode, _blob) in _index_state().items()}
+        return {p: index.get(p, "100644") for p in entries}
+    root = _root()
+    return {p: "100755" if (root / p).stat().st_mode & stat.S_IXUSR else "100644" for p in entries}
 
 
 def digest(entries: dict[str, str]) -> str:
@@ -197,17 +233,49 @@ def _marker_path() -> Path:
 
 
 def _read_marker() -> dict | None:
+    """The last green run's record, or None. A malformed record counts as no run."""
     try:
-        return json.loads(_marker_path().read_text(encoding="utf-8"))
+        marker = json.loads(_marker_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    if not isinstance(marker, dict) or not isinstance(marker.get("digest"), str):
+        return None
+    if not isinstance(marker.get("modes", ""), str):
+        return None
+    return marker
 
 
-def _write_marker(entries_digest: str, sections: list[str]) -> None:
+def _write_marker(entries_digest: str, modes_digest: str, sections: list[str]) -> None:
     _marker_path().write_text(
-        json.dumps({"digest": entries_digest, "sections": sections, "when": datetime.now(UTC).isoformat()}),
+        json.dumps({
+            "digest": entries_digest,
+            "modes": modes_digest,
+            "sections": sections,
+            "when": datetime.now(UTC).isoformat(),
+        }),
         encoding="utf-8",
     )
+
+
+def _run_covers(blobs: dict[str, str], modes: dict[str, str], head_modes: dict[str, str]) -> bool:
+    """True if the last green run tested these blobs and modes."""
+    marker = _read_marker()
+    if marker is None or marker["digest"] != digest(blobs):
+        return False
+    if "modes" not in marker:  # from a check.py before modes: it covers no mode change
+        return all(modes[p] == head_modes[p] for p in modes.keys() & head_modes.keys())
+    return marker["modes"] == digest(modes)
+
+
+def _differences(
+    blobs: dict[str, str], modes: dict[str, str], head_state: dict[str, tuple[str, str]]
+) -> tuple[list[str], dict[str, str]]:
+    """The paths whose blob or mode differs from HEAD, and HEAD's modes."""
+    head_blobs = {p: blob for p, (_mode, blob) in head_state.items()}
+    head_modes = {p: mode for p, (mode, _blob) in head_state.items()}
+    changed = set(_changed(blobs, head_blobs))
+    changed |= {p for p in modes.keys() & head_modes.keys() if modes[p] != head_modes[p]}
+    return sorted(changed), head_modes
 
 
 # ----- the questions that the hooks ask -------------------------------------
@@ -228,13 +296,12 @@ def unverified_changes() -> list[str]:
     For the repo at the current directory. The project's Stop hook
     (.claude/hooks/require-green-checks.py) calls it for each worktree.
     """
-    now, head = worktree_entries(), head_entries()
-    if digest(now) == digest(head):
+    now = worktree_entries()
+    modes = worktree_modes(now)
+    changed, head_modes = _differences(now, modes, _head_state())
+    if not changed or _run_covers(now, modes, head_modes):
         return []
-    marker = _read_marker()
-    if marker and marker.get("digest") == digest(now):
-        return []
-    return _changed(now, head)
+    return changed
 
 
 def verify_worktree() -> int:
@@ -253,15 +320,15 @@ def verify_worktree() -> int:
 
 def verify_index() -> int:
     """0 if a commit of the index changes no checked file, or commits the green run's content."""
-    staged, head = index_entries(), head_entries()
-    if digest(staged) == digest(head):
-        return 0
-    marker = _read_marker()
-    if marker and marker.get("digest") == digest(staged):
+    index = _index_state()
+    staged = {p: blob for p, (_mode, blob) in index.items()}
+    modes = {p: mode for p, (mode, _blob) in index.items()}
+    changed, head_modes = _differences(staged, modes, _head_state())
+    if not changed or _run_covers(staged, modes, head_modes):
         return 0
     _report(
         "pre-commit: these staged checked files are not the content of a green run of scripts/check.py:",
-        _changed(staged, head),
+        changed,
         "Run `uv run python scripts/check.py` until it passes, then commit the same content.\n"
         "Do not bypass this with --no-verify.",
         sys.stderr,
@@ -296,16 +363,18 @@ def main(
 
     chosen = args.only or ["python", "frontend"]
     before = worktree_entries()
+    before_modes = worktree_modes(before)
     for name in chosen:
         print(f"\n######## {name}", flush=True)
         code = run_steps(sections[name], on_start=on_start)
         if code != 0:
             return code
     if RECORDING_SECTIONS <= set(chosen):
-        if worktree_entries() != before:
+        after = worktree_entries()
+        if after != before or worktree_modes(after) != before_modes:
             print("\nAll checks passed, but checked files changed during the run: nothing recorded. Run again.")
             return 1
-        _write_marker(digest(before), chosen)
+        _write_marker(digest(before), digest(before_modes), chosen)
         print(f"\nAll checks passed ({', '.join(chosen)}). Recorded for the pre-commit and Stop hooks.")
     else:
         print(f"\nAll checks passed ({', '.join(chosen)}). Only python + frontend together record a green run.")

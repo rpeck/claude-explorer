@@ -111,6 +111,65 @@ def test_the_project_settings_run_the_hook(tmp_path: Path, repo: Path) -> None:
     assert "backend/code.py" in result.stderr
 
 
+def test_a_malformed_marker_blocks_and_does_not_crash(tmp_path: Path, repo: Path) -> None:
+    """A crash (exit 1) does not block in Claude Code, so it would let an
+    untested turn end. A marker that is not a JSON object counts as no run."""
+    marker = repo / subprocess.run(
+        ["git", "rev-parse", "--git-path", "check-passed.json"],
+        cwd=repo, capture_output=True, text=True, check=True, env=ENV,
+    ).stdout.strip()
+    marker.write_text("[1]", encoding="utf-8")
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    result = _stop(repo, _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py")))
+    assert result.returncode == 2, result.stderr
+    assert "backend/code.py" in result.stderr
+
+
+def _hook_beside(tmp_path: Path, check_text: str) -> Path:
+    """A copy of the hook in a temp project, beside this check.py text.
+
+    The hook loads the check.py two folders above itself, so this is how a
+    test gives it a check.py that fails.
+    """
+    project = tmp_path / "project"
+    (project / ".claude" / "hooks").mkdir(parents=True)
+    (project / "scripts").mkdir()
+    hook = project / ".claude" / "hooks" / HOOK.name
+    shutil.copy(HOOK, hook)
+    (project / "scripts" / "check.py").write_text(check_text, encoding="utf-8")
+    return hook
+
+
+def _stop_with(hook: Path, repo: Path, transcript: Path) -> subprocess.CompletedProcess:
+    event = {"hook_event_name": "Stop", "cwd": str(repo), "stop_hook_active": False,
+             "transcript_path": str(transcript)}
+    return subprocess.run(
+        [sys.executable, str(hook)], input=json.dumps(event),
+        capture_output=True, text=True, env=ENV, timeout=60, check=False,
+    )
+
+
+def test_an_unexpected_error_blocks_and_names_it(tmp_path: Path, repo: Path) -> None:
+    """Any other failure inside check.py must also block, with the reason."""
+    hook = _hook_beside(
+        tmp_path,
+        CHECK.read_text(encoding="utf-8")
+        + "\n\ndef unverified_changes():\n    raise RuntimeError('boom')\n",
+    )
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    result = _stop_with(hook, repo, _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py")))
+    assert result.returncode == 2, result.stderr
+    assert "boom" in result.stderr
+
+
+def test_a_check_script_that_does_not_load_blocks(tmp_path: Path, repo: Path) -> None:
+    hook = _hook_beside(tmp_path, "this is not python(\n")
+    (repo / "backend" / "code.py").write_text("x = 2\n", encoding="utf-8")
+    result = _stop_with(hook, repo, _transcript(tmp_path / "t.jsonl", _edit(repo / "backend" / "code.py")))
+    assert result.returncode == 2, result.stderr
+    assert "does not load" in result.stderr
+
+
 def test_a_clean_repo_may_stop(repo: Path) -> None:
     assert _stop(repo).returncode == 0
 
