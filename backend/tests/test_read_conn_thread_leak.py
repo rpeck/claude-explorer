@@ -12,6 +12,11 @@ The search index then lagged the live sessions by days.
 The user-observable measure here is the count of file descriptors that
 the process holds open on the index file. It must not grow with the
 number of short-lived threads that read the index.
+
+Windows has no simple way to map a handle to its file, so there the
+measure is the count of all the handles that the process holds
+(``GetProcessHandleCount``), with a small tolerance for unrelated handles.
+On the leaky code, 40 passes add at least 80 handles.
 """
 
 from __future__ import annotations
@@ -27,14 +32,14 @@ from pathlib import Path
 
 import pytest
 
-_needs_fd_count = pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="counts open file descriptors through /proc or F_GETPATH",
-)
-
 # More passes than the warm-up can explain. On the leaky code, each pass
 # adds two descriptors (the database file and its -wal file).
 _PASSES = 40
+
+# The Windows measure counts every handle of the process, so allow a few
+# unrelated ones. A leak adds at least 2 * _PASSES.
+_TOLERANCE = 10 if sys.platform == "win32" else 0
+_MEASURE = "process handles (all files) for" if sys.platform == "win32" else "open descriptors on"
 
 
 def _open_paths() -> list[str]:
@@ -69,14 +74,43 @@ def _fds_on(*dbs: Path) -> int:
     return sum(1 for p in _open_paths() if os.path.realpath(p) in names)
 
 
-def _settled_fds_on(*dbs: Path, limit: int) -> int:
-    """Count descriptors on ``dbs``. Wait up to 2 s for the count to reach
-    ``limit``, because a thread can finish its cleanup just after join()."""
+def _windows_handle_count() -> int:
+    """Return the number of handles that this process holds open."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.GetProcessHandleCount.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    kernel32.GetProcessHandleCount.restype = wintypes.BOOL
+    count = wintypes.DWORD()
+    if not kernel32.GetProcessHandleCount(
+        kernel32.GetCurrentProcess(), ctypes.byref(count)
+    ):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return count.value
+
+
+def _open_handles(*dbs: Path) -> int:
+    """POSIX: the descriptors open on ``dbs``. Windows: every handle of
+    the process (see the module docstring)."""
+    if sys.platform == "win32":
+        return _windows_handle_count()
+    return _fds_on(*dbs)
+
+
+def _settled_handles(*dbs: Path, limit: int) -> int:
+    """Count with :func:`_open_handles`. Wait up to 2 s for the count to
+    reach ``limit``, because a thread can finish its cleanup just after
+    join()."""
     deadline = time.monotonic() + 2.0
-    count = _fds_on(*dbs)
+    count = _open_handles(*dbs)
     while count > limit and time.monotonic() < deadline:
         time.sleep(0.02)
-        count = _fds_on(*dbs)
+        count = _open_handles(*dbs)
     return count
 
 
@@ -153,7 +187,6 @@ def live_dirs(tmp_path, monkeypatch):
     cc_watcher.reset_projects_drift_for_tests()
 
 
-@_needs_fd_count
 def test_event_driven_drift_passes_do_not_leak_descriptors(live_dirs) -> None:
     """The watcher's event-driven path: one new Timer thread per pass."""
     from backend import cc_watcher
@@ -165,19 +198,18 @@ def test_event_driven_drift_passes_do_not_leak_descriptors(live_dirs) -> None:
 
     # Warm up: the first pass builds the index rows and opens the writer.
     _run_on_new_threads(cc_watcher._fire_drift_pass, 2)
-    before = _settled_fds_on(idx.path, limit=0)
+    before = _settled_handles(idx.path, limit=0)
     assert before > 0, "the measure saw no descriptor on the index file"
 
     _run_on_new_threads(cc_watcher._fire_drift_pass, _PASSES)
-    after = _settled_fds_on(idx.path, limit=before)
+    after = _settled_handles(idx.path, limit=before + _TOLERANCE)
 
-    assert after <= before, (
-        f"{_PASSES} drift passes on short-lived threads raised the open "
-        f"descriptors on the index from {before} to {after}"
+    assert after <= before + _TOLERANCE, (
+        f"{_PASSES} drift passes on short-lived threads raised the "
+        f"{_MEASURE} the index from {before} to {after}"
     )
 
 
-@_needs_fd_count
 def test_backstop_summary_cache_reads_do_not_leak_descriptors(live_dirs) -> None:
     """``scan_once`` also reads the summary cache. If a short-lived thread
     runs it, that thread's summary-cache connection must close too."""
@@ -195,15 +227,16 @@ def test_backstop_summary_cache_reads_do_not_leak_descriptors(live_dirs) -> None
     # only the search index, so count the descriptors on both files.
     dbs = (idx.path, cache.path)
     _run_on_new_threads(cc_watcher.scan_once, 2)
-    before = _settled_fds_on(*dbs, limit=0)
-    assert _fds_on(cache.path) > 0, "the measure saw no descriptor on the cache"
+    before = _settled_handles(*dbs, limit=0)
+    if sys.platform != "win32":
+        assert _fds_on(cache.path) > 0, "the measure saw no descriptor on the cache"
 
     _run_on_new_threads(cc_watcher.scan_once, _PASSES)
-    after = _settled_fds_on(*dbs, limit=before)
+    after = _settled_handles(*dbs, limit=before + _TOLERANCE)
 
-    assert after <= before, (
-        f"{_PASSES} backstop scans on short-lived threads raised the open "
-        f"descriptors on the index and the cache from {before} to {after}"
+    assert after <= before + _TOLERANCE, (
+        f"{_PASSES} backstop scans on short-lived threads raised the "
+        f"{_MEASURE} the index and the cache from {before} to {after}"
     )
 
 
