@@ -21,6 +21,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +39,8 @@ def _through_bridge(arguments: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in arguments.items() if k not in BRIDGE_REMOVED_ARGUMENTS}
 
 
-def _stdio_client() -> Client:
+@asynccontextmanager
+async def _stdio_client() -> AsyncIterator[Client]:
     transport = StdioTransport(
         command=sys.executable,
         args=["-m", "mcp_server.server"],
@@ -45,8 +48,17 @@ def _stdio_client() -> Client:
         # Cowork folders in os.environ, so the subprocess reads only those.
         env=dict(os.environ),
         cwd=str(REPO),
+        # The default (True) keeps the subprocess alive after the client
+        # closes. Its asyncio transport is then garbage-collected while open,
+        # and on Windows that raises a ResourceWarning that pytest turns into
+        # a teardown error (main at 82c5b7b9, both Windows pytest rows).
+        keep_alive=False,
     )
-    return Client(transport)
+    try:
+        async with Client(transport) as client:
+            yield client
+    finally:
+        await transport.close()
 
 
 def _text(result) -> str:
