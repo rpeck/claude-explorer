@@ -22,6 +22,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+from fastmcp.tools.base import ToolResult
 
 from backend.config import Settings
 from backend.export import (
@@ -62,6 +65,59 @@ mcp = FastMCP(
 # of how much was actually returned, so the LLM caller can decide
 # whether to refine.
 MCP_SEARCH_LIMIT = 5000
+
+# get_session_outline returns the outline in pages. A Cowork client refused
+# the whole outline of a 579-message session (126,470 characters) on
+# 2026-11-09. One entry is about 350 characters of JSON, so a page of 100 is
+# about 35,000 characters.
+OUTLINE_PAGE_DEFAULT = 100
+OUTLINE_PAGE_MAX = 500
+
+# The per-session tools name their session argument ``conversation_id``,
+# never ``session_id``. The Claude desktop remote-devices bridge removes
+# every tool argument named ``session_id`` when it forwards a call from
+# a Cowork cloud session, so a tool that needs that name cannot be
+# called from Cowork (GitHub issue #33). A test pins this:
+# mcp_server/tests/test_conversation_id_param.py.
+#
+# The middleware below does not accept ``session_id``. It replaces the
+# generic pydantic errors with messages that tell the client model what
+# to send instead, because old prompts still say ``session_id``.
+CONVERSATION_ID_TOOLS = frozenset(
+    {"get_session_outline", "get_messages", "export_session"}
+)
+
+SESSION_ID_RENAMED = (
+    "'session_id' was renamed to 'conversation_id'. Send the session UUID "
+    "as 'conversation_id', and do not send 'session_id'."
+)
+CONVERSATION_ID_MISSING = (
+    "Missing required argument 'conversation_id': the session UUID (the "
+    "'uuid' field from list_sessions). It was formerly named 'session_id'. "
+    "Some MCP bridges remove an argument named 'session_id', so send "
+    "'conversation_id'."
+)
+
+
+class _ExplainSessionIdRename(Middleware):
+    async def on_call_tool(
+        self,
+        # The message is an ``mcp.types.CallToolRequestParams``. Importing
+        # ``mcp`` directly adds a dependency that the MCPB closure canary
+        # refuses (mcp_server/tests/test_mcpb_closure.py).
+        context: MiddlewareContext[Any],
+        call_next: CallNext[Any, ToolResult],
+    ) -> ToolResult:
+        if context.message.name in CONVERSATION_ID_TOOLS:
+            arguments = context.message.arguments or {}
+            if "session_id" in arguments:
+                raise ToolError(SESSION_ID_RENAMED)
+            if arguments.get("conversation_id") is None:
+                raise ToolError(CONVERSATION_ID_MISSING)
+        return await call_next(context)
+
+
+mcp.add_middleware(_ExplainSessionIdRename())
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -527,7 +583,9 @@ def list_projects(
 
 @mcp.tool()
 def get_session_outline(
-    session_id: str,
+    conversation_id: str,
+    start_position: int = 0,
+    limit: int = OUTLINE_PAGE_DEFAULT,
 ) -> dict[str, Any]:
     """Get lightweight per-message summaries for a session's active branch.
     Only call when the user explicitly asks to examine a specific session.
@@ -536,21 +594,36 @@ def get_session_outline(
     char_count, tool_count, timestamp. Use positions from the outline to
     fetch full content with get_messages.
 
+    The outline comes in pages. message_count is the size of the whole
+    session. If next_position is not null, call again with
+    start_position=next_position to get the next page.
+
     Args:
-        session_id: The session UUID.
+        conversation_id: The session UUID (the "uuid" field from list_sessions).
+                         This argument was formerly named session_id. If a
+                         prompt says session_id, send conversation_id.
+        start_position: First position of the page (0-indexed, default 0).
+        limit: Max entries in the page (default 100, max 500).
     """
     store = _get_store()
-    conversation = store.get_conversation(session_id)
+    conversation = store.get_conversation(conversation_id)
     if conversation is None:
-        raise ValueError(f"Session '{session_id}' not found.")
+        raise ValueError(f"Session '{conversation_id}' not found.")
 
     conn = _get_db()
     try:
-        summaries = _build_outline(conn, session_id, conversation)
+        summaries = _build_outline(conn, conversation_id, conversation)
     finally:
         conn.close()
 
+    start = max(0, start_position)
+    end = start + min(max(1, limit), OUTLINE_PAGE_MAX)
+    next_position = end if end < len(summaries) else None
+
     return {
+        # Same name as the argument, so it passes on to get_messages as-is.
+        "conversation_id": conversation.uuid,
+        # Kept for existing readers of the output.
         "session_id": conversation.uuid,
         "name": conversation.name,
         "model": conversation.model,
@@ -559,13 +632,15 @@ def get_session_outline(
         "message_count": len(conversation.messages),
         "created_at": _format_dt(conversation.created_at),
         "updated_at": _format_dt(conversation.updated_at),
-        "messages": summaries,
+        "start_position": start,
+        "next_position": next_position,
+        "messages": summaries[start:end],
     }
 
 
 @mcp.tool()
 def get_messages(
-    session_id: str,
+    conversation_id: str,
     positions: list[int] | None = None,
     message_uuids: list[str] | None = None,
     include_tool_calls: bool = False,
@@ -578,16 +653,18 @@ def get_messages(
     If neither is provided, returns all messages (caution: can be very large).
 
     Args:
-        session_id: The session UUID.
+        conversation_id: The session UUID (the "uuid" field from list_sessions).
+                         This argument was formerly named session_id. If a
+                         prompt says session_id, send conversation_id.
         positions: List of 0-indexed positions from the outline.
         message_uuids: List of message UUIDs.
         include_tool_calls: Include tool call names and inputs (default false).
         include_tool_results: Include full tool results (default false, implies tool calls).
     """
     store = _get_store()
-    conversation = store.get_conversation(session_id)
+    conversation = store.get_conversation(conversation_id)
     if conversation is None:
-        raise ValueError(f"Session '{session_id}' not found.")
+        raise ValueError(f"Session '{conversation_id}' not found.")
 
     # include_tool_results implies include_tool_calls
     if include_tool_results:
@@ -630,7 +707,7 @@ def get_messages(
 
 @mcp.tool()
 def export_session(
-    session_id: str,
+    conversation_id: str,
     start_position: int | None = None,
     end_position: int | None = None,
     include_tools: bool = True,
@@ -639,15 +716,17 @@ def export_session(
     Only call when the user explicitly asks to export a session.
 
     Args:
-        session_id: The session UUID.
+        conversation_id: The session UUID (the "uuid" field from list_sessions).
+                         This argument was formerly named session_id. If a
+                         prompt says session_id, send conversation_id.
         start_position: Start position (0-indexed, inclusive). Omit for beginning.
         end_position: End position (0-indexed, inclusive). Omit for end.
         include_tools: Include tool calls and results in output (default true).
     """
     store = _get_store()
-    conversation = store.get_conversation(session_id)
+    conversation = store.get_conversation(conversation_id)
     if conversation is None:
-        raise ValueError(f"Session '{session_id}' not found.")
+        raise ValueError(f"Session '{conversation_id}' not found.")
 
     # Slice messages if positions are specified
     if start_position is not None or end_position is not None:

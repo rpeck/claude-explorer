@@ -71,7 +71,7 @@ def test_tool_use_id_surfaces_on_call_block(mcp_data):
     u = mcp_data.add_desktop_session("u-id-call", messages=[asst_msg])
 
     result = _call(
-        session_id=u,
+        conversation_id=u,
         positions=[0],
         include_tool_calls=True,
         include_tool_results=True,
@@ -103,7 +103,7 @@ def test_tool_use_id_surfaces_on_result_block(mcp_data):
     u = mcp_data.add_desktop_session("u-id-result", messages=[user_msg])
 
     result = _call(
-        session_id=u,
+        conversation_id=u,
         positions=[0],
         include_tool_calls=True,
         include_tool_results=True,
@@ -166,7 +166,7 @@ def test_call_and_result_pair_by_id_not_position(mcp_data):
     )
 
     result = _call(
-        session_id=u,
+        conversation_id=u,
         include_tool_calls=True,
         include_tool_results=True,
     )

@@ -142,8 +142,25 @@ The conversation list needs at least one conversation. On a clean machine, do th
 3. In Claude Desktop, open **Settings**, then **Extensions**. Drag the file onto that page.
 4. Accept the install dialog.
 5. Confirm that the five tools appear.
+6. Run the bridge smoke test. A Cowork cloud session reaches the extension through the desktop app's remote-devices bridge, and the bridge removes some tool arguments. Issue #33: it removes every argument named `session_id`.
+   1. Open a new Cowork session in Claude Desktop.
+   2. Paste the whole of [bridge-smoke-prompt.md](bridge-smoke-prompt.md).
+   3. Compare its table with the expected results below.
 
-**Pass:** the five tools are in the list, and one call returns data.
+| Call | Tool and arguments | Expected |
+|---|---|---|
+| 1 | `list_projects` `{}` | OK |
+| 2 | `list_sessions` `{"limit": 1}` | OK |
+| 3 | `get_session_outline` `{"conversation_id": U}` | OK, with at most 100 entries. For a session of more than 100 messages, `next_position` is `100`. Before the pages (2026-11-09), Cowork refused a 579-message outline of 126,470 characters. |
+| 4 | `get_messages` `{"conversation_id": U, "positions": [0]}` | OK |
+| 5 | `export_session` `{"conversation_id": U, ...}` | OK |
+| 6 to 8 | the same 3 tools with `{"session_id": U, ...}` | ERROR: `Missing required argument 'conversation_id'` ... `formerly named 'session_id'`. The bridge removed `session_id`, so the server saw no session argument. |
+
+**Pass:** the five tools are in the list, and one call returns data. The bridge smoke test gives the expected result for each call.
+
+- **The two error messages tell you what arrived.** `Missing required argument 'conversation_id'` means that the server got no session argument: the bridge removed `session_id`. `'session_id' was renamed` means that `session_id` reached the server.
+- **If call 6, 7, or 8 says `'session_id' was renamed`,** the bridge no longer removes `session_id`. That is not a failure. Update the expected table and `BRIDGE_REMOVED_ARGUMENTS` in `mcp_server/tests/test_bridge_smoke.py`.
+- **If call 3, 4, or 5 fails,** the bridge removes another argument name. Add that name to `BRIDGE_REMOVED_ARGUMENTS`, so that the automated smoke test fails until the tools stop using it.
 
 ### Step 4. PDF export (every platform)
 

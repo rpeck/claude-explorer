@@ -14,7 +14,7 @@ def _call(**kwargs):
 
 def test_get_messages_by_positions(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
-    result = _call(session_id=u, positions=[0, 1])
+    result = _call(conversation_id=u, positions=[0, 1])
     assert len(result) == 2
     assert result[0]["position"] == 0
     assert result[0]["sender"] == "human"
@@ -25,7 +25,7 @@ def test_get_messages_by_positions(mcp_data):
 
 def test_get_messages_by_message_uuids(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
-    result = _call(session_id=u, message_uuids=["msg-a-1"])
+    result = _call(conversation_id=u, message_uuids=["msg-a-1"])
     assert len(result) == 1
     assert result[0]["uuid"] == "msg-a-1"
     assert result[0]["sender"] == "assistant"
@@ -33,14 +33,14 @@ def test_get_messages_by_message_uuids(mcp_data):
 
 def test_get_messages_no_selector_returns_all(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
-    result = _call(session_id=u)
+    result = _call(conversation_id=u)
     assert len(result) == 2
 
 
 def test_get_messages_out_of_range_positions_silently_dropped(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
     # positions=[5, 1, -1] — only 1 is valid.
-    result = _call(session_id=u, positions=[5, 1, -1])
+    result = _call(conversation_id=u, positions=[5, 1, -1])
     assert len(result) == 1
     assert result[0]["position"] == 1
 
@@ -66,7 +66,7 @@ def test_text_only_mode_strips_tool_placeholders(mcp_data):
         "parent_message_uuid": None,
     }
     u = mcp_data.add_desktop_session("u-tp", messages=[msg_with_placeholder])
-    result = _call(session_id=u, positions=[0])
+    result = _call(conversation_id=u, positions=[0])
     text = result[0]["text"]
     assert "This block is not supported on your current device yet." not in text
     assert "I'll check that for you" in text
@@ -83,7 +83,7 @@ def test_include_tool_calls_returns_structured_content(mcp_data):
     )
     u = mcp_data.add_desktop_session("u-t", messages=[msg])
 
-    result = _call(session_id=u, positions=[0], include_tool_calls=True)
+    result = _call(conversation_id=u, positions=[0], include_tool_calls=True)
     assert "text" not in result[0]  # structured mode → no "text" key
     assert "content" in result[0]
 
@@ -106,7 +106,7 @@ def test_include_tool_results_implies_include_tool_calls(mcp_data):
     u = mcp_data.add_desktop_session("u-tr", messages=[msg])
 
     result = _call(
-        session_id=u,
+        conversation_id=u,
         positions=[0],
         include_tool_calls=False,  # explicit False; should be implicitly True
         include_tool_results=True,
@@ -136,7 +136,7 @@ def test_tool_use_long_input_uses_preview(mcp_data):
     )
     u = mcp_data.add_desktop_session("u-big", messages=[msg])
     result = _call(
-        session_id=u,
+        conversation_id=u,
         positions=[0],
         include_tool_calls=True,
         include_tool_results=False,
@@ -149,7 +149,7 @@ def test_tool_use_long_input_uses_preview(mcp_data):
 
 def test_get_messages_session_not_found(mcp_data):
     with pytest.raises(ValueError, match="not found"):
-        _call(session_id="00000000-0000-0000-0000-000000000999")
+        _call(conversation_id="00000000-0000-0000-0000-000000000999")
 
 
 def test_positions_take_precedence_over_uuids(mcp_data):
@@ -159,7 +159,7 @@ def test_positions_take_precedence_over_uuids(mcp_data):
     # message_uuids=["msg-a-1"] would select msg-a-1
     # Spec says positions wins.
     result = _call(
-        session_id=u,
+        conversation_id=u,
         positions=[0],
         message_uuids=["msg-a-1"],
     )

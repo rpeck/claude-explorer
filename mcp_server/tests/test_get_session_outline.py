@@ -45,7 +45,7 @@ def _read_message_summaries(db: Path, session_id: str) -> list[sqlite3.Row]:
 
 def test_outline_returns_metadata_and_summaries(mcp_data):
     u1 = mcp_data.add_desktop_session("u-1", name="Topic")
-    result = _call(session_id=u1)
+    result = _call(conversation_id=u1)
     assert result["session_id"] == u1
     assert result["name"] == "Topic"
     assert result["source"] == "CLAUDE_AI"
@@ -68,7 +68,7 @@ def test_outline_returns_metadata_and_summaries(mcp_data):
 
 def test_outline_session_not_found_raises(mcp_data):
     with pytest.raises(ValueError, match="not found"):
-        _call(session_id="11111111-0000-0000-0000-000000000000")
+        _call(conversation_id="11111111-0000-0000-0000-000000000000")
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +92,7 @@ def test_summary_truncates_at_word_boundary(mcp_data):
             },
         ],
     )
-    result = _call(session_id=u)
+    result = _call(conversation_id=u)
     summary = result["messages"][0]["summary"]
     # Ends in "..." because content exceeds 200 chars.
     assert summary.endswith("...")
@@ -115,7 +115,7 @@ def test_summary_excludes_tool_blocks(mcp_data):
         tool_result="file contents here",
     )
     u = mcp_data.add_desktop_session("u-tool", messages=[msg])
-    result = _call(session_id=u)
+    result = _call(conversation_id=u)
     summary = result["messages"][0]["summary"]
     # Tool input/output strings must NOT appear in the summary.
     assert "file contents here" not in summary
@@ -133,7 +133,7 @@ def test_summary_excludes_tool_blocks(mcp_data):
 
 def test_cache_populated_on_first_call(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
-    _call(session_id=u)
+    _call(conversation_id=u)
     db = _cache_db_path(mcp_data.data_dir)
     assert db.exists(), "cache.db should be created on first call"
     rows = _read_message_summaries(db, u)
@@ -161,7 +161,7 @@ def _append_message_to_session(data_dir: Path, real_uuid: str, new_msg: dict):
 
 def test_cache_append_only_growth(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
-    _call(session_id=u)
+    _call(conversation_id=u)
     db = _cache_db_path(mcp_data.data_dir)
 
     # Capture initial rows
@@ -182,7 +182,7 @@ def test_cache_append_only_growth(mcp_data):
     _append_message_to_session(mcp_data.data_dir, u, third_msg)
 
     # Second call should add the new row
-    result = _call(session_id=u)
+    result = _call(conversation_id=u)
     assert len(result["messages"]) == 3
     rows = _read_message_summaries(db, u)
     assert len(rows) == 3
@@ -197,7 +197,7 @@ def test_cache_append_only_growth(mcp_data):
 
 def test_cache_full_regen_on_leaf_change(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
-    _call(session_id=u)
+    _call(conversation_id=u)
     db = _cache_db_path(mcp_data.data_dir)
 
     # Mutate the leaf UUID without changing message count (simulate a
@@ -210,7 +210,7 @@ def test_cache_full_regen_on_leaf_change(mcp_data):
     new_mtime = time.time() + 1
     os.utime(path, (new_mtime, new_mtime))
 
-    _call(session_id=u)
+    _call(conversation_id=u)
     # Cache should have been regenerated; the new leaf UUID must be
     # reflected in session_files.
     conn = sqlite3.connect(str(db))
@@ -232,6 +232,6 @@ def test_cache_fresh_hit_returns_same_rows(mcp_data):
     """Two back-to-back calls on an unchanged file should produce
     byte-identical message arrays (modulo dict ordering)."""
     u = mcp_data.add_desktop_session("u-1")
-    first = _call(session_id=u)
-    second = _call(session_id=u)
+    first = _call(conversation_id=u)
+    second = _call(conversation_id=u)
     assert first["messages"] == second["messages"]

@@ -738,7 +738,7 @@ The project ships with a built-in **Model Context Protocol** server that lets Cl
 |------|---------|
 | `list_sessions` | Full-text search / list conversation sessions, optionally filtered by source or project |
 | `list_projects` | List distinct projects with session counts |
-| `get_session_outline` | Lightweight per-message summaries (cached in SQLite) for a specific session |
+| `get_session_outline` | Lightweight per-message summaries (cached in SQLite) for a specific session, in pages of up to 500 |
 | `get_messages` | Full message content for specific positions or UUIDs, with optional tool calls/results |
 | `export_session` | Markdown export of a full or partial session |
 

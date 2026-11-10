@@ -150,7 +150,7 @@ def test_mcp_export_session_preserves_summary_on_sliced_copy(mcp_data):
     # `summary=conversation.summary` kwarg would either AttributeError
     # (no field on source) or Pydantic-ValidationError (no field on
     # target). Either case would surface here as an exception.
-    md = _call_export_session(session_id=u1, start_position=0)
+    md = _call_export_session(conversation_id=u1, start_position=0)
     assert isinstance(md, str)
     # End-to-end sanity: the export contains the conversation title,
     # proving the sliced ConversationDetail constructor returned a

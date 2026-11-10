@@ -14,7 +14,7 @@ def _call(**kwargs):
 
 def test_export_full_session_returns_markdown(mcp_data):
     u = mcp_data.add_desktop_session("u-1", name="Sample")
-    md = _call(session_id=u)
+    md = _call(conversation_id=u)
     assert isinstance(md, str)
     # The Markdown header pipeline emits the title somewhere.
     assert "Sample" in md
@@ -25,7 +25,7 @@ def test_export_full_session_returns_markdown(mcp_data):
 
 def test_export_session_not_found(mcp_data):
     with pytest.raises(ValueError, match="not found"):
-        _call(session_id="00000000-0000-0000-0000-000000000999")
+        _call(conversation_id="00000000-0000-0000-0000-000000000999")
 
 
 def test_export_start_position_only(mcp_data):
@@ -45,7 +45,7 @@ def test_export_start_position_only(mcp_data):
     )
     # Start at position 1 → skips the first human message but keeps
     # the assistant reply and the second human message.
-    md = _call(session_id=u, start_position=1)
+    md = _call(conversation_id=u, start_position=1)
     assert "Hello, Claude" not in md
     assert "FTS5" in md  # assistant reply present
     assert "SECOND_HUMAN_MARKER" in md
@@ -85,7 +85,7 @@ def test_export_end_position_inclusive(mcp_data):
     ]
     u = mcp_data.add_desktop_session("u-1", messages=msgs)
     # end_position=0 → only the first message.
-    md = _call(session_id=u, end_position=0)
+    md = _call(conversation_id=u, end_position=0)
     assert "FIRST_HUMAN_MARKER" in md
     assert "ASSISTANT_MARKER_TWO" not in md
     assert "SECOND_HUMAN_MARKER" not in md
@@ -106,7 +106,7 @@ def test_export_position_range(mcp_data):
         messages=mcp_data._default_desktop_messages() + [extra],
     )
     # Just the middle message.
-    md = _call(session_id=u, start_position=1, end_position=1)
+    md = _call(conversation_id=u, start_position=1, end_position=1)
     assert "Hello, Claude" not in md
     assert "FTS5" in md
     assert "SECOND_HUMAN_MARKER" not in md
@@ -115,7 +115,7 @@ def test_export_position_range(mcp_data):
 def test_export_out_of_range_positions_clamp(mcp_data):
     u = mcp_data.add_desktop_session("u-1")
     # start=-5, end=100 — both out of range; should clamp to full session.
-    md = _call(session_id=u, start_position=-5, end_position=100)
+    md = _call(conversation_id=u, start_position=-5, end_position=100)
     assert "Hello, Claude" in md
     assert "FTS5" in md
 
@@ -130,7 +130,7 @@ def test_export_include_tools_default_true(mcp_data):
         tool_result="contents here",
     )
     u = mcp_data.add_desktop_session("u-t", messages=[msg])
-    md = _call(session_id=u)
+    md = _call(conversation_id=u)
     # Tool content should appear when include_tools=True (the default).
     assert "read_file" in md or "/foo/bar" in md or "contents here" in md
 
@@ -145,7 +145,7 @@ def test_export_include_tools_false_excludes_tool_content(mcp_data):
         tool_result="redacted contents",
     )
     u = mcp_data.add_desktop_session("u-t", messages=[msg])
-    md = _call(session_id=u, include_tools=False)
+    md = _call(conversation_id=u, include_tools=False)
     # Tool name/input/output should NOT be present.
     assert "read_file" not in md
     assert "/secret/value" not in md

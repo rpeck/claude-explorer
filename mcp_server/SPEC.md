@@ -1,6 +1,6 @@
 # `mcp_server/` — MCP Server Specification
 
-> Canonical reference for `claude-explorer`'s built-in Model Context Protocol server. Every claim in this document is grounded in the code at `mcp_server/server.py` (commit current as of 2026-05-13). When the code and this spec disagree, **the code wins** and this document needs a follow-up fix.
+> Canonical reference for `claude-explorer`'s built-in Model Context Protocol server. Every claim in this document is grounded in the code at `mcp_server/server.py` (checked 2026-11-09; references name functions, not line numbers, so that they stay valid when code moves). When the code and this spec disagree, **the code wins** and this document needs a follow-up fix.
 
 ## 1. Purpose and design principles
 
@@ -16,18 +16,18 @@ Design rules, in priority order:
 
 ## 2. Transport, identity, and entry points
 
-- **Transport.** stdio (the only MCP transport supported by Claude Desktop and the only one this server registers). See `mcp_server/server.py:626` (`mcp.run()`).
-- **Server name.** `Claude Session Explorer` (`mcp_server/server.py:40`).
+- **Transport.** stdio (the only MCP transport supported by Claude Desktop and the only one this server registers). See `main()` in `mcp_server/server.py` (`mcp.run()`).
+- **Server name.** `Claude Session Explorer` (the `FastMCP(...)` call in `mcp_server/server.py`).
 - **Server-level instructions** (passed to the client at handshake):
 
   > These tools query saved Claude conversation history. ONLY use them when the user EXPLICITLY asks to search, browse, analyze, or export past conversation sessions. Never call these tools proactively or speculatively.
 
-  Source: `mcp_server/server.py:41-46`.
+  Source: the `instructions=` argument of `FastMCP(...)` in `mcp_server/server.py`.
 
 - **Entry points.**
-  - CLI: `claude-explorer mcp` (defined at `fetcher/cli.py:281-292`).
-  - Module: `python -m mcp_server.server` (via the `if __name__ == "__main__"` block at line 629).
-  - Programmatic: `from mcp_server.server import main as mcp_main; mcp_main()` (line 624).
+  - CLI: `claude-explorer mcp` (the `mcp()` command in `cli/main.py`).
+  - Module: `python -m mcp_server.server` (via the `if __name__ == "__main__"` block).
+  - Programmatic: `from mcp_server.server import main as mcp_main; mcp_main()`.
 - **Framework.** Built on `fastmcp>=3.0` (declared in `pyproject.toml`). FastMCP handles JSON-RPC, schema generation from Python type hints, and the tool registry.
 
 ## 3. Configuration paths (clients)
@@ -65,16 +65,21 @@ Same JSON block as Claude Code. After editing, fully quit and relaunch Claude De
 
 ## 4. Fixed context cost
 
-Having the server attached injects the five tool definitions (plus the server-level instructions) into the client's context on every conversation, whether or not any tool is called. Measured cost: **~4,681 characters / ~1,200–1,600 tokens** across the 5 tool definitions, per the Phase 20 measurement on the live server. Per-tool breakdown:
+Having the server attached injects the five tool definitions (plus the server-level instructions) into the client's context on every conversation, whether or not any tool is called. Measured on 2026-11-09: **5,216 characters, about 1,300 to 1,700 tokens**, for the 5 tool definitions.
+
+- **Method:** `len(json.dumps({"name", "description", "inputSchema"}))` for each tool, as a FastMCP `Client` receives it from `list_tools()`.
+- **The earlier table** (4,681 characters, Phase 20) came from older code and an unrecorded method, so its numbers do not compare with these.
 
 | Tool | Definition chars |
 |---|---|
-| `list_sessions` | 1,054 |
-| `list_projects` | 657 |
-| `get_session_outline` | 695 |
-| `get_messages` | 1,317 |
-| `export_session` | 958 |
-| **Total** | **4,681** |
+| `list_sessions` | 1,418 |
+| `list_projects` | 424 |
+| `get_session_outline` | 1,143 |
+| `get_messages` | 1,275 |
+| `export_session` | 956 |
+| **Total** | **5,216** |
+
+The 3 per-session tools each carry 174 characters for the `conversation_id` description, which names the former `session_id` (§6.6). The outline's page arguments and their description add 412 characters.
 
 This is the price paid even on conversations that never invoke a tool. The *"only when explicitly asked"* hardening keeps it from compounding.
 
@@ -86,7 +91,7 @@ The server reads from the same locations the FastAPI app reads:
 - **Claude Code sessions:** live-read from `~/.claude/projects/<encoded-cwd>/<uuid>.jsonl`. Override via `CLAUDE_DIR`.
 - **Outline cache:** SQLite at `<data_dir>.parent / "cache.db"` — i.e. `~/.claude-explorer/cache.db` by default. Created on first call to `get_session_outline`.
 
-`ConversationStore` (instantiated as a module singleton at `_get_store()`, line 64-68) wraps both sources. The store is **lazily initialized** on first tool call.
+`ConversationStore` (instantiated as a module singleton by `_get_store()`) wraps both sources. The store is **lazily initialized** on first tool call.
 
 ## 6. Tool reference
 
@@ -96,7 +101,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 ### 6.1 `list_sessions`
 
-**Source:** `mcp_server/server.py:358-435`.
+**Source:** `list_sessions()` in `mcp_server/server.py`.
 
 **Description (verbatim, from the tool docstring):**
 
@@ -108,8 +113,9 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `query` | `str \| None` | `None` | Full-text search across session names and message content. Omit to list all sessions. |
-| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"` or `"CLAUDE_CODE"`. Any other value (or `None`) means "all". |
+| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, or `"CLAUDE_COWORK"`. Any other value (or `None`) means "all". |
 | `project` | `str \| None` | `None` | Filter by project name (case-insensitive substring match against `ConversationSummary.project_name`). |
+| `organization_id` | `str \| None` | `None` | Workspace UUID. Only conversations whose `organization_id` matches exactly. Claude Code sessions have none, so they never match. |
 | `limit` | `int` | `20` | Max results to return. Clamped to `[1, 100]`. |
 | `offset` | `int` | `0` | Skip this many results for pagination. Clamped to `[0, ∞)`. |
 
@@ -150,7 +156,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 ### 6.2 `list_projects`
 
-**Source:** `mcp_server/server.py:438-464`.
+**Source:** `list_projects()` in `mcp_server/server.py`.
 
 **Description (verbatim):**
 
@@ -185,7 +191,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 ### 6.3 `get_session_outline`
 
-**Source:** `mcp_server/server.py:467-502`.
+**Source:** `get_session_outline()` in `mcp_server/server.py`.
 
 **Description (verbatim):**
 
@@ -193,18 +199,25 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 > Only call when the user explicitly asks to examine a specific session.
 >
 > Each entry has: position, message_uuid, sender, summary (first 200 chars), char_count, tool_count, timestamp. Use positions from the outline to fetch full content with get_messages.
+>
+> The outline comes in pages. message_count is the size of the whole session. If next_position is not null, call again with start_position=next_position to get the next page.
 
 **Arguments:**
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `session_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). |
+| `conversation_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). See §6.6 for why it is not `session_id`. |
+| `start_position` | `int` | `0` | First position of the page. A negative value counts as `0`. |
+| `limit` | `int` | `100` (`OUTLINE_PAGE_DEFAULT`) | Max entries in the page. Clamped to `[1, 500]` (`OUTLINE_PAGE_MAX`). |
+
+**Why pages:** on 2026-11-09 a Cowork client refused the whole outline of a 579-message session: 126,470 characters, over its size limit for one tool result. One entry is about 350 characters of JSON, so the default page of 100 is about 35,000 characters. `mcp_server/tests/test_outline_pages.py` holds a page of the default size to 40,000 characters.
 
 **Return shape:**
 
 ```json
 {
-  "session_id": "<uuid>",
+  "conversation_id": "<uuid>",
+  "session_id": "<uuid>",     // same value; kept for existing readers
   "name": "<title>",
   "model": "<model-or-empty>",
   "source": "CLAUDE_AI" | "CLAUDE_CODE",
@@ -212,7 +225,9 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
   "message_count": <int>,
   "created_at": "<iso8601>",
   "updated_at": "<iso8601>",
-  "messages": [
+  "start_position": <int>,    // first position of this page, after clamping
+  "next_position": <int> | null,  // start of the next page; null on the last page
+  "messages": [               // this page only: positions start_position .. start_position + limit - 1
     {
       "message_uuid": "<uuid>",
       "position": <int>,        // 0-indexed, monotonically increasing
@@ -234,7 +249,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 - `filter_tool_placeholders` strips Claude Code's `"This block is not supported on your current device yet"` strings before truncation.
 - Truncates at 200 characters at a word boundary; if no space exists (single long token), hard-truncates and appends `"..."`.
 
-**Caching (`_build_outline`, lines 170-275):**
+**Caching (`_build_outline`):**
 
 The SQLite outline cache (see §7) is keyed by `session_id`. Cache states:
 
@@ -248,13 +263,13 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 
 **Errors:**
 
-- `ValueError("Session '<id>' not found.")` if `store.get_conversation(session_id)` returns `None`.
+- `ValueError("Session '<id>' not found.")` if `store.get_conversation(conversation_id)` returns `None`.
 
 ---
 
 ### 6.4 `get_messages`
 
-**Source:** `mcp_server/server.py:505-567`.
+**Source:** `get_messages()` in `mcp_server/server.py`.
 
 **Description (verbatim):**
 
@@ -267,7 +282,7 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `session_id` | `str` | (required) | Session UUID. |
+| `conversation_id` | `str` | (required) | Session UUID. See §6.6. |
 | `positions` | `list[int] \| None` | `None` | 0-indexed positions from the outline. |
 | `message_uuids` | `list[str] \| None` | `None` | Message UUIDs to fetch. |
 | `include_tool_calls` | `bool` | `False` | Include tool call names and (truncated) inputs. |
@@ -314,7 +329,7 @@ The function returns `list[dict]`. Each entry's shape depends on the verbosity f
 }
 ```
 
-Content-block filtering (`_filter_content_blocks`, lines 278-316):
+Content-block filtering (`_filter_content_blocks`):
 
 - `text` blocks: included if `text.strip()` non-empty. Tool-placeholder strings stripped when `include_tool_calls=False`.
 - `tool_use` blocks: only included if `include_tool_calls=True`. The full `input` dict is included if `include_tool_results=True` *or* the JSON-serialized input is ≤200 chars; otherwise, `input_preview` carries the first 200 chars + `"..."`. The Anthropic `id` (e.g. `"toolu_01ABC..."`) is emitted when present so callers can pair parallel calls to their results.
@@ -329,7 +344,7 @@ Content-block filtering (`_filter_content_blocks`, lines 278-316):
 
 ### 6.5 `export_session`
 
-**Source:** `mcp_server/server.py:570-617`.
+**Source:** `export_session()` in `mcp_server/server.py`.
 
 **Description (verbatim):**
 
@@ -340,7 +355,7 @@ Content-block filtering (`_filter_content_blocks`, lines 278-316):
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `session_id` | `str` | (required) | Session UUID. |
+| `conversation_id` | `str` | (required) | Session UUID. See §6.6. |
 | `start_position` | `int \| None` | `None` | 0-indexed start position (inclusive). Omit for beginning. |
 | `end_position` | `int \| None` | `None` | 0-indexed end position (inclusive). Omit for end. |
 | `include_tools` | `bool` | `True` | Include tool calls and results in output (note: opposite default from `get_messages`). |
@@ -363,9 +378,33 @@ Content-block filtering (`_filter_content_blocks`, lines 278-316):
 
 ---
 
+### 6.6 Why the argument is `conversation_id`
+
+**The bridge removes `session_id`.** The Claude desktop remote-devices bridge removes every tool argument whose key is `session_id`. The bridge carries calls from a Cowork cloud session to a local MCP server (tool names `mcp__remote-devices__<server name>__*`: `Claude_Explorer__Conversation_Archive_` for the Desktop extension, `claude-sessions` for a server with that name). Before the rename, `get_session_outline`, `get_messages`, and `export_session` always failed on that path with `session_id Missing required argument` (GitHub issue #33).
+
+**No alias, but a clear error.** The tools do not accept `session_id`. A stdio client starts the server and then reads the tool list, so after an upgrade it sees only `conversation_id`. The description of `conversation_id` says that it was formerly named `session_id`. Old prompts still say `session_id`, so the middleware `_ExplainSessionIdRename` in `mcp_server/server.py` replaces the generic pydantic errors with messages that tell the client model what to send:
+
+| Arguments sent | Result |
+|---|---|
+| `conversation_id` only | The tool runs. |
+| `session_id`, alone or with `conversation_id` | `ToolError`: `'session_id' was renamed to 'conversation_id'. Send the session UUID as 'conversation_id', and do not send 'session_id'.` |
+| Neither | `ToolError`: `Missing required argument 'conversation_id'` ..., `formerly named 'session_id'`, and some MCP bridges remove an argument named `session_id`. Through the bridge, a call that sent `session_id` arrives like this. |
+
+The middleware applies only to these 3 tools. The other tools keep the generic "Unexpected keyword argument" error.
+
+**The output has both keys.** `get_session_outline` returns the session UUID as `"conversation_id"`, the same name as the argument, so a model can pass it on to `get_messages` unchanged. It also keeps `"session_id"` with the same value for existing readers of the output. The bridge changes only the arguments of a call, so the output key is safe.
+
+**Invariants and tests:**
+
+- **No tool has an input property named `session_id`, at any depth.** `mcp_server/tests/test_conversation_id_param.py` reads the schemas that a client receives, through a FastMCP `Client`, and fails if one does.
+- **Every tool works through a simulated bridge.** `mcp_server/tests/test_bridge_smoke.py` starts the server over stdio, builds the required arguments of each tool from its schema, removes the arguments in `BRIDGE_REMOVED_ARGUMENTS`, and requires each call to succeed. Run against the code before the rename, it fails with the message from issue #33.
+- **The real bridge** cannot run in CI. [testing/manual-checks.md](../testing/manual-checks.md), Step 3, has the manual smoke prompt for a real Cowork session.
+
+---
+
 ## 7. Outline cache schema
 
-The SQLite file at `<data_dir>.parent / "cache.db"` carries two tables and one index. The schema is recreated idempotently on every `get_session_outline` call via `_ensure_schema` (line 84).
+The SQLite file at `<data_dir>.parent / "cache.db"` carries two tables and one index. The schema is recreated idempotently on every `get_session_outline` call via `_ensure_schema`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS session_files (
