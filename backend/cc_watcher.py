@@ -79,6 +79,12 @@ write pattern (5–20 ``on_modified`` events per user message) would
 trigger 5–20 redundant SQL upserts in rapid succession. Search
 freshness drops from up to 600 s (backstop poll) to ~debounce + I/O.
 
+At most one drift pass runs at a time in the process
+(``_run_drift_single_flight``). An event or a backstop scan during a
+pass makes that pass run once more when it ends; it never starts a
+second pass. Without this, a slow pass let the passes pile up: on
+2026-11-11 the watcher grew from 27 to 77 threads in 8 minutes.
+
 The watcher is best-effort: any error is logged and swallowed so a
 transient I/O failure never crashes the backend.
 """
@@ -88,6 +94,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from .cc_image_cache import copy_marker_image_to_cache
@@ -209,20 +216,25 @@ def scan_once() -> int:
 
     # Search-index drift pass. Isolated from the image-cache pass —
     # any error here is logged and swallowed; image-cache continues to
-    # run regardless.
-    try:
-        from backend.search_index import get_search_index, update_drifted_files
-        from backend.store import ConversationStore
+    # run regardless. It shares the single-flight gate with the
+    # event-driven passes: if one runs, it runs once more for the
+    # backstop, and this call does not wait for it (2026-11-11).
+    def _backstop_drift_pass() -> None:
+        try:
+            from backend.search_index import get_search_index, update_drifted_files
+            from backend.store import ConversationStore
 
-        idx = get_search_index()
-        if idx is not None and idx.is_ready():
-            updated = update_drifted_files(ConversationStore(), index=idx)
-            if updated:
-                logger.info(
-                    "search index drift pass: re-indexed %d file(s)", updated
-                )
-    except Exception:
-        logger.exception("watcher: search-index drift pass failed")
+            idx = get_search_index()
+            if idx is not None and idx.is_ready():
+                updated = update_drifted_files(ConversationStore(), index=idx)
+                if updated:
+                    logger.info(
+                        "search index drift pass: re-indexed %d file(s)", updated
+                    )
+        except Exception:
+            logger.exception("watcher: search-index drift pass failed")
+
+    _run_drift_single_flight(_backstop_drift_pass)
 
     # Summary-cache drift pass. Walks every CC session JSONL on
     # disk and refreshes any rows whose mtime or size has changed
@@ -456,6 +468,49 @@ _drift_timer: threading.Timer | None = None
 _drift_last_timer: threading.Timer | None = None
 _drift_pending: set[Path] = set()
 _drift_shutdown = False
+# Single-flight (2026-11-11): at most one drift pass runs at a time. A
+# request during a pass sets ``_drift_rerun``, and the running pass runs
+# once more when it ends. Before this, each event during a pass started
+# one more pass on a new Timer thread. On the real index a pass took
+# minutes, and the watcher went from 27 to 77 threads in 8 minutes: each
+# waited for the write lock and held an open read connection.
+_drift_running = False
+_drift_rerun = False
+
+
+def _run_drift_single_flight(run_pass: Callable[[], None]) -> bool:
+    """Run ``run_pass`` unless a drift pass already runs in this process.
+
+    If one runs, ask it to run once more, and return False at once: the
+    caller's thread does not wait. Else run ``run_pass``, then again for
+    each request that came during it, and return True.
+
+    ``run_pass`` must log its own errors, so that a failed pass does not
+    drop the reruns that wait for it.
+    """
+    global _drift_running, _drift_rerun
+    with _drift_lock:
+        if _drift_shutdown:
+            return False
+        if _drift_running:
+            _drift_rerun = True
+            return False
+        _drift_running = True
+        _drift_rerun = False
+    try:
+        while True:
+            run_pass()
+            with _drift_lock:
+                if _drift_rerun and not _drift_shutdown:
+                    _drift_rerun = False
+                    continue
+                _drift_running = False
+                return True
+    except BaseException:
+        with _drift_lock:
+            _drift_running = False
+            _drift_rerun = False
+        raise
 
 
 def _live_projects_root() -> Path:
@@ -484,6 +539,10 @@ def _fire_drift_pass() -> None:
     ends (``backend/sqlite_read_conns.py``). Before 2026-11-08 each pass
     leaked one: the supervised watcher hit the open-file limit after
     about 30 hours, and every later drift pass failed with EMFILE.
+
+    At most one pass runs (:func:`_run_drift_single_flight`). A Timer that
+    fires during a pass only asks that pass to run once more, and its
+    thread ends at once.
     """
     global _drift_timer
 
@@ -495,6 +554,11 @@ def _fire_drift_pass() -> None:
         _drift_pending.clear()
         _drift_timer = None
 
+    _run_drift_single_flight(_event_drift_pass)
+
+
+def _event_drift_pass() -> None:
+    """One event-driven search-index drift pass. Logs its own errors."""
     try:
         from backend import search_index as si
         from backend.store import ConversationStore
@@ -742,12 +806,26 @@ def reset_projects_drift_for_tests() -> None:
 
     Production code MUST NOT call this.
     """
-    global _drift_timer, _drift_last_timer, _drift_shutdown, _drift_pending
+    global _drift_last_timer, _drift_running, _drift_rerun
+    _rearm_projects_drift()
+    with _drift_lock:
+        _drift_last_timer = None
+        _drift_running = False
+        _drift_rerun = False
+
+
+def _rearm_projects_drift() -> None:
+    """Accept events again after a ``shutdown_projects_drift``.
+
+    ``run_watcher`` calls it at start (the uvicorn ``--reload`` path can
+    leave ``_drift_shutdown`` set). It leaves the single-flight state as
+    it is: a pass that still runs must keep the gate.
+    """
+    global _drift_timer, _drift_shutdown, _drift_pending
     with _drift_lock:
         if _drift_timer is not None:
             _drift_timer.cancel()
             _drift_timer = None
-        _drift_last_timer = None
         _drift_pending = set()
         _drift_shutdown = False
 
@@ -816,8 +894,8 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
     observer = _try_start_observer()
     # Re-arm the projects-drift module state in case a prior watcher
     # invocation left _drift_shutdown=True (e.g., the dev-reload path
-    # in uvicorn `--reload`). reset_for_tests is the same op.
-    reset_projects_drift_for_tests()
+    # in uvicorn `--reload`). It keeps the single-flight state.
+    _rearm_projects_drift()
     projects_observer = _try_start_projects_observer()
     # Cowork Observer: same shared debounce + drift pipeline as
     # projects_observer, just watching a different root for Cowork

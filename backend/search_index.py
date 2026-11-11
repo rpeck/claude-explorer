@@ -56,6 +56,12 @@ Threading:
     Writes go through a single dedicated connection guarded by
     ``threading.Lock``. WAL mode lets readers proceed concurrently with
     the writer without blocking.
+
+Deleting a conversation's rows:
+    FTS5 cannot index the UNINDEXED ``conv_uuid`` column, so a delete by
+    ``conv_uuid`` reads every row of ``messages``. Writes find the rows
+    through the ``message_rowids`` map and delete them by rowid instead.
+    See :meth:`SearchIndex._sync_message_rowids`.
 """
 
 from __future__ import annotations
@@ -297,7 +303,26 @@ SCHEMA_VERSION = 14
 # companion ``conversation_summaries_meta`` table holds the source-hash
 # of ``read_conversation_summary_fast`` (see ``claude_code_reader.
 # LOGIC_VERSION``); a mismatch at startup wipes the cache table.
-SCHEMA_SQL = """
+#
+# ``message_rowids`` (2026-11-11) maps each ``messages`` rowid to its
+# conversation. ``conv_uuid`` is an UNINDEXED FTS5 column, and FTS5 cannot
+# index it, so ``DELETE FROM messages WHERE conv_uuid = ?`` read every row:
+# 8.9 s for one conversation on a real index of 393,517 rows, while it held
+# the write lock. With the map, a delete finds the rows through an index
+# and removes them by rowid. The map is additive (no SCHEMA_VERSION bump):
+# code from before it ignores the table, and
+# :meth:`SearchIndex._sync_message_rowids` rebuilds it when such code has
+# changed ``messages``.
+MESSAGE_ROWIDS_SQL = """
+CREATE TABLE IF NOT EXISTS message_rowids (
+    msg_rowid INTEGER PRIMARY KEY,
+    conv_uuid TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS message_rowids_conv_uuid
+    ON message_rowids (conv_uuid);
+"""
+
+SCHEMA_SQL = MESSAGE_ROWIDS_SQL + """
 CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
     conv_uuid UNINDEXED,
     message_uuid UNINDEXED,
@@ -695,6 +720,7 @@ class SearchIndex:
                 # On-disk schema matches; ensure all tables exist (no-op if
                 # already there) and we're done.
                 cur.executescript(SCHEMA_SQL)
+                self._sync_message_rowids(self._write_conn)
                 # v10 conditional backfill (2026-05-23): a CHEAP count
                 # check guards against the race that surfaced in dev
                 # when SCHEMA_VERSION was bumped from 9 to 10 while a
@@ -714,8 +740,11 @@ class SearchIndex:
                 conv_count = cur.execute(
                     "SELECT COUNT(*) FROM conversations"
                 ).fetchone()[0]
+                # 2026-11-11: count from the rowid map. On ``messages``
+                # this was a full FTS5 scan on every open (about 9 s on
+                # 393,517 rows), not the "~ms" that the note above says.
                 msg_conv_count = cur.execute(
-                    "SELECT COUNT(DISTINCT conv_uuid) FROM messages "
+                    "SELECT COUNT(DISTINCT conv_uuid) FROM message_rowids "
                     "WHERE conv_uuid != ''"
                 ).fetchone()[0]
                 if conv_count < msg_conv_count:
@@ -747,7 +776,7 @@ class SearchIndex:
                         (COMPACTION_TITLE_PREFIX,),
                     )
                 self._forget_remote_cowork_without_workspace(cur)
-                self._forget_cc_files_under_another_uuid(cur)
+                self._forget_cc_files_under_another_uuid(self._write_conn)
                 self._write_conn.commit()
                 return
 
@@ -989,6 +1018,7 @@ class SearchIndex:
                 # v10: also drop the projection so the rebuild starts
                 # clean — every upsert will repopulate it row-by-row.
                 cur.execute("DROP TABLE IF EXISTS conversations")
+                cur.execute("DROP TABLE IF EXISTS message_rowids")
                 cur.executescript(SCHEMA_SQL)
                 cur.execute(
                     "INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,)
@@ -1028,7 +1058,7 @@ class SearchIndex:
             )
 
     @staticmethod
-    def _forget_cc_files_under_another_uuid(cur: sqlite3.Cursor) -> None:
+    def _forget_cc_files_under_another_uuid(cur: sqlite3.Connection) -> None:
         """Re-index Claude Code files that the index holds under another uuid.
 
         Before 2026-10-21 a Claude Code conversation took its uuid from the
@@ -1053,7 +1083,7 @@ class SearchIndex:
         if not stale:
             return
         for conv_uuid in stale:
-            cur.execute("DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,))
+            SearchIndex._delete_messages_of(cur, conv_uuid)
             cur.execute("DELETE FROM conversations WHERE conv_uuid = ?", (conv_uuid,))
             cur.execute("DELETE FROM indexed_files WHERE conv_uuid = ?", (conv_uuid,))
         logger.info(
@@ -1061,6 +1091,66 @@ class SearchIndex:
             "conversation(s) that were stored under another session's uuid",
             len(stale),
         )
+
+    # ----- the rowid map of messages ---------------------------------
+
+    @staticmethod
+    def _sync_message_rowids(conn: sqlite3.Connection) -> None:
+        """Make ``message_rowids`` map every ``messages`` row, and only those.
+
+        Call it in the write transaction, before a write that uses the map.
+        The check compares the row count and the highest rowid of the map
+        with those of ``messages_docsize`` (FTS5 keeps one row there for
+        each document). These lookups do not scan ``messages``.
+
+        They differ only when code from before the map changed ``messages``.
+        Such code still runs until the user restarts it: an old ``serve``,
+        an MCP server. Then the map is rebuilt from ``messages``: one full
+        scan, about 9 s on 393,517 rows. The first open after the upgrade
+        does the same, once.
+
+        An old-code upsert that keeps the same row count and the same
+        highest rowid re-inserts the same conversation at the same rowids,
+        so the map stays right in that case too.
+        """
+        for statement in MESSAGE_ROWIDS_SQL.split(";"):
+            if statement.strip():
+                conn.execute(statement)
+        mapped = conn.execute("SELECT count(*) FROM message_rowids").fetchone()[0]
+        rows = conn.execute("SELECT count(*) FROM messages_docsize").fetchone()[0]
+        if mapped == rows:
+            top_mapped = conn.execute("SELECT max(msg_rowid) FROM message_rowids").fetchone()[0]
+            top_row = conn.execute("SELECT max(id) FROM messages_docsize").fetchone()[0]
+            if top_mapped == top_row:
+                return
+        logger.info(
+            "search_index: rebuilding the rowid map of messages "
+            "(%d rows mapped, %d rows indexed)",
+            mapped, rows,
+        )
+        conn.execute("DELETE FROM message_rowids")
+        conn.execute(
+            "INSERT INTO message_rowids (msg_rowid, conv_uuid) "
+            "SELECT rowid, conv_uuid FROM messages"
+        )
+
+    @staticmethod
+    def _delete_messages_of(conn: sqlite3.Connection, conv_uuid: str) -> None:
+        """Delete the ``messages`` rows of one conversation by rowid.
+
+        The map gives the rowids through its index. ``AND conv_uuid = ?``
+        keeps a stale map entry from deleting another conversation's row.
+        """
+        rowids = conn.execute(
+            "SELECT msg_rowid FROM message_rowids WHERE conv_uuid = ?",
+            (conv_uuid,),
+        ).fetchall()
+        for (rowid,) in rowids:
+            conn.execute(
+                "DELETE FROM messages WHERE rowid = ? AND conv_uuid = ?",
+                (rowid, conv_uuid),
+            )
+        conn.execute("DELETE FROM message_rowids WHERE conv_uuid = ?", (conv_uuid,))
 
     # ----- read connections ------------------------------------------
 
@@ -1187,19 +1277,28 @@ class SearchIndex:
                 )
             )
 
-        # The connection context is an explicit BEGIN; auto-COMMIT or ROLLBACK.
+        # The connection context auto-COMMITs or ROLLBACKs. BEGIN IMMEDIATE
+        # takes the write lock first, so no other process changes
+        # ``messages`` between the map check and the writes.
         with self._write_lock, self._write_conn:
-            self._write_conn.execute(
-                "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
-            )
+            self._write_conn.execute("BEGIN IMMEDIATE")
+            self._sync_message_rowids(self._write_conn)
+            self._delete_messages_of(self._write_conn, conv_uuid)
+            mapped: list[tuple[int, str]] = []
+            for row in rows:
+                cur = self._write_conn.execute(
+                    "INSERT INTO messages "
+                    "(conv_uuid, message_uuid, sender, created_at, source, "
+                    " project_path, organization_id, conv_created_at, "
+                    " conv_updated_at, is_compaction_summary, "
+                    " title, body, body_text) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    row,
+                )
+                mapped.append((cur.lastrowid, conv_uuid))
             self._write_conn.executemany(
-                "INSERT INTO messages "
-                "(conv_uuid, message_uuid, sender, created_at, source, "
-                " project_path, organization_id, conv_created_at, "
-                " conv_updated_at, is_compaction_summary, "
-                " title, body, body_text) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
+                "INSERT INTO message_rowids (msg_rowid, conv_uuid) VALUES (?, ?)",
+                mapped,
             )
             # v10 title projection (2026-05-23). INSERT OR REPLACE
             # keeps one-row-per-conv invariant on title renames /
@@ -1253,9 +1352,9 @@ class SearchIndex:
     def delete_conversation(self, conv_uuid: str, file_path: Path | None = None) -> None:
         """Remove a conversation's rows from the index."""
         with self._write_lock, self._write_conn:
-            self._write_conn.execute(
-                "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
-            )
+            self._write_conn.execute("BEGIN IMMEDIATE")
+            self._sync_message_rowids(self._write_conn)
+            self._delete_messages_of(self._write_conn, conv_uuid)
             # v10: purge the projection row alongside. Otherwise the
             # title sweep would still surface a deleted conversation.
             self._write_conn.execute(
@@ -1295,6 +1394,8 @@ class SearchIndex:
         purged any orphans by the time this fallback would fire.
         """
         with self._write_lock, self._write_conn:
+            self._write_conn.execute("BEGIN IMMEDIATE")
+            self._sync_message_rowids(self._write_conn)
             row = self._write_conn.execute(
                 "SELECT conv_uuid FROM indexed_files WHERE path = ?",
                 (str(file_path),),
@@ -1308,9 +1409,7 @@ class SearchIndex:
                 # any post-migration Cowork upsert wrote conv_uuid
                 # so the primary lookup above succeeds).
                 conv_uuid = file_path.stem
-            self._write_conn.execute(
-                "DELETE FROM messages WHERE conv_uuid = ?", (conv_uuid,)
-            )
+            self._delete_messages_of(self._write_conn, conv_uuid)
             # v10: same uuid scope applies to the projection;
             # leave-no-trace contract matches delete_conversation.
             self._write_conn.execute(
@@ -1386,6 +1485,7 @@ class SearchIndex:
         """
         with self._write_lock, self._write_conn:
             self._write_conn.execute("DELETE FROM messages")
+            self._write_conn.execute("DELETE FROM message_rowids")
             self._write_conn.execute("DELETE FROM indexed_files")
             self._write_conn.execute("DELETE FROM conversations")
 
