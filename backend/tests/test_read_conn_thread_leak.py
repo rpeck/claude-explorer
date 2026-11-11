@@ -22,12 +22,10 @@ On the leaky code, 40 passes add at least 80 handles.
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 import sys
 import threading
 import time
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -36,102 +34,13 @@ import pytest
 # adds two descriptors (the database file and its -wal file).
 _PASSES = 40
 
-# The Windows measure counts every handle of the process, so allow a few
-# unrelated ones. A leak adds at least 2 * _PASSES.
-_TOLERANCE = 10 if sys.platform == "win32" else 0
-_MEASURE = "process handles (all files) for" if sys.platform == "win32" else "open descriptors on"
-
-
-def _open_paths() -> list[str]:
-    """Return the real path of every file descriptor this process holds."""
-    paths: list[str] = []
-    if sys.platform.startswith("linux"):
-        for name in os.listdir("/proc/self/fd"):
-            try:
-                paths.append(os.readlink(f"/proc/self/fd/{name}"))
-            except OSError:
-                continue
-        return paths
-
-    import fcntl
-
-    for name in os.listdir("/dev/fd"):
-        try:
-            raw = fcntl.fcntl(int(name), fcntl.F_GETPATH, bytes(1024))
-        except (OSError, ValueError):
-            continue
-        paths.append(raw.split(b"\0", 1)[0].decode(errors="replace"))
-    return paths
-
-
-def _fds_on(*dbs: Path) -> int:
-    """Count the descriptors open on each database and on its -wal and
-    -shm files."""
-    names: set[str] = set()
-    for db in dbs:
-        real = os.path.realpath(db)
-        names |= {real, real + "-wal", real + "-shm"}
-    return sum(1 for p in _open_paths() if os.path.realpath(p) in names)
-
-
-def _windows_handle_count() -> int:
-    """Return the number of handles that this process holds open."""
-    import ctypes
-    from ctypes import wintypes
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
-    kernel32.GetProcessHandleCount.argtypes = [
-        wintypes.HANDLE,
-        ctypes.POINTER(wintypes.DWORD),
-    ]
-    kernel32.GetProcessHandleCount.restype = wintypes.BOOL
-    count = wintypes.DWORD()
-    if not kernel32.GetProcessHandleCount(
-        kernel32.GetCurrentProcess(), ctypes.byref(count)
-    ):
-        raise ctypes.WinError(ctypes.get_last_error())
-    return count.value
-
-
-def _open_handles(*dbs: Path) -> int:
-    """POSIX: the descriptors open on ``dbs``. Windows: every handle of
-    the process (see the module docstring)."""
-    if sys.platform == "win32":
-        return _windows_handle_count()
-    return _fds_on(*dbs)
-
-
-def _settled_handles(*dbs: Path, limit: int) -> int:
-    """Count with :func:`_open_handles`. Wait up to 2 s for the count to
-    reach ``limit``, because a thread can finish its cleanup just after
-    join()."""
-    deadline = time.monotonic() + 2.0
-    count = _open_handles(*dbs)
-    while count > limit and time.monotonic() < deadline:
-        time.sleep(0.02)
-        count = _open_handles(*dbs)
-    return count
-
-
-def _run_on_new_threads(fn: Callable[[], object], passes: int) -> None:
-    """Run ``fn`` once on each of ``passes`` new threads, one at a time,
-    the way the watcher's debounce Timer does."""
-    errors: list[BaseException] = []
-
-    def target() -> None:
-        try:
-            fn()
-        except BaseException as exc:  # noqa: BLE001 - report it in the test
-            errors.append(exc)
-
-    for _ in range(passes):
-        t = threading.Timer(0, target)
-        t.daemon = True
-        t.start()
-        t.join(timeout=30)
-        assert not t.is_alive(), "a drift pass did not finish in 30 s"
-    assert not errors, f"a pass raised: {errors[0]!r}"
+from backend.tests._fd_count import MEASURE as _MEASURE
+from backend.tests._fd_count import TOLERANCE as _TOLERANCE
+from backend.tests._fd_count import fds_on as _fds_on
+from backend.tests._fd_count import open_handles as _open_handles
+from backend.tests._fd_count import run_on_new_threads as _run_on_new_threads
+from backend.tests._fd_count import settled_handles as _settled_handles
+from backend.tests._fd_count import wait_for_timers as _wait_for_timers
 
 
 def _write_cc_jsonl(claude_dir: Path, session_uuid: str) -> Path:
@@ -237,6 +146,55 @@ def test_backstop_summary_cache_reads_do_not_leak_descriptors(live_dirs) -> None
     assert after <= before + _TOLERANCE, (
         f"{_PASSES} backstop scans on short-lived threads raised the "
         f"{_MEASURE} the index and the cache from {before} to {after}"
+    )
+
+
+def test_a_drift_pass_slower_than_the_events_does_not_pile_up(
+    live_dirs, monkeypatch
+) -> None:
+    """Earned 2026-11-11: after #41 the restarted watcher still went from 4
+    to 146 descriptors on the index in 11 minutes. Each pass took minutes,
+    events kept coming, and every event started one more pass on a new
+    Timer thread. Those threads waited for the write lock and held a read
+    connection the whole time, so #41 could not close it.
+
+    Here each real drift pass takes 0.5 s longer, and an event comes every
+    0.08 s. The open descriptors on the index must stay bounded."""
+    from backend import cc_watcher
+    from backend import search_index as si
+
+    monkeypatch.setenv("CLAUDE_EXPLORER_SEARCH_DRIFT_DEBOUNCE_SEC", "0.05")
+    idx = si.get_search_index()
+    if idx is None:
+        pytest.skip("sqlite3 build without FTS5")
+
+    real_drift = si.update_drifted_files
+
+    def slow_drift(store, index=None):
+        # The thread holds its read connection during the sleep, as a
+        # pass that waits for the write lock does.
+        updated = real_drift(store, index=index)
+        time.sleep(0.5)
+        return updated
+
+    monkeypatch.setattr(si, "update_drifted_files", slow_drift)
+
+    _run_on_new_threads(cc_watcher._fire_drift_pass, 1)
+    before = _settled_handles(idx.path, limit=0)
+    jsonl = next((live_dirs / "projects").rglob("*.jsonl"))
+
+    peak = before
+    for _ in range(25):
+        cc_watcher._schedule_drift(jsonl)
+        time.sleep(0.08)
+        peak = max(peak, _open_handles(idx.path))
+    _wait_for_timers()
+
+    # One pass runs at a time. Its thread can be a new one, so allow the
+    # two descriptors (database and -wal) of one more connection.
+    assert peak <= before + 2 + _TOLERANCE, (
+        f"25 events during slow drift passes raised the {_MEASURE} the "
+        f"index from {before} to a peak of {peak}"
     )
 
 

@@ -367,6 +367,29 @@ uv run claude-explorer reindex-search --drift
   open file descriptors on the index file (on Windows, all the handles of
   the process).
 
+**At most one drift pass runs at a time, and a delete never scans
+`messages`.** On 2026-11-11 the restarted watcher still went from 4 to 146
+descriptors on the index in 11 minutes, by two causes together:
+
+- **A delete by `conv_uuid` read every row.** `conv_uuid` is an UNINDEXED
+  FTS5 column, which FTS5 cannot index, so each upsert scanned all 393,517
+  rows (8.9 s cold) while it held the write lock.
+  - Writes now find a conversation's rows in the `message_rowids` map and
+    delete them by rowid.
+  - Never write `DELETE FROM messages WHERE conv_uuid = ?`; use
+    `SearchIndex._delete_messages_of`.
+  - The map is additive, with no `SCHEMA_VERSION` bump. Code from before
+    it ignores the map, and `_sync_message_rowids` rebuilds the map when
+    such code changed `messages`. A version bump would make old processes
+    drop and rebuild the whole index.
+- **Drift passes overlapped.** Each event during a slow pass started one
+  more pass on a new Timer thread, and each waited for the write lock
+  with an open read connection.
+  - `_run_drift_single_flight` (`backend/cc_watcher.py`) lets one pass
+    run. An event or a backstop scan during it makes it run once more.
+  - The fetch routes still run their own pass, because `complete` must
+    wait for it. The 409 guard allows only one fetch at a time.
+
 If you change the schema, bump `backend/search_index.SCHEMA_VERSION`
 and the next process startup will drop+rebuild on its own.
 
