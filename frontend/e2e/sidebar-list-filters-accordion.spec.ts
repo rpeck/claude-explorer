@@ -13,6 +13,7 @@ import {
   expectRows,
   hoursAgo,
   listHonoringSource,
+  NOW,
   pickOption,
   pickProject,
   pickTime,
@@ -386,6 +387,12 @@ test.describe('Sidebar list filters: the "Filters and Sorting" section', () => {
     await toggle(page).click()
     await expectClosed(page)
     await withNetRetry(page, () => page.reload())
+    // The fake clock holds after the reload: Playwright installs it again
+    // in each new document. Its time runs on from NOW, by the real time
+    // that the test took.
+    const sinceNow = (await page.evaluate(() => Date.now())) - NOW.getTime()
+    expect(sinceNow, 'page clock after the reload, ms since NOW').toBeGreaterThanOrEqual(0)
+    expect(sinceNow, 'page clock after the reload, ms since NOW').toBeLessThan(10 * 60_000)
     await expectRows(page, ROWS, [])
     await expectClosed(page)
     await expect(activeCount(page)).toHaveText(/^\s*1 active\s*$/)
