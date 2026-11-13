@@ -197,6 +197,16 @@ Wait for one of these signals instead (`e2e/fixtures.ts`):
 
 Prove a new negative check with a mutation: put the bug back, and the test must fail.
 
+### A time window needs the fake clock
+
+**Rule:** a test that turns on a time window installs the fake clock before `page.goto`. Use `startClock(page)` from `e2e/sidebar-list-filters.helpers.ts`, or `page.clock.install`, `setFixedTime`, `setSystemTime`, or `pauseAt`.
+
+- A time window is `listRecentOnly: true` in the seeded preferences, or `pickTime(page, …)` with any option except "Forever".
+- The date helpers (`hoursAgo`, `daysAgo`) count back from the fixed `NOW`. The page measures the window from its own clock. On the real clock, the rows leave the window some days after `NOW`, and the test fails from that day.
+- Accordion test 46 failed this way from 2026-10-28 (issue #45). It passed for only two days after commit 944de2ca added it.
+- `backend/tests/test_e2e_spec_rules.py` rejects a test with a time window and no clock call. The call can be in the test, or in a local helper function that the test calls.
+- The fake clock holds across `page.reload()`. Playwright installs it again in each new document, and its time runs on from the install time.
+
 ## 5.15 · E2E tests MUST assert zero unexpected console errors / warnings
 
 A Playwright e2e test that asserts only on DOM state is half-blind. The same is true for a Playwright MCP investigation.

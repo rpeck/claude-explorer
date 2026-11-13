@@ -32,7 +32,11 @@ export function daysAgo(days: number): string {
   return hoursAgo(days * 24)
 }
 
-/** Install the fake browser clock at NOW. Call before `page.goto`. */
+/**
+ * Install the fake browser clock at NOW. Call before `page.goto`. Every
+ * test with a time window needs it (testing/playwright.md, "A time window
+ * needs the fake clock"; backend/tests/test_e2e_spec_rules.py checks).
+ */
 export async function startClock(page: Page): Promise<void> {
   await page.clock.install({ time: NOW })
 }
