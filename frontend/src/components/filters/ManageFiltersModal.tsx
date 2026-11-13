@@ -21,6 +21,7 @@
  *     is the highest-impact decision. Replaces the v1 polarity radio.
  *   - Mode radio (Glob / Regex).
  *   - Patterns textarea (one pattern per line; OR'd at evaluation).
+ *   - A help line under the textarea with the rules of the current mode.
  *   - Plain-English summary line below the textarea.
  *
  * Group editor (CFR1):
@@ -851,6 +852,14 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
           className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
           placeholder={'*react*\n*typescript*'}
         />
+        <p
+          data-testid="filter-editor-pattern-help"
+          className="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
+        >
+          {draft.mode === 'glob'
+            ? 'Glob: * matches any text, ? matches one character, and [abc] matches one of a set. A pattern with them must match the whole title. A pattern without them matches anywhere in the title. A leading ^ or a trailing $ anchors the pattern at that end. Patterns match the exact title text, case-insensitively.'
+            : 'Regex: a JavaScript regular expression. Patterns match the exact title text, case-insensitively. An invalid regex matches nothing.'}
+        </p>
       </div>
       <div
         data-testid="filter-editor-summary"

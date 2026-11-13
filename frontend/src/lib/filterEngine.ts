@@ -39,7 +39,8 @@
  *    intent. The compose-passes invariant gets it right by construction.
  *
  * Glob mode: shell-style globbing (`*`, `?`, `[abc]`); patterns without
- * wildcards become substring matches. Regex mode: case-insensitive JS
+ * wildcards become substring matches. A leading `^` or a trailing `$`
+ * anchors the pattern at that end. Regex mode: case-insensitive JS
  * RegExp; invalid regexes treated as no-match (caller validates).
  */
 
@@ -67,9 +68,24 @@ function escapeRegex(s: string): string {
   return s.replace(/[.+^${}()|\\]/g, '\\$&')
 }
 
-export function globToRegex(pattern: string): RegExp {
+/**
+ * A leading `^` and a trailing `$` anchor the glob at the start and the end
+ * of the title, as in a regex (issue #42). Elsewhere they are literal
+ * characters. A pattern of anchors only (`^`, `$`, `^$`) has no text to
+ * anchor, so it stays literal, as it was before anchors existed.
+ */
+export function globToRegex(raw: string): RegExp {
+  const start = raw.startsWith('^')
+  const end = raw.length > (start ? 1 : 0) && raw.endsWith('$')
+  const stripped = raw.slice(start ? 1 : 0, end ? -1 : undefined)
+  const anchorStart = start && stripped.length > 0
+  const anchorEnd = end && stripped.length > 0
+  const pattern = stripped.length > 0 ? stripped : raw
   if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
-    return new RegExp(escapeRegex(pattern), 'i')
+    // The wildcard branch below already matches the whole title, so the
+    // anchors matter only here.
+    const body = escapeRegex(pattern)
+    return new RegExp((anchorStart ? '^' : '') + body + (anchorEnd ? '$' : ''), 'i')
   }
   let out = ''
   for (let i = 0; i < pattern.length; i++) {

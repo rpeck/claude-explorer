@@ -962,6 +962,25 @@ Saved title filters use a composable graph model. Two kinds of node:
   what happens to a conversation that matches at least one of the
   atom's patterns: *Hide matches* drops it; *Show only matches* keeps
   it (and drops everything else).
+  - Patterns match the exact title text, case-insensitively. A title
+    such as `⚡ Weekly report` starts with the emoji, so `^Weekly`
+    does not match it. Write `Weekly report$` or `^⚡ Weekly report$`.
+  - **Glob:** `*`, `?`, and `[abc]` work as in a shell, and a pattern
+    with them must match the whole title. A pattern without them
+    matches anywhere in the title.
+  - **Glob anchors:** a leading `^` or a trailing `$` anchors the
+    pattern at that end, as in a regex. `^Daily digest$` matches only
+    the title "Daily digest".
+    - Everywhere else, `^` and `$` are literal: `$5 ^up` matches titles
+      that contain "$5 ^up".
+    - A pattern of anchors only (`^`, `$`, `^$`) is literal.
+    - A backslash escapes nothing in glob mode. To match a literal `^`
+      at the start or `$` at the end, write it twice: `^^caret`,
+      `costs $$`.
+    - With `*`, `?`, or `[`, the anchors change nothing:
+      `^Weekly*report$` is the same as `Weekly*report`.
+  - **Regex:** a JavaScript regular expression. An invalid regex
+    matches nothing.
 - **Groups** combine other named filters. A group is either *match all
   of these* (every member must pass) or *match any of these* (at least
   one member must pass). Groups can reference atoms or other groups.
@@ -1013,6 +1032,9 @@ filters on the left, editor for the selected filter on the right.
   from the first usable pattern (≥3 alphanumeric chars after stripping
   glob/regex meta-characters) until the user manually edits the name;
   clearing the name resumes auto-fill.
+  - A help line under the patterns gives the rules of the current mode.
+    It changes when the user picks the other mode.
+  - The summary line under it repeats the Behavior and the patterns.
 - **Group editor**: name, match radio (*all of these* / *any of these*),
   enabled toggle, member chips with an "Add member" `<Select>`. The Add
   member options exclude (a) self and (b) any node that would create a
