@@ -234,6 +234,68 @@ describe('ConversationList', () => {
     expect(desktopTitles.length).toBeGreaterThanOrEqual(4);
   });
 
+  // Issue #44: a leading emoji looked like an app icon. The row keeps the
+  // exact API title, the emoji gets the title-emoji class (grayscale), and
+  // a hover shows the exact title.
+  it('keeps the exact title with an emoji, styles the emoji, and shows the title on hover', async () => {
+    server.use(
+      http.get('/api/conversations', () =>
+        HttpResponse.json([{ ...mockConversations[0], name: '⚡ Weekly report' }]),
+      ),
+    );
+
+    render(<ConversationList />);
+
+    const emoji = await waitFor(() => {
+      const el = document.querySelector('span.title-emoji');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(emoji.textContent).toBe('⚡');
+    const title = emoji.parentElement as HTMLElement;
+    expect(title.textContent).toBe('⚡ Weekly report');
+    expect(title).toHaveAttribute('title', '⚡ Weekly report');
+  });
+
+  it('styles an emoji in a subagent name', async () => {
+    server.use(
+      http.get('/api/conversations', () =>
+        HttpResponse.json([
+          {
+            ...mockConversations[0],
+            name: 'Parent session',
+            subagents: [
+              {
+                uuid: 'sub-1',
+                agent_id: 'a1',
+                name: '🔍 Explore the parser',
+                model: 'claude-sonnet-4-6',
+                created_at: '2026-04-01T10:00:00Z',
+                updated_at: '2026-04-01T10:00:00Z',
+                message_count: 3,
+              },
+            ],
+          },
+        ]),
+      ),
+    );
+
+    render(<ConversationList />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Parent session')).toBeInTheDocument();
+    });
+    // The subagent toggle shows the count of subagents.
+    screen.getByRole('button', { name: '1' }).click();
+    const emoji = await waitFor(() => {
+      const el = document.querySelector('span.title-emoji');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(emoji.textContent).toBe('🔍');
+    expect(emoji.parentElement?.textContent).toBe('🔍 Explore the parser');
+  });
+
   it('truncates long titles with ellipsis', async () => {
     server.use(
       http.get('/api/conversations', () => {
