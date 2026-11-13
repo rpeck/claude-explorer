@@ -42,6 +42,144 @@ describe('filterEngine.patternMatches', () => {
   })
 })
 
+// Issue #42: a leading `^` and a trailing `$` anchor a glob, as in a regex.
+// Each row is [title, glob pattern, expected match]. The first rows are the
+// table in the issue; the rest are the edge cases.
+const GLOB_ANCHOR_CASES: Array<[string, string, boolean]> = [
+  // `digest`: any title that contains "digest" (no change).
+  ['Daily digest', 'digest', true],
+  ['digest of the week', 'digest', true],
+  ['Daily report', 'digest', false],
+  // `^Daily`: titles that start with "Daily".
+  ['Daily digest notes', '^Daily', true],
+  ['daily standup', '^Daily', true],
+  ['My Daily digest', '^Daily', false],
+  // `report$`: titles that end with "report".
+  ['Weekly report', 'report$', true],
+  ['Weekly report draft', 'report$', false],
+  // `^Daily digest$`: the title "Daily digest" only.
+  ['Daily digest', '^Daily digest$', true],
+  ['daily DIGEST', '^Daily digest$', true],
+  ['Daily digest notes', '^Daily digest$', false],
+  ['My Daily digest', '^Daily digest$', false],
+  // `^Weekly*report$`: same as `Weekly*report`.
+  ['Weekly status report', '^Weekly*report$', true],
+  ['Weekly status report', 'Weekly*report', true],
+  ['Weekly status report 2', '^Weekly*report$', false],
+  ['Weekly status report 2', 'Weekly*report', false],
+  // `$5 ^up`: titles that contain "$5 ^up" (no change).
+  ['Price $5 ^up today', '$5 ^up', true],
+  ['Price 5 up today', '$5 ^up', false],
+
+  // A pattern of anchors only has no text to anchor. It stays literal,
+  // so a saved filter with such a pattern keeps its meaning.
+  ['Use ^ for XOR', '^', true],
+  ['Plain title', '^', false],
+  ['Costs $', '$', true],
+  ['Plain title', '$', false],
+  ['Regex ^$ matches empty', '^$', true],
+  ['Plain title', '^$', false],
+  // A backslash is a literal character in glob mode; it escapes nothing.
+  // `\^foo` does not start with `^`, so it stays a substring match.
+  ['Type \\^foo here', '\\^foo', true],
+  ['foo bar', '\\^foo', false],
+  // `\$` ends with `$`, so it anchors: titles that end with a backslash.
+  ['C:\\', '\\$', true],
+  ['A \\$ sign', '\\$', false],
+  // `^` in the middle of a pattern is literal.
+  ['a^b test', 'a^b', true],
+  ['ab test', 'a^b', false],
+  ['x a^b', '^a^b', false],
+  ['a^b x', '^a^b', true],
+  // `$` in the middle, or before `*`, is literal.
+  ['Earn $5 now', 'Earn $5', true],
+  ['$5 deal', '$5*', true],
+  ['A $5 deal', '$5*', false],
+  ['price$ list', 'price$*', true],
+  // A doubled anchor character: one anchor plus one literal character.
+  ['^caret first', '^^caret', true],
+  ['a ^caret', '^^caret', false],
+  ['ends with $', 'with $$', true],
+  ['with $ in middle', 'with $$', false],
+  // An anchor plus `*`, `?`, or `[`: the wildcard glob already matches the
+  // whole title, so the anchors change nothing.
+  ['Daily digest notes', '^Daily*', true],
+  ['My Daily digest', '^Daily*', false],
+  ['My Daily digest', '*digest$', true],
+  ['cat', '^c?t$', true],
+  ['cart', '^c?t$', false],
+  ['bat', '^[bc]at$', true],
+  ['rat', '^[bc]at$', false],
+  ['anything at all', '^*$', true],
+]
+
+describe('filterEngine.patternMatches — glob anchors (issue #42)', () => {
+  it.each(GLOB_ANCHOR_CASES)('glob: %j against %j → %s', (title, pattern, expected) => {
+    expect(patternMatches(title, pattern, 'glob')).toBe(expected)
+  })
+
+  it('matches the exact title text, including a leading emoji', () => {
+    expect(patternMatches('⚡ Weekly report', '^Weekly report$', 'glob')).toBe(false)
+    expect(patternMatches('⚡ Weekly report', '^Weekly report$', 'regex')).toBe(false)
+    expect(patternMatches('⚡ Weekly report', 'Weekly report$', 'glob')).toBe(true)
+    expect(patternMatches('⚡ Weekly report', '^⚡ Weekly report$', 'glob')).toBe(true)
+  })
+
+  it('keeps the meaning of every saved pattern without a leading ^ or a trailing $', () => {
+    // A frozen copy of globToRegex before issue #42.
+    const legacyGlobToRegex = (pattern: string): RegExp => {
+      const esc = (s: string) => s.replace(/[.+^${}()|\\]/g, '\\$&')
+      if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
+        return new RegExp(esc(pattern), 'i')
+      }
+      let out = ''
+      for (let i = 0; i < pattern.length; i++) {
+        const ch = pattern[i]
+        if (ch === '*') out += '.*'
+        else if (ch === '?') out += '.'
+        else if (ch === '[') {
+          let j = i + 1
+          while (j < pattern.length && pattern[j] !== ']') j++
+          out += pattern.slice(i, j + 1)
+          i = j
+        } else out += esc(ch)
+      }
+      return new RegExp('^' + out + '$', 'i')
+    }
+    const patterns = [
+      ...GLOB_ANCHOR_CASES.map(([, p]) => p),
+      'Scan Gmail for meeting invites*', '*automated run of a scheduled task*',
+      '*Foo*', 'Bar*', 'c?t', '[abc]def', 'a$b^c', '$', '^', '^$', '\\^', 'x\\$',
+      'Weekly*report', 'price $5', '50% ^ off', '*$*', '*^*',
+    ]
+    const titles = [
+      ...GLOB_ANCHOR_CASES.map(([t]) => t),
+      'Scan Gmail for meeting invites today', 'An automated run of a scheduled task',
+      'Foo and Bar', 'Bar afternoon', 'abcdef', 'cdef', 'xa$b^cx', '50% ^ off sale',
+      '⚡ Weekly report', '',
+    ]
+    const unchanged = patterns.filter(
+      (p) => !(p.startsWith('^') || p.endsWith('$')) || /^\^?\$?$/.test(p),
+    )
+    // Guard against a filter that leaves nothing to compare.
+    expect(unchanged.length).toBeGreaterThan(20)
+    for (const p of unchanged) {
+      const legacy = legacyGlobToRegex(p)
+      for (const t of titles) {
+        expect(patternMatches(t, p, 'glob'), `pattern ${JSON.stringify(p)}, title ${JSON.stringify(t)}`)
+          .toBe(legacy.test(t))
+      }
+    }
+  })
+
+  it('does not change regex mode', () => {
+    expect(patternMatches('Daily digest', '^Daily digest$', 'regex')).toBe(true)
+    expect(patternMatches('Daily digest notes', '^Daily digest$', 'regex')).toBe(false)
+    expect(patternMatches('Plain title', '^', 'regex')).toBe(true)
+    expect(patternMatches('Weekly status report', '^Weekly.*report$', 'regex')).toBe(true)
+  })
+})
+
 describe('filterEngine.filterPasses (legacy single-filter helper)', () => {
   const includeMCP: Filter = {
     id: '1', name: 'MCP', patterns: ['*mcp*'], polarity: 'include', mode: 'glob', target: 'title',

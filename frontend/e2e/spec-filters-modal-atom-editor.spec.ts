@@ -274,8 +274,8 @@ test.describe('Manage Filters modal — atom editor', () => {
   })
 
   test('Mode radio re-evaluates active filter immediately within session', async ({ page, mockBackend }) => {
-    // Glob "^Bar" matches nothing (no titles start with literal `^`).
-    // Switching to regex mode + Save, "^Bar" anchors at start and
+    // Glob "^Ba." matches nothing: in glob mode the `.` is literal, and
+    // no title starts with "Ba.". Switching to regex mode + Save, "^Ba."
     // matches "Bar afternoon" (and not "Foo and Bar"). The spec
     // ("re-evaluates within the same session") rules out a reload-only
     // contract: after Save the sidebar must reflect the new mode without
@@ -293,7 +293,7 @@ test.describe('Manage Filters modal — atom editor', () => {
               name: 'ModeTest',
               enabled: true,
               behavior: 'show-only',
-              patterns: ['^Bar'],
+              patterns: ['^Ba.'],
               mode: 'glob',
               target: 'title',
             },
@@ -306,14 +306,17 @@ test.describe('Manage Filters modal — atom editor', () => {
     })
     await withNetRetry(page, () => page.goto('/'))
 
-    // Glob "^Bar" matches no titles → show-only with empty match → 0 rows.
+    // Glob "^Ba." matches no titles → show-only with empty match → 0 rows.
+    // The empty-state line appears only after the filter applies, so the
+    // negative counts below cannot pass before the preferences arrive.
+    await expect(page.getByText(/All 3 conversations hidden by filter "ModeTest"/)).toBeVisible()
     await expect(page.getByText('Foo morning')).toHaveCount(0)
     await expect(page.getByText('Bar afternoon')).toHaveCount(0)
 
     const modal = await openModal(page)
     await modal.getByText(/ModeTest/).first().click()
 
-    // Switch to regex mode → "^Bar" now anchors at start.
+    // Switch to regex mode → "^Ba." now matches "Bar afternoon".
     await modal.getByRole('radio', { name: /^regex$/i }).click()
 
     // Save the change (this is what persists the new mode into the
@@ -326,6 +329,7 @@ test.describe('Manage Filters modal — atom editor', () => {
 
     // Same session, no reload: "Bar afternoon" appears (regex anchors).
     await expect(page.getByText('Bar afternoon')).toBeVisible()
+    await expect(page.getByText('Foo and Bar', { exact: true })).toHaveCount(0)
   })
 
   test('Name auto-fill from first usable pattern (start)', async ({ page, mockBackend }) => {
