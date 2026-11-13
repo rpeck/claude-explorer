@@ -4,7 +4,8 @@
  * the conversation detail pane, above the toolbar action cluster.
  *
  * Renders:
- *   - Conversation title (truncated, "Untitled" fallback)
+ *   - Conversation title (truncated, "Untitled" fallback). Its emoji are
+ *     grayscale (TitleText, issue #44), and a hover shows the exact title.
  *   - Icon-only copy button for the session name (only when the session
  *     has a name: "Untitled" is not its name)
  *   - PinScopeButton (turns the title into a search-scope pin)
@@ -36,6 +37,7 @@ import { PinScopeButton } from '@/components/search/PinScopeButton'
 import { ListFilterButton } from '@/components/conversation/ListFilterButton'
 import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
+import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
 import type { ConversationDetail } from '@/lib/types'
 
@@ -48,8 +50,11 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2">
-        <h1 className="truncate text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-          {conversation.name || 'Untitled'}
+        <h1
+          className="truncate text-xl font-semibold text-zinc-900 dark:text-zinc-100"
+          title={conversation.name || undefined}
+        >
+          <TitleText text={conversation.name || 'Untitled'} />
         </h1>
         {/* D1: an unnamed session has no title copy button, because
             "Untitled" is not its name. */}

@@ -707,6 +707,41 @@ rule 1). Plan: `PLANS/2026.10.28-header-copy-buttons.md`.
   `updated_at` is newer than the local copy, not only conversations
   missing from disk.
 
+### Emoji in titles
+
+A title from the API can start with an emoji, for example "⚡ Weekly
+report". In color, that emoji looked like one of the app's colored source
+icons, so users did not read it as part of the title (issue #44).
+
+- **Every emoji in a title renders in grayscale.** `TitleText`
+  (`frontend/src/components/TitleText.tsx`) puts each emoji in a
+  `span.title-emoji` with Tailwind's `grayscale` class.
+- **The title text does not change.** Copy, export, search, and filters
+  use the exact API title, emoji included.
+- **A hover shows the exact title** on the list row and on the header.
+- **Places that use `TitleText`:**
+  - the Conversation List row, and the subagent row;
+  - the conversation header;
+  - the search result card: the name line, and the snippet of a title match;
+  - the pin chip and the "No matches … in <name>" line of the Search Pane;
+  - the items of the pin menu.
+- **A new place that shows a title MUST use `TitleText`.**
+- **Places without the style:**
+  - Message text, also a message snippet in the Search Pane. An emoji
+    there is message content.
+  - Exports (Markdown, PDF, MCP) and file names. They keep the exact
+    title, and no app icon is near it.
+  - Native tooltips, and the fetch progress text (toast and Fetch dialog).
+    These are plain text, with no source icon beside the title.
+- **Why not `font-variant-emoji: text`:** a test on macOS (2026-11-12)
+  showed that it does not work.
+  - Chromium 156 drew a text glyph only for ⚡.
+  - WebKit (Playwright 27.2) does not support it.
+  - Firefox 157 drew empty "missing glyph" boxes. After that, it also drew
+    boxes for the same emoji in other elements of the page.
+  - `filter: grayscale(1)` works in all three.
+  - Do not add `font-variant-emoji` anywhere in the app.
+
 ### Conversation list dim states
 
 In addition to the scope-pin dim (Section 5), the list dims rows for:
