@@ -41,10 +41,16 @@ export interface FetchProgress {
 // button off screen on a typical 1280px viewport; 40 chars is the sweet spot.
 const TOAST_NAME_MAX_CHARS = 40
 
+// Count user-visible characters (grapheme clusters), not UTF-16 units.
+// String.slice cut an emoji such as "📊" in half, and the toast showed "�"
+// (issue #44 sibling).
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
 function truncateName(name: string, max: number = TOAST_NAME_MAX_CHARS): string {
-  if (name.length <= max) return name
+  const chars = Array.from(graphemes.segment(name), (s) => s.segment)
+  if (chars.length <= max) return name
   // Reserve one char for the ellipsis so total length stays at `max`.
-  return name.slice(0, Math.max(0, max - 1)) + '…'
+  return chars.slice(0, Math.max(0, max - 1)).join('') + '…'
 }
 
 /**

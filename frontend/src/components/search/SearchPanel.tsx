@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn, formatDate } from '@/lib/utils'
+import { TitleText } from '@/components/TitleText'
 import { isSortField, type SortField } from '@/lib/types'
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -301,7 +302,9 @@ export function SearchPanel() {
             <span className="truncate">
               In:{' '}
               <span className="font-medium">
-                {pinScope.kind === 'conversation' ? pinScope.name || 'this conversation' : pinScope.name}
+                <TitleText
+                  text={pinScope.kind === 'conversation' ? pinScope.name || 'this conversation' : pinScope.name}
+                />
               </span>
             </span>
             <button
@@ -551,7 +554,7 @@ export function SearchPanel() {
                 <>
                   {' '}in{' '}
                   <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                    {pinScope.name || 'this scope'}
+                    <TitleText text={pinScope.name || 'this scope'} />
                   </span>
                 </>
               )}
@@ -691,7 +694,7 @@ const ResultCard = ({
           className="flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200"
           title={match.conversationName}
         >
-          {match.conversationName}
+          <TitleText text={match.conversationName} />
         </span>
         {match.createdAt && (
           <span className="shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500">
@@ -735,6 +738,7 @@ const ResultCard = ({
           fallbackStart={match.matchStart}
           fallbackEnd={match.matchEnd}
           fragments={match.fragments ?? null}
+          isTitle={isTitleMatch}
         />
       </div>
     </button>
@@ -756,6 +760,10 @@ interface HighlightedSnippetProps {
    *  to the live-query token scan (typing keeps highlights fresh under
    *  debounce; same behavior as pre-Phase-2). */
   fragments?: import('@/lib/types').SnippetFragment[] | null
+  /** The snippet is the conversation title (a title match). Its emoji
+   *  then get the title style (TitleText, issue #44). A message snippet
+   *  is message content, so its emoji keep their color. */
+  isTitle?: boolean
 }
 
 /**
@@ -778,7 +786,9 @@ function HighlightedSnippet({
   fallbackStart,
   fallbackEnd,
   fragments,
+  isTitle = false,
 }: HighlightedSnippetProps) {
+  const show = (s: string) => (isTitle ? <TitleText text={s} /> : s)
   // Phase-2 Workstream A: prefer backend-supplied fragments when
   // present. The FTS5 fast path's bm25-driven snippet() picks the
   // densest match cluster across multi-token queries — better than
@@ -800,10 +810,10 @@ function HighlightedSnippet({
               key={`f-${i}`}
               className="rounded bg-yellow-200 px-0.5 font-medium dark:bg-yellow-800 dark:text-yellow-50"
             >
-              {f.text}
+              {show(f.text)}
             </mark>
           ) : (
-            <React.Fragment key={`f-${i}`}>{f.text}</React.Fragment>
+            <React.Fragment key={`f-${i}`}>{show(f.text)}</React.Fragment>
           ),
         )}
       </>
@@ -813,7 +823,7 @@ function HighlightedSnippet({
   const ranges = computeHighlightRanges(text, query, fallbackStart, fallbackEnd)
 
   if (ranges.length === 0) {
-    return <>{text}</>
+    return <>{show(text)}</>
   }
 
   const segments: React.ReactNode[] = []
@@ -821,20 +831,22 @@ function HighlightedSnippet({
   for (let i = 0; i < ranges.length; i++) {
     const { start, end } = ranges[i]
     if (start > cursor) {
-      segments.push(text.slice(cursor, start))
+      segments.push(
+        <React.Fragment key={`t-${cursor}`}>{show(text.slice(cursor, start))}</React.Fragment>,
+      )
     }
     segments.push(
       <mark
         key={`m-${start}-${end}`}
         className="rounded bg-yellow-200 px-0.5 font-medium dark:bg-yellow-800 dark:text-yellow-50"
       >
-        {text.slice(start, end)}
+        {show(text.slice(start, end))}
       </mark>,
     )
     cursor = end
   }
   if (cursor < text.length) {
-    segments.push(text.slice(cursor))
+    segments.push(<React.Fragment key={`t-${cursor}`}>{show(text.slice(cursor))}</React.Fragment>)
   }
   return <>{segments}</>
 }

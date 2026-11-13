@@ -10,6 +10,7 @@ import { applyActiveFilter, patternMatches, type FilterMode } from '@/lib/filter
 import { useFilters } from '@/contexts/FilterContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
+import { TitleText } from '@/components/TitleText'
 import { useNow } from '@/hooks/useNow'
 import {
   buildFolders,
@@ -883,8 +884,11 @@ function ConversationListItem({
           {conversation.is_starred && (
             <Star className="mt-0.5 h-4 w-4 fill-yellow-400 text-yellow-400" />
           )}
-          <span className="flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            {conversation.name || 'Untitled'}
+          <span
+            className="flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100"
+            title={conversation.name || undefined}
+          >
+            <TitleText text={conversation.name || 'Untitled'} />
           </span>
           {conversation.has_branches && (
             <GitBranch className="h-4 w-4 text-zinc-400" />
@@ -948,7 +952,7 @@ function SubagentListItem({ agent }: SubagentListItemProps) {
       <div className="flex items-center gap-2">
         <Bot className="h-3 w-3 text-purple-500" />
         <span className="flex-1 truncate text-xs font-medium text-zinc-700 dark:text-zinc-300">
-          {agent.name}
+          <TitleText text={agent.name} />
         </span>
       </div>
       <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500">

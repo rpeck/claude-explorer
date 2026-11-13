@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Pin, PinOff, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSearchPin } from '@/contexts/SearchPinContext'
+import { TitleText } from '@/components/TitleText'
 import { cn } from '@/lib/utils'
 
 /**
@@ -163,7 +164,10 @@ function MenuItem({
       )}
     >
       <span className="font-medium text-zinc-900 dark:text-zinc-100">{label}</span>
-      <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">{sub}</span>
+      {/* `sub` is the conversation title or the project name. */}
+      <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+        <TitleText text={sub} />
+      </span>
     </button>
   )
 }
