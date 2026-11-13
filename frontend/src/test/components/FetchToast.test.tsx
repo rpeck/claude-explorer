@@ -86,6 +86,27 @@ describe('formatProgressText (Bug 2)', () => {
     expect(out.includes(longName)).toBe(false)
   })
 
+  // Issue #44 sibling: the cut used String.slice, which counts UTF-16
+  // units. A cut inside an emoji left half of a surrogate pair, and the
+  // toast showed "�". The cut now counts user-visible characters.
+  const emojiCases: Array<[string, string]> = [
+    ['an emoji outside the BMP', '📊'],
+    ['a ZWJ sequence', '👩‍💻'],
+    ['a flag', '🇺🇸'],
+  ]
+  for (const [label, emoji] of emojiCases) {
+    it(`does not cut ${label} in half`, () => {
+      const out = formatProgressText({
+        type: 'progress',
+        message: 'x',
+        current: 1,
+        total: 2,
+        conversation_name: 'a'.repeat(38) + emoji + 'b'.repeat(10),
+      })
+      expect(out).toBe(`Fetching 1/2: ${'a'.repeat(38)}${emoji}…`)
+    })
+  }
+
   it('does not touch names shorter than the cap', () => {
     const out = formatProgressText({
       type: 'progress',

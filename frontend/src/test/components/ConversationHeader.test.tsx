@@ -106,6 +106,30 @@ describe('ConversationHeader — title', () => {
     renderHeader(makeConversation({ name: '' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Untitled' })).toBeInTheDocument()
   })
+
+  // Issue #44: a leading emoji looked like an app icon. The emoji gets the
+  // title-emoji class (grayscale), and the text stays the exact API title.
+  it('keeps the exact text of a title with an emoji, and styles the emoji', () => {
+    renderHeader(makeConversation({ name: '⚡ Weekly report' }))
+    const h1 = screen.getByRole('heading', { level: 1 })
+    expect(h1.textContent).toBe('⚡ Weekly report')
+    const emoji = h1.querySelectorAll('span.title-emoji')
+    expect(Array.from(emoji).map((el) => el.textContent)).toEqual(['⚡'])
+  })
+
+  it('shows the exact title on hover', () => {
+    renderHeader(makeConversation({ name: '⚡ Weekly report' }))
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAttribute('title', '⚡ Weekly report')
+  })
+
+  it('styles the emoji of the title in the pin menu', async () => {
+    const user = userEvent.setup()
+    renderHeader(makeConversation({ name: '⚡ Weekly report' }))
+    await user.click(screen.getByRole('button', { name: /search scope/i }))
+    const item = screen.getByTestId('pin-this-conversation')
+    expect(item.textContent).toContain('⚡ Weekly report')
+    expect(Array.from(item.querySelectorAll('span.title-emoji')).map((el) => el.textContent)).toEqual(['⚡'])
+  })
 })
 
 describe('ConversationHeader — source badge variant', () => {
