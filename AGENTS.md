@@ -1,5 +1,34 @@
 # Claude Explorer
 
+## Guiding Principles
+
+Two rules from the user (2026-11-14). They apply to every source (Desktop,
+Claude Code, Cowork local and remote) and to the list, the viewer, search,
+and the MCP tools.
+
+1. **Show every session that has a turn.** The user may want to see and
+   search any session that had an effect on their work.
+   - A turn is a user message or an assistant message. A session with only an
+     assistant turn still has a turn.
+   - Hide only a session with no turns: a 0-byte file, or a file with only
+     metadata or setup events (for example a remote task that was opened but
+     never got a prompt).
+   - Never hide a session because a field is missing, such as the first user
+     message or a title. Use a fallback value.
+   - A user control may hide sessions (for example "Show empty sessions"),
+     but the default code path must not.
+2. **Keep all history, even when Claude removes it.** Claude Code deletes
+   old session files, and the claude.ai API stops listing deleted tasks and
+   conversations. The archive must keep its copy.
+   - Never delete or mark an archived session because its source is gone.
+   - A sync adds and updates. It does not remove. The Desktop fetch and the
+     remote-task sync follow this rule.
+   - **Known gap (2026-11-14):** nothing copies Claude Code session files or
+     local Cowork sessions into the archive. The watcher copies only images
+     (`backend/cc_watcher.py`). When Claude Code deletes a session file, the
+     list loses it, and the drift pass deletes its search rows
+     (`SearchIndex.delete_by_path`).
+
 ## UX Rules
 
 All UX flows and rules are documented in [UX.md](./UX.md). Code changes that affect UI behavior MUST keep that document accurate; failing-test-first applies (see the "Code Style" section below).
@@ -405,7 +434,7 @@ setup events (the task was opened, but no prompt was sent).
   `OSError` into "no entries", so "Too many open files" looks like an empty
   file. The next pass tries again.
 - The list and the viewer still hide both kinds: a 0-byte file has no
-  entries, and a Cowork session without a user turn has nothing to show (D6).
+  entries, and a Cowork session with no turns has nothing to show (D6).
 
 If you change the schema, bump `backend/search_index.SCHEMA_VERSION`
 and the next process startup will drop+rebuild on its own.

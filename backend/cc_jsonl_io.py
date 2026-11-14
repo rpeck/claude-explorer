@@ -119,7 +119,11 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
     except OSError:
         return None
 
-    if not first_user:
+    # Hide only a session with no turns (AGENTS.md, guiding principle 1). A
+    # session whose only turn is an assistant message still shows: before
+    # 2026-11-14 the list hid it, but search found it.
+    first_turn = first_user or first_assistant
+    if not first_turn:
         return None
 
     # Build metadata - prefer the most recent title-event (custom-title /
@@ -140,8 +144,8 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
     )
 
     session_id = cc_session_uuid(jsonl_path)
-    cwd = first_user.get("cwd", "")
-    git_branch = first_user.get("gitBranch", "")
+    cwd = first_turn.get("cwd", "")
+    git_branch = first_turn.get("gitBranch", "")
 
     # Get model
     model = ""

@@ -867,7 +867,7 @@ class ConversationStore:
         # Finally check Cowork sessions, local (``local_<uuid>``) and remote
         # (``remote_<id>``). ``find_cowork_session_dirs`` checks one candidate
         # per org dir, so this resolution is O(orgs), not O(sessions). Try
-        # every copy: the first one can be empty or have no user turn while
+        # every copy: the first one can be empty or have no turns while
         # the list shows the row from another copy. Of two readable copies,
         # open the newest, which is the one the list shows (newest_per_uuid).
         from .cowork_reader import (

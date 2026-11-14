@@ -104,8 +104,8 @@ def test_missing_sidecar_falls_back_to_untitled(tmp_path: Path):
 
 
 def test_empty_audit_returns_none(tmp_path: Path):
-    """D6: a session with no user record (e.g. interrupted before the
-    first user turn) must NOT surface in the sidebar."""
+    """D6: a session with no turns (e.g. interrupted before the first
+    turn) must NOT surface in the sidebar."""
     from backend.cowork_reader import read_cowork_conversation
 
     session_dir = tmp_path / "local_empty"
@@ -116,7 +116,7 @@ def test_empty_audit_returns_none(tmp_path: Path):
 
 
 def test_no_user_record_returns_none(tmp_path: Path):
-    """A session with only system/init lines and no user turn must be
+    """A session with only system/init lines and no turns must be
     dropped (D6) — there's nothing to render."""
     from backend.cowork_reader import read_cowork_conversation
 
