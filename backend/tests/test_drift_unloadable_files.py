@@ -6,9 +6,9 @@ every pass and read each one again, because each one loads as "nothing":
 * Four Claude Code session files of 0 bytes.
 * Two remote Cowork tasks whose ``audit.jsonl`` holds only setup events
   (``env_manager_log``, ``system`` hooks, ``active_goal``): the task was
-  opened, but no prompt was ever sent. The reader drops a session without a
-  user turn (D6, ``backend/cowork_reader.py``), so the list, the viewer, and
-  the index all skip it.
+  opened, but no prompt was ever sent. The reader drops a session with no
+  turns (D6, ``backend/cowork_reader.py``), so the list, the viewer, and the
+  index all skip it.
 
 The contract pinned here:
 
@@ -303,8 +303,8 @@ def test_remote_task_without_a_prompt_leaves_the_backlog(env, monkeypatch, run_p
 
 
 def test_remote_task_without_a_prompt_stays_hidden(env, monkeypatch):
-    """D6 holds for remote tasks: a task with no user turn has nothing to
-    show, so the list and the viewer skip it, like a local Cowork session."""
+    """D6 holds for remote tasks: a task with no turns has nothing to show,
+    so the list and the viewer skip it, like a local Cowork session."""
     task = FakeSession("cse_01NoPrompt", "Opened task", _setup_only_events())
     FakeSessionsApi({ORG: [task]}).install(monkeypatch)
     RemoteCoworkFetcher(lambda *a, **k: None, env["data_dir"], delay=0).sync_org(ORG)

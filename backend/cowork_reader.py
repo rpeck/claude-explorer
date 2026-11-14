@@ -73,7 +73,7 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
 
     Returns ``None`` for:
       * an empty / missing audit.jsonl;
-      * a session with no user record (D6 — there's nothing to render).
+      * a session with no turns (D6 — there's nothing to render).
     """
     audit_path = session_dir / "audit.jsonl"
     sidecar_path = session_dir.with_suffix(".json")
@@ -109,9 +109,12 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
         if msg:
             messages.append(msg)
 
-    # D6: a session with no user turn doesn't render usefully — drop it
-    # from the sidebar instead of showing a phantom row.
-    if not any(m.get("sender") == "human" for m in messages):
+    # D6: a session with no turns has nothing to show — drop it instead of
+    # showing an empty row. Example: a remote task that was opened but never
+    # got a prompt holds only setup events. A session with only an assistant
+    # turn still shows (AGENTS.md, guiding principle 1); before 2026-11-14
+    # D6 also dropped it.
+    if not messages:
         return None
 
     sidecar = _read_sidecar(sidecar_path)
@@ -288,7 +291,7 @@ def find_cowork_session_dirs(
 
     Usually there is one. The same session directory can exist under two
     deployment or org directories, and one copy can be empty or have no
-    user turn. The list builds its row from a readable copy, so a caller
+    turns. The list builds its row from a readable copy, so a caller
     that opens the conversation must try each directory, not only the
     first.
 

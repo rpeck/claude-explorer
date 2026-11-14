@@ -68,9 +68,14 @@ def _write_local(cowork_root: Path, deployment: str, audit_text: str) -> Path:
 def _bad_audit(kind: str) -> str:
     if kind == "empty":
         return ""
-    # "no_user": every line except the user turns, so the reader returns None.
-    lines = [line for line in _happy_lines() if json.loads(line).get("type") != "user"]
-    assert lines, "the fixture must have non-user lines"
+    # "no_turns": every line except the user and assistant turns, so the
+    # reader returns None (D6). A copy with only an assistant turn is a real
+    # session (AGENTS.md, guiding principle 1), so it is not a bad copy.
+    lines = [
+        line for line in _happy_lines()
+        if json.loads(line).get("type") not in ("user", "assistant")
+    ]
+    assert lines, "the fixture must have lines that are not turns"
     return "\n".join(lines) + "\n"
 
 
@@ -108,7 +113,7 @@ def _store(tmp_path: Path, cowork_root: Path | None = None) -> ConversationStore
 # ----- 1. Detail reads the good copy of a duplicated session ---------------
 
 
-@pytest.mark.parametrize("bad_kind", ["empty", "no_user"])
+@pytest.mark.parametrize("bad_kind", ["empty", "no_turns"])
 @pytest.mark.parametrize("good_deployment", ["d_first", "d_second"])
 def test_detail_opens_a_session_whose_other_copy_is_unreadable(
     tmp_path: Path, bad_kind: str, good_deployment: str

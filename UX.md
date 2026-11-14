@@ -707,6 +707,22 @@ rule 1). Plan: `PLANS/2026.10.28-header-copy-buttons.md`.
   `updated_at` is newer than the local copy, not only conversations
   missing from disk.
 
+### Which sessions the list shows
+
+The user may want to see and search any session that had an effect on
+their work (AGENTS.md, "Guiding Principles").
+
+- The list shows every session that has a turn: a user message or an
+  assistant message.
+- A session with only an assistant turn shows too. Before 2026-11-14 the
+  list hid a Claude Code or Cowork session that had no user message, but
+  search still found the Claude Code one.
+- The list hides only a session with no turns. Examples:
+  - a 0-byte Claude Code file;
+  - a file with only metadata rows;
+  - a remote task that was opened but never got a prompt.
+- The list, the viewer, and search agree: each one shows the same sessions.
+
 ### Conversation list dim states
 
 In addition to the scope-pin dim (Section 5), the list dims rows for:

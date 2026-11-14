@@ -2602,7 +2602,7 @@ def _note_unloadable(
 
     Some files hold no conversation: a 0-byte Claude Code session, or a
     remote Cowork task that was opened but never got a prompt (it holds only
-    setup events, and the reader drops a session without a user turn). Before
+    setup events, and the reader drops a session with no turns). Before
     2026-11-13 the drift scan listed each of them as changed on every pass,
     and every pass read them again. Now the scan skips such a file until its
     mtime or its size changes.
