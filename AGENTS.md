@@ -390,6 +390,23 @@ descriptors on the index in 11 minutes, by two causes together:
   - The fetch routes still run their own pass, because `complete` must
     wait for it. The 409 guard allows only one fetch at a time.
 
+**A file that loads as nothing leaves the drift backlog.** On 2026-11-13
+six files stayed in the backlog for good, and every pass read them again:
+four 0-byte Claude Code sessions and two remote Cowork tasks that hold only
+setup events (the task was opened, but no prompt was sent).
+
+- `_note_unloadable` (`backend/search_index.py`) records such a file with its
+  mtime and size. The drift scan skips it until one of them changes, and the
+  watcher log gets one line for it.
+- The record is in memory, one per process. A new version of a reader thus
+  reads each such file once again, and the index file gets no rows that an
+  older watcher process does not know.
+- A file that cannot be opened is not recorded. The readers turn an
+  `OSError` into "no entries", so "Too many open files" looks like an empty
+  file. The next pass tries again.
+- The list and the viewer still hide both kinds: a 0-byte file has no
+  entries, and a Cowork session without a user turn has nothing to show (D6).
+
 If you change the schema, bump `backend/search_index.SCHEMA_VERSION`
 and the next process startup will drop+rebuild on its own.
 

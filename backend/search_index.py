@@ -68,6 +68,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import sqlite3
 import threading
 import time
@@ -584,6 +585,18 @@ class SearchIndex:
         self._activity = threading.Condition()
         self._active_reads = 0
         self._closed = False
+
+        # Files that loaded as "nothing" (a 0-byte session, a remote task
+        # without a prompt), as ``{path: (mtime, size)}``. The drift scan
+        # skips them until the mtime or the size changes. Each process
+        # keeps its own record, in memory: a new version of a reader then
+        # reads each such file again once, and no process writes rows that
+        # an older watcher process does not know. ``_unloadable_logged``
+        # holds the ``(path, mtime, size)`` states already logged, so that
+        # each state gives one log line.
+        self._unloadable: dict[str, tuple[float, int]] = {}
+        self._unloadable_logged: set[tuple[str, float, int]] = set()
+        self._unloadable_lock = threading.Lock()
 
         # Configure WAL + sensible pragmas. Done on the write connection
         # but applies to the whole database file.
@@ -1488,6 +1501,44 @@ class SearchIndex:
             self._write_conn.execute("DELETE FROM message_rowids")
             self._write_conn.execute("DELETE FROM indexed_files")
             self._write_conn.execute("DELETE FROM conversations")
+        with self._unloadable_lock:
+            self._unloadable.clear()
+            self._unloadable_logged.clear()
+
+    # ----- files that load as nothing --------------------------------
+
+    def _unloadable_map(self) -> dict[str, tuple[float, int]]:
+        """Snapshot of the unloadable files, as ``{path: (mtime, size)}``."""
+        with self._unloadable_lock:
+            return dict(self._unloadable)
+
+    def _record_unloadable(self, path: Path, mtime: float, size: int) -> None:
+        """Skip ``path`` in later drift scans while its mtime and size stay."""
+        with self._unloadable_lock:
+            self._unloadable[str(path)] = (float(mtime), int(size))
+
+    def _forget_unloadable(self, path: Path) -> None:
+        with self._unloadable_lock:
+            self._unloadable.pop(str(path), None)
+
+    def _prune_unloadable(self, live: set[str]) -> None:
+        """Drop the records of files that are no longer on disk, so that a
+        new file at the same path is read."""
+        with self._unloadable_lock:
+            for p in [p for p in self._unloadable if p not in live]:
+                del self._unloadable[p]
+            self._unloadable_logged = {
+                k for k in self._unloadable_logged if k[0] in live
+            }
+
+    def _first_log_of(self, path: Path, mtime: float, size: int) -> bool:
+        """True once for each ``(path, mtime, size)``: log that state only once."""
+        key = (str(path), float(mtime), int(size))
+        with self._unloadable_lock:
+            if key in self._unloadable_logged:
+                return False
+            self._unloadable_logged.add(key)
+            return True
 
     # ----- query -----------------------------------------------------
 
@@ -2515,10 +2566,11 @@ def _load_conversation_at(
     back to the pre-Cowork extension-based behavior. New call sites
     MUST pass the source tag explicitly.
 
-    Returns ``None`` on read failure (the caller logs and skips). The
-    drift-first refactor calls this ONLY for paths the diff already
-    identified as drifted, so a missing/corrupt file at this stage is
-    rare and surfaces in logs.
+    Returns ``None`` on read failure, and also for a file that holds no
+    conversation (a 0-byte session, a Cowork session without a user
+    turn). The drift callers pass a ``None`` to :func:`_note_unloadable`,
+    which logs it once and makes later scans skip the file until it
+    changes.
     """
     if source == "CLAUDE_COWORK":
         from .cowork_reader import read_cowork_conversation
@@ -2543,6 +2595,56 @@ def _load_conversation_at(
         return None
 
 
+def _note_unloadable(
+    index: SearchIndex, path: Path, source: str, before: os.stat_result | None
+) -> None:
+    """Record a drifted file that loaded as nothing, and log it once.
+
+    Some files hold no conversation: a 0-byte Claude Code session, or a
+    remote Cowork task that was opened but never got a prompt (it holds only
+    setup events, and the reader drops a session without a user turn). Before
+    2026-11-13 the drift scan listed each of them as changed on every pass,
+    and every pass read them again. Now the scan skips such a file until its
+    mtime or its size changes.
+
+    Not recorded:
+
+    * A file that changed during the read: the next pass reads it again.
+    * A file that cannot be opened. The readers turn an ``OSError`` into "no
+      entries", so a permission, a Windows lock, or "Too many open files"
+      looks like an empty file. Those states pass, so the next pass tries
+      again.
+    """
+    try:
+        after = path.stat()
+    except OSError:
+        return  # gone: the missing pass of the next scan handles it
+    if before is None or (after.st_mtime, after.st_size) != (
+        before.st_mtime,
+        before.st_size,
+    ):
+        return
+    mtime, size = after.st_mtime, after.st_size
+    try:
+        with open(path, "rb"):
+            pass
+    except OSError as exc:
+        if index._first_log_of(path, mtime, size):
+            logger.info(
+                "search_index: cannot load %s: cannot open it (%s); "
+                "each pass tries again",
+                path, exc,
+            )
+        return
+    index._record_unloadable(path, mtime, size)
+    if index._first_log_of(path, mtime, size):
+        logger.info(
+            "search_index: cannot load %s (%s, %d bytes): it holds no "
+            "conversation; skipping it until the file changes",
+            path, source, size,
+        )
+
+
 def _drift_first_scan(
     store: Any, index: SearchIndex
 ) -> tuple[list[tuple[Path, str]], list[Path]]:
@@ -2551,7 +2653,8 @@ def _drift_first_scan(
 
     ``drifted_paths``: paths whose mtime no longer matches the indexed
     row, OR which aren't in ``indexed_files`` at all (new files /
-    first install).
+    first install). A path that loaded as nothing at its current mtime
+    and size is left out (see :func:`_note_unloadable`).
 
     ``missing_paths``: paths in ``indexed_files`` that no longer exist
     on disk. The caller deletes their rows via
@@ -2583,6 +2686,10 @@ def _drift_first_scan(
     # per live path and avoids the cross-thread sharing of _write_conn
     # that the old per-file needs_update() check had.
     indexed_mtimes = index._read_indexed_files_map()
+    # Files that loaded as nothing at this mtime and size: skip them, or
+    # every pass reads them again (see _note_unloadable).
+    index._prune_unloadable({str(p) for p in live_set})
+    unloadable = index._unloadable_map()
 
     # Carry the source tag through with each drifted path — Cowork
     # dispatch in _load_conversation_at depends on it (extension
@@ -2590,14 +2697,17 @@ def _drift_first_scan(
     drifted: list[tuple[Path, str]] = []
     for path, source in live_paths_with_source:
         try:
-            current_mtime = path.stat().st_mtime
+            st = path.stat()
         except OSError:
             # File vanished between enumeration and stat; ignore — the
             # next backstop pass will pick up the deletion via the
             # missing-pass below (path won't appear in live_set).
             continue
+        current_mtime = st.st_mtime
         indexed_mtime = indexed_mtimes.get(str(path))
         if indexed_mtime is None or float(indexed_mtime) != float(current_mtime):
+            if unloadable.get(str(path)) == (float(current_mtime), int(st.st_size)):
+                continue
             drifted.append((path, source))
 
     # Missing pass: any indexed_files row whose path is no longer on disk.
@@ -2672,11 +2782,13 @@ def build_full_index(
         # the file was mutated during the read, skip the upsert so the
         # index never stamps stale content with a fresh mtime.
         try:
-            mtime_before = path.stat().st_mtime
+            st_before = path.stat()
+            mtime_before = st_before.st_mtime
         except OSError:
-            mtime_before = None
+            st_before = mtime_before = None
         conv = _load_conversation_at(path, store, source=source)
         if conv is None:
+            _note_unloadable(index, path, source, st_before)
             if on_progress is not None:
                 on_progress(i + 1, total)
             continue
@@ -2703,6 +2815,7 @@ def build_full_index(
         try:
             messages_indexed += index.upsert_conversation(conv, path, mtime)
             files_indexed += 1
+            index._forget_unloadable(path)
         except sqlite3.Error:
             logger.exception("search_index: upsert failed for %s", path)
         if on_progress is not None:
@@ -2768,11 +2881,13 @@ def update_drifted_files(
         # Without this, the index would store stale content under a
         # fresh mtime and never re-detect the unread bytes.
         try:
-            mtime_before = path.stat().st_mtime
+            st_before = path.stat()
         except OSError:
             continue
+        mtime_before = st_before.st_mtime
         conv = _load_conversation_at(path, store, source=source)
         if conv is None:
+            _note_unloadable(index, path, source, st_before)
             continue
         try:
             mtime_after = path.stat().st_mtime
@@ -2788,6 +2903,7 @@ def update_drifted_files(
         try:
             index.upsert_conversation(conv, path, mtime_before)
             updated += 1
+            index._forget_unloadable(path)
         except sqlite3.Error:
             logger.exception("search_index: drift-upsert failed for %s", path)
 
