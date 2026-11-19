@@ -43,8 +43,6 @@ from typing import Any
 
 import pytest
 
-pytestmark = pytest.mark.xfail(strict=True, reason="L1 not implemented yet")
-
 ORG = "0f0f0f0f-1111-2222-3333-444444444444"
 LOCAL_UUID = "c0c0c0c0-0000-4000-8000-000000000001"
 REMOTE_ID = "cse_fakesidecar0001"
