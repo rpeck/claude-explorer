@@ -32,6 +32,9 @@ from .models import (
     SubagentSummary,
 )
 from .parsing import parse_datetime as _parse_datetime
+from .sources.base import SourceAdapter
+from .sources.ids import SourceFilter
+from .sources.registry import get_adapter_or_none, get_adapters, get_descriptor
 
 logger = logging.getLogger(__name__)
 
@@ -383,6 +386,12 @@ def _cowork_summary(data: dict[str, Any]) -> dict[str, Any]:
     return summary
 
 
+def _is_chronological(source: str) -> bool:
+    """No branch tree: the messages are in file order. False for an unknown source."""
+    descriptor = get_descriptor(source)
+    return descriptor is not None and descriptor.chronological
+
+
 class ConversationStore:
     """Store for reading conversation data from disk and Claude Code JSONL files."""
 
@@ -474,8 +483,17 @@ class ConversationStore:
         except (json.JSONDecodeError, OSError):
             return None
 
-    def _make_summary(self, data: dict[str, Any], include_subagents: bool = False) -> ConversationSummary:
-        """Create a ConversationSummary from raw conversation data."""
+    def _make_summary(
+        self,
+        data: dict[str, Any],
+        include_subagents: bool = False,
+        adapters: dict[str, SourceAdapter] | None = None,
+    ) -> ConversationSummary:
+        """Create a ConversationSummary from raw conversation data.
+
+        ``adapters`` maps source ids to adapters; a list passes it once
+        for all its rows. Without it, the adapter is looked up.
+        """
         # `data.get(k, default)` returns `default` only when the key is
         # MISSING; an explicit `null` value reaches downstream consumers.
         # The current control flow happens to avoid crashing on a null
@@ -556,11 +574,7 @@ class ConversationStore:
             # See `get_conversation` for the CC branch-flag rationale —
             # post-compact duplicate UUIDs poison the parent->children
             # count, and CC has no edit-branch UI to switch to anyway.
-            has_branches=(
-                False
-                if data.get("source") == "CLAUDE_CODE"
-                else (bool(data.get("has_branches") or False) if not chat_messages else has_branches(chat_messages))
-            ),
+            has_branches=self._branch_flag(data, chat_messages, adapters),
             source=data.get("source") or "CLAUDE_AI",
             project_path=data.get("project_path"),
             git_branch=data.get("git_branch"),
@@ -571,6 +585,32 @@ class ConversationStore:
             # Desktop + CC (they don't surface an archived flag).
             is_archived=bool(data.get("is_archived") or False),
         )
+
+    def _branch_flag(
+        self,
+        data: dict[str, Any],
+        chat_messages: list[dict[str, Any]],
+        adapters: dict[str, SourceAdapter] | None,
+    ) -> bool:
+        """The list-row branch flag; the source adapter decides it.
+
+        A missing source is CLAUDE_AI. An unknown source computes the flag.
+        """
+        source = data.get("source") or "CLAUDE_AI"
+        if adapters is not None:
+            adapter = adapters.get(source)
+        else:
+            adapter = get_adapter_or_none(source, self)
+        if adapter is None:
+            return self._computed_branch_flag(data, chat_messages)
+        return adapter.branch_flag(data, chat_messages)
+
+    @staticmethod
+    def _computed_branch_flag(data: dict[str, Any], chat_messages: list[dict[str, Any]]) -> bool:
+        """The branch flag from the messages, or the stored flag of a row without them."""
+        if not chat_messages:
+            return bool(data.get("has_branches") or False)
+        return has_branches(chat_messages)
 
     def _get_claude_code_conversations(
         self, full_content: bool = False, include_phantom: bool = False
@@ -588,7 +628,7 @@ class ConversationStore:
 
     def _get_all_conversations_data(
         self,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         full_content: bool = False,
         include_phantom: bool = False,
     ) -> list[dict[str, Any]]:
@@ -601,41 +641,72 @@ class ConversationStore:
             include_phantom: If True, include phantom sessions (local command artifacts).
         """
         conversations = []
+        for adapter in get_adapters(self):
+            if source in ("all", adapter.descriptor().id):
+                conversations.extend(
+                    adapter.list_rows(full_content=full_content, include_phantom=include_phantom)
+                )
+        return conversations
 
-        # Load Claude Desktop conversations (from JSON files)
-        if source in ("all", "CLAUDE_AI"):
-            for path in self._get_conversation_files():
-                data = self._load_conversation(path)
-                if data:
-                    # Skip Claude Code / Cowork conversations that might
-                    # have been imported into the Desktop data dir (e.g.
-                    # by a future export-and-reimport flow). Without
-                    # both checks a CLAUDE_COWORK conv stamped at ingest
-                    # could double-count as CLAUDE_AI.
-                    if data.get("source") in ("CLAUDE_CODE", "CLAUDE_COWORK"):
-                        continue
-                    conversations.append(data)
+    # ----- Bridge methods of the source adapters (backend/sources/) -----
+    # The per-source code stays here, so that the patch points of the
+    # existing tests keep working.
 
-        # Load Claude Code conversations (from JSONL files)
-        if source in ("all", "CLAUDE_CODE"):
-            conversations.extend(self._get_claude_code_conversations(
-                full_content=full_content, include_phantom=include_phantom
-            ))
+    def _desktop_rows(self) -> list[dict[str, Any]]:
+        """Every Claude Desktop conversation (JSON files)."""
+        conversations = []
+        for path in self._get_conversation_files():
+            data = self._load_conversation(path)
+            if data:
+                # Skip Claude Code / Cowork conversations that might
+                # have been imported into the Desktop data dir (e.g.
+                # by a future export-and-reimport flow). Without
+                # both checks a CLAUDE_COWORK conv stamped at ingest
+                # could double-count as CLAUDE_AI.
+                if data.get("source") in ("CLAUDE_CODE", "CLAUDE_COWORK"):
+                    continue
+                conversations.append(data)
+        return conversations
 
+    def _cowork_rows(self, full_content: bool) -> list[dict[str, Any]]:
+        """Every Cowork session."""
         # Load Cowork conversations: local-agent-mode-sessions audit.jsonl
         # plus remote (cloud task) sessions archived by the fetcher. A list
         # needs only summaries, which are cached; search and export need the
         # full sessions.
-        if source in ("all", "CLAUDE_COWORK"):
-            if full_content:
-                from .cowork_reader import list_cowork_conversations
-                conversations.extend(
-                    list_cowork_conversations(self.cowork_root, self.remote_cowork_root)
-                )
-            else:
-                conversations.extend(self._cowork_summaries())
+        if full_content:
+            from .cowork_reader import list_cowork_conversations
+            return list_cowork_conversations(self.cowork_root, self.remote_cowork_root)
+        return self._cowork_summaries()
 
-        return conversations
+    def _discover_claude_code(self) -> list[Path]:
+        from . import claude_code_reader
+
+        return list(claude_code_reader.discover_jsonl_files(self.claude_dir))
+
+    def _discover_cowork(self) -> list[Path]:
+        """The ``audit.jsonl`` of each session; it shares ``.jsonl`` with Claude Code."""
+        from .cowork_reader import iter_cowork_session_dirs
+
+        audits = (
+            d / "audit.jsonl"
+            for d in iter_cowork_session_dirs(self.cowork_root, self.remote_cowork_root)
+        )
+        return [a for a in audits if a.exists()]
+
+    @staticmethod
+    def _load_claude_code_for_index(path: Path) -> dict[str, Any] | None:
+        # Not the FileCache: the index reads every file once, and the read
+        # also captures the session's images (cache_all_markers).
+        from . import claude_code_reader
+
+        return claude_code_reader.read_claude_code_conversation(path)
+
+    @staticmethod
+    def _load_cowork_for_index(path: Path) -> dict[str, Any] | None:
+        from . import cowork_reader
+
+        return cowork_reader.read_cowork_conversation(path.parent)
 
     def _cowork_summaries(self) -> list[dict[str, Any]]:
         """Cached summaries of every Cowork session; see the cache notes above."""
@@ -679,7 +750,7 @@ class ConversationStore:
         search: str | None = None,
         starred: bool | None = None,
         model: str | None = None,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         sort: str = "updated_at",
         sort_order: Literal["asc", "desc"] = "desc",
         include_phantom: bool = False,
@@ -695,6 +766,7 @@ class ConversationStore:
         filter is effectively no-op for those sources.
         """
         conversations = []
+        adapters = {a.descriptor().id: a for a in get_adapters(self)}
 
         for data in self._get_all_conversations_data(source, include_phantom=include_phantom):
             # Apply filters
@@ -729,7 +801,9 @@ class ConversationStore:
                 if not (name_match or summary_match or project_match):
                     continue
 
-            conversations.append(self._make_summary(data, include_subagents=include_subagents))
+            conversations.append(
+                self._make_summary(data, include_subagents=include_subagents, adapters=adapters)
+            )
 
         # Sort
         # Hunt #12 — Unstable sort tiebreakers. Timsort is stable, but
@@ -777,18 +851,28 @@ class ConversationStore:
     def _find_conversation_data(self, uuid: str) -> tuple[dict[str, Any] | None, Path | None]:
         """Find conversation data by UUID from any source.
 
-        Returns (data, file_path) tuple.
+        Returns (data, file_path) tuple. The sources are asked in
+        registry order; the first hit wins.
         """
-        # First check Claude Desktop JSON files
+        for adapter in get_adapters(self):
+            hit = adapter.find(uuid)
+            if hit is not None:
+                return hit
+        return None, None
+
+    def _find_desktop(self, uuid: str) -> tuple[dict[str, Any], Path] | None:
         for path in self._get_conversation_files():
             data = self._load_conversation(path)
             if data and data.get("uuid") == uuid:
                 return data, path
+        return None
 
-        # Then check Claude Code JSONL files. Route through the FileCache
-        # wrapper (_load_conversation_cached) so warm detail-page and
-        # export calls don't re-parse the entire JSONL on every request.
-        # The Desktop branch above already uses self._load_conversation
+    def _find_claude_code(self, uuid: str) -> tuple[dict[str, Any], Path] | None:
+        """Find a Claude Code conversation (JSONL files)."""
+        # Route through the FileCache wrapper (_load_conversation_cached)
+        # so warm detail-page and export calls don't re-parse the entire
+        # JSONL on every request.
+        # The Desktop branch already uses self._load_conversation
         # which goes through FileCache; CC was missed when the cache
         # wrapper was added in a prior refactor. See
         # PLANS/PERFORMANCE_PHASE_2.md §Workstream C1.
@@ -863,9 +947,12 @@ class ConversationStore:
                 data = _load_conversation_cached(jsonl_path)
                 if data:
                     return data, jsonl_path
+        return None
 
-        # Finally check Cowork sessions, local (``local_<uuid>``) and remote
-        # (``remote_<id>``). ``find_cowork_session_dirs`` checks one candidate
+    def _find_cowork(self, uuid: str) -> tuple[dict[str, Any], Path] | None:
+        """Find a Cowork session; the path is its ``audit.jsonl``."""
+        # Local (``local_<uuid>``) and remote
+        # (``remote_<id>``) sessions. ``find_cowork_session_dirs`` checks one candidate
         # per org dir, so this resolution is O(orgs), not O(sessions). Try
         # every copy: the first one can be empty or have no turns while
         # the list shows the row from another copy. Of two readable copies,
@@ -886,8 +973,7 @@ class ConversationStore:
                 found = (data, candidate)
         if found is not None:
             return found[0], found[1] / "audit.jsonl"
-
-        return None, None
+        return None
 
     def _build_detail_from_data(
         self,
@@ -910,9 +996,9 @@ class ConversationStore:
         stored_leaf = data.get("current_leaf_message_uuid") or ""
         source = data.get("source") or "CLAUDE_AI"
         # Cowork shares the chronological append-only log semantics —
-        # no parentUuid links, no branches, no leaf-walking. Widen the
-        # CC guard so the same render path applies to both.
-        is_chronological = source in ("CLAUDE_CODE", "CLAUDE_COWORK")
+        # no parentUuid links, no branches, no leaf-walking. The same
+        # render path applies to every chronological source.
+        is_chronological = _is_chronological(source)
 
         # Bug-fix (2026-05-12): Claude Code JSONLs are append-only
         # chronological logs, NOT branched message trees. CC re-serializes
@@ -1123,7 +1209,7 @@ class ConversationStore:
         leaf_uuid = data.get("current_leaf_message_uuid") or ""
         source = data.get("source") or "CLAUDE_AI"
         # Cowork is also chronological-only — same zero-state tree.
-        is_chronological = source in ("CLAUDE_CODE", "CLAUDE_COWORK")
+        is_chronological = _is_chronological(source)
 
         # Bug-fix (2026-05-12, follow-up to get_conversation): Claude Code
         # JSONLs are append-only chronological logs with no edit-branches;
@@ -1161,14 +1247,14 @@ class ConversationStore:
 
     def get_all_conversations_raw(
         self,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
     ) -> list[dict[str, Any]]:
         """Get all raw conversation data for search/export (includes full message content)."""
         return self._get_all_conversations_data(source, full_content=True)
 
     def count_conversations(
         self,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
     ) -> int:
         """Count total number of conversations."""
         return len(self._get_all_conversations_data(source))

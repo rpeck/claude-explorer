@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .sources.ids import SourceId
+
 
 class ContentBlock(BaseModel):
     """A content block within a message.
@@ -131,7 +133,7 @@ class ConversationListItem(BaseModel):
     is_starred: bool = False
     message_count: int = 0
     has_branches: bool = False
-    source: Literal["CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "CLAUDE_AI"
+    source: SourceId = "CLAUDE_AI"
     project_path: str | None = None  # For Claude Code sessions
     project_name: str | None = None  # Short name extracted from project_path
     # Multi-org metadata (cowork-multi-org C3). Null for legacy untagged
@@ -185,7 +187,7 @@ class ConversationSummary(BaseModel):
     # MCP path keeps working.
     human_message_count: int = 0
     has_branches: bool = False
-    source: Literal["CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "CLAUDE_AI"
+    source: SourceId = "CLAUDE_AI"
     project_path: str | None = None  # For Claude Code sessions
     project_name: str | None = None  # Short name extracted from project_path
     # `git_branch` is read by the conversation-detail page (see
