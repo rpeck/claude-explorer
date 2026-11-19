@@ -66,8 +66,10 @@ DYNAMIC_IMPORT_MODULES: tuple[str, ...] = (
 
 # External deps the MCP code path actually uses. Asserted at build time
 # against the closure analyzer's external set — see ``_assert_deps``.
+# ``portalocker``: the archive lock (``backend.archive_sync``), which each
+# MCP tool call takes through ``backend.write_gate``.
 EXPECTED_EXTERNAL_DEPS: frozenset[str] = frozenset(
-    {"fastmcp", "pydantic", "orjson", "platformdirs"}
+    {"fastmcp", "pydantic", "orjson", "platformdirs", "portalocker"}
 )
 
 # Bundle-relative paths for non-Python assets.
@@ -227,6 +229,7 @@ def _write_bundle_pyproject(
         f'    "pydantic>=2.0",\n'
         f'    "orjson>=3.10",\n'
         f'    "platformdirs>=4.0",\n'
+        f'    "portalocker>=2.8",\n'
         f"]\n"
     )
     (bundle_root / "pyproject.toml").write_text(content, encoding="utf-8")

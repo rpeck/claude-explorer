@@ -92,13 +92,19 @@ transient I/O failure never crashes the backend.
 from __future__ import annotations
 
 import asyncio
+import fnmatch
 import logging
 import threading
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .cc_image_cache import copy_marker_image_to_cache
 from .config import get_settings, read_env
+
+if TYPE_CHECKING:
+    from .archive_sync import SyncReason
+    from .sources.base import WatchRoot
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +208,15 @@ def scan_once() -> int:
     each pass are isolated by their own try/except so an
     image-cache error can't break search and vice versa.
     """
+    # Images captured while the cloud-sync gate was closed move into
+    # cc-images/ once the user opts in (plan D13).
+    try:
+        from backend.cc_image_cache import move_pending_images
+
+        move_pending_images()
+    except Exception:
+        logger.exception("watcher: moving the pending images failed")
+
     root = _live_image_cache_root()
     handled = 0
     if root.exists():
@@ -220,6 +235,7 @@ def scan_once() -> int:
     # event-driven passes: if one runs, it runs once more for the
     # backstop, and this call does not wait for it (2026-11-11).
     def _backstop_drift_pass() -> None:
+        _archive_sync_pass("backstop")
         try:
             from backend.search_index import get_search_index, update_drifted_files
             from backend.store import ConversationStore
@@ -513,13 +529,17 @@ def _run_drift_single_flight(run_pass: Callable[[], None]) -> bool:
         raise
 
 
-def _watch_root(source_id: str) -> Path:
+def _watch_root_entry(source_id: str) -> WatchRoot:
     """The one watch root of a source adapter."""
     from backend.sources.registry import get_adapter
     from backend.store import ConversationStore
 
     (root,) = get_adapter(source_id, ConversationStore()).watch_roots()
-    return root.path
+    return root
+
+
+def _watch_root(source_id: str) -> Path:
+    return _watch_root_entry(source_id).path
 
 
 def _live_projects_root() -> Path:
@@ -530,6 +550,21 @@ def _live_projects_root() -> Path:
 def _live_cowork_root() -> Path:
     """Where Claude Desktop stores Cowork local-agent-mode sessions."""
     return _watch_root("CLAUDE_COWORK")
+
+
+def _extra_watch_roots() -> list[WatchRoot]:
+    """The watch roots of every adapter, except the two that have their own
+    observer above (their start functions are a test seam)."""
+    from backend.sources.registry import get_adapters
+    from backend.store import ConversationStore
+
+    own = {_live_projects_root(), _live_cowork_root()}
+    return [
+        root
+        for adapter in get_adapters(ConversationStore())
+        for root in adapter.watch_roots()
+        if root.path not in own
+    ]
 
 
 def _fire_drift_pass() -> None:
@@ -564,8 +599,26 @@ def _fire_drift_pass() -> None:
     _run_drift_single_flight(_event_drift_pass)
 
 
+def _archive_sync_pass(reason: SyncReason) -> None:
+    """Copy each source into the archive with no wait for the lock (plan §4.3).
+
+    The drift pass that follows indexes what it wrote. When another writer
+    holds the lock, try again after the debounce. Logs its own errors.
+    """
+    try:
+        from backend.store import ConversationStore
+        from backend.write_gate import run_archive_syncs, sync_busy
+
+        store = ConversationStore()
+        if sync_busy(run_archive_syncs(store, reason, 0)):
+            _schedule_drift(store.data_dir)
+    except Exception:
+        logger.exception("watcher: archive copy (%s) failed", reason)
+
+
 def _event_drift_pass() -> None:
     """One event-driven search-index drift pass. Logs its own errors."""
+    _archive_sync_pass("watcher")
     try:
         from backend import search_index as si
         from backend.store import ConversationStore
@@ -601,27 +654,33 @@ def _schedule_drift(path: Path) -> None:
         _drift_last_timer = _drift_timer
 
 
-def _build_projects_event_handler():
-    """Return a watchdog FileSystemEventHandler that queues debounced
-    drift passes for every ``*.jsonl`` modification.
+def _matches(name: str, patterns: tuple[str, ...]) -> bool:
+    # Case-insensitive, as the suffix check before the patterns was.
+    name = name.casefold()
+    return any(fnmatch.fnmatchcase(name, pat.casefold()) for pat in patterns)
 
-    Non-JSONL events are silently ignored (CC occasionally drops
-    ``.log``/``.tmp`` files in the projects tree). Directory events
-    are skipped: those fire when a new project directory is created;
-    the per-file modify events will catch the JSONLs as they appear.
+
+def _build_root_event_handler(patterns: tuple[str, ...], label: str):
+    """Return a watchdog FileSystemEventHandler that queues a debounced
+    drift pass for each file whose name matches one of ``patterns``.
+
+    Other files are ignored (Claude Code drops ``.log``/``.tmp`` files in
+    the projects tree; a Cowork session holds ``outputs/`` and
+    ``uploads/``), so unrelated writes do not hammer the SQL writer.
+    Directory events are skipped: the per-file events follow.
     """
     from watchdog.events import FileSystemEventHandler
 
-    class _ProjectsEventHandler(FileSystemEventHandler):
+    class _RootEventHandler(FileSystemEventHandler):
         def _maybe_queue(self, src: str) -> None:
             path = Path(src)
-            if path.suffix.lower() != ".jsonl":
+            if not _matches(path.name, patterns):
                 return
             try:
                 _schedule_drift(path)
             except Exception:
                 logger.exception(
-                    "projects event handler failed to schedule drift for %s", src,
+                    "%s event handler failed to schedule drift for %s", label, src,
                 )
 
         def on_created(self, event) -> None:  # type: ignore[no-untyped-def]
@@ -636,156 +695,108 @@ def _build_projects_event_handler():
             if not event.is_directory and getattr(event, "dest_path", None):
                 self._maybe_queue(event.dest_path)
 
-    return _ProjectsEventHandler()
+    return _RootEventHandler()
 
 
-def _try_start_projects_observer():
-    """Build and start a watchdog Observer on the live projects root.
-
-    Returns the started Observer or None on any failure (missing
-    wheel, sandboxed Python, NFS mount, etc.). The caller continues
-    with the backstop-poll-only path if None.
-
-    Eagerly mkdirs the projects root so the watch registers even on
-    a brand-new install (CC will populate it on first session).
-    """
-    try:
-        from watchdog.observers import Observer
-    except ImportError:
-        logger.warning(
-            "search-index watcher: watchdog not installed; in-flight "
-            "search freshness falls back to the 600 s backstop poll.",
-        )
-        return None
-
-    root = _live_projects_root()
-    try:
-        root.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        logger.exception(
-            "search-index watcher: failed to create %s; projects-dir "
-            "events disabled", root,
-        )
-        return None
-
-    handler = _build_projects_event_handler()
-    observer = Observer()
-    # Do not inherit the library default. watchdog picks a different
-    # backend per platform (FSEvents, inotify, ReadDirectoryChangesW),
-    # and a non-daemon observer keeps the interpreter alive at exit.
-    # Windows CI hung at shutdown on exactly this.
-    observer.daemon = True
-    observer.schedule(handler, str(root), recursive=True)
-    try:
-        observer.start()
-    except Exception:
-        logger.exception(
-            "search-index watcher: Observer failed to start; falling "
-            "back to backstop-poll-only search freshness",
-        )
-        return None
-
-    backend_name = type(observer).__name__
-    logger.info(
-        "search-index watcher: projects-dir Observer started (%s) on %s",
-        backend_name, root,
-    )
-    return observer
+def _build_projects_event_handler():
+    """Drift handler for ``*.jsonl`` files under the projects root."""
+    return _build_root_event_handler(_watch_root_entry("CLAUDE_CODE").patterns, "projects")
 
 
 def _build_cowork_event_handler():
-    """Watchdog FileSystemEventHandler that queues debounced drift
-    passes for every ``audit.jsonl`` modification under the cowork root.
-
-    Cowork sessions contain other files (``outputs/``, ``uploads/``,
-    ``shim-lib/``, etc.) we don't index — we filter for the audit.jsonl
-    basename specifically so unrelated writes (e.g. tool output dumps)
-    don't hammer the SQL writer.
-    """
-    from watchdog.events import FileSystemEventHandler
-
-    class _CoworkEventHandler(FileSystemEventHandler):
-        def _maybe_queue(self, src: str) -> None:
-            path = Path(src)
-            if path.name != "audit.jsonl":
-                return
-            try:
-                _schedule_drift(path)
-            except Exception:
-                logger.exception(
-                    "cowork event handler failed to schedule drift for %s",
-                    src,
-                )
-
-        def on_created(self, event) -> None:  # type: ignore[no-untyped-def]
-            if not event.is_directory:
-                self._maybe_queue(event.src_path)
-
-        def on_modified(self, event) -> None:  # type: ignore[no-untyped-def]
-            if not event.is_directory:
-                self._maybe_queue(event.src_path)
-
-        def on_moved(self, event) -> None:  # type: ignore[no-untyped-def]
-            if not event.is_directory and getattr(event, "dest_path", None):
-                self._maybe_queue(event.dest_path)
-
-    return _CoworkEventHandler()
+    """Drift handler for ``audit.jsonl`` and the session sidecar under the
+    cowork root. A sidecar-only change (a rename, the archive state) once
+    waited for the backstop scan."""
+    return _build_root_event_handler(_watch_root_entry("CLAUDE_COWORK").patterns, "cowork")
 
 
-def _try_start_cowork_observer():
-    """Build and start a watchdog Observer on the live cowork root.
+def _try_start_root_observer(root: WatchRoot, label: str):  # type: ignore[no-untyped-def]
+    """Build and start a watchdog Observer on one watch root.
 
-    Returns the started Observer or None on any failure (missing
-    wheel, sandboxed Python, cowork root not present because the
-    user doesn't use Cowork, etc.). The caller continues with the
+    Returns the started Observer or None on any failure (missing wheel,
+    sandboxed Python, NFS mount, etc.). The caller continues with the
     backstop-poll-only path if None.
 
-    Eagerly mkdirs the cowork root so the watch registers even on
-    a user who's never opened Cowork yet — Desktop will populate it
-    on first session.
+    A root with ``create=True`` is made first, so the watch registers on a
+    brand-new install. A root with ``create=False`` lives in another tool's
+    home, which Explorer never changes: a missing one is skipped, and the
+    backstop tries again.
     """
     try:
         from watchdog.observers import Observer
     except ImportError:
         logger.warning(
-            "search-index watcher: watchdog not installed; cowork "
-            "freshness falls back to the 600 s backstop poll.",
+            "search-index watcher: watchdog not installed; %s freshness "
+            "falls back to the 600 s backstop poll.", label,
         )
         return None
 
-    root = _live_cowork_root()
-    try:
-        root.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        logger.exception(
-            "search-index watcher: failed to create %s; cowork-dir "
-            "events disabled", root,
+    if root.create:
+        try:
+            root.path.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            logger.exception(
+                "search-index watcher: failed to create %s; %s events disabled",
+                root.path, label,
+            )
+            return None
+    elif not root.path.is_dir():
+        logger.info(
+            "search-index watcher: %s is missing; the backstop checks again", root.path,
         )
         return None
 
-    handler = _build_cowork_event_handler()
+    handler = _build_root_event_handler(root.patterns, label)
     observer = Observer()
     # Do not inherit the library default. watchdog picks a different
     # backend per platform (FSEvents, inotify, ReadDirectoryChangesW),
     # and a non-daemon observer keeps the interpreter alive at exit.
     # Windows CI hung at shutdown on exactly this.
     observer.daemon = True
-    observer.schedule(handler, str(root), recursive=True)
+    observer.schedule(handler, str(root.path), recursive=True)
     try:
         observer.start()
     except Exception:
         logger.exception(
-            "search-index watcher: cowork Observer failed to start; "
-            "falling back to backstop-poll-only freshness for Cowork",
+            "search-index watcher: %s Observer failed to start; falling "
+            "back to backstop-poll-only freshness", label,
         )
         return None
 
-    backend_name = type(observer).__name__
     logger.info(
-        "search-index watcher: cowork-dir Observer started (%s) on %s",
-        backend_name, root,
+        "search-index watcher: %s Observer started (%s) on %s",
+        label, type(observer).__name__, root.path,
     )
     return observer
+
+
+def _try_start_projects_observer():
+    """Start the Observer on the live projects root, or return None."""
+    return _try_start_root_observer(_watch_root_entry("CLAUDE_CODE"), "projects-dir")
+
+
+def _try_start_cowork_observer():
+    """Start the Observer on the live cowork root, or return None."""
+    return _try_start_root_observer(_watch_root_entry("CLAUDE_COWORK"), "cowork-dir")
+
+
+def _start_extra_observers(observers: dict[Path, object]) -> None:
+    """Start an Observer on each other watch root that has none yet.
+
+    ``run_watcher`` calls it at start and after each backstop scan, so a
+    root that did not exist yet (``create=False``) gets its watch later.
+    """
+    try:
+        roots = _extra_watch_roots()
+    except Exception:
+        logger.exception("search-index watcher: cannot list the watch roots")
+        return
+    for root in roots:
+        if root.path in observers:
+            continue
+        observer = _try_start_root_observer(root, str(root.path))
+        if observer is not None:
+            observers[root.path] = observer
 
 
 def shutdown_projects_drift() -> None:
@@ -908,6 +919,10 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
     # projects_observer, just watching a different root for Cowork
     # audit.jsonl appends.
     cowork_observer = _try_start_cowork_observer()
+    # The other sources' roots, keyed by path. A missing root that the
+    # watcher must not create gets its watch after a later backstop scan.
+    extra_observers: dict[Path, object] = {}
+    _start_extra_observers(extra_observers)
 
     cancelled = False
     try:
@@ -924,6 +939,7 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                 scan_once()
             except Exception:
                 logger.exception("CC image watcher backstop scan failed")
+            _start_extra_observers(extra_observers)
     except asyncio.CancelledError:
         # Lifespan teardown (or any caller) called ``task.cancel()``.
         # Mark and re-raise after the finally cleanup so the parent
@@ -987,6 +1003,11 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                     logger.exception(
                         "search-index watcher cowork Observer stop failed during cancel"
                     )
+            for path, extra in extra_observers.items():
+                try:
+                    extra.stop()  # type: ignore[attr-defined]
+                except Exception:
+                    logger.exception("search-index watcher Observer stop failed for %s", path)
         else:
             def _shutdown_observers_sync() -> None:
                 join_timeout = 0.5
@@ -1013,6 +1034,14 @@ async def run_watcher(stop_event: asyncio.Event) -> None:
                     except Exception:
                         logger.exception(
                             "search-index watcher cowork Observer shutdown failed"
+                        )
+                for path, extra in extra_observers.items():
+                    try:
+                        extra.stop()  # type: ignore[attr-defined]
+                        extra.join(timeout=join_timeout)  # type: ignore[attr-defined]
+                    except Exception:
+                        logger.exception(
+                            "search-index watcher Observer shutdown failed for %s", path
                         )
 
             try:

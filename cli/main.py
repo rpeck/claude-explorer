@@ -17,6 +17,8 @@ intended layering. The console-script entry point in pyproject.toml
 is ``claude-explorer = "cli.main:main"``.
 """
 
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -122,6 +124,32 @@ def fetch(
             CONFIG_CORRUPT_REFUSAL_TEMPLATE.format(
                 reason=settings.config_corrupt_reason
             )
+        )
+
+    # Plan §4.3: copy each source into the archive before the credentials
+    # load, so a user without credentials still copies. Wait up to 60 s for
+    # another writer's lock; when it stays busy, skip and continue.
+    from backend.store import ConversationStore
+    from backend.write_gate import (
+        cloud_sync_block,
+        cloud_sync_message,
+        run_archive_syncs,
+        sync_busy,
+    )
+
+    if sync_busy(run_archive_syncs(ConversationStore(), "cli", 60.0)):
+        click.echo(
+            "Another Claude Explorer process is copying the Codex sessions into "
+            "the archive. This fetch skipped the copy; the next one does it."
+        )
+
+    # Plan D13: no fetch into a cloud-synced folder without the opt-in.
+    block = cloud_sync_block(settings)
+    if block is not None:
+        raise click.ClickException(
+            f"{cloud_sync_message(block)}\nOr add this line to "
+            f"~/.claude-explorer/config.json: "
+            f'"allow_writes_in_cloud_sync": {json.dumps(os.path.realpath(settings.data_dir))}'
         )
 
     # Write to the data directory that the app reads (CLAUDE_EXPLORER_DATA_DIR

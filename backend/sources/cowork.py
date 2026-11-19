@@ -33,7 +33,9 @@ class CoworkAdapter:
 
     def watch_roots(self) -> list[WatchRoot]:
         # The local root only: the remote archive changes through the fetch.
-        return [WatchRoot(self._store.cowork_root, ("audit.jsonl",), create=True)]
+        # The sidecar (``local_<id>.json``, a sibling of the session folder)
+        # holds the title and the archive state.
+        return [WatchRoot(self._store.cowork_root, ("audit.jsonl", "local_*.json"), create=True)]
 
     def discover(self) -> list[Path]:
         return self._store._discover_cowork()
