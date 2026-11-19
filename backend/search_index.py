@@ -75,7 +75,7 @@ import time
 from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
 
@@ -85,6 +85,8 @@ from .compact_prefixes import (
 )
 from .config import get_settings
 from .search_text import _extract_searchable_text
+from .sources.ids import SourceFilter
+from .sources.registry import get_adapter, get_adapter_or_none, get_adapters
 from .sqlite_read_conns import PerThreadReadConns
 
 logger = logging.getLogger(__name__)
@@ -1597,7 +1599,7 @@ class SearchIndex:
         self,
         user_query: str,
         *,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         conversation_uuid: str | None = None,
         project_path: str | None = None,
         bookmarks: set[str] | None = None,
@@ -1743,7 +1745,7 @@ class SearchIndex:
         self,
         user_query: str,
         *,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         conversation_uuid: str | None = None,
         project_path: str | None = None,
         bookmarks: set[str] | None = None,
@@ -1832,7 +1834,7 @@ class SearchIndex:
         self,
         user_query: str,
         *,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         conversation_uuid: str | None = None,
         project_path: str | None = None,
         bookmarks: set[str] | None = None,
@@ -1959,7 +1961,7 @@ class SearchIndex:
         self,
         user_query: str,
         *,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         conversation_uuid: str | None = None,
         project_path: str | None = None,
         bookmarks: set[str] | None = None,
@@ -2046,7 +2048,7 @@ class SearchIndex:
         self,
         user_query: str,
         *,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         conversation_uuid: str | None = None,
         project_path: str | None = None,
         bookmarks: set[str] | None = None,
@@ -2099,7 +2101,7 @@ class SearchIndex:
         self,
         user_query: str,
         *,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         conversation_uuid: str | None = None,
         project_path: str | None = None,
         bookmarks: set[str] | None = None,
@@ -2240,7 +2242,7 @@ class SearchIndex:
         self,
         needle: str,
         *,
-        source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+        source: SourceFilter = "all",
         conversation_uuid: str | None = None,
         project_path: str | None = None,
         bookmarks: set[str] | None = None,
@@ -2540,54 +2542,24 @@ def _file_path_for_conv(conv: dict[str, Any], data_dir: Path, claude_dir: Path) 
 def _enumerate_conversation_paths(store: Any) -> list[tuple[Path, str]]:
     """Stat-only enumeration of every on-disk conversation file.
 
-    Returns ``[(path, source), ...]`` where ``source`` is one of
-    ``"CLAUDE_AI"``, ``"CLAUDE_CODE"``, or ``"CLAUDE_COWORK"``. NO
+    Returns ``[(path, source), ...]`` where ``source`` is a source id. NO
     content is loaded — we only need the file list and (later)
     ``os.stat`` for mtime.
 
-    Uses the existing path-discovery helpers
-    (:meth:`ConversationStore._get_conversation_files` for Desktop and
-    :func:`backend.claude_code_reader.discover_jsonl_files` for CC) so
-    this stays the single source of truth for "what counts as a
-    conversation file on disk."
+    The ``discover()`` of each source adapter is the single source of
+    truth for "what counts as a conversation file on disk."
 
-    Cowork (2026-05-25): walks ``cowork_root / <deployment>/<org>/
+    Cowork (2026-05-25): its adapter lists ``cowork_root / <deployment>/<org>/
     local_*/audit.jsonl``. Since Cowork's audit.jsonl shares the
     ``.jsonl`` extension with CC, the source tag in the returned
     tuple is LOAD-BEARING for :func:`_load_conversation_at` — that
     dispatcher routes on the tag, not the extension.
     """
-    from .claude_code_reader import discover_jsonl_files
-
-    paths: list[tuple[Path, str]] = []
-    # Desktop JSONs (by-org + legacy flat, with dedup).
-    for p in store._get_conversation_files():
-        paths.append((p, "CLAUDE_AI"))
-    # CC JSONLs.
-    claude_dir = getattr(store, "claude_dir", None) or get_settings().claude_dir
-    for p in discover_jsonl_files(claude_dir):
-        paths.append((p, "CLAUDE_CODE"))
-    # Cowork audit.jsonl files (always tagged CLAUDE_COWORK so the
-    # source-tag dispatch in _load_conversation_at routes correctly —
-    # extension-based dispatch would silently route Cowork through
-    # the CC reader, which doesn't understand the _audit_timestamp
-    # field rename).
-    from .cowork_reader import iter_cowork_session_dirs, remote_cowork_root
-
-    cowork_root = getattr(store, "cowork_root", None)
-    if cowork_root is None:
-        cowork_root = (
-            get_settings().claude_desktop_app_dir / "local-agent-mode-sessions"
-        )
-    remote_root = getattr(store, "remote_cowork_root", None)
-    if remote_root is None:
-        data_dir = getattr(store, "data_dir", None) or get_settings().data_dir
-        remote_root = remote_cowork_root(data_dir)
-    for sess_dir in iter_cowork_session_dirs(cowork_root, remote_root):
-        audit = sess_dir / "audit.jsonl"
-        if audit.exists():
-            paths.append((audit, "CLAUDE_COWORK"))
-    return paths
+    return [
+        (p, adapter.descriptor().id)
+        for adapter in get_adapters(store)
+        for p in adapter.discover()
+    ]
 
 
 def _load_conversation_at(
@@ -2600,7 +2572,7 @@ def _load_conversation_at(
     so extension-based dispatch would silently route Cowork through
     the CC reader and corrupt every Cowork session in the index.
 
-    Source dispatch:
+    Source dispatch, through the ``load`` of the source adapter:
       * ``CLAUDE_COWORK`` → :func:`backend.cowork_reader.read_cowork_conversation`
         (reads ``path.parent`` since the Cowork reader takes the
         session directory, not the audit.jsonl path).
@@ -2622,27 +2594,20 @@ def _load_conversation_at(
     which logs it once and makes later scans skip the file until it
     changes.
     """
-    if source == "CLAUDE_COWORK":
-        from .cowork_reader import read_cowork_conversation
-        try:
-            return read_cowork_conversation(path.parent)
-        except Exception:
-            logger.exception("search_index: failed to read Cowork %s", path)
-            return None
-
-    if source == "CLAUDE_CODE" or (source is None and path.suffix.lower() == ".jsonl"):
-        from .claude_code_reader import read_claude_code_conversation
-        try:
-            return read_claude_code_conversation(path)
-        except Exception:
-            logger.exception("search_index: failed to read CC %s", path)
-            return None
-    # Desktop JSON path — reuse the store's mtime-cached loader.
+    if source is None:
+        source = "CLAUDE_CODE" if path.suffix.lower() == ".jsonl" else "CLAUDE_AI"
+    adapter = get_adapter_or_none(source, store) or get_adapter("CLAUDE_AI", store)
+    descriptor = adapter.descriptor()
     try:
-        return store._load_conversation(path)
+        return adapter.load_for_index(path)
     except Exception:
-        logger.exception("search_index: failed to read Desktop %s", path)
+        name = _INDEX_LOG_NAMES.get(descriptor.id, descriptor.short_label)
+        logger.exception("search_index: failed to read %s %s", name, path)
         return None
+
+
+#: Log text only: the name that the read-failure line used before the adapters.
+_INDEX_LOG_NAMES = {"CLAUDE_CODE": "CC"}
 
 
 def _cowork_sidecar_mtime(path: Path, source: str) -> float | None:

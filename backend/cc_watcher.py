@@ -513,16 +513,23 @@ def _run_drift_single_flight(run_pass: Callable[[], None]) -> bool:
         raise
 
 
+def _watch_root(source_id: str) -> Path:
+    """The one watch root of a source adapter."""
+    from backend.sources.registry import get_adapter
+    from backend.store import ConversationStore
+
+    (root,) = get_adapter(source_id, ConversationStore()).watch_roots()
+    return root.path
+
+
 def _live_projects_root() -> Path:
     """Where Claude Code stores per-project session JSONLs."""
-    return get_settings().claude_dir / "projects"
+    return _watch_root("CLAUDE_CODE")
 
 
 def _live_cowork_root() -> Path:
     """Where Claude Desktop stores Cowork local-agent-mode sessions."""
-    return (
-        get_settings().claude_desktop_app_dir / "local-agent-mode-sessions"
-    )
+    return _watch_root("CLAUDE_COWORK")
 
 
 def _fire_drift_pass() -> None:

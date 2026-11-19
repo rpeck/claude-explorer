@@ -31,6 +31,7 @@ from .search_text import (
     _is_compact_trigger_message,
     _stringify_tool_input,
 )
+from .sources.ids import SourceFilter
 from .store import ConversationStore, _parse_datetime
 
 # Re-exports for backwards compatibility — multiple test modules import these
@@ -271,7 +272,7 @@ SortOrder = Literal["asc", "desc"]
 def search_conversations(
     store: ConversationStore,
     query: str,
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+    source: SourceFilter = "all",
     context_size: Literal["snippet", "full"] = "snippet",
     sort: SortField = "updated_at",
     sort_order: SortOrder = "desc",
@@ -581,7 +582,7 @@ def _search_via_index_fast(
     idx: Any,
     query: str,
     *,
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"],
+    source: SourceFilter,
     sort: SortField,
     sort_order: SortOrder,
     conversation_uuid: str | None,
@@ -796,7 +797,7 @@ def _search_via_index_fast_full(
     idx: Any,
     query: str,
     *,
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"],
+    source: SourceFilter,
     sort: SortField,
     sort_order: SortOrder,
     conversation_uuid: str | None,
@@ -999,7 +1000,7 @@ def _search_via_index_fast_full(
 def _search_via_linear_scan(
     store: ConversationStore,
     query: str,
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all",
+    source: SourceFilter = "all",
     context_size: Literal["snippet", "full"] = "snippet",
     sort: SortField = "updated_at",
     sort_order: SortOrder = "desc",
@@ -1263,7 +1264,7 @@ def _search_via_index(
     idx: Any,
     query: str,
     *,
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"],
+    source: SourceFilter,
     context_size: Literal["snippet", "full"],
     sort: SortField,
     sort_order: SortOrder,
