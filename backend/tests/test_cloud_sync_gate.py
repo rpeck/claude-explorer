@@ -598,6 +598,56 @@ def test_mcp_outline_returns_the_messages_and_writes_no_outline_cache_while_the_
 
 
 # ---------------------------------------------------------------------------
+# Preferences (data_dir.parent / "preferences.json")
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["PUT", "PATCH"])
+def test_preferences_write_refuses_with_409_while_the_gate_is_closed_and_read_still_works(
+    method: str, cloud: CloudEnv
+) -> None:
+    client = _client()
+
+    response = client.request(
+        method, "/api/preferences", json={"data": {"theme": "dark"}}
+    )
+
+    assert response.status_code == 409, response.text
+    assert PROVIDER in response.json()["detail"]
+    assert client.get("/api/preferences").status_code == 200
+    assert not (cloud.data_dir.parent / "preferences.json").exists()
+
+
+def test_preferences_write_works_after_the_opt_in(cloud: CloudEnv) -> None:
+    client = _client()
+    assert (
+        client.patch("/api/preferences", json={"data": {"theme": "dark"}}).status_code
+        == 409
+    )
+    cloud.opt_in()
+
+    response = client.patch("/api/preferences", json={"data": {"theme": "dark"}})
+
+    assert response.status_code == 200, response.text
+    assert (cloud.data_dir.parent / "preferences.json").exists()
+
+
+def test_preferences_write_checks_the_corrupt_config_before_the_cloud_gate(
+    cloud: CloudEnv,
+) -> None:
+    client = _client()
+    assert (
+        client.put("/api/preferences", json={"data": {"theme": "dark"}}).status_code
+        == 409
+    )
+    write_corrupt_config(cloud.home)
+
+    response = client.put("/api/preferences", json={"data": {"theme": "dark"}})
+
+    assert response.status_code == 503, response.text
+
+
+# ---------------------------------------------------------------------------
 # Claude Code image capture and the pending folder
 # ---------------------------------------------------------------------------
 
@@ -742,6 +792,8 @@ def test_no_writer_adds_or_changes_a_file_under_the_cloud_folder(
     _tool(mcp, "list_sessions", query=NEEDLE)
     _tool(mcp, "get_session_outline", conversation_id=DESKTOP_UUID)
     _tool(mcp, "get_session_outline", conversation_id=CC_SESSION)
+    client.put("/api/preferences", json={"data": {"theme": "dark"}})
+    client.patch("/api/preferences", json={"data": {"theme": "dark"}})
 
     assert _snapshot(cloud.data_dir.parent) == before
     assert cloud.src.calls == []
