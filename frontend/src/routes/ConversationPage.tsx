@@ -785,6 +785,7 @@ export function ConversationPage() {
       {conversation.has_branches && (
         <TreeViewModal
           uuid={conversation.uuid}
+          source={conversation.source}
           isOpen={isTreeOpen}
           onClose={() => setIsTreeOpen(false)}
           onSelectPath={(path) => {

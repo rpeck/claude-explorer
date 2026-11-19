@@ -1,14 +1,18 @@
 import { User, Bot, ChevronRight } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
-import type { MessageNode, ConversationTree } from '@/lib/types'
+import { sourceDescriptor } from '@/lib/sources'
+import type { MessageNode, ConversationTree, ConversationSource } from '@/lib/types'
 
 interface TreeViewProps {
   tree: ConversationTree
   onSelectPath: (path: string[]) => void
+  /** The conversation's source; it names the assistant ("Claude", "Codex"). */
+  source?: ConversationSource
 }
 
-export function TreeView({ tree, onSelectPath }: TreeViewProps) {
+export function TreeView({ tree, onSelectPath, source }: TreeViewProps) {
   const activePath = new Set(tree.active_path)
+  const assistantLabel = sourceDescriptor(source)?.assistant_label ?? 'Claude'
 
   return (
     <div className="p-4">
@@ -21,6 +25,7 @@ export function TreeView({ tree, onSelectPath }: TreeViewProps) {
             activePath={activePath}
             pathSoFar={[]}
             onSelectPath={onSelectPath}
+            assistantLabel={assistantLabel}
           />
         ))}
       </div>
@@ -34,6 +39,7 @@ interface TreeNodeProps {
   activePath: Set<string>
   pathSoFar: string[]
   onSelectPath: (path: string[]) => void
+  assistantLabel: string
 }
 
 function TreeNode({
@@ -42,6 +48,7 @@ function TreeNode({
   activePath,
   pathSoFar,
   onSelectPath,
+  assistantLabel,
 }: TreeNodeProps) {
   const isActive = activePath.has(node.message.uuid)
   const currentPath = [...pathSoFar, node.message.uuid]
@@ -79,7 +86,7 @@ function TreeNode({
           <div>. */}
       <button
         type="button"
-        aria-label={`${node.message.sender === 'human' ? 'You' : 'Claude'}: ${previewText}`}
+        aria-label={`${node.message.sender === 'human' ? 'You' : assistantLabel}: ${previewText}`}
         className={cn(
           'group flex w-full cursor-pointer items-start gap-2 rounded-lg p-2 text-left transition-colors',
           isActive
@@ -116,7 +123,7 @@ function TreeNode({
                   : 'text-zinc-600 dark:text-zinc-400'
               )}
             >
-              {node.message.sender === 'human' ? 'You' : 'Claude'}
+              {node.message.sender === 'human' ? 'You' : assistantLabel}
             </span>
             <span className="text-xs text-zinc-400">
               {formatDate(node.message.created_at)}
@@ -174,6 +181,7 @@ function TreeNode({
               activePath={activePath}
               pathSoFar={currentPath}
               onSelectPath={onSelectPath}
+              assistantLabel={assistantLabel}
             />
           ))}
         </div>

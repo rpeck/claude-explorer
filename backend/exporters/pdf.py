@@ -21,6 +21,7 @@ from typing import Any
 
 from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
+from ..sources.registry import get_descriptor
 from ._shared import (
     CC_IMAGE_MARKER_RE,
     _dedupe_image_files,
@@ -392,7 +393,7 @@ def conversation_to_html(
         if not message_has_visible_content(message, include_tools):
             continue
 
-        sender = "You" if message.sender == "human" else "Claude"
+        sender = "You" if message.sender == "human" else getattr(get_descriptor(conversation.source), "assistant_label", "Claude")
         timestamp = format_timestamp(message.created_at)
 
         # Get message content

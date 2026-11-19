@@ -82,7 +82,8 @@ export function serveApp(prefs: Record<string, unknown>): void {
       return HttpResponse.json({ version: 1, data })
     }),
     http.get('/api/orgs', () => HttpResponse.json([])),
-    http.get('/api/bookmarks', () => HttpResponse.json([])),
+    // api.listBookmarks reads {bookmarks: [...]}.
+    http.get('/api/bookmarks', () => HttpResponse.json({ bookmarks: [] })),
     http.get('/api/account', () => HttpResponse.json({ authenticated: false })),
   )
 }

@@ -12,6 +12,7 @@ import zipfile
 
 from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
+from ..sources.registry import get_descriptor
 from ._shared import (
     _dedupe_image_files,
     _is_compact_summary_message,
@@ -75,9 +76,11 @@ def _image_markdown(message: Message) -> str:
     return "\n".join(lines)
 
 
-def message_to_markdown(message: Message, include_tools: bool = True) -> str:
+def message_to_markdown(
+    message: Message, include_tools: bool = True, assistant_label: str = "Claude"
+) -> str:
     """Convert a single message to Markdown."""
-    sender = "You" if message.sender == "human" else "Claude"
+    sender = "You" if message.sender == "human" else assistant_label
     timestamp = format_timestamp(message.created_at)
 
     lines = [f"**{sender}:** *{timestamp}*", ""]
@@ -127,11 +130,17 @@ def conversation_to_markdown(
         f"**Model:** {conversation.model}",
         f"**Created:** {format_timestamp(conversation.created_at)}",
         f"**Messages:** {conversation.message_count}",
-        "",
-        "---",
-        "",
     ]
+    if conversation.source_home is not None:
+        # A Codex session (plan §4.5): the id works with `codex resume <id>`.
+        lines += [
+            f"**Thread ID:** {conversation.uuid}",
+            f"**Codex name:** {conversation.source_name or 'none'}",
+            f"**Codex home:** {conversation.source_home}",
+        ]
+    lines += ["", "---", ""]
 
+    assistant_label = getattr(get_descriptor(conversation.source), "assistant_label", "Claude")
     compact_by_uuid = {
         m.message_uuid: m for m in (conversation.compact_markers or [])
     }
@@ -169,7 +178,7 @@ def conversation_to_markdown(
             # if the compaction never happened.
             continue
         if message_has_visible_content(message, include_tools):
-            lines.append(message_to_markdown(message, include_tools))
+            lines.append(message_to_markdown(message, include_tools, assistant_label))
 
     return "\n".join(lines)
 

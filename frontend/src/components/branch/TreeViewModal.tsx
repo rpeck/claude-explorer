@@ -3,9 +3,12 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { TreeView } from './TreeView'
 import { useConversationTree } from '@/hooks/useConversations'
+import type { ConversationSource } from '@/lib/types'
 
 interface TreeViewModalProps {
   uuid: string
+  /** Names the assistant in the tree ("Claude", "Codex"). */
+  source?: ConversationSource
   isOpen: boolean
   onClose: () => void
   onSelectPath: (path: string[]) => void
@@ -13,6 +16,7 @@ interface TreeViewModalProps {
 
 export function TreeViewModal({
   uuid,
+  source,
   isOpen,
   onClose,
   onSelectPath,
@@ -78,6 +82,7 @@ export function TreeViewModal({
               </div>
               <TreeView
                 tree={tree}
+                source={source}
                 onSelectPath={(path) => {
                   onSelectPath(path)
                   onClose()

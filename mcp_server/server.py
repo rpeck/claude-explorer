@@ -33,7 +33,12 @@ from backend.export import (
     conversation_to_markdown,
     filter_tool_placeholders,
 )
-from backend.models import ContentBlock, ConversationDetail, Message
+from backend.models import (
+    ContentBlock,
+    ConversationDetail,
+    ConversationSummary,
+    Message,
+)
 from backend.search import search_conversations
 from backend.sources.ids import SourceFilter
 from backend.sources.registry import get_descriptor, get_descriptors
@@ -50,7 +55,7 @@ log = logging.getLogger(__name__)
 mcp = FastMCP(
     "Claude Session Explorer",
     instructions=(
-        "These tools query saved Claude conversation history. "
+        "These tools query saved conversation history (Claude and Codex). "
         "ONLY use them when the user EXPLICITLY asks to search, browse, "
         "analyze, or export past conversation sessions. "
         "Never call these tools proactively or speculatively."
@@ -195,6 +200,20 @@ def _sync_fields(*, notices: bool = False) -> dict[str, Any]:
         out["notices"] = list(_sync_notices)
     if _sync_pending:
         out["sync_pending"] = True
+    return out
+
+
+def _source_fields(conv: ConversationSummary) -> dict[str, Any]:
+    """The Codex name and home (``~/...``), and the notices when not empty.
+
+    Never the absolute home (D14): the user name must not reach a model.
+    """
+    out: dict[str, Any] = {}
+    if conv.source_home is not None:
+        out["source_name"] = conv.source_name
+        out["source_home"] = conv.source_home
+    if conv.notices:
+        out["notices"] = list(conv.notices)
     return out
 
 
@@ -524,7 +543,8 @@ def list_sessions(
     Args:
         query: Full-text search across session names and message content.
                Omit to list all sessions.
-        source: Filter by source: "CLAUDE_AI", "CLAUDE_CODE", or "CLAUDE_COWORK".
+        source: Filter by source: "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK",
+                or "CODEX".
         project: Filter by project name (substring match, case-insensitive).
         organization_id: Workspace UUID — restrict to conversations whose
                          organization_id matches exactly. Mirrors the
@@ -592,6 +612,7 @@ def list_sessions(
                     "created_at": _format_dt(s.created_at),
                     "updated_at": _format_dt(s.updated_at),
                     "match_count": len(sr.matching_messages),
+                    **_source_fields(s),
                 }
                 sessions.append(entry)
     else:
@@ -611,6 +632,7 @@ def list_sessions(
                 "model": s.model,
                 "created_at": _format_dt(s.created_at),
                 "updated_at": _format_dt(s.updated_at),
+                **_source_fields(s),
             })
 
     # Apply project filter
@@ -635,7 +657,8 @@ def list_projects(
     Only call when the user explicitly asks to list or browse projects.
 
     Args:
-        source: Filter by source: "CLAUDE_AI", "CLAUDE_CODE", or "CLAUDE_COWORK".
+        source: Filter by source: "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK",
+                or "CODEX".
     """
     _sync_archive()
     store = _get_store()
@@ -712,6 +735,7 @@ def get_session_outline(
         "start_position": start,
         "next_position": next_position,
         "messages": summaries[start:end],
+        **_source_fields(conversation),
         **_sync_fields(),
     }
 

@@ -10,6 +10,7 @@ import { useCopyFeedback } from '@/hooks/useCopyFeedback'
 import { cn, formatMessageTimestamp, messageToMarkdown, messageHasVisibleContent, isExcludableMarker } from '@/lib/utils'
 import { dedupeImageFiles } from '@/lib/imageFiles'
 import { errorToast } from '@/lib/errorToast'
+import { sourceDescriptor } from '@/lib/sources'
 import type { ConversationSource, Message } from '@/lib/types'
 import { collectCcImages } from './blocks/imageCollection'
 import { ContentBlockList } from './blocks/ContentBlockRenderer'
@@ -278,7 +279,7 @@ function MessageBubbleImpl({
         {/* Header */}
         <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           <span className="font-medium">
-            {isHuman ? 'You' : 'Claude'}
+            {isHuman ? 'You' : (sourceDescriptor(conversationSource)?.assistant_label ?? 'Claude')}
           </span>
           <span>{formatMessageTimestamp(message.created_at)}</span>
           {message.truncated && (

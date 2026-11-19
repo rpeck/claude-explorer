@@ -87,10 +87,16 @@ the drag-drop Claude Desktop extension that wraps `mcp_server.server`'s
    bundle, manually appends a small `DYNAMIC_IMPORT_MODULES` list for
    modules `backend.store` / `backend.search` lazy-import at call time
    (`backend.cowork_reader`, `backend.summary_cache`,
-   `backend.search_index`).
-3. Writes a stripped `pyproject.toml` with ONLY the 5 deps the MCP
-   path uses (`fastmcp`, `pydantic`, `orjson`, `platformdirs`,
-   `portalocker`; the last one is the archive lock).
+   `backend.search_index`). The Codex source (`backend.sources.codex`,
+   `backend.codex.*`, `backend.archive_sync`) needs no entry: the
+   registry imports it eagerly, so the analyzer finds it.
+3. Writes a stripped `pyproject.toml` with ONLY the deps the MCP
+   path uses: the 5 that the analyzer finds (`fastmcp`, `pydantic`,
+   `orjson`, `platformdirs`, `portalocker`; the last one is the archive
+   lock), plus `zstandard>=0.23; python_version < '3.14'` by hand.
+   `backend/codex/zstd.py` imports it inside a function (Python 3.14+
+   uses `compression.zstd`), so the analyzer cannot see it, and
+   `EXPECTED_EXTERNAL_DEPS` does not list it.
 4. Writes `manifest.json` with `manifest_version: "0.4"` +
    `server.type: "uv"` — Claude Desktop ships Node but not Python,
    so UV resolves + installs on the user's machine on first launch.

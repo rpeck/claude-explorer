@@ -49,7 +49,10 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 GENERATED_JSON = REPO / "frontend" / "src" / "lib" / "sources.generated.json"
 GENERATOR = REPO / "scripts" / "generate_sources_json.py"
+#: The three sources that N1 ported; the parametrized tests pin their behavior.
 SOURCE_IDS = ("CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK")
+#: Every built-in source, in registry order (N8 adds Codex).
+REGISTRY_IDS = (*SOURCE_IDS, "CODEX")
 
 #: The N0 corpus (backend/tests/goldens/corpus.py): source -> its uuids.
 CORPUS_UUIDS = {
@@ -75,6 +78,7 @@ DESCRIPTOR_FIELDS = {
     "has_organizations",
     "refetchable",
     "messages_change_in_place",
+    "assistant_label",
 }
 
 EXPECTED_DESCRIPTORS = {
@@ -88,6 +92,7 @@ EXPECTED_DESCRIPTORS = {
         "has_organizations": True,
         "refetchable": True,
         "messages_change_in_place": False,
+        "assistant_label": "Claude",
     },
     "CLAUDE_CODE": {
         "id": "CLAUDE_CODE",
@@ -99,6 +104,7 @@ EXPECTED_DESCRIPTORS = {
         "has_organizations": False,
         "refetchable": False,
         "messages_change_in_place": False,
+        "assistant_label": "Claude",
     },
     "CLAUDE_COWORK": {
         "id": "CLAUDE_COWORK",
@@ -110,6 +116,7 @@ EXPECTED_DESCRIPTORS = {
         "has_organizations": True,
         "refetchable": False,
         "messages_change_in_place": False,
+        "assistant_label": "Claude",
     },
 }
 
@@ -262,10 +269,10 @@ def fake_registered():
 # --- ids.py: one definition ---------------------------------------------------
 
 
-def test_source_id_lists_the_three_sources_in_order():
+def test_source_id_lists_every_source_in_order():
     from backend.sources.ids import SourceId
 
-    assert get_args(SourceId) == SOURCE_IDS
+    assert get_args(SourceId) == REGISTRY_IDS
 
 
 def test_source_filter_is_all_plus_every_source_id():
@@ -290,7 +297,7 @@ def _parse(rel: str) -> ast.Module:
 
 def _source_literal_sites() -> list[str]:
     """Each place outside ids.py that spells the source set by hand."""
-    ids = set(SOURCE_IDS)
+    ids = set(REGISTRY_IDS)
     sites = []
     for top in ("backend", "mcp_server", "cli", "fetcher"):
         for path in sorted((REPO / top).rglob("*.py")):
@@ -339,7 +346,7 @@ DISPATCH_EXEMPT = {
 
 
 def _dispatch_sites() -> list[str]:
-    ids = set(SOURCE_IDS)
+    ids = set(REGISTRY_IDS)
     files = []
     for entry in DISPATCH_SCOPE:
         path = REPO / entry
@@ -434,7 +441,7 @@ def test_get_adapters_returns_a_tuple_in_registry_order(store):
 
     adapters = get_adapters(store)
     assert isinstance(adapters, tuple)
-    assert [a.descriptor().id for a in adapters] == list(SOURCE_IDS)
+    assert [a.descriptor().id for a in adapters] == list(REGISTRY_IDS)
 
 
 @pytest.mark.parametrize("source_id", SOURCE_IDS)
@@ -513,8 +520,8 @@ def test_a_registered_adapter_comes_after_the_built_ins(store, fake_registered):
     from backend.sources.registry import get_adapters, get_descriptor, get_descriptors
 
     descriptor, _ = fake_registered
-    assert [d.id for d in get_descriptors()] == [*SOURCE_IDS, "FAKE_SOURCE"]
-    assert [a.descriptor().id for a in get_adapters(store)] == [*SOURCE_IDS, "FAKE_SOURCE"]
+    assert [d.id for d in get_descriptors()] == [*REGISTRY_IDS, "FAKE_SOURCE"]
+    assert [a.descriptor().id for a in get_adapters(store)] == [*REGISTRY_IDS, "FAKE_SOURCE"]
     assert get_descriptor("FAKE_SOURCE") == descriptor
 
 
@@ -522,7 +529,7 @@ def test_reset_for_tests_restores_exactly_the_built_ins(store, fake_registered):
     from backend.sources import registry
 
     registry.reset_for_tests()
-    assert [d.id for d in registry.get_descriptors()] == list(SOURCE_IDS)
+    assert [d.id for d in registry.get_descriptors()] == list(REGISTRY_IDS)
     assert registry.get_adapter_or_none("FAKE_SOURCE", store) is None
     with pytest.raises(KeyError):
         registry.get_adapter("FAKE_SOURCE", store)

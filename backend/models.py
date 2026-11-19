@@ -209,6 +209,17 @@ class ConversationSummary(BaseModel):
     # default-hides archived sessions from the sidebar; clients pass
     # ``?show_archived=true`` to override.
     is_archived: bool = False
+    # Plan §4.5 (Codex, N8). The other sources leave them None or empty.
+    #: The name that Codex gave the session.
+    source_name: str | None = None
+    #: The Codex home, shown as ``~/...`` (D14).
+    source_home: str | None = None
+    #: The absolute Codex home, for the UI copy button only. MCP never returns it.
+    source_home_abs: str | None = None
+    #: Warnings and states that the viewer shows above the messages.
+    notices: list[str] = Field(default_factory=list)
+    #: The parent thread of a subagent or fork.
+    parent_uuid: str | None = None
 
     def model_post_init(self, context: Any, /) -> None:
         """Compute project_name from project_path after initialization."""
@@ -428,6 +439,17 @@ class AccountResponse(BaseModel):
     error: str | None = None
 
 
+class CloudSyncGate(BaseModel):
+    """The closed cloud-sync gate (plan D13), for the banner and the consent dialog."""
+
+    #: The cloud-sync provider, for example "iCloud Drive".
+    provider: str
+    #: The resolved write target inside the synced folder.
+    folder: str
+    #: ``Settings.data_dir``; the consent route takes it back as ``data_dir``.
+    data_dir: str
+
+
 class AppConfig(BaseModel):
     """Application configuration for the frontend.
 
@@ -456,6 +478,8 @@ class AppConfig(BaseModel):
     #: show project paths as ``~/...`` (PLANS/2026.10.26-list-project-key.md).
     #: A browser has no other way to know it.
     home_dir: str
+    #: Set while the cloud-sync gate is closed, else ``None``.
+    cloud_sync_gate: CloudSyncGate | None = None
 
 
 class AppConfigStats(AppConfig):

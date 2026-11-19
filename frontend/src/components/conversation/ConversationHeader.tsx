@@ -13,11 +13,13 @@
  *     to this project or path)
  *   - Source badge (Code/Cowork/Desktop), model badge, date, message
  *     count, and "View branches" button when has_branches.
+ *   - NoticeList: the conversation's `notices`, above the messages
  *   - <details> collapsible (open by default) with:
  *       * Claude Code: project_path + git_branch copy buttons
  *       * Claude Cowork: sandbox_path copy button, after its
  *         "Sandbox path:" label
- *       * UUID copy button (always shown)
+ *       * UUID copy button (every source but Codex)
+ *       * Codex: "Thread ID", "Codex name" (or "none"), and "Codex home"
  *       * file_path copy button (when present)
  *
  * Every copy button is a CopyValueButton, which owns its own "copied"
@@ -37,6 +39,7 @@ import { PinScopeButton } from '@/components/search/PinScopeButton'
 import { ListFilterButton } from '@/components/conversation/ListFilterButton'
 import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
+import { NoticeList } from '@/components/conversation/NoticeList'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
 import { sourceHas } from '@/lib/sources'
@@ -141,9 +144,13 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
               </CopyValueButton>
             </div>
           )}
-          <CopyValueButton value={conversation.uuid} label="UUID">
-            <span>{conversation.uuid}</span>
-          </CopyValueButton>
+          {conversation.source === 'CODEX' ? (
+            <CodexDetails conversation={conversation} />
+          ) : (
+            <CopyValueButton value={conversation.uuid} label="UUID">
+              <span>{conversation.uuid}</span>
+            </CopyValueButton>
+          )}
           {conversation.file_path && (
             <CopyValueButton value={conversation.file_path} label="file path">
               <span className="truncate max-w-lg">{conversation.file_path}</span>
@@ -151,6 +158,43 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
           )}
         </div>
       </details>
+      <NoticeList notices={conversation.notices ?? []} />
     </div>
+  )
+}
+
+const DETAIL_ROW = 'flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500'
+
+/** Codex plan §4.5 and D8: the thread ID is what `codex resume <id>` takes. */
+function CodexDetails({ conversation }: { conversation: ConversationDetail }) {
+  const home = conversation.source_home
+  return (
+    <>
+      <div className={DETAIL_ROW}>
+        <span className="text-zinc-500">Thread ID:</span>
+        <CopyValueButton value={conversation.uuid} label="thread ID">
+          <span>{conversation.uuid}</span>
+        </CopyValueButton>
+      </div>
+      <div className={DETAIL_ROW}>
+        <span className="text-zinc-500">Codex name:</span>
+        {conversation.source_name ? (
+          <CopyValueButton value={conversation.source_name} label="Codex name">
+            <span>{conversation.source_name}</span>
+          </CopyValueButton>
+        ) : (
+          <span>none</span>
+        )}
+      </div>
+      {home && (
+        <div className={DETAIL_ROW}>
+          <span className="text-zinc-500">Codex home:</span>
+          {/* D14: show ~/..., copy the absolute path. */}
+          <CopyValueButton value={conversation.source_home_abs || home} label="Codex home">
+            <span>{home}</span>
+          </CopyValueButton>
+        </div>
+      )}
+    </>
   )
 }

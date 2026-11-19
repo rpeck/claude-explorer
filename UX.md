@@ -607,13 +607,16 @@ created_at}`.
 You often need a session's name or one of its paths somewhere else: in a
 terminal, a note, or a message. Every value in the Conversation Pane
 header has a one-click copy button, so you never select a long path by
-hand. A control works the same for every item in its scope, so all six
+hand. A control works the same for every item in its scope, so all the
 buttons follow the same rules.
 
 | Value | Shows when | Where | Tooltip |
 |---|---|---|---|
 | Session name | The session has a name | Icon only, after the title, before the pin button | "Click to copy session name" |
-| Session UUID | Always | **Details** | "Click to copy UUID" |
+| Session UUID | Every source but Codex | **Details** | "Click to copy UUID" |
+| Thread ID | Codex sessions (the session UUID; `codex resume <id>` takes it) | **Details**, after "Thread ID:" | "Click to copy thread ID" |
+| Codex name | Codex sessions that Codex named; else the text "none" and no button | **Details**, after "Codex name:" | "Click to copy Codex name" |
+| Codex home | Codex sessions | **Details**, after "Codex home:" | "Click to copy Codex home" |
 | File path | The API gives one | **Details** | "Click to copy file path" |
 | Project path | Claude Code sessions | **Details**, after the folder icon | "Click to copy project path" |
 | Git branch | Claude Code sessions with a branch | **Details**, after the branch icon | "Click to copy git branch" |
@@ -624,6 +627,8 @@ Rules:
 - A button MUST copy the exact value from the API, with nothing added or
   removed. A path that the header truncates is still copied in full; a
   Windows path is copied as the API returns it.
+- The Codex home shows as `~/...`, but its button copies the absolute
+  path (plan D14).
 - An unnamed session MUST NOT get a title copy button. Its title shows
   "Untitled", which is not its name.
 - The title copy button shows only the icon, and its accessible name is
@@ -648,6 +653,13 @@ Implementation: `CopyValueButton`
 (`frontend/src/components/conversation/CopyValueButton.tsx`) owns each
 button's state. It reads no context (CLAUDE.md, "Performance Work",
 rule 1). Plan: `PLANS/2026.10.28-header-copy-buttons.md`.
+
+**Notices.** Below the **Details**, above the messages, the header lists
+the conversation's `notices` (`NoticeList.tsx`), one line each, in the
+order of the API. A Codex session can have notices such as
+"incomplete: <reason>" or "Imported from Claude Code": they tell you that
+the viewer may not show the whole history. A session with no notices
+shows nothing.
 
 ---
 
@@ -744,13 +756,33 @@ allows it (plan D13).
     (the `cc-images/` layout), and the viewer shows them from there. If
     that folder is cloud-synced too, they go to the platform cache folder.
     No image is skipped.
-- **To allow the writes:** the consent dialog (next Codex node) calls
+- **The cloud-sync gate banner:** while the gate is closed, a persistent
+  banner (`CloudSyncGateBanner.tsx`) shows at the top of the app, below the
+  corrupt-config banner. It reads `cloud_sync_gate` (`provider`, `folder`,
+  `data_dir`) from `GET /api/config`, which is `null` while the gate is
+  open. It names the provider and the folder. It has no
+  close button, because the refused writes need an explanation. It shows
+  also when the data was in a cloud folder before the upgrade. Its
+  **Allow writes…** button opens the consent dialog.
+- **The consent dialog** (`CloudSyncConsentDialog.tsx`) has three steps:
+  1. A warning that names the provider and the folder. **Continue**.
+  2. A check box: "I understand that <provider> uploads my conversation
+     data to its cloud." **Continue** stays off until it is checked.
+  3. A text field for the typed provider name. **Allow writes** stays
+     off until the text matches the name (spaces at the ends and case do
+     not matter).
+  - **Cancel** at any step sends nothing. The dialog opens again at
+    step 1.
+  - An error (for example 409, when the folder or the provider changed)
+    shows in the dialog, and the dialog stays open.
+  - On success the dialog closes, the page reads `/api/config` again, and
+    the banner goes away.
+- **To allow the writes:** step 3 of the consent dialog calls
   `POST /api/write-consent/cloud-sync` with the folder and the provider
   that it showed. The route needs the header
   `X-Claude-Explorer-Action: allow-cloud-sync-writes` and a same-origin or
   loopback `Origin`. It writes `allow_writes_in_cloud_sync` (the resolved
   data folder) into `~/.claude-explorer/config.json`.
-  - Until the dialog exists, a developer adds that key by hand.
   - A moved data folder no longer matches the key, so the gate closes
     again.
 - **After the opt-in:** the next watcher scan moves each pending image
@@ -816,7 +848,8 @@ In addition to the scope-pin dim (Section 5), the list dims rows for:
 - **Phantom sessions** (empty Claude Code sessions): hidden by default,
   toggled by the "Empty" checkbox in the sidebar header.
 - **Group-by-project** mode: only available when the source filter is
-  "All Conversations" or "Claude Code". See "Conversation List filters".
+  "All Conversations", "Claude Code", or "Codex". See "Conversation List
+  filters".
 
 ### Conversation List filters
 
@@ -904,7 +937,8 @@ last 1 day."). It gives a button for each filter that it can clear:
 **Group sessions by project** (the folder-tree checkbox):
 
 - The list groups only when the checkbox is shown and checked. It is
-  shown for the sources "All Conversations" and "Claude Code".
+  shown for the sources "All Conversations", "Claude Code", and "Codex"
+  (each source whose registry flag `has_projects` is true).
 - Folders hold only the filtered rows. A folder with no visible row is
   not shown, and its count is its number of visible rows.
 - In path mode, each folder is one path: its header shows the picker's

@@ -3,7 +3,7 @@
 import generatedSources from './sources.generated.json'
 
 // Keep in step with `sources.generated.json` (the backend `SourceId`).
-export type ConversationSource = 'CLAUDE_AI' | 'CLAUDE_CODE' | 'CLAUDE_COWORK'
+export type ConversationSource = 'CLAUDE_AI' | 'CLAUDE_CODE' | 'CLAUDE_COWORK' | 'CODEX'
 
 export interface SubagentSummary {
   uuid: string
@@ -97,6 +97,16 @@ export interface ConversationSummary {
   // when present and true, the sidebar can render an "Archived"
   // badge under the "Show archived" toggle.
   is_archived?: boolean
+  // Codex plan §4.5. Other sources leave them null or empty.
+  // The name that Codex gave the session.
+  source_name?: string | null
+  // The Codex home as ~/... (shown), and its absolute path (copied).
+  source_home?: string | null
+  source_home_abs?: string | null
+  // Warnings to show above the messages, for example "incomplete: <reason>".
+  notices?: string[]
+  // The parent thread of a subagent or fork.
+  parent_uuid?: string | null
 }
 
 // cowork-multi-org C6: workspace selector source.
@@ -442,6 +452,17 @@ export interface AppConfig {
   // show project paths as ~/... (PLANS/2026.10.26-list-project-key.md).
   // Absent from an older server: the page then shows absolute paths.
   home_dir?: string
+  // Plan D13: set while the cloud-sync gate is closed, null when it is
+  // open. Absent from an older server. CloudSyncGateBanner reads it.
+  cloud_sync_gate?: CloudSyncGate | null
+}
+
+// The closed cloud-sync gate: the provider name, the synced write target,
+// and the data folder that the consent route must get back.
+export interface CloudSyncGate {
+  provider: string
+  folder: string
+  data_dir: string
 }
 
 export interface AppConfigStats extends AppConfig {
