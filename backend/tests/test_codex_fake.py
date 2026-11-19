@@ -25,8 +25,6 @@ import pytest
 
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="NF not implemented yet")
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # §3: the columns of ``state_5.sqlite.threads`` that Explorer reads.
@@ -153,7 +151,8 @@ def _all_records(home: Path) -> list[tuple[Path, dict]]:
 
 
 def _threads(home: Path) -> list[dict[str, Any]]:
-    uri = (home / "state_5.sqlite").as_uri() + "?mode=ro"
+    # immutable=1: a plain mode=ro open of a WAL database creates -wal and -shm.
+    uri = (home / "state_5.sqlite").as_uri() + "?mode=ro&immutable=1"
     conn = sqlite3.connect(uri, uri=True)
     try:
         conn.row_factory = sqlite3.Row
@@ -351,7 +350,7 @@ def test_a_tool_call_has_json_arguments_inside_a_string(codex_home: Path) -> Non
 
 
 def test_state_5_threads_has_every_section_3_column(codex_home: Path) -> None:
-    conn = sqlite3.connect((codex_home / "state_5.sqlite").as_uri() + "?mode=ro", uri=True)
+    conn = sqlite3.connect((codex_home / "state_5.sqlite").as_uri() + "?mode=ro&immutable=1", uri=True)
     try:
         cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
     finally:
@@ -359,9 +358,12 @@ def test_state_5_threads_has_every_section_3_column(codex_home: Path) -> None:
     assert STATE_5_COLUMNS <= cols, sorted(STATE_5_COLUMNS - cols)
 
 
-def test_builder_leaves_no_wal_or_shm_file(codex_home: Path) -> None:
+def test_builder_leaves_no_wal_or_shm_file(tmp_path: Path) -> None:
     # N5 asserts that its read-only open creates none; the builder must not leave one.
-    assert not list(codex_home.glob("state_5.sqlite-*"))
+    from backend.tests.codex_fake import build_codex_home
+
+    home = build_codex_home(tmp_path / "codex")
+    assert not list(home.glob("state_5.sqlite-*"))
 
 
 def test_state_5_rows_point_at_rollouts_with_the_same_thread_id(codex_home: Path) -> None:
@@ -498,7 +500,13 @@ def test_uv_lock_has_zstandard_with_the_marker_and_wheels_for_3_11_to_3_13() -> 
     root = next(p for p in lock["package"] if p["name"] == "claude-explorer")
     deps = [d for d in root.get("dependencies", []) if d["name"] == "zstandard"]
     assert deps, "uv.lock: claude-explorer does not depend on zstandard"
-    assert all("3.14" in d.get("marker", "") for d in deps), deps
+    # uv can fork the lock into one entry per Python range; the union must be < 3.14.
+    from packaging.markers import Marker
+
+    for version, wanted in (("3.11", True), ("3.12", True), ("3.13", True), ("3.14", False), ("3.15", False)):
+        env = {"python_version": version, "python_full_version": version + ".0"}
+        hits = [d for d in deps if "marker" in d and Marker(d["marker"]).evaluate(env)]
+        assert bool(hits) is wanted, (version, deps)
     wheels = " ".join(
         w["url"] for p in lock["package"] if p["name"] == "zstandard" for w in p.get("wheels", [])
     )
