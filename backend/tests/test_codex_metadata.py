@@ -37,8 +37,8 @@ The API that these tests call (the tester's contract for N5):
     ``history_mode``, ``thread_source``, ``parent_thread_id``,
     ``imported_from``, ``rollouts`` as ``{stem, session_meta_ts_ms}``,
     ``current_stem``, ``current_ambiguous``, ``updated_at_ms``).
-    ``previous`` is the dict that the last pass returned (the archived
-    values, D6).
+    ``state`` is ``StateRead.rows`` (``None`` on a fallback). ``previous``
+    is the dict that the last pass returned (the archived values, D6).
   * ``newest_copy(copies) -> dict``: the newest copy of one thread across
     homes; each copy has ``home_key``, ``updated_at_ms``, and ``rollouts``.
 
@@ -95,8 +95,6 @@ from backend.tests.codex_fake import (
     write_state_db,
     zstd_compress,
 )
-
-pytestmark = pytest.mark.xfail(strict=True, reason="N5 not implemented yet")
 
 STATE_FILES = frozenset({"state_5.sqlite", "state_5.sqlite-wal"})
 TEMP_PREFIX = "claude-explorer-state5-"
@@ -387,7 +385,7 @@ def _meta(
             thread_id,
             paths if paths is not None else _rollouts_of(home, thread_id),
             names=name_index.read_session_index(home),
-            state=state,
+            state=state.rows,
             imports=imports.read_imports(home),
             previous=previous,
         )
