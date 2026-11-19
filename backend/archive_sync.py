@@ -18,18 +18,21 @@ module imports neither.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import logging
 import os
 import re
+import shutil
 import sys
+import tempfile
 import threading
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import IO, TYPE_CHECKING, Any, Literal
 
 import portalocker
 
@@ -50,6 +53,9 @@ SkippedReason = Literal["busy", "timeout", "corrupt_config", "cloud_sync_gate", 
 _STEM_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,199}")
 _REV_RE = re.compile(r"\.rev-([0-9]+)\.jsonl")
 _LOCK_POLL_S = 0.05
+_CHUNK = 1 << 20
+# New decoded bytes stay in memory up to this size, then go to a temp file.
+_SPOOL_MAX = 8 << 20
 
 
 @dataclass
@@ -217,9 +223,44 @@ def _newest_revision(dest_dir: Path, stem: str) -> tuple[int, Path | None]:
     return newest, newest_path
 
 
-def _append(path: Path, data: bytes) -> None:
+class _DecodeError(Exception):
+    pass
+
+
+def _complete_lines(decode: Callable[[Path], Iterable[bytes]], path: Path) -> Iterator[bytes]:
+    """Yield the decoded bytes up to each last newline (step 2.3).
+
+    The source tool can still write to a last line that has no newline, so
+    that line is dropped. Memory stays bounded by the longest line.
+    """
+    rest = bytearray()
+    try:
+        for chunk in decode(path):
+            cut = chunk.rfind(b"\n") + 1
+            if not cut:
+                rest += chunk
+                continue
+            yield bytes(rest) + chunk[:cut]
+            rest = bytearray(chunk[cut:])
+    except Exception as exc:  # any decoder failure is a decode error
+        raise _DecodeError(exc) from exc
+
+
+def _same_content(spool: IO[bytes], path: Path) -> bool:
+    spool.seek(0)
+    with open(path, "rb") as fh:
+        while True:
+            a, b = spool.read(_CHUNK), fh.read(_CHUNK)
+            if a != b:
+                return False
+            if not a:
+                return True
+
+
+def _append_from(path: Path, spool: IO[bytes]) -> None:
+    spool.seek(0)
     with open(path, "ab") as fh:
-        fh.write(data)
+        shutil.copyfileobj(spool, fh, _CHUNK)
         fh.flush()
         os.fsync(fh.fileno())
 
@@ -265,73 +306,93 @@ def sync_stream(
         report.counts["unchanged"] += 1
         return
 
-    # 2.2: decode in full before any write. A decode error never makes a revision.
-    # shortcut: holds the decoded file in memory; stream to a temp file if
-    # decoded rollouts grow past tens of MB.
-    try:
-        data = b"".join(decode(source_path))
-    except Exception as exc:  # noqa: BLE001 - any decoder failure is a decode error
-        report.counts["decode_errors"] += 1
-        report.warn(f"cannot decode {source_path}: {exc}; the archive copy stays as it is")
-        return
-
-    # 2.3: the source tool can still write to a last line that has no newline.
-    data = data[: data.rfind(b"\n") + 1]
-
-    try:
-        archived = copy_path.read_bytes()
-    except FileNotFoundError:
-        archived = None
-
-    try:
-        if archived is None:
-            if data:
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                _append(copy_path, data)
-                report.wrote_any = True
-                report.counts["copied"] += 1
-            else:
-                report.counts["unchanged"] += 1
-        elif data == archived:
-            report.counts["unchanged"] += 1
-        elif archived.startswith(data):
-            # 2.4: a short read. The archive already has more; change nothing.
-            report.counts["unchanged"] += 1
+    with tempfile.SpooledTemporaryFile(max_size=_SPOOL_MAX) as spool:
+        # 2.2: decode as a stream, and compare it with the copy as it comes.
+        # The bytes that the copy does not have go to the spool. Nothing is
+        # written to the archive until the decode is complete.
+        try:
+            with contextlib.ExitStack() as stack:
+                archive = stack.enter_context(open(copy_path, "rb")) if copy_path.exists() else None
+                mode = "new" if archive is None else "prefix"
+                matched = total = 0
+                for chunk in _complete_lines(decode, source_path):
+                    total += len(chunk)
+                    if mode == "prefix":
+                        old = archive.read(len(chunk))
+                        if old == chunk:
+                            matched += len(chunk)
+                            continue
+                        if len(old) < len(chunk) and chunk.startswith(old):
+                            # The copy ends inside this chunk; the rest is new.
+                            matched += len(old)
+                            mode = "grow"
+                            spool.write(chunk[len(old) :])
+                            continue
+                        # The source diverged: the spool gets the whole new content.
+                        mode = "diverged"
+                        archive.seek(0)
+                        left = matched
+                        while left and (block := archive.read(min(left, _CHUNK))):
+                            spool.write(block)
+                            left -= len(block)
+                    spool.write(chunk)
+                short_read = mode == "prefix" and archive.read(1) != b""
+        except _DecodeError as exc:
+            report.counts["decode_errors"] += 1
+            report.warn(f"cannot decode {source_path}: {exc}; the archive copy stays as it is")
             return
-        elif data.startswith(archived):
-            # 2.5: the source grew.
-            _append(copy_path, data[len(archived) :])
-            report.wrote_any = True
-            report.counts["appended"] += 1
-        else:
-            # 2.6: the source diverged. Keep the old copy as the next revision.
-            newest, newest_path = _newest_revision(dest_dir, stem)
-            if newest_path is not None and newest_path.read_bytes() == data:
-                report.counts["unchanged"] += 1
-                return
-            rev_path = _checked_path(dest_dir, f"{stem}.rev-{newest + 1}.jsonl")
-            atomic_replace(copy_path, rev_path)
-            _append(copy_path, data)
-            report.wrote_any = True
-            report.counts["revisions"] += 1
-            report.warn(f"{source_path} diverged from the archive copy; the old copy is {rev_path.name}")
+        except OSError as exc:
+            report.warn(f"cannot read the archive copy of {stem}: {exc}")
+            return
 
-        # 2.7: a crash before this write only makes the next pass read the source again.
-        meta_out = {
-            **(meta_extra or {}),
-            "version": META_VERSION,
-            "stem": stem,
-            "copied_bytes": len(data),
-            "source_path": str(source_path),
-            "source_size": st.st_size,
-            "source_mtime_ns": st.st_mtime_ns,
-            "last_sync_ms": int(time.time() * 1000),
-        }
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        atomic_write_bytes(meta_path, json.dumps(meta_out, indent=2, ensure_ascii=False).encode("utf-8"))
-    except OSError as exc:
-        # The copy only grows, so the next pass continues from what is on disk.
-        report.warn(f"cannot write the archive copy of {stem}: {exc}")
+        try:
+            if mode == "prefix":
+                # Equal, or 2.4: a short read, where the copy already has more.
+                report.counts["unchanged"] += 1
+                if short_read:
+                    return
+            elif mode == "new":
+                if total:
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    _append_from(copy_path, spool)
+                    report.wrote_any = True
+                    report.counts["copied"] += 1
+                else:
+                    report.counts["unchanged"] += 1
+            elif mode == "grow":
+                # 2.5: the source grew.
+                _append_from(copy_path, spool)
+                report.wrote_any = True
+                report.counts["appended"] += 1
+            else:
+                # 2.6: the source diverged. Keep the old copy as the next revision.
+                newest, newest_path = _newest_revision(dest_dir, stem)
+                if newest_path is not None and _same_content(spool, newest_path):
+                    report.counts["unchanged"] += 1
+                    return
+                rev_path = _checked_path(dest_dir, f"{stem}.rev-{newest + 1}.jsonl")
+                atomic_replace(copy_path, rev_path)
+                _append_from(copy_path, spool)
+                report.wrote_any = True
+                report.counts["revisions"] += 1
+                report.warn(f"{source_path} diverged from the archive copy; the old copy is {rev_path.name}")
+
+            # 2.7: a crash before this write only makes the next pass read the source again.
+            meta_out = {
+                **(meta_extra or {}),
+                "version": META_VERSION,
+                "stem": stem,
+                "copied_bytes": total,
+                "source_path": str(source_path),
+                "source_size": st.st_size,
+                "source_mtime_ns": st.st_mtime_ns,
+                "last_sync_ms": int(time.time() * 1000),
+            }
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            atomic_write_bytes(meta_path, json.dumps(meta_out, indent=2, ensure_ascii=False).encode("utf-8"))
+        except OSError as exc:
+            # The copy only grows, so the next pass continues from what is on disk.
+            report.warn(f"cannot write the archive copy of {stem}: {exc}")
 
 
 __all__ = [

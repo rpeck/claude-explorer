@@ -20,6 +20,8 @@ from pathlib import Path
 
 #: The provider name for a folder that detection cannot decide on.
 UNKNOWN_PROVIDER = "Unknown cloud provider"
+#: The provider name when a Dropbox ``info.json`` exists but cannot be read.
+DROPBOX_UNREADABLE = "Dropbox (unreadable info.json)"
 
 _ONEDRIVE_ENV_VARS = ("OneDrive", "OneDriveCommercial", "OneDriveConsumer")
 
@@ -44,30 +46,39 @@ def _within(target: str, root: str) -> bool:
     return target == root or target.startswith((root + os.sep, root + "/"))
 
 
-def _dropbox_roots(home: Path, environ: Mapping[str, str]) -> Iterator[Path]:
+def _dropbox_roots(home: Path, environ: Mapping[str, str]) -> tuple[list[Path], bool]:
+    """The roots in each Dropbox ``info.json``, and whether one is unreadable."""
     info_files = [home / ".dropbox" / "info.json"]
     info_files += [
         Path(environ[var]) / "Dropbox" / "info.json"
         for var in ("APPDATA", "LOCALAPPDATA")
         if environ.get(var)
     ]
+    roots: list[Path] = []
+    unreadable = False
     for info in info_files:
         try:
             data = json.loads(info.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            continue  # No Dropbox install here.
         except (OSError, ValueError):
-            continue  # No Dropbox install here, or a file that we cannot read.
-        if not isinstance(data, dict):
+            unreadable = True
             continue
-        for account in data.values():
-            if isinstance(account, dict) and isinstance(account.get("path"), str):
-                yield Path(account["path"])
+        accounts = list(data.values()) if isinstance(data, dict) else []
+        if not isinstance(data, dict) or not all(
+            isinstance(a, dict) and isinstance(a.get("path"), str) for a in accounts
+        ):
+            unreadable = True
+            continue
+        roots += [Path(a["path"]) for a in accounts]
+    return roots, unreadable
 
 
-def _roots(home: Path, environ: Mapping[str, str]) -> Iterator[tuple[str, Path]]:
+def _roots(home: Path, environ: Mapping[str, str], dropbox: list[Path]) -> Iterator[tuple[str, Path]]:
     yield "iCloud Drive", home / "Library" / "Mobile Documents"
     yield "iCloud Drive", home / "iCloudDrive"
     yield "Dropbox", home / "Dropbox"
-    for root in _dropbox_roots(home, environ):
+    for root in dropbox:
         yield "Dropbox", root
     for var in _ONEDRIVE_ENV_VARS:
         if environ.get(var):
@@ -113,7 +124,8 @@ def detect_cloud_sync(
     if _within(target, _fold(storage)) and len(Path(real).parts) > depth:
         return _cloudstorage_provider(Path(real).parts[depth])
 
-    for provider, root in _roots(home, environ):
+    dropbox, dropbox_unreadable = _dropbox_roots(home, environ)
+    for provider, root in _roots(home, environ, dropbox):
         try:
             resolved = _fold(os.path.realpath(root))
         except (OSError, RuntimeError, ValueError):
@@ -125,7 +137,10 @@ def detect_cloud_sync(
     parts = Path(target).parts
     if len(parts) > 1 and parts[1].casefold() == "my drive":
         return "Google Drive"
+    if dropbox_unreadable:
+        # Dropbox is installed, but its roots are unknown, so we cannot decide.
+        return DROPBOX_UNREADABLE
     return None
 
 
-__all__ = ["UNKNOWN_PROVIDER", "detect_cloud_sync"]
+__all__ = ["DROPBOX_UNREADABLE", "UNKNOWN_PROVIDER", "detect_cloud_sync"]
