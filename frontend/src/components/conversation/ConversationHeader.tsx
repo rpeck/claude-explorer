@@ -39,6 +39,7 @@ import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
+import { sourceHas } from '@/lib/sources'
 import type { ConversationDetail } from '@/lib/types'
 
 interface ConversationHeaderProps {
@@ -67,7 +68,7 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
           projectPath={conversation.project_path}
           projectName={conversation.project_path?.split('/').filter(Boolean).pop() || null}
         />
-        {conversation.source === 'CLAUDE_CODE' && conversation.project_path && (
+        {sourceHas(conversation.source, 'has_projects') && conversation.project_path && (
           <ListFilterButton
             projectPath={conversation.project_path}
             // The backend's project_name: the last folder of the path.
@@ -108,7 +109,7 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
           <span>Details</span>
         </summary>
         <div className="space-y-0.5">
-          {conversation.source === 'CLAUDE_CODE' && conversation.project_path && (
+          {sourceHas(conversation.source, 'has_projects') && conversation.project_path && (
             <div className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
               <FolderCode className="h-3 w-3" />
               <CopyValueButton value={conversation.project_path} label="project path">

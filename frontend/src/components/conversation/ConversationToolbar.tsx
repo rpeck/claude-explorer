@@ -11,7 +11,7 @@
  * Controls and their visibility rules:
  *   - Show Tools          (always)
  *   - Expand/Collapse All (only when showToolCalls)
- *   - Re-download         (only when conversation.source === 'CLAUDE_AI')
+ *   - Re-download         (only when the source is refetchable)
  *   - Show Compactions    (only when hasCompactMarkers)
  *   - Copy as Markdown    (always)
  *   - Markdown            (always — opens export dialog)
@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { expandAllToolsButtonLabel } from '@/components/conversation/expandAllToolsLabel'
 import type { ConversationSource } from '@/lib/types'
+import { sourceHas } from '@/lib/sources'
 
 interface ConversationToolbarProps {
   // Show Tools
@@ -37,7 +38,7 @@ interface ConversationToolbarProps {
   expandAllTools: boolean
   handleToggleExpandAll: () => void
   isExpandPending: boolean
-  // Re-download (gated on CLAUDE_AI)
+  // Re-download (gated on the refetchable flag)
   conversationSource: ConversationSource
   handleForceRefetch: () => void
   isRefetching: boolean
@@ -113,7 +114,7 @@ export function ConversationToolbar({
           <span className="ml-2">{expandAllToolsButtonLabel(expandAllTools, isExpandPending)}</span>
         </Button>
       )}
-      {conversationSource === 'CLAUDE_AI' && (
+      {sourceHas(conversationSource, 'refetchable') && (
         <Button
           variant="ghost"
           size="icon"
