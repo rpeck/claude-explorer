@@ -552,6 +552,8 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
     { name = "watchdog" },
     { name = "weasyprint" },
+    { name = "zstandard", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
+    { name = "zstandard", version = "0.25.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.13.*'" },
 ]
 
 [package.optional-dependencies]
@@ -589,6 +591,7 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
     { name = "watchdog", specifier = ">=4.0" },
     { name = "weasyprint", specifier = ">=68.1" },
+    { name = "zstandard", marker = "python_full_version < '3.14'", specifier = ">=0.23" },
 ]
 provides-extras = ["dev"]
 

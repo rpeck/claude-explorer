@@ -19,7 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import platformdirs
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
 
@@ -172,6 +172,18 @@ class Settings(BaseModel):
     #      ``~/.local/share/Claude`` on Linux,
     #      ``%APPDATA%/Claude`` on Windows).
     claude_desktop_app_dir: Path
+    # Root directory of the OpenAI Codex CLI (rollouts, ``session_index.jsonl``,
+    # ``state_5.sqlite``). Explorer only reads it. Precedence matches
+    # ``claude_dir``: ``CODEX_HOME`` env var, then ``config.json``
+    # ``codex_home``, then ``~/.codex``. The supervised watcher has no shell
+    # environment, so ``config.json`` is the reliable place for a custom home.
+    # The default serves direct ``Settings(...)`` calls; it still reads
+    # ``CODEX_HOME`` first, so the test isolation fixture applies to them.
+    codex_home: Path = Field(
+        default_factory=lambda: Path(
+            os.environ.get("CODEX_HOME") or Path.home() / ".codex"
+        )
+    )
     # Layer 1 of PLANS/2026.05.18-config-corruption-safe-mode.md.
     #
     # Set to a one-line, human-readable description of WHY the config
@@ -209,6 +221,7 @@ class Settings(BaseModel):
         )
         env_claude_dir = os.environ.get("CLAUDE_DIR")
         env_claude_desktop_app_dir = os.environ.get("CLAUDE_DESKTOP_APP_DIR")
+        env_codex_home = os.environ.get("CODEX_HOME")
 
         # Check config file (used as fallback for fields not set via env).
         # Prefer the canonical location; fall back to the legacy location
@@ -216,6 +229,7 @@ class Settings(BaseModel):
         config_data_dir: Path | None = None
         config_claude_dir: Path | None = None
         config_claude_desktop_app_dir: Path | None = None
+        config_codex_home: Path | None = None
         # Layer 1 (2026-05-18): accumulate per-candidate parse failures.
         # Joined with `` | `` into ``config_corrupt_reason`` at the bottom
         # of ``load``. The list is empty in the happy path (no parse
@@ -271,6 +285,8 @@ class Settings(BaseModel):
                     config_claude_desktop_app_dir = Path(
                         parsed["claude_desktop_app_dir"]
                     )
+                if "codex_home" in parsed:
+                    config_codex_home = Path(parsed["codex_home"])
                 break
             except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
                 log.warning(
@@ -327,10 +343,18 @@ class Settings(BaseModel):
             if config_claude_desktop_app_dir
             else platformdirs.user_data_path("Claude")
         )
+        codex_home = (
+            Path(env_codex_home)
+            if env_codex_home
+            else config_codex_home
+            if config_codex_home
+            else Path.home() / ".codex"
+        )
         return cls(
             data_dir=data_dir,
             claude_dir=claude_dir,
             claude_desktop_app_dir=claude_desktop_app_dir,
+            codex_home=codex_home,
             config_corrupt_reason=(
                 " | ".join(corruption_reasons) if corruption_reasons else None
             ),
