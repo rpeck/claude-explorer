@@ -583,6 +583,20 @@ def test_search_index_opens_after_the_opt_in(cloud: CloudEnv) -> None:
     assert si.get_search_index() is not None
 
 
+def test_mcp_outline_returns_the_messages_and_writes_no_outline_cache_while_the_gate_is_closed(
+    cloud: CloudEnv, mcp: Any
+) -> None:
+    desktop = _tool(mcp, "get_session_outline", conversation_id=DESKTOP_UUID)
+    code = _tool(mcp, "get_session_outline", conversation_id=CC_SESSION)
+
+    assert desktop["message_count"] == 1
+    assert [m["sender"] for m in desktop["messages"]] == ["human"]
+    assert NEEDLE in desktop["messages"][0]["summary"]
+    assert code["message_count"] == 2
+    assert NEEDLE in code["messages"][0]["summary"]
+    assert not (cloud.data_dir.parent / "cache.db").exists()
+
+
 # ---------------------------------------------------------------------------
 # Claude Code image capture and the pending folder
 # ---------------------------------------------------------------------------
@@ -726,6 +740,8 @@ def test_no_writer_adds_or_changes_a_file_under_the_cloud_folder(
     CliRunner().invoke(main, ["fetch", "--credentials", str(tmp_path / "missing.json")])
     _tool(mcp, "list_sessions")
     _tool(mcp, "list_sessions", query=NEEDLE)
+    _tool(mcp, "get_session_outline", conversation_id=DESKTOP_UUID)
+    _tool(mcp, "get_session_outline", conversation_id=CC_SESSION)
 
     assert _snapshot(cloud.data_dir.parent) == before
     assert cloud.src.calls == []
