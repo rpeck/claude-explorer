@@ -69,19 +69,38 @@ def _react_doctor_base() -> str:
     return "main"
 
 
+# `uv run` falls back to a tool on PATH when the venv lacks it. On 2026-11-18
+# the venv had lost its dev extras, and a Homebrew ruff 0.15.4 reported 33
+# false errors. Every uv step installs the dev extra, and this check runs first.
+DEV_TOOLS_CHECK = """\
+import shutil, sys
+from pathlib import Path
+venv = Path(sys.prefix).resolve()
+bad = []
+for tool in ("ruff", "pytest"):
+    found = shutil.which(tool)
+    if found is None or not Path(found).resolve().is_relative_to(venv):
+        bad.append(f"{tool}: {found}")
+if bad:
+    sys.exit("dev tools are not in the project venv (" + "; ".join(bad) + "). Run: uv sync --extra dev")
+"""
+UV_RUN = ["uv", "run", "--extra", "dev"]
+
+
 def default_sections() -> dict[str, list[Step]]:
     tests = ["backend/tests", "fetcher/tests", "mcp_server/tests"]
     return {
         "python": [
-            Step("ruff", ["uv", "run", "ruff", "check", "."]),
+            Step("dev tools come from the project venv", [*UV_RUN, "python", "-c", DEV_TOOLS_CHECK]),
+            Step("ruff", [*UV_RUN, "ruff", "check", "."]),
             Step("compile, SyntaxWarning as error", [
-                "uv", "run", "python", "-W", "error::SyntaxWarning", "-m", "compileall", "-q", "-f",
+                *UV_RUN, "python", "-W", "error::SyntaxWarning", "-m", "compileall", "-q", "-f",
                 "backend", "cli", "fetcher", "mcp_server",
             ]),
-            Step("pytest", ["uv", "run", "pytest", *tests, "--tb=short"]),
+            Step("pytest", [*UV_RUN, "pytest", *tests, "--tb=short"]),
             # addopts deselects the wall-clock tests; run them alone, without xdist.
             Step("pytest, serial tests", [
-                "uv", "run", "pytest", *tests, "-o", "addopts=", "-n0", "-m", "serial", "--tb=short",
+                *UV_RUN, "pytest", *tests, "-o", "addopts=", "-n0", "-m", "serial", "--tb=short",
             ]),
         ],
         "frontend": [
@@ -93,7 +112,7 @@ def default_sections() -> dict[str, list[Step]]:
             ], cwd="frontend"),
         ],
         "e2e": [
-            Step("e2e fixtures are generated", ["uv", "run", "python", "scripts/generate_e2e_fixtures.py"]),
+            Step("e2e fixtures are generated", [*UV_RUN, "python", "scripts/generate_e2e_fixtures.py"]),
             Step("e2e fixtures are current", ["git", "diff", "--exit-code", "--stat", "backend/tests/fixtures"]),
             Step("Playwright", ["npx", "playwright", "test", "--reporter=line"], cwd="frontend"),
         ],

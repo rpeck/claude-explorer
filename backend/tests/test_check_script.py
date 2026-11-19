@@ -359,3 +359,48 @@ def test_ci_runs_the_same_script() -> None:
     workflow = (REPO / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
     for section in ("python", "frontend", "e2e"):
         assert f"scripts/check.py --only {section}" in workflow
+
+
+# 2026-11-18: the venv had lost its dev extras, so `uv run ruff` ran a
+# Homebrew ruff 0.15.4 from PATH and reported 33 false E402 errors.
+
+
+def _sections() -> dict:
+    return runpy.run_path(str(SCRIPT))["default_sections"]()
+
+
+def test_every_uv_step_installs_the_dev_extra() -> None:
+    """`uv run --extra dev` installs the locked dev tools before the step."""
+    for section, steps in _sections().items():
+        for step in steps:
+            if step.argv[:2] == ["uv", "run"]:
+                assert step.argv[2:4] == ["--extra", "dev"], (section, step.name)
+
+
+def _dev_tools_check(path: str) -> subprocess.CompletedProcess:
+    code = runpy.run_path(str(SCRIPT))["DEV_TOOLS_CHECK"]
+    env = {**os.environ, "PATH": path}
+    return subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, check=False)
+
+
+def test_the_python_section_first_checks_where_the_dev_tools_come_from() -> None:
+    first = _sections()["python"][0]
+    assert first.argv[-2:] == ["-c", runpy.run_path(str(SCRIPT))["DEV_TOOLS_CHECK"]]
+
+
+def test_the_dev_tools_check_refuses_a_tool_from_outside_the_venv(tmp_path: Path) -> None:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    for tool in ("ruff", "pytest"):
+        fake = fake_bin / (tool + (".exe" if os.name == "nt" else ""))
+        fake.write_text("")
+        fake.chmod(0o755)
+    venv_bin = str(Path(sys.executable).parent)
+    result = _dev_tools_check(os.pathsep.join([str(fake_bin), venv_bin]))
+    assert result.returncode != 0
+    assert "uv sync --extra dev" in result.stderr
+
+
+def test_the_dev_tools_check_accepts_the_venv_tools() -> None:
+    result = _dev_tools_check(str(Path(sys.executable).parent))
+    assert result.returncode == 0, result.stderr
