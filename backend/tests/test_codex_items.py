@@ -557,6 +557,12 @@ def test_mcp_tool_call_error_shows_the_error_message(tmp_path: Path) -> None:
     assert _result_text(result) == "The docs server timed out."
 
 
+def test_mcp_tool_call_plain_string_error_shows_the_string(tmp_path: Path) -> None:
+    item = mcp_item(status="failed", result=None, error="The docs server timed out.")
+    _, _, result = _tool_pair(tmp_path, item)
+    assert _result_text(result) == "The docs server timed out."
+
+
 # ---------------------------------------------------------------------------
 # R3/R4: FileChange
 # ---------------------------------------------------------------------------
