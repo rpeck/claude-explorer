@@ -701,3 +701,23 @@ def test_the_template_says_to_attach_only_screenshots_of_the_synthetic_fixture_c
     assert "screenshot" in text
     assert "synthetic fixture" in text
     assert "only" in text
+
+
+# L6 (issue #73): each checklist item says exactly what to check.
+CHECKLIST_DESCRIPTION_WORDS = {
+    "source_filter": ("Codex", "only"),
+    "project_grouping": ("project folder",),
+    "search_jump": ("earch", "jump", "message"),
+    "detail_controls": ("Thread ID", "Codex name", "Codex home", "copy", "Show Tools", "notices"),
+    "export": ("Copy as Markdown", "Markdown", "PDF", "Thread ID", "Codex name", "Codex home"),
+    "mcp_tools": ("list_sessions", 'source="CODEX"', "get_session_outline", "unknown source", "error"),
+}
+
+
+@pytest.mark.xfail(strict=True, reason="L6 not implemented yet")
+@pytest.mark.parametrize("item", CHECKLIST)
+def test_each_checklist_item_has_a_description_of_what_to_check(item: str) -> None:
+    description = fields()[item]["attributes"].get("description", "")
+    assert description.strip(), f"{item} has no description"
+    missing = [w for w in CHECKLIST_DESCRIPTION_WORDS[item] if w not in description]
+    assert not missing, f"{item} description lacks {missing}: {description!r}"
