@@ -31,6 +31,8 @@ import orjson
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from fetcher.atomic import atomic_write_bytes
+
 from ..deps import refuse_if_config_corrupt
 
 logger = logging.getLogger(__name__)
@@ -134,18 +136,9 @@ def _write_all(bookmarks: list[Bookmark]) -> None:
     path = _resolve_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"bookmarks": [b.model_dump() for b in bookmarks]}
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    try:
-        tmp.write_bytes(
-            orjson.dumps(payload, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
-        )
-        tmp.replace(path)
-    except BaseException:
-        try:
-            tmp.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    atomic_write_bytes(
+        path, orjson.dumps(payload, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
+    )
 
 
 @router.get(

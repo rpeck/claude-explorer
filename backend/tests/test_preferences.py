@@ -197,7 +197,7 @@ def test__patch_preferences__os_replace_fails__original_byte_identical_no_tmp_le
     )
 
     # No .tmp leak in the parent directory.
-    leaked = list(prefs_file.parent.glob("preferences.json.tmp*"))
+    leaked = list(prefs_file.parent.glob(".preferences.json.*.tmp"))
     assert leaked == [], f"leaked tmp files after failed atomic write: {leaked}"
 
 
