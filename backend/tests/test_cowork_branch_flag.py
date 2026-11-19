@@ -14,9 +14,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-#: Only on the tests that need the fix: the guards pass today and must keep passing.
-L5 = pytest.mark.xfail(strict=True, reason="L5 not implemented yet")
-
 LIST_GOLDEN = Path(__file__).resolve().parent / "goldens" / "api" / "list.json"
 
 COWORK_UUIDS = {
@@ -92,10 +89,10 @@ def _list(api: TestClient, **params) -> list[dict]:
     "messages",
     [
         pytest.param(NO_PARENTS_ONE, id="no-parents-1"),
-        pytest.param(NO_PARENTS_TWO, id="no-parents-2", marks=L5),
-        pytest.param(NO_PARENTS_FIVE, id="no-parents-5", marks=L5),
+        pytest.param(NO_PARENTS_TWO, id="no-parents-2"),
+        pytest.param(NO_PARENTS_FIVE, id="no-parents-5"),
         pytest.param(LINEAR, id="linear"),
-        pytest.param(BRANCHED, id="branched", marks=L5),
+        pytest.param(BRANCHED, id="branched"),
         pytest.param([], id="empty"),
     ],
 )
@@ -106,7 +103,6 @@ def test_cowork_branch_flag_is_always_false(store, messages):
     assert get_adapter("CLAUDE_COWORK", store).branch_flag(data, messages) is False
 
 
-@L5
 def test_cowork_branch_flag_ignores_a_stored_true_flag(store):
     """A summary row has no messages; its cached ``has_branches`` must not leak."""
     from backend.sources.registry import get_adapter
@@ -132,14 +128,12 @@ def test_desktop_branch_flag_still_reads_a_stored_flag_without_messages(store):
 # --- the store list ----------------------------------------------------------------
 
 
-@L5
 def test_store_list_reports_no_branches_for_any_cowork_row(store):
     rows = store.list_conversations(source="CLAUDE_COWORK", show_archived=True)
     assert {r.uuid for r in rows} == COWORK_UUIDS
     assert {r.uuid: r.has_branches for r in rows} == dict.fromkeys(COWORK_UUIDS, False)
 
 
-@L5
 def test_store_summary_of_a_full_cowork_row_has_no_branches(store):
     """The full-content rows (search, export) carry the messages themselves."""
     rows = store._get_all_conversations_data("CLAUDE_COWORK", full_content=True)
@@ -157,7 +151,6 @@ def test_store_summary_of_a_full_cowork_row_has_no_branches(store):
     [{"show_archived": "true"}, {"source": "CLAUDE_COWORK", "show_archived": "true"}, {}],
     ids=["all-sources", "cowork-only", "default"],
 )
-@L5
 def test_api_list_reports_no_branches_for_any_cowork_row(api, params):
     rows = [r for r in _list(api, **params) if r["source"] == "CLAUDE_COWORK"]
     assert rows, "the corpus must list a Cowork row"
@@ -212,7 +205,6 @@ def _golden_rows() -> list[tuple[str, dict]]:
     return [(key, row) for key, rows in golden.items() for row in rows]
 
 
-@L5
 def test_list_golden_records_no_branches_for_any_cowork_row():
     cowork = [(key, row) for key, row in _golden_rows() if row["source"] == "CLAUDE_COWORK"]
     assert {row["uuid"] for _, row in cowork} == COWORK_UUIDS
