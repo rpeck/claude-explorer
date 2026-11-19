@@ -29,12 +29,12 @@ from backend.sources.codex import ARCHIVE_DIR, ROLLOUTS_DIR, THREADS_DIR
 
 REPORT_VERSION = 1
 
-# ThreadItemPayload at openai/codex f2d3086 (plan §3).
+# ThreadItemPayload at openai/codex f2d3086 (plan §3), plus ``Extension`` (``TurnItem`` in 0.170).
 KNOWN_ITEM_TYPES = frozenset({
     "UserMessage", "AgentMessage", "Reasoning", "CommandExecution", "ContextCompaction",
     "HookPrompt", "FunctionCallOutput", "Plan", "FileChange", "McpToolCall",
     "DynamicToolCall", "CollabAgentToolCall", "SubAgentActivity", "WebSearch",
-    "ImageView", "Sleep", "ImageGeneration", "EnteredReviewMode", "ExitedReviewMode",
+    "ImageView", "Sleep", "ImageGeneration", "EnteredReviewMode", "ExitedReviewMode", "Extension",
 })
 WARNING_KINDS = (
     "damaged_line", "unsupported_item", "orphan_tool_output",
