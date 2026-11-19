@@ -672,6 +672,22 @@ def reindex_search(full: bool) -> None:
         click.echo(f"Done. Re-indexed {updated} file(s).")
 
 
+@main.command("codex-report")
+@click.option("--json", "as_json", is_flag=True, help="Print the report as JSON")
+def codex_report(as_json: bool) -> None:
+    """Print counts about the Codex sessions, for a codex-verification issue.
+
+    Read-only: it copies nothing and writes nothing. The output holds no
+    message text, path, title, or id.
+    """
+    from backend.config import get_settings
+    from cli.codex_report import build_report, format_report
+
+    settings = get_settings()
+    report = build_report(Path(settings.codex_home), Path(settings.data_dir))
+    click.echo(json.dumps(report) if as_json else format_report(report))
+
+
 _PLACEHOLDER_TEXT = "This block is not supported on your current device yet."
 
 

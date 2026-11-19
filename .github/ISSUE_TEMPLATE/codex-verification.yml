@@ -1,0 +1,100 @@
+name: Codex verification
+description: Report a check of the Codex source on a work machine.
+title: "Codex verification: "
+labels: ["codex-verification"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for this check. Work transcripts must stay on your machine.
+
+        - Do not paste message text, file paths, session titles, or session ids.
+        - Attach only screenshots of the synthetic fixture corpus, never of your own sessions.
+        - The shape report below holds counts only, so you can paste it as it is.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Claude Explorer version (`claude-explorer --version`), Codex CLI version, and OS.
+      placeholder: "claude-explorer 1.2.0, codex-cli 0.164.0, macOS 15.6"
+    validations:
+      required: true
+  - type: textarea
+    id: shape_report
+    attributes:
+      label: Shape report
+      description: Paste the output of `uv run claude-explorer codex-report`.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: source_filter
+    attributes:
+      label: Source filter ("Codex")
+      options: ["Pass", "Fail"]
+    validations:
+      required: true
+  - type: input
+    id: source_filter_note
+    attributes:
+      label: Source filter note
+  - type: dropdown
+    id: project_grouping
+    attributes:
+      label: Project grouping
+      options: ["Pass", "Fail"]
+    validations:
+      required: true
+  - type: input
+    id: project_grouping_note
+    attributes:
+      label: Project grouping note
+  - type: dropdown
+    id: search_jump
+    attributes:
+      label: Search and the jump to a match
+      options: ["Pass", "Fail"]
+    validations:
+      required: true
+  - type: input
+    id: search_jump_note
+    attributes:
+      label: Search note
+  - type: dropdown
+    id: detail_controls
+    attributes:
+      label: Detail controls
+      options: ["Pass", "Fail"]
+    validations:
+      required: true
+  - type: input
+    id: detail_controls_note
+    attributes:
+      label: Detail controls note
+  - type: dropdown
+    id: export
+    attributes:
+      label: Export (copy, Markdown, PDF)
+      options: ["Pass", "Fail"]
+    validations:
+      required: true
+  - type: input
+    id: export_note
+    attributes:
+      label: Export note
+  - type: dropdown
+    id: mcp_tools
+    attributes:
+      label: MCP tools
+      options: ["Pass", "Fail"]
+    validations:
+      required: true
+  - type: input
+    id: mcp_tools_note
+    attributes:
+      label: MCP tools note
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots (synthetic fixture corpus only)
+      description: Never attach a screenshot of your own sessions.
