@@ -93,6 +93,7 @@ def default_sections() -> dict[str, list[Step]]:
         "python": [
             Step("dev tools come from the project venv", [*UV_RUN, "python", "-c", DEV_TOOLS_CHECK]),
             Step("ruff", [*UV_RUN, "ruff", "check", "."]),
+            Step("sources JSON is current", [*UV_RUN, "python", "scripts/generate_sources_json.py", "--check"]),
             Step("compile, SyntaxWarning as error", [
                 *UV_RUN, "python", "-W", "error::SyntaxWarning", "-m", "compileall", "-q", "-f",
                 "backend", "cli", "fetcher", "mcp_server",

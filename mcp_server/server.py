@@ -19,7 +19,7 @@ import sqlite3
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -33,6 +33,8 @@ from backend.export import (
 )
 from backend.models import ContentBlock, ConversationDetail, Message
 from backend.search import search_conversations
+from backend.sources.ids import SourceFilter
+from backend.sources.registry import get_descriptor, get_descriptors
 from backend.store import ConversationStore
 from mcp_server import __version__
 
@@ -288,6 +290,9 @@ def _build_outline(
     elif cached["leaf_message_uuid"] != leaf_uuid:
         # Branch changed - full regen
         need_full_regen = True
+    elif (d := get_descriptor(conversation.source)) is not None and d.messages_change_in_place:
+        # An old message can have changed; the append path would keep its stale summary.
+        need_full_regen = True
     elif msg_count < cached["message_count"]:
         # Messages decreased - full regen
         need_full_regen = True
@@ -474,8 +479,8 @@ def list_sessions(
     limit = min(max(1, limit), 100)
     offset = max(0, offset)
 
-    src: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all"
-    if source in ("CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"):
+    src: SourceFilter = "all"
+    if source in {d.id for d in get_descriptors()}:
         src = source  # type: ignore[assignment]
 
     if query:
@@ -564,8 +569,8 @@ def list_projects(
     """
     store = _get_store()
 
-    src: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all"
-    if source in ("CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"):
+    src: SourceFilter = "all"
+    if source in {d.id for d in get_descriptors()}:
         src = source  # type: ignore[assignment]
 
     convs = store.list_conversations(source=src)

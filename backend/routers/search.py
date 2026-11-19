@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..deps import get_store
 from ..models import SearchResponse
 from ..search import search_conversations
+from ..sources.ids import SourceFilter
 from ..store import ConversationStore
 
 log = logging.getLogger("uvicorn.error")
@@ -130,7 +131,7 @@ def _parse_csv_uuid_set(raw: str | None) -> set[str] | None:
 async def search(
     request: Request,
     q: str = Query(..., min_length=1, description="Search query"),
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = Query(
+    source: SourceFilter = Query(  # noqa: B008  (ruff treats only a bare Literal as immutable)
         "all", description="Filter by source"
     ),
     context_size: Literal["snippet", "full"] = Query(
@@ -240,7 +241,7 @@ class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     q: str = Field(..., min_length=1, description="Search query")
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = "all"
+    source: SourceFilter = "all"
     context_size: Literal["snippet", "full"] = "snippet"
     sort: Literal["updated_at", "created_at", "name", "project"] = "updated_at"
     sort_order: Literal["asc", "desc"] = "desc"
