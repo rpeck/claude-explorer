@@ -15,9 +15,11 @@ are not rebuilt here. They mark the session ``incomplete`` instead; slice 2
 
 from __future__ import annotations
 
+import re
 import uuid as uuid_mod
 from collections.abc import Iterable
 from typing import Any
+from urllib.parse import unquote
 
 import orjson
 
@@ -28,10 +30,11 @@ ENCRYPTED_REASONING = "Encrypted reasoning (not readable)"
 # Fixed, so a message id never changes between processes or versions.
 _NAMESPACE = uuid_mod.uuid5(uuid_mod.NAMESPACE_URL, "https://github.com/rpeck/claude-explorer/codex")
 
-# Record types that never hold a visible turn.
+# Record types that never hold a visible turn (``RolloutItem`` in Codex 0.170).
 _KNOWN_RECORD_TYPES = {
-    "session_meta", "turn_context", "response_item", "event_msg",
-    "world_state", "token_usage_record", "compacted",
+    "session_meta", "dynamic_tools_updated", "turn_context", "response_item", "event_msg",
+    "inter_agent_communication", "inter_agent_communication_metadata", "world_state",
+    "token_usage_record", "security_risk_score", "retained_context", "realtime_item", "compacted",
 }
 
 # Text that Codex injects into a user message as context (legacy history).
@@ -181,8 +184,16 @@ def _paginated_messages(
     warnings: list[str],
 ) -> list[dict[str, Any]]:
     # (turn id, item id) -> [first record, latest record]; a dict keeps first-seen order.
-    items: dict[tuple[str, str], list[RolloutRecord]] = {}
+    # An inter-agent message has no snapshots: its key is its line number.
+    items: dict[tuple[str, str] | int, list[RolloutRecord]] = {}
+    turns: dict[int, str | None] = {}  # line number -> the turn of an inter-agent message
+    turn: str | None = None
     for r in records:
+        if r.type == "turn_context":
+            turn = r.payload.get("turn_id") or turn
+        if r.type == "inter_agent_communication":
+            items[r.line_no] = [r, r]
+            turns[r.line_no] = r.payload.get("turn_id") or turn
         if not _is_item_completed(r) or not isinstance(r.payload.get("item"), dict):
             continue
         turn_id = str(r.payload.get("turn_id") or "")
@@ -191,7 +202,12 @@ def _paginated_messages(
         slot[1] = r
 
     messages = []
-    for (turn_id, item_id), (first, latest) in items.items():
+    for key, (first, latest) in items.items():
+        if isinstance(key, int):
+            turn = turns[key]
+            messages.append(_agent_message(first, thread_id, turn, turn_models.get(turn or "", "")))
+            continue
+        turn_id, item_id = key
         item = latest.payload["item"]
         item_type = item.get("type")
         if item_type == "ContextCompaction":
@@ -203,8 +219,10 @@ def _paginated_messages(
             blocks = [_text(c.get("text", "")) for c in item.get("content") or [] if isinstance(c, dict) and c.get("text")]
         elif item_type == "Reasoning":
             blocks = [_reasoning(item.get("summary_text") or [])]
-        elif item_type == "CommandExecution":
-            blocks = _command(item)
+        elif item_type == "Extension":
+            blocks = _tool(item, *_extension(item, warnings))
+        elif item_type in _TOOL_ITEMS:
+            blocks = _tool(item, *_TOOL_ITEMS[item_type](item))
         else:
             blocks = [_unsupported(str(item_type), warnings)]
         if not blocks:
@@ -231,17 +249,129 @@ def _user_content(content: Any) -> list[dict[str, Any]]:
     return blocks
 
 
-def _command(item: dict[str, Any]) -> list[dict[str, Any]]:
-    command = item.get("command")
+def _tool(item: dict[str, Any], name: str, tool_input: dict[str, Any], output: str) -> list[dict[str, Any]]:
+    # Only tool blocks, so the message shows and hides with Show Tools.
+    tool_id = str(item.get("id") or "")
+    return [
+        {"type": "tool_use", "id": tool_id, "name": name, "input": tool_input},
+        {"type": "tool_result", "tool_use_id": tool_id, "content": [_text(output)]},
+    ]
+
+
+def _command(item: dict[str, Any]) -> tuple[str, dict[str, Any], str]:
     output = item.get("aggregated_output") or ""
     exit_code = item.get("exit_code")
     if exit_code not in (None, 0):
         output = f"{output}\n[exit code {exit_code}]" if output else f"[exit code {exit_code}]"
-    tool_id = str(item.get("id") or "")
-    return [
-        {"type": "tool_use", "id": tool_id, "name": "shell", "input": {"command": command, "cwd": item.get("cwd")}},
-        {"type": "tool_result", "tool_use_id": tool_id, "content": [_text(output)]},
-    ]
+    return "shell", {"command": item.get("command"), "cwd": item.get("cwd")}, output
+
+
+def _mcp_tool_call(item: dict[str, Any]) -> tuple[str, dict[str, Any], str]:
+    # McpToolCallItem fields are camelCase.
+    result = item.get("result") if isinstance(item.get("result"), dict) else {}
+    output = _output_text(result.get("content") or [])
+    if not output and result.get("structuredContent") is not None:
+        output = orjson.dumps(result["structuredContent"]).decode()
+    error = item.get("error")
+    if isinstance(error, dict):
+        error = error.get("message")
+    if isinstance(error, str) and error:
+        output = _lines(output, error)
+    name = ".".join(str(p) for p in (item.get("server"), item.get("tool")) if p) or "mcp"
+    return name, _decode_json_text(item.get("arguments", {})), output
+
+
+def _file_change(item: dict[str, Any]) -> tuple[str, dict[str, Any], str]:
+    changes = item.get("changes") if isinstance(item.get("changes"), dict) else {}
+    output = _lines(*(s for s in (item.get("stdout"), item.get("stderr")) if isinstance(s, str)))
+    if item.get("status") in ("failed", "declined"):
+        output = _lines(output, f"[status: {item['status']}]")
+    return "apply_patch", {"changes": changes}, output
+
+
+def _collab_agent_tool_call(item: dict[str, Any]) -> tuple[str, dict[str, Any], str]:
+    states = item.get("agents_states")
+    output = _lines(*(f"{t}: {_agent_status(s)}" for t, s in states.items())) if isinstance(states, dict) else ""
+    name = str(item.get("tool") or "collab_agent")
+    return name, _present(item, "prompt", "receiver_thread_ids", "model"), output
+
+
+def _agent_status(status: Any) -> str:
+    # AgentStatus: "running", or {"completed": <final message or null>} / {"errored": <message>}.
+    if isinstance(status, dict) and status:
+        kind, detail = next(iter(status.items()))
+        return f"{kind}: {detail}" if detail else str(kind)
+    return str(status)
+
+
+def _subagent_activity(item: dict[str, Any]) -> tuple[str, dict[str, Any], str]:
+    output = " ".join(str(item[k]) for k in ("kind", "agent_path") if item.get(k))
+    return "subagent", _present(item, "kind", "agent_path", "agent_thread_id", "model"), output
+
+
+def _image_view(item: dict[str, Any]) -> tuple[str, dict[str, Any], str]:
+    path = item.get("path")
+    # 0.170 writes a file:// URI, older versions a plain path.
+    name = unquote(path) if isinstance(path, str) and path.startswith("file:") else path
+    return "view_image", {"path": path}, _image_label({"type": "local_image", "path": name})["text"]
+
+
+_EXTENSION_KIND_RE = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+
+
+def _extension(item: dict[str, Any], warnings: list[str]) -> tuple[str, dict[str, Any], str]:
+    """``ExtensionItem``: ``kind`` names its schema, and its fields are camelCase."""
+    kind = item.get("kind")
+    if kind == "web.search":
+        results = item.get("results") if isinstance(item.get("results"), list) else []
+        urls = _lines(*(str(r["url"]) for r in results if isinstance(r, dict) and r.get("url")))
+        return "web_search", _present(item, "query", "action"), urls
+    if kind == "clock.sleep":
+        return "sleep", _present(item, "durationMs"), ""
+    if kind == "image_gen.generation":
+        # Never the inline ``result`` (base64 image data), and never a read of ``savedPath``.
+        label = _image_label({"type": "local_image", "path": item.get("savedPath")})["text"]
+        return "image_generation", _present(item, "revisedPrompt"), label
+    named = isinstance(kind, str) and _EXTENSION_KIND_RE.fullmatch(kind)
+    warnings.append(f"unknown Codex extension kind: {kind}" if named else "unknown Codex extension kind")
+    name = kind if isinstance(kind, str) and kind else "extension"
+    return name, {k: v for k, v in item.items() if k not in ("type", "id", "kind")}, ""
+
+
+_TOOL_ITEMS = {
+    "CommandExecution": _command,
+    "McpToolCall": _mcp_tool_call,
+    "FileChange": _file_change,
+    "CollabAgentToolCall": _collab_agent_tool_call,
+    "SubAgentActivity": _subagent_activity,
+    "ImageView": _image_view,
+}
+
+
+def _present(item: dict[str, Any], *keys: str) -> dict[str, Any]:
+    return {k: item[k] for k in keys if item.get(k) is not None}
+
+
+def _lines(*parts: str) -> str:
+    return "\n".join(p for p in parts if p)
+
+
+def _agent_message(
+    r: RolloutRecord, thread_id: str, turn_id: str | None, model: str
+) -> dict[str, Any]:
+    """An ``inter_agent_communication`` record: a message between agents, in both history modes."""
+    p = r.payload
+    content = p.get("content") if isinstance(p.get("content"), str) else ""
+    if not content and p.get("encrypted_content"):
+        content = "[Encrypted agent message]"  # never decode it
+    comm_id = p.get("id") if isinstance(p.get("id"), str) and p.get("id") else None
+    msg_uuid = (
+        message_uuid(thread_id, turn_id=turn_id, item_id=comm_id)
+        if comm_id else message_uuid(thread_id, line_no=r.line_no)
+    )
+    blocks = _tool({"id": comm_id or f"line-{r.line_no}"}, "agent_message",
+                   _present(p, "author", "recipient", "trigger_turn"), content)
+    return _message(msg_uuid, "assistant", blocks, r.timestamp, r.timestamp, model)
 
 
 # ---------------------------------------------------------------------------
@@ -255,9 +385,14 @@ def _legacy_messages(
     messages: list[dict[str, Any]] = []
     calls: dict[str, dict[str, Any]] = {}  # call_id -> the message that holds the call
     model = ""
+    turn: str | None = None
     for r in records:
         if r.type == "turn_context":
             model = r.payload.get("model") or model
+            turn = r.payload.get("turn_id") or turn
+            continue
+        if r.type == "inter_agent_communication":
+            messages.append(_agent_message(r, thread_id, r.payload.get("turn_id") or turn, model))
             continue
         if r.type != "response_item":
             continue
