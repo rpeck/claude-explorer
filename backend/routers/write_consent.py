@@ -43,8 +43,14 @@ def refuse_if_cloud_sync_gate() -> None:
 
     A fetch refuses before any network call. The message names the folder
     and the provider. Put it after ``refuse_if_config_corrupt``.
+
+    It reads the config again, as ``run_archive_syncs`` does. A config that
+    broke since the cached read gets the corrupt-config 503, because a
+    corrupt config always wins over the cloud gate.
     """
-    block = cloud_sync_block(get_settings())
+    get_settings.cache_clear()
+    settings = refuse_if_config_corrupt(get_settings())
+    block = cloud_sync_block(settings)
     if block is not None:
         raise HTTPException(status_code=409, detail=cloud_sync_message(block))
 
