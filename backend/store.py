@@ -376,13 +376,13 @@ def _cowork_files_key(session_dir: Path) -> tuple:
 
 
 def _cowork_summary(data: dict[str, Any]) -> dict[str, Any]:
-    """A Cowork conversation without its messages, plus the counts and the
-    branch flag that ``_make_summary`` would have computed from them."""
+    """A Cowork conversation without its messages, plus the counts that
+    ``_make_summary`` would have computed from them. A Cowork session has no
+    branches, so the summary needs no branch flag."""
     messages = data.get("chat_messages") or []
     summary = {k: v for k, v in data.items() if k not in _COWORK_HEAVY_KEYS}
     summary["message_count"] = len(messages)
     summary["human_message_count"] = sum(1 for m in messages if m.get("sender") == "human")
-    summary["has_branches"] = has_branches(messages)
     return summary
 
 
