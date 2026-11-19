@@ -36,6 +36,10 @@ _SCAN_EXCLUDE_DIRS = frozenset({
     ".eggs",
     ".tox",
     "frontend",  # JS only; defensive
+    # Nested git worktrees are other checkouts, with their own copy of
+    # this file; the self-exclusion by path cannot see those copies.
+    ".worktrees",
+    "worktrees",
 })
 
 # The only permitted occurrence of the old module name. Resolved at
@@ -111,3 +115,15 @@ def test_no_stale_imports() -> None:
         + "\n  - ".join(sorted(offenders))
         + "\nUpdate them to `cc_watcher` per Task B3 (hard cut, no shim)."
     )
+
+
+def test_scan_skips_nested_worktrees(tmp_path: Path) -> None:
+    """A nested worktree is another checkout, not this source tree."""
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "backend" / "kept.py").write_text("x = 1\n")
+    for nested in (".worktrees/feat/x", "worktrees/feat/y"):
+        copy = tmp_path / nested / "backend" / "tests" / "copy.py"
+        copy.parent.mkdir(parents=True)
+        copy.write_text("cc_image_watcher\n")
+    scanned = {p.relative_to(tmp_path).as_posix() for p in _iter_scanned_py_files(tmp_path)}
+    assert scanned == {"backend/kept.py"}
