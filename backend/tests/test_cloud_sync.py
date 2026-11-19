@@ -18,8 +18,6 @@ import pytest
 
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N3 not implemented yet")
-
 _ENV_VARS = (
     "OneDrive",
     "OneDriveCommercial",

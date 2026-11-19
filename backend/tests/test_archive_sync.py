@@ -21,8 +21,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N3 not implemented yet")
-
 STEM = "rollout-2026-11-18T10-00-00-0199a7b2-1111-7222-8333-444455556666"
 
 
