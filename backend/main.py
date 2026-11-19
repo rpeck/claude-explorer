@@ -73,6 +73,7 @@ from .routers import (
     search,
     shutdown,
     watcher_health,
+    write_consent,
 )
 
 # Exact-match pattern for the conversation-detail route.
@@ -311,7 +312,14 @@ async def lifespan(app: FastAPI):
 
     # Startup: verify data directory exists
     settings = get_settings()
-    if not settings.data_dir.exists():
+    # Plan D13: while the cloud-sync gate is closed, startup writes nothing
+    # into the data folder (no folder, no layout migration).
+    from .write_gate import cloud_sync_block, cloud_sync_message
+
+    cloud_block = cloud_sync_block(settings)
+    if cloud_block is not None:
+        log.warning("%s", cloud_sync_message(cloud_block))
+    elif not settings.data_dir.exists():
         print(f"Warning: Data directory does not exist: {settings.data_dir}")
         print("Creating directory...")
         settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -328,6 +336,9 @@ async def lifespan(app: FastAPI):
         "CLAUDE_EXPLORER_SKIP_MIGRATION", "CLAUDE_EXPORTER_SKIP_MIGRATION"
     ) == "1":
         log.info("Skipping lifespan migration (CLAUDE_EXPLORER_SKIP_MIGRATION=1).")
+        _migration_state["status"] = "skipped"
+    elif cloud_block is not None:
+        log.info("Skipping lifespan migration: the cloud-sync gate is closed.")
         _migration_state["status"] = "skipped"
     else:
         from fetcher.credentials import DEFAULT_CREDENTIALS_PATH
@@ -1022,6 +1033,7 @@ app.include_router(preferences.router, prefix="/api")
 app.include_router(orgs.router, prefix="/api")
 app.include_router(account.router, prefix="/api")
 app.include_router(shutdown.router, prefix="/api")
+app.include_router(write_consent.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 # watcher_health endpoint paths already include the /api prefix.
 app.include_router(watcher_health.router)

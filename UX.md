@@ -706,6 +706,57 @@ rule 1). Plan: `PLANS/2026.10.28-header-copy-buttons.md`.
 - Incremental fetches re-download a conversation whose server
   `updated_at` is newer than the local copy, not only conversations
   missing from disk.
+- **Every fetch first copies the local sources into the archive** (the
+  Codex sessions, from slice 1 of the Codex plan). The copy runs before the
+  capture, so it runs also without credentials.
+  - It waits up to 60 s for another writer (the watcher, the CLI, an MCP
+    server). If the lock stays busy, the toast shows "Another Claude
+    Explorer process is copying the Codex sessions into the archive. This
+    fetch skipped the copy; the next one does it." (`phase: "codex"`), and
+    the claude.ai fetch continues.
+- **The cloud-sync gate refuses a fetch** (see "Cloud-sync gate" below).
+  Refresh, **Fetch New**, **Full Refresh**, and **Re-download** get HTTP
+  409 before any network call. The message names the folder and the
+  provider.
+
+### Cloud-sync gate
+
+Work transcripts must not reach a cloud service by accident. So Explorer
+writes nothing into a folder that a cloud client syncs, until the user
+allows it (plan D13).
+
+- **What counts as cloud-synced:** the data folder, `search-index.sqlite`,
+  or `cc-images/` is under iCloud Drive, a Dropbox root, a OneDrive root, a
+  Google Drive root, or `~/Library/CloudStorage/`. Symlinks are followed.
+  When detection cannot decide, the folder counts as cloud-synced.
+  - Detection is best effort: a sync client that is not in this list is
+    not detected.
+- **While the gate is closed:**
+  - Refresh and the other fetch actions are refused (HTTP 409).
+  - A settings change is not saved on the server (`PUT` and `PATCH
+    /api/preferences` get HTTP 409). The page keeps it in the browser's
+    local storage.
+  - The archive copy of the local sources is skipped.
+  - The search index and the list-summary cache write nothing. Search
+    uses its linear-scan fallback, and the list reads each session.
+  - Startup does not create the data folder or run the layout migration.
+  - New Claude Code images go to `~/.claude-explorer/cc-images-pending/`
+    (the `cc-images/` layout), and the viewer shows them from there. If
+    that folder is cloud-synced too, they go to the platform cache folder.
+    No image is skipped.
+- **To allow the writes:** the consent dialog (next Codex node) calls
+  `POST /api/write-consent/cloud-sync` with the folder and the provider
+  that it showed. The route needs the header
+  `X-Claude-Explorer-Action: allow-cloud-sync-writes` and a same-origin or
+  loopback `Origin`. It writes `allow_writes_in_cloud_sync` (the resolved
+  data folder) into `~/.claude-explorer/config.json`.
+  - Until the dialog exists, a developer adds that key by hand.
+  - A moved data folder no longer matches the key, so the gate closes
+    again.
+- **After the opt-in:** the next watcher scan moves each pending image
+  into `cc-images/` (copy, `fsync`, size check, then delete the pending
+  copy).
+- **To revoke:** delete the key. The data that is already there stays.
 
 ### Which sessions the list shows
 
