@@ -141,6 +141,25 @@ def isolate_search_index_singleton(tmp_path_factory, monkeypatch) -> Iterator[No
         sc.reset_summary_cache_for_tests()
 
 
+@pytest.fixture(autouse=True)
+def isolate_codex_home(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
+    """Point CODEX_HOME at an existing, empty temp folder, so no MCP test
+    reads the developer's real ``~/.codex``. Mirrors
+    ``_isolate_codex_home`` in ``backend/tests/conftest.py``.
+    """
+
+    from backend import config
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path_factory.mktemp("codex_home_isolated")))
+    config.get_settings.cache_clear()
+    try:
+        yield
+    finally:
+        config.get_settings.cache_clear()
+
+
 # ---------------------------------------------------------------------------
 # Module-singleton reset
 # ---------------------------------------------------------------------------

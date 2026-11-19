@@ -164,6 +164,27 @@ def _isolate_cowork_app_dir(
 
 
 @pytest.fixture(autouse=True)
+def _isolate_codex_home(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+):
+    """Autouse: point CODEX_HOME at an existing, empty temp folder.
+
+    Without this, ``Settings.codex_home`` falls back to the developer's
+    real ``~/.codex``, and no test may read that (plan §5, D10). Tests that
+    want Codex data build one with ``backend.tests.codex_fake`` and point
+    CODEX_HOME at it with ``monkeypatch``; their setting wins.
+    """
+    from backend import config
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path_factory.mktemp("codex_home_isolated")))
+    config.get_settings.cache_clear()
+    try:
+        yield
+    finally:
+        config.get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _skip_pdf_tests_when_weasyprint_unavailable(request):
     """Skip PDF-export tests with a clear, actionable message instead of a
     cryptic CFFI ``OSError`` when WeasyPrint native libs (libgobject, libpango,
