@@ -735,24 +735,8 @@ def export_session(
         end = (end_position + 1) if end_position is not None else len(msgs)
         start = max(0, start)
         end = min(len(msgs), end)
-        # Create a copy with sliced messages
-        conversation = ConversationDetail(
-            uuid=conversation.uuid,
-            name=conversation.name,
-            summary=conversation.summary,
-            model=conversation.model,
-            created_at=conversation.created_at,
-            updated_at=conversation.updated_at,
-            is_starred=conversation.is_starred,
-            message_count=conversation.message_count,
-            human_message_count=conversation.human_message_count,
-            has_branches=conversation.has_branches,
-            source=conversation.source,
-            project_path=conversation.project_path,
-            messages=msgs[start:end],
-            current_leaf_message_uuid=conversation.current_leaf_message_uuid,
-            file_path=conversation.file_path,
-        )
+        # model_copy keeps every field; a field-by-field rebuild dropped new ones.
+        conversation = conversation.model_copy(update={"messages": msgs[start:end]})
 
     return conversation_to_markdown(conversation, include_tools=include_tools)
 
