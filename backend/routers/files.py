@@ -328,21 +328,26 @@ def get_cc_image(path: str = Query(..., description="Absolute path under ~/.clau
     # dir name (sess) + stem (N), and glob for any sha8 variant in any
     # conv-uuid subdir. Multiple candidates (re-fetch with different
     # bytes) → pick the newest mtime.
-    from ..cc_image_cache import cache_dir
+    # The pending folder holds the images captured while the cloud-sync
+    # gate is closed (plan D13).
+    from ..cc_image_cache import image_dirs
 
     sess = candidate.parent.name
     n = candidate.stem
     ext = candidate.suffix.lstrip(".") or "png"
-    cache_root = cache_dir()
-    if cache_root.exists():
-        candidates = list(cache_root.glob(f"*/{sess}--{n}.*.{ext}"))
-        if candidates:
-            best = max(candidates, key=lambda x: x.stat().st_mtime)
-            # CWE-732: same readable check as the live-file branch above.
-            if not os.access(best, os.R_OK):
-                logger.warning("readable check failed: %s", best)
-                raise HTTPException(status_code=403, detail="file not readable")
-            return FileResponse(best, media_type=media_type, headers=cache_headers)
+    candidates = [
+        hit
+        for cache_root in image_dirs()
+        if cache_root.exists()
+        for hit in cache_root.glob(f"*/{sess}--{n}.*.{ext}")
+    ]
+    if candidates:
+        best = max(candidates, key=lambda x: x.stat().st_mtime)
+        # CWE-732: same readable check as the live-file branch above.
+        if not os.access(best, os.R_OK):
+            logger.warning("readable check failed: %s", best)
+            raise HTTPException(status_code=403, detail="file not readable")
+        return FileResponse(best, media_type=media_type, headers=cache_headers)
 
     # CWE-200: don't echo the resolved candidate path back to the
     # client — that leaks the server's on-disk layout. Log it

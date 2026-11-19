@@ -88,8 +88,9 @@ the drag-drop Claude Desktop extension that wraps `mcp_server.server`'s
    modules `backend.store` / `backend.search` lazy-import at call time
    (`backend.cowork_reader`, `backend.summary_cache`,
    `backend.search_index`).
-3. Writes a stripped `pyproject.toml` with ONLY the 4 deps the MCP
-   path uses (`fastmcp`, `pydantic`, `orjson`, `platformdirs`).
+3. Writes a stripped `pyproject.toml` with ONLY the 5 deps the MCP
+   path uses (`fastmcp`, `pydantic`, `orjson`, `platformdirs`,
+   `portalocker`; the last one is the archive lock).
 4. Writes `manifest.json` with `manifest_version: "0.4"` +
    `server.type: "uv"` — Claude Desktop ships Node but not Python,
    so UV resolves + installs on the user's machine on first launch.
@@ -573,7 +574,36 @@ When `~/.claude-explorer/config.json` fails to parse (editor crash mid-save, tru
 
 **`install-watcher` is intentionally EXEMPT** from the writer gate. The launcher template lives under `~/Library/LaunchAgents/` (or systemd/Task Scheduler equivalents), NOT under `data_dir`, AND the supervised watcher IS the recovery path the user needs to reach when config is corrupt. Gating it would lock the user out of recovery. The CLI test `test_install_watcher_runs_when_config_corrupt` pins this exemption as a HARD invariant — do not remove.
 
-**`cc_watcher.scan_once` is also NOT gated.** Blocking the background CC image-cache watcher during corrupt-config would cause the data loss it exists to prevent (Claude Code rotates images off disk while the watcher is blocked). Future enhancement: log a WARNING when scan_once runs against a corrupt config so the failure is visible in supervised-job logs.
+**`cc_watcher.scan_once` is also NOT gated.** Blocking the background CC image-cache watcher during corrupt-config would cause the data loss it exists to prevent (Claude Code rotates images off disk while the watcher is blocked). Only its archive copy of the local sources skips (plan D9): `backend/write_gate.py:run_archive_syncs` logs one WARNING line per pass, and image capture and the drift pass still run.
+
+## Archive copy and the cloud-sync gate
+
+Every caller copies the local sources into the archive through
+`backend/write_gate.py:run_archive_syncs(store, reason, lock_timeout_s)`
+(PLANS/2026.11.18-codex-source.md §4.3). It checks two gates in order,
+corrupt config and then cloud sync, and then calls each adapter's
+`archive_sync` in registry order.
+
+- **Callers and their lock wait:**
+  - **Watcher** (`_event_drift_pass`, the backstop `_backstop_drift_pass`): no wait, inside the drift single-flight. A busy lock calls `_schedule_drift`, so the copy runs again after the debounce.
+  - **Refresh, `/fetch/start`:** up to 60 s in a worker thread, before the capture. A busy lock sends a `progress` frame with `phase: "codex"`, and the fetch continues.
+  - **`claude-explorer fetch`:** up to 60 s, before the credentials load.
+  - **MCP:** no wait, inline, at most once per debounce interval; a busy lock gives `sync_pending: true`.
+- **`write_gate.py` stays MCP-safe:** it imports neither `backend.cc_watcher`, `backend.deps`, nor a router.
+- **Watch roots:** the watcher starts one observer per `WatchRoot` of each adapter and matches its patterns. A root with `create=False` (another tool's home) is never created; a missing one gets its watch after a later backstop scan. The Cowork root also matches the session sidecar `local_*.json`.
+
+**Cloud-sync gate (plan D13).** No Explorer writer puts data into a folder that a cloud client syncs until the user opts in. `write_gate.cloud_sync_block(settings)` returns `(provider, folder)` while the gate is closed.
+
+- **Detection:** `backend/cloud_sync.py`, on `data_dir`, `search-index.sqlite`, and `cc-images/`. It fails closed.
+- **Opt-in:** `allow_writes_in_cloud_sync` in `config.json` must equal the resolved `data_dir`. `POST /api/write-consent/cloud-sync` (`backend/routers/write_consent.py`) writes it, with the `shutdown` route's header and Origin rules and the corrupt-config gate.
+- **While closed:**
+  - The fetch routes return 409 before any network call; the CLI `fetch` refuses. The preferences `PUT` and `PATCH` also return 409 (`write_consent.refuse_if_cloud_sync_gate`, after the corrupt-config dependency).
+  - The MCP outline cache (`cache.db`) is built in memory.
+  - The archive copy skips.
+  - `get_search_index()` and `get_summary_cache()` return `None`.
+  - The lifespan creates no data folder and skips the layout migration.
+  - New Claude Code images go to `cc_image_cache.pending_dir()`. `scan_once` moves them into `cc-images/` after the opt-in.
+- **A new writer** into `data_dir` or its siblings must check `cloud_sync_block` too.
 
 ## Host-header guard (DNS rebinding)
 

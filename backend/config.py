@@ -204,6 +204,11 @@ class Settings(BaseModel):
     # this field surfaces the broken one to the user so the silent
     # data-dir orphaning failure mode can't recur.
     config_corrupt_reason: str | None = None
+    # Plan D13: the resolved ``data_dir`` that the user allowed Explorer to
+    # write in although a cloud client syncs it (``config.json`` only, never
+    # an env var). A moved ``data_dir`` no longer matches, so the gate closes
+    # again. See ``backend/write_gate.py``.
+    allow_writes_in_cloud_sync: str | None = None
 
     @classmethod
     def load(cls) -> "Settings":
@@ -230,6 +235,7 @@ class Settings(BaseModel):
         config_claude_dir: Path | None = None
         config_claude_desktop_app_dir: Path | None = None
         config_codex_home: Path | None = None
+        allow_writes_in_cloud_sync: str | None = None
         # Layer 1 (2026-05-18): accumulate per-candidate parse failures.
         # Joined with `` | `` into ``config_corrupt_reason`` at the bottom
         # of ``load``. The list is empty in the happy path (no parse
@@ -287,6 +293,8 @@ class Settings(BaseModel):
                     )
                 if "codex_home" in parsed:
                     config_codex_home = Path(parsed["codex_home"])
+                if isinstance(parsed.get("allow_writes_in_cloud_sync"), str):
+                    allow_writes_in_cloud_sync = parsed["allow_writes_in_cloud_sync"]
                 break
             except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
                 log.warning(
@@ -355,6 +363,7 @@ class Settings(BaseModel):
             claude_dir=claude_dir,
             claude_desktop_app_dir=claude_desktop_app_dir,
             codex_home=codex_home,
+            allow_writes_in_cloud_sync=allow_writes_in_cloud_sync,
             config_corrupt_reason=(
                 " | ".join(corruption_reasons) if corruption_reasons else None
             ),

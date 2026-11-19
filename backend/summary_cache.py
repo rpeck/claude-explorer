@@ -486,6 +486,12 @@ def get_summary_cache() -> SummaryCache | None:
     :func:`reset_summary_cache_for_tests` to reset between tests.
     """
     global _summary_cache
+    # Plan D13: while the cloud-sync gate is closed, list summaries are not cached.
+    from .config import get_settings
+    from .write_gate import cloud_sync_block
+
+    if cloud_sync_block(get_settings()) is not None:
+        return None
     if _summary_cache is not None:
         return _summary_cache
 
