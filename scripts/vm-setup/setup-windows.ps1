@@ -1,14 +1,21 @@
-# setup-windows.ps1 - Phase A (system prep) of the cross-platform install
-# verification plan. Run INSIDE a fresh Windows 11 ARM64 VM AFTER
-# Windows Update + reboot completes.
+# setup-windows.ps1 - Phase A (system prep) for the cross-platform install
+# verification on Windows 11 ARM64. Run INSIDE a fresh Windows 11 ARM64 VM
+# AFTER Windows Update + reboot completes.
 #
-# Covers plan steps A5 (Python 3.13) and A6 (pipx + ensurepath).
 # Plan reference: PLANS/__archive/testing/TEST_WINDOWS_LINUX_INSTALLATION.md sections A5-A6.
+# Companion to scripts/vm-setup/setup-ubuntu.sh (same pattern, uv-based).
 #
-# Run in PowerShell (no admin needed for user-scope installs):
-#   .\setup-windows.ps1
+# What this does:
+#   * Installs uv (Astral's Python package + Python interpreter manager,
+#     ARM64-native binary on Win ARM64 hosts)
+#   * Reloads PATH from the registry so uv is callable in this session
+#   * Installs an x86_64 build of Python 3.13 via uv (the ecosystem
+#     workaround for missing arm64-win wheels of cryptography / httptools
+#     / Brotli - x86_64 Python runs under Prism translation at near-native
+#     speed). On x86_64 Windows hosts this still works fine; uv picks the
+#     right build.
 #
-# Idempotent: safe to re-run.
+# Idempotent: re-running is safe.
 
 $ErrorActionPreference = "Stop"
 
@@ -20,97 +27,57 @@ function Separator {
     Write-Host "================================================================"
 }
 
-# --- A5: Install Python 3.13 via winget --------------------------------------
-Separator "A5: Install Python 3.13 via winget"
+# --- Detect host architecture (affects which Python build we install) -------
+Separator "Detecting host architecture"
 
-# Check if Python 3.13 is already installed (idempotent).
-$pythonVersion = $null
-try {
-    $pythonVersion = & python --version 2>&1
-} catch {
-    $pythonVersion = $null
-}
-
-if ($pythonVersion -match "Python 3\.13\.") {
-    Write-Host "Python 3.13 already installed: $pythonVersion"
+$hostArch = (Get-CimInstance Win32_Processor).Architecture
+# Win32_Processor.Architecture: 0 = x86, 5 = ARM, 9 = x64, 12 = ARM64
+$isArm64 = ($hostArch -eq 12)
+if ($isArm64) {
+    Write-Host "Host is Windows ARM64 - installing x86_64 Python build under Prism (ecosystem wheel workaround)"
+    $pythonBuild = "cpython-3.13.14-windows-x86_64-none"
 } else {
-    Write-Host "Installing Python 3.13 via winget..."
-    # --source winget: bypass the msstore source (msstore lookups can hit
-    # certificate errors on Insider Preview builds — 0x8a15005e — and the
-    # Python.Python.3.13 package is in the winget source anyway).
-    # --silent suppresses installer GUI; --accept-source-agreements skips
-    # the winget repository terms prompt; --scope user installs to
-    # %LOCALAPPDATA% (no admin needed).
-    winget install --id Python.Python.3.13 --source winget --silent --accept-source-agreements --accept-package-agreements --scope user
-    # Acceptable winget exit codes:
-    #   0           = installed
-    #   -1978335189 = APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE (already installed, no upgrade available)
-    #   -1978335153 = APPINSTALLER_CLI_ERROR_NO_APPLICABLE_INSTALLER (race when invoked twice; the other run installed it)
-    $okCodes = @(0, -1978335189, -1978335153)
-    if (-not ($okCodes -contains $LASTEXITCODE)) {
-        throw "winget install Python.Python.3.13 failed with exit code $LASTEXITCODE"
-    }
+    Write-Host "Host is Windows x86_64 - installing native x86_64 Python"
+    $pythonBuild = "cpython-3.13.14-windows-x86_64-none"
 }
 
-# CRITICAL PATH PROPAGATION (Cross-platform gotcha section 5):
-# winget updates the user-profile PATH in the registry, but this PowerShell
-# session has a stale copy. Reload PATH from registry so subsequent commands
-# (pip install, python -m pipx, etc.) can find python.exe.
+# --- Install uv -------------------------------------------------------------
+Separator "Installing uv (Astral)"
+
+$uvBin = Join-Path $env:USERPROFILE ".local\bin\uv.exe"
+if (Test-Path $uvBin) {
+    Write-Host "uv already installed at $uvBin"
+} else {
+    powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
+}
+
+# Reload PATH from registry so uv is callable in THIS session (the installer
+# updated user PATH but the current process env doesn't see it).
 $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 $env:Path = "$machinePath;$userPath"
 
-# Verify python is now callable in this session.
-$pythonVersion = & python --version 2>&1
-if ($pythonVersion -notmatch "Python 3\.13\.") {
-    Write-Host "FAIL: python --version returned '$pythonVersion' (expected Python 3.13.x)"
-    Write-Host "PATH may still be stale. Try closing this PowerShell + opening a fresh one and re-running."
-    exit 1
-}
-Write-Host "Verified: $pythonVersion"
+# Sanity-check uv is callable.
+$uvVersion = & uv --version 2>&1
+Write-Host "Verified: $uvVersion"
 
-# --- A6: Install pipx + ensurepath ------------------------------------------
-Separator "A6: pip install pipx + pipx ensurepath"
+# --- Install Python 3.13 (x86_64 build) via uv ------------------------------
+Separator "Installing Python via uv: $pythonBuild"
 
-python -m pip install --user --upgrade pip pipx
+uv python install $pythonBuild
 if ($LASTEXITCODE -ne 0) {
-    throw "pip install pipx failed with exit code $LASTEXITCODE"
+    throw "uv python install $pythonBuild failed with exit code $LASTEXITCODE"
 }
 
-python -m pipx ensurepath
-if ($LASTEXITCODE -ne 0) {
-    throw "pipx ensurepath failed with exit code $LASTEXITCODE"
-}
-
-# Reload PATH again — pipx ensurepath wrote to user PATH.
-$machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-$env:Path = "$machinePath;$userPath"
-
-# Verify pipx is callable.
-$pipxVersion = & pipx --version 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "WARN: pipx not yet on PATH in this session despite reload."
-    Write-Host "      It WILL be available in a fresh PowerShell window. Open a new"
-    Write-Host "      PowerShell and run 'pipx --version' to confirm."
-} else {
-    Write-Host "Verified: pipx $pipxVersion"
-}
-
-# --- summary ----------------------------------------------------------------
-Separator "A5-A6 DONE"
+# --- Summary ---------------------------------------------------------------
+Separator "Phase A (setup) DONE"
 
 Write-Host "Verified:"
-Write-Host "  - python:  $(& python --version 2>&1)"
-Write-Host "  - pip:     $(& python -m pip --version 2>&1)"
-try {
-    Write-Host "  - pipx:    $(& pipx --version 2>&1)"
-} catch {
-    Write-Host "  - pipx:    installed; open fresh PowerShell to use"
-}
+Write-Host "  - uv:      $uvVersion"
+Write-Host "  - python:  $pythonBuild"
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "  A7 - Install Claude Desktop from claude.ai/download (GUI installer)"
-Write-Host "       Record actual Claude.exe install path via:"
-Write-Host "         Get-Process Claude | Select-Object Path"
-Write-Host "  C1-W - pipx install claude-explorer (open fresh PowerShell first)"
+Write-Host "  A7  - Install Claude Desktop from claude.ai/download (GUI installer)"
+Write-Host "        Record actual Claude.exe install path via:"
+Write-Host "          Get-Process Claude | Select-Object Path"
+Write-Host "  C1-W - uv tool install claude-explorer --python $pythonBuild"
