@@ -177,7 +177,9 @@ def _resolve(expr: str) -> Path:
 def test_the_e2e_backend_points_codex_home_at_a_missing_folder() -> None:
     # First a check of the parser itself, so a wrong parse cannot pass by accident.
     assert _resolve("path.join(REPO_ROOT, 'a', \"b\")") == REPO_ROOT / "a" / "b"
-    assert _resolve("'/nowhere/codex'") == Path("/nowhere/codex")
+    # An absolute path on this platform (Windows needs a drive).
+    absolute = Path(REPO_ROOT.anchor) / "nowhere" / "codex"
+    assert _resolve(f"'{absolute}'") == absolute
 
     expr = _codex_home_expression(PLAYWRIGHT_CONFIG.read_text("utf-8"))
     target = _resolve(expr)
