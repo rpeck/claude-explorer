@@ -219,8 +219,9 @@ def _merge_conversation(local: dict | None, server: dict) -> dict:
     server_uuids = {m.get("uuid") for m in server_msgs if isinstance(m, dict)}
     kept = [
         m for m in local.get("chat_messages") or []
-        # A message without a uuid cannot be matched, so keeping it could repeat it.
-        if isinstance(m, dict) and m.get("uuid") and m["uuid"] not in server_uuids
+        if isinstance(m, dict)
+        # A message without a uuid matches only an equal server message.
+        and (m["uuid"] not in server_uuids if m.get("uuid") else m not in server_msgs)
     ]
 
     def created(m: dict) -> tuple[bool, datetime]:
