@@ -13,8 +13,6 @@ from typing import Any
 
 import pytest
 
-pytestmark = pytest.mark.xfail(strict=True, reason="L3 not implemented yet")
-
 T0 = datetime(2026, 4, 1, 10, 0, tzinfo=UTC)
 T1 = datetime(2026, 4, 1, 11, 0, tzinfo=UTC)
 COMPACT_SUMMARY_TEXT = "COMPACT_SUMMARY_MUST_STAY_HIDDEN"
@@ -170,3 +168,15 @@ def test_sliced_export_hides_compaction_summary_like_full_export(serve):
     assert COMPACT_SUMMARY_TEXT not in full_md
     assert "FIRST_MARKER" in sliced_md
     assert COMPACT_SUMMARY_TEXT not in sliced_md
+
+
+def test_sliced_export_does_not_change_the_stored_conversation(serve):
+    """The store caches the object, so a slice must not cut its messages."""
+    from backend.models import ConversationDetail
+
+    source = ConversationDetail(**_full_kwargs())
+    before = source.model_dump()
+    serve(source, start_position=1, end_position=2)
+
+    assert source.model_dump() == before
+    assert [m.uuid for m in source.messages] == ["m-0", "m-1", "m-2", "m-3"]
