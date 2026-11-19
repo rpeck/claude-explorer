@@ -32,7 +32,7 @@ import sys
 import tempfile
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -45,7 +45,7 @@ COLUMNS = (
 )
 MAX_BYTES = 64 << 20
 DEADLINE_S = 0.25
-ATTEMPTS = 3
+MAX_ATTEMPTS = 3
 BACKOFF_S = (0.010, 0.040)
 CACHE_TTL_S = 60.0
 CHUNK_SIZE = 1 << 20
@@ -60,10 +60,13 @@ _Key = tuple[_Stat | None, _Stat | None, bytes | None]  # main, -wal, -wal salts
 
 @dataclass(frozen=True)
 class StateRead:
-    """``rows`` is thread id -> the §3 columns, or ``None`` after a fallback."""
+    """``rows`` is thread id -> the §3 columns, or ``None`` after a fallback.
+
+    A fallback adds exactly one entry to ``warnings``.
+    """
 
     rows: dict[str, dict[str, Any]] | None
-    warning: str | None = None
+    warnings: list[str] = field(default_factory=list)
 
 
 class _Fallback(Exception):
@@ -137,17 +140,28 @@ def _check_deadline(deadline: float) -> None:
         raise _Fallback("the state_5 read took too long")
 
 
-def _copy(src: Path, dst: Path | None, deadline: float, digest: Any = None) -> bytes:
+def _after_chunk(kind: str, copied: int) -> None:
+    """A test seam: runs after each chunk read from a Codex file.
+
+    ``kind`` is "main", "wal", or "main_reread"; ``copied`` is the number of
+    bytes read from that file so far in this attempt.
+    """
+
+
+def _copy(kind: str, src: Path, dst: Path | None, deadline: float, digest: Any = None) -> bytes:
     """Copy (or only hash) ``src`` in chunks; return its first 32 bytes."""
     head = b""
+    copied = 0
     with _open(src) as stream, (open(dst, "xb") if dst else contextlib.nullcontext()) as out:
         while chunk := stream.read(CHUNK_SIZE):
+            copied += len(chunk)
             if len(head) < 32:
                 head += chunk[: 32 - len(head)]
             if digest is not None:
                 digest.update(chunk)
             if out is not None:
                 out.write(chunk)
+            _after_chunk(kind, copied)
             _check_deadline(deadline)
     return head
 
@@ -169,9 +183,9 @@ def _attempt(home: Path, folder: Path, t0: _Key, deadline: float) -> dict[str, d
     copy = folder / STATE_DB
     first, second = hashlib.sha256(), hashlib.sha256()
     try:
-        _copy(main, copy, deadline, first)
-        salts_copy = _salts(_copy(wal, folder / f"{STATE_DB}-wal", deadline)) if wal0 else None
-        _copy(main, None, deadline, second)
+        _copy("main", main, copy, deadline, first)
+        salts_copy = _salts(_copy("wal", wal, folder / f"{STATE_DB}-wal", deadline)) if wal0 else None
+        _copy("main_reread", main, None, deadline, second)
     except FileNotFoundError:
         raise _Changed from None
     main3, wal3, salts3 = _key(main, wal)
@@ -232,9 +246,9 @@ def read_threads(home: Path) -> StateRead:
         if hit is not None and hit[0] == key and time.monotonic() - hit[1] < CACHE_TTL_S:
             return hit[2]
         folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
-        for attempt in range(ATTEMPTS):
+        for attempt in range(MAX_ATTEMPTS):
             if attempt:
-                pause = BACKOFF_S[attempt - 1]
+                pause = BACKOFF_S[min(attempt, len(BACKOFF_S)) - 1]
                 if time.monotonic() + pause > deadline:
                     raise _Fallback("the state_5 read took too long")
                 time.sleep(pause)
@@ -259,7 +273,7 @@ def read_threads(home: Path) -> StateRead:
         if folder is not None:
             _remove(folder)
     log.warning("Codex state_5 not used: %s", reason)
-    return StateRead(None, reason)
+    return StateRead(None, [reason])
 
 
 # --- Temp folders (rule 10) --------------------------------------------------
@@ -284,8 +298,8 @@ def _is_private_dir(st: os.stat_result) -> bool:
     return st.st_uid == os.getuid() and stat.S_IMODE(st.st_mode) == 0o700
 
 
-def sweep_stale_temp_dirs(min_age_s: float = 0.0) -> int:
-    """Delete leftover temp folders of this module; return how many went.
+def cleanup_stale_temp_dirs(min_age_s: float = 0.0) -> None:
+    """Delete leftover temp folders of this module (the startup sweep).
 
     Only a folder with the prefix, owned by this user, mode 0700, and not a
     symlink or a reparse point. A folder younger than ``min_age_s`` stays.
@@ -293,8 +307,7 @@ def sweep_stale_temp_dirs(min_age_s: float = 0.0) -> int:
     try:
         entries = list(os.scandir(tempfile.gettempdir()))
     except OSError:
-        return 0
-    removed = 0
+        return
     for entry in entries:
         if not entry.name.startswith(TEMP_PREFIX):
             continue
@@ -303,10 +316,8 @@ def sweep_stale_temp_dirs(min_age_s: float = 0.0) -> int:
             if not _is_private_dir(st) or time.time() - st.st_mtime < min_age_s:
                 continue
             shutil.rmtree(entry.path)
-            removed += 1
         except OSError:
             log.warning("a leftover state_5 temp folder cannot be deleted")
-    return removed
 
 
 def _sweep_once() -> None:
@@ -315,4 +326,4 @@ def _sweep_once() -> None:
         if _swept:
             return
         _swept = True
-    sweep_stale_temp_dirs(_SWEEP_MIN_AGE_S)
+    cleanup_stale_temp_dirs(_SWEEP_MIN_AGE_S)
