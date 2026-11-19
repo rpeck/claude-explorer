@@ -102,6 +102,10 @@ export default defineConfig({
         CLAUDE_EXPLORER_DATA_DIR: path.join(REPO_ROOT, 'backend/tests/fixtures/desktop'),
         CLAUDE_DIR: path.join(REPO_ROOT, 'backend/tests/fixtures/claude'),
         CLAUDE_DESKTOP_APP_DIR: path.join(REPO_ROOT, 'backend/tests/fixtures/cowork'),
+        // A missing Codex home: the Codex copy stops at once and writes
+        // nothing, so the committed archive in desktop/codex/ stays as it is.
+        // Without it the copy would read the developer's real ~/.codex.
+        CODEX_HOME: path.join(REPO_ROOT, 'backend/tests/fixtures/codex-home-missing'),
 
         // Disable every background task that would dirty the fixtures
         // tree. Without these the search index sqlite, summary cache

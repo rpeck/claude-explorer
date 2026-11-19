@@ -10,6 +10,13 @@ and `CLAUDE_DIR` (Claude Code) environment variables, set by
 clone the repo and run `npm run test:e2e` without needing Raymond's
 actual conversation history on disk.
 
+The Codex archive (`desktop/codex/`) comes from the real copier, run on
+the synthetic Codex home of `backend/tests/codex_fake.py`. The script then
+renames the home folder to the fixed key `fixture000000`, writes
+`home_path` as `/home/fixture/.codex`, and replaces the temp paths and the
+sync times with fixed values. In e2e, `CODEX_HOME` points to a missing
+folder, so the copy never writes into these fixtures.
+
 ## Layout
 
 ```
@@ -20,6 +27,11 @@ backend/tests/fixtures/
 │           ├── <uuid-of-long-conversation>.json
 │           ├── <uuid-of-branched-conversation>.json
 │           └── <uuid-of-tool-conversation>.json
+│   └── codex/
+│       └── fixture000000/                          # fixed home key
+│           ├── home.json                           # home_path /home/fixture/.codex
+│           ├── rollouts/<stem>.jsonl               # + <stem>.meta.json
+│           └── threads/<thread_id>.json
 └── claude/
     └── projects/
         └── -fixture-project/                       # synthetic encoded cwd
@@ -34,6 +46,20 @@ backend/tests/fixtures/
 | `Phase 5 fixture: Branch tree` | Desktop (has_branches) | `NEEDLE_BRANCH` | conversations.spec.ts |
 | `Phase 5 fixture: Tool calls` | Desktop (tool_use + tool_result) | `NEEDLE_TOOL` | search.spec.ts (tool-block search) |
 | `Hi! NEEDLE_CC — fixture session ...` | Claude Code | `NEEDLE_CC` | conversations.spec.ts (CC source) |
+
+## Codex threads
+
+The thread ids and contents are the `THREAD_*` constants of
+`backend/tests/codex_fake.py`.
+
+| Thread | Title | Project | Kind |
+|---|---|---|---|
+| `019a7c10-…a001` | `Alpha parser refactor` (Codex name) | `/home/fixture/proj-alpha` | paginated, plain; images, a plan, an unknown item, damaged lines |
+| `019a0f20-…b002` | `Why does the build fail? Here is the error.` | `/home/fixture/proj-beta` | legacy, `.zst`; parallel tool calls, encrypted reasoning |
+| `0199e030-…c003` | `Gamma release notes` (Codex name) | `/home/fixture/proj-gamma` | archived |
+| `019a7c40-…d004` | `Scout: callers of parse` (Codex name) | `/home/fixture/proj-alpha` | subagent of `…a001`, `.zst` |
+| `019a7c50-…e005` | `Review the proposed command: rm -rf build/` | `/home/fixture/proj-alpha` | guardian review |
+| `019a8060-…f006` | `Continue the migration from the Claude Code session.` | `/home/fixture/proj-delta` | imported from Claude Code |
 
 ## Refreshing
 
