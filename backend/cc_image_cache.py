@@ -25,9 +25,11 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+import platformdirs
+
 from fetcher.atomic import atomic_write_bytes
 
-from .config import get_settings
+from .config import canonical_home_dir, get_settings
 
 log = logging.getLogger(__name__)
 
@@ -54,11 +56,95 @@ def cache_dir() -> Path:
     return data_dir / "cc-images"
 
 
+_pending_error_logged = False
+
+
+def _pending_candidates() -> tuple[Path, Path]:
+    return (
+        canonical_home_dir() / "cc-images-pending",
+        Path(platformdirs.user_cache_dir("claude-explorer")) / "cc-images-pending",
+    )
+
+
+def pending_dir() -> Path:
+    """Where new images wait while the cloud-sync gate is closed (plan D13).
+
+    ``~/.claude-explorer/cc-images-pending/``, in the ``cc-images/`` layout.
+    If that folder is cloud-synced too, the platform cache folder. If both
+    are, capture there anyway: a lost image cannot come back.
+    """
+    global _pending_error_logged
+    from .cloud_sync import detect_cloud_sync
+
+    candidates = _pending_candidates()
+    for candidate in candidates:
+        if detect_cloud_sync(candidate) is None:
+            return candidate
+    if not _pending_error_logged:
+        _pending_error_logged = True
+        log.error(
+            "Every pending image folder is cloud-synced; new Claude Code images "
+            "go to %s, because a lost image cannot come back.",
+            candidates[-1],
+        )
+    return candidates[-1]
+
+
+def _gate_closed() -> bool:
+    from .write_gate import cloud_sync_block
+
+    return cloud_sync_block(get_settings()) is not None
+
+
+def image_dirs() -> tuple[Path, Path]:
+    """The folders that hold captured images: the cache, then the pending folder."""
+    return cache_dir(), pending_dir()
+
+
 def cache_path_for(
     conv_uuid: str, sess: str, n: str, sha8: str, ext: str = "png"
 ) -> Path:
-    """Compute the destination path for a given (conv, sess, slot, sha8)."""
-    return cache_dir() / conv_uuid / f"{sess}--{n}.{sha8}.{ext}"
+    """Compute the destination path for a given (conv, sess, slot, sha8).
+
+    While the cloud-sync gate is closed, the path is in :func:`pending_dir`.
+    """
+    root = pending_dir() if _gate_closed() else cache_dir()
+    return root / conv_uuid / f"{sess}--{n}.{sha8}.{ext}"
+
+
+def move_pending_images() -> int:
+    """Move each pending image into ``cache_dir()`` once the gate is open.
+
+    Copy, ``fsync``, check the size, then delete the pending copy: the only
+    delete in the plan, after the image is safe in the archive. Returns the
+    number of images moved.
+    """
+    if _gate_closed():
+        return 0
+    moved = 0
+    dest_root = cache_dir()
+    for root in _pending_candidates():
+        if not root.is_dir():
+            continue
+        for src in root.glob("*/*"):
+            if not src.is_file():
+                continue
+            dst = dest_root / src.relative_to(root)
+            try:
+                data = src.read_bytes()
+                if not dst.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    atomic_write_bytes(dst, data)
+                if dst.stat().st_size != len(data):
+                    log.warning("pending image %s: size differs from %s; kept", src, dst)
+                    continue
+                src.unlink()
+                moved += 1
+            except OSError as exc:
+                log.warning("could not move pending image %s: %s", src, exc)
+    if moved:
+        log.info("moved %d pending image(s) into %s", moved, dest_root)
+    return moved
 
 
 def copy_marker_image_to_cache(
@@ -104,8 +190,10 @@ def copy_marker_image_to_cache(
         sess = p.parent.name
         n = p.stem
         ext = p.suffix.lstrip(".") or "png"
-        target_dir = cache_dir() / conv_uuid
-        if target_dir.exists() and any(target_dir.glob(f"{sess}--{n}.*.{ext}")):
+        if any(
+            (root / conv_uuid).exists() and any((root / conv_uuid).glob(f"{sess}--{n}.*.{ext}"))
+            for root in image_dirs()
+        ):
             log.debug(
                 "CC image %s (conv %s) live-cache missing but permanent-cache "
                 "copy found; treating as recovered",
@@ -146,6 +234,10 @@ def copy_marker_image_to_cache(
     ext = p.suffix.lstrip(".") or "png"
 
     dst = cache_path_for(conv_uuid, sess, n, sha8, ext)
+    # A copy in the cache already holds these bytes; the pending folder needs none.
+    archived = cache_dir() / conv_uuid / dst.name
+    if archived.exists():
+        return archived
     dst.parent.mkdir(parents=True, exist_ok=True)
     if not dst.exists():
         atomic_write_bytes(dst, bytes_)

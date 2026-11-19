@@ -2430,14 +2430,26 @@ _search_index: SearchIndex | None = None
 _search_index_lock = threading.Lock()
 
 
+def _cloud_sync_gate_closed() -> bool:
+    """Plan D13: while the gate is closed the index writes nothing, and search
+    uses its linear-scan fallback. Checked on each call, so an opt-in or a
+    revoke applies at once."""
+    from .write_gate import cloud_sync_block
+
+    return cloud_sync_block(get_settings()) is not None
+
+
 def get_search_index() -> SearchIndex | None:
     """Return the process-wide SearchIndex, or None if FTS5 is unavailable.
 
     Lazy-initializes on first call. Returns the same instance on every
-    subsequent call within this process. Test code may call
+    subsequent call within this process. Returns None while the cloud-sync
+    gate is closed. Test code may call
     :func:`reset_search_index_for_tests` to reset between tests.
     """
     global _search_index
+    if _cloud_sync_gate_closed():
+        return None
     if _search_index is not None:
         return _search_index
 
