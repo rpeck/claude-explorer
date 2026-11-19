@@ -20,8 +20,6 @@ import tomllib
 
 import pytest
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N7 not implemented yet")
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 BUILD_SCRIPT = REPO_ROOT / "scripts" / "build-mcpb.py"
 

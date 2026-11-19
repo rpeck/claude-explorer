@@ -43,8 +43,6 @@ from fastapi.testclient import TestClient
 
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N7 not implemented yet")
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FAKE_ID = "FAKE_SYNC"
 _ORG_ID = "ae24ae66-4622-48e7-b4b3-1ab2c49f933d"

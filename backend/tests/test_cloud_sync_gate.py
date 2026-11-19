@@ -46,8 +46,6 @@ from backend.tests.test_archive_sync_wiring import (
     write_corrupt_config,
 )
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N7 not implemented yet")
-
 PROVIDER = "Dropbox"
 CONSENT_URL = "/api/write-consent/cloud-sync"
 CONSENT_HEADERS = {"X-Claude-Explorer-Action": "allow-cloud-sync-writes"}
