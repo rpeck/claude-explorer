@@ -64,6 +64,14 @@ export function setRealRegistry(): void {
 
 /** Serve the preferences and the side requests that the Sidebar makes. */
 export function serveApp(prefs: Record<string, unknown>): void {
+  // usePreferences reads localStorage before the server. On Node 20 jsdom's
+  // localStorage works (on Node 22+ Node's own global hides it), so a value
+  // that an earlier test saved would win over `prefs`.
+  try {
+    window.localStorage?.clear()
+  } catch {
+    // No usable localStorage: nothing to clear.
+  }
   const data = { ...prefs }
   server.use(
     http.get('/api/preferences', () => HttpResponse.json({ version: 1, data })),
