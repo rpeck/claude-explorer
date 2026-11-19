@@ -77,6 +77,8 @@ def _dropbox_roots(home: Path, environ: Mapping[str, str]) -> tuple[list[Path], 
 def _roots(home: Path, environ: Mapping[str, str], dropbox: list[Path]) -> Iterator[tuple[str, Path]]:
     yield "iCloud Drive", home / "Library" / "Mobile Documents"
     yield "iCloud Drive", home / "iCloudDrive"
+    if environ.get("USERPROFILE"):
+        yield "iCloud Drive", Path(environ["USERPROFILE"]) / "iCloudDrive"
     yield "Dropbox", home / "Dropbox"
     for root in dropbox:
         yield "Dropbox", root
