@@ -1,0 +1,148 @@
+{
+  "all_default": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+      "timestamp": "2026-05-25T10:00:00+00:00",
+      "uuid": "u-1"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+      "timestamp": "2026-05-25T10:00:05+00:00",
+      "uuid": "a-1"
+    },
+    {
+      "position": 2,
+      "sender": "human",
+      "text": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+      "timestamp": "2026-05-25T10:01:00+00:00",
+      "uuid": "u-2"
+    },
+    {
+      "position": 3,
+      "sender": "assistant",
+      "text": "Reply with thinking block preserved.",
+      "timestamp": "2026-05-25T10:01:05+00:00",
+      "uuid": "a-2"
+    }
+  ],
+  "all_tool_calls": [
+    {
+      "content": [
+        {
+          "text": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-05-25T10:00:00+00:00",
+      "uuid": "u-1"
+    },
+    {
+      "content": [
+        {
+          "text": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+          "type": "text"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-05-25T10:00:05+00:00",
+      "uuid": "a-1"
+    },
+    {
+      "content": [
+        {
+          "text": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-05-25T10:01:00+00:00",
+      "uuid": "u-2"
+    },
+    {
+      "content": [
+        {
+          "text": "Reply with thinking block preserved.",
+          "type": "text"
+        }
+      ],
+      "position": 3,
+      "sender": "assistant",
+      "timestamp": "2026-05-25T10:01:05+00:00",
+      "uuid": "a-2"
+    }
+  ],
+  "all_tool_results": [
+    {
+      "content": [
+        {
+          "text": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-05-25T10:00:00+00:00",
+      "uuid": "u-1"
+    },
+    {
+      "content": [
+        {
+          "text": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+          "type": "text"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-05-25T10:00:05+00:00",
+      "uuid": "a-1"
+    },
+    {
+      "content": [
+        {
+          "text": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-05-25T10:01:00+00:00",
+      "uuid": "u-2"
+    },
+    {
+      "content": [
+        {
+          "text": "Reply with thinking block preserved.",
+          "type": "text"
+        }
+      ],
+      "position": 3,
+      "sender": "assistant",
+      "timestamp": "2026-05-25T10:01:05+00:00",
+      "uuid": "a-2"
+    }
+  ],
+  "positions_0_1": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+      "timestamp": "2026-05-25T10:00:00+00:00",
+      "uuid": "u-1"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+      "timestamp": "2026-05-25T10:00:05+00:00",
+      "uuid": "a-1"
+    }
+  ]
+}

@@ -1,0 +1,280 @@
+{
+  "detail": {
+    "compact_markers": [],
+    "created_at": "2026-04-01T10:00:00Z",
+    "current_leaf_message_uuid": "d080483b-90a6-a8ee-4a53-578a945a0e53",
+    "error": null,
+    "file_path": "<TMP>/data/by-org/00000000-1111-2222-3333-444444444444/c8da94ab-641d-bf28-d4a6-cba9bc72468e.json",
+    "git_branch": null,
+    "has_branches": false,
+    "human_message_count": 2,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 4,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Tell me about branching. NEEDLE_BRANCH",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:00:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Tell me about branching. NEEDLE_BRANCH",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:00:00Z",
+        "uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Branches happen when you regenerate from an earlier message.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:01:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Branches happen when you regenerate from an earlier message.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:01:00Z",
+        "uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "What does the tree visualization look like?",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:02:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db",
+        "sender": "human",
+        "slash_command": null,
+        "text": "What does the tree visualization look like?",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:02:00Z",
+        "uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "A read-only tree where you can click any leaf to switch branches.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:03:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "A read-only tree where you can click any leaf to switch branches.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:03:00Z",
+        "uuid": "d080483b-90a6-a8ee-4a53-578a945a0e53"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Branch tree",
+    "organization_id": null,
+    "organization_name": null,
+    "prelude_hidden_count": 0,
+    "project_name": null,
+    "project_path": null,
+    "sandbox_path": null,
+    "source": "CLAUDE_AI",
+    "subagents": [],
+    "summary": "Phase 5 fixture: Branch tree",
+    "updated_at": "2026-04-01T10:04:00Z",
+    "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+  },
+  "tree": {
+    "active_path": [
+      "725445c1-b1a2-aa9d-0251-746ddb3b59f3",
+      "5b869d32-c789-4f70-7619-fafbd7b3b3db",
+      "d2c6abd7-3321-777f-c114-4843ac2f2b2b",
+      "d080483b-90a6-a8ee-4a53-578a945a0e53"
+    ],
+    "root_messages": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [],
+                    "message": {
+                      "assistant_canned_response_consumed": false,
+                      "attachments": [],
+                      "content": [
+                        {
+                          "content": null,
+                          "id": null,
+                          "input": null,
+                          "name": null,
+                          "source": null,
+                          "text": "A read-only tree where you can click any leaf to switch branches.",
+                          "tool_use_id": null,
+                          "type": "text"
+                        }
+                      ],
+                      "created_at": "2026-04-01T10:03:00Z",
+                      "files": [],
+                      "files_v2": [],
+                      "is_command_marker": false,
+                      "is_prelude": false,
+                      "parent_message_uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b",
+                      "sender": "assistant",
+                      "slash_command": null,
+                      "text": "A read-only tree where you can click any leaf to switch branches.",
+                      "truncated": false,
+                      "updated_at": "2026-04-01T10:03:00Z",
+                      "uuid": "d080483b-90a6-a8ee-4a53-578a945a0e53"
+                    }
+                  }
+                ],
+                "message": {
+                  "assistant_canned_response_consumed": false,
+                  "attachments": [],
+                  "content": [
+                    {
+                      "content": null,
+                      "id": null,
+                      "input": null,
+                      "name": null,
+                      "source": null,
+                      "text": "What does the tree visualization look like?",
+                      "tool_use_id": null,
+                      "type": "text"
+                    }
+                  ],
+                  "created_at": "2026-04-01T10:02:00Z",
+                  "files": [],
+                  "files_v2": [],
+                  "is_command_marker": false,
+                  "is_prelude": false,
+                  "parent_message_uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db",
+                  "sender": "human",
+                  "slash_command": null,
+                  "text": "What does the tree visualization look like?",
+                  "truncated": false,
+                  "updated_at": "2026-04-01T10:02:00Z",
+                  "uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b"
+                }
+              }
+            ],
+            "message": {
+              "assistant_canned_response_consumed": false,
+              "attachments": [],
+              "content": [
+                {
+                  "content": null,
+                  "id": null,
+                  "input": null,
+                  "name": null,
+                  "source": null,
+                  "text": "Branches happen when you regenerate from an earlier message.",
+                  "tool_use_id": null,
+                  "type": "text"
+                }
+              ],
+              "created_at": "2026-04-01T10:01:00Z",
+              "files": [],
+              "files_v2": [],
+              "is_command_marker": false,
+              "is_prelude": false,
+              "parent_message_uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3",
+              "sender": "assistant",
+              "slash_command": null,
+              "text": "Branches happen when you regenerate from an earlier message.",
+              "truncated": false,
+              "updated_at": "2026-04-01T10:01:00Z",
+              "uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db"
+            }
+          }
+        ],
+        "message": {
+          "assistant_canned_response_consumed": false,
+          "attachments": [],
+          "content": [
+            {
+              "content": null,
+              "id": null,
+              "input": null,
+              "name": null,
+              "source": null,
+              "text": "Tell me about branching. NEEDLE_BRANCH",
+              "tool_use_id": null,
+              "type": "text"
+            }
+          ],
+          "created_at": "2026-04-01T10:00:00Z",
+          "files": [],
+          "files_v2": [],
+          "is_command_marker": false,
+          "is_prelude": false,
+          "parent_message_uuid": null,
+          "sender": "human",
+          "slash_command": null,
+          "text": "Tell me about branching. NEEDLE_BRANCH",
+          "truncated": false,
+          "updated_at": "2026-04-01T10:00:00Z",
+          "uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3"
+        }
+      }
+    ],
+    "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+  }
+}

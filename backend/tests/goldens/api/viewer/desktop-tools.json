@@ -1,0 +1,285 @@
+{
+  "detail": {
+    "compact_markers": [],
+    "created_at": "2026-04-01T10:00:00Z",
+    "current_leaf_message_uuid": "fa504360-824e-981c-4676-531d8f59bf5d",
+    "error": null,
+    "file_path": "<TMP>/data/by-org/00000000-1111-2222-3333-444444444444/a3c33811-ab27-c195-6938-54121b8673e4.json",
+    "git_branch": null,
+    "has_branches": false,
+    "human_message_count": 2,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 3,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Run a grep for me. NEEDLE_TOOL",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:00:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Run a grep for me. NEEDLE_TOOL",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:00:00Z",
+        "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Running grep.",
+            "tool_use_id": null,
+            "type": "text"
+          },
+          {
+            "content": null,
+            "id": null,
+            "input": {
+              "command": "grep -r FIXTURE_TOOL src"
+            },
+            "name": "bash",
+            "source": null,
+            "text": null,
+            "tool_use_id": null,
+            "type": "tool_use"
+          },
+          {
+            "content": [
+              {
+                "content": null,
+                "id": null,
+                "input": null,
+                "name": null,
+                "source": null,
+                "text": "FIXTURE_TOOL: 3 hits",
+                "tool_use_id": null,
+                "type": "text"
+              }
+            ],
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": null,
+            "tool_use_id": null,
+            "type": "tool_result"
+          }
+        ],
+        "created_at": "2026-04-01T10:01:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Running grep.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:01:00Z",
+        "uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Thanks!",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:02:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Thanks!",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:02:00Z",
+        "uuid": "fa504360-824e-981c-4676-531d8f59bf5d"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Tool calls",
+    "organization_id": null,
+    "organization_name": null,
+    "prelude_hidden_count": 0,
+    "project_name": null,
+    "project_path": null,
+    "sandbox_path": null,
+    "source": "CLAUDE_AI",
+    "subagents": [],
+    "summary": "Phase 5 fixture: Tool calls",
+    "updated_at": "2026-04-01T10:03:00Z",
+    "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+  },
+  "tree": {
+    "active_path": [
+      "f05028f8-3996-ebe8-d4b6-496c8b976625",
+      "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
+      "fa504360-824e-981c-4676-531d8f59bf5d"
+    ],
+    "root_messages": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [],
+                "message": {
+                  "assistant_canned_response_consumed": false,
+                  "attachments": [],
+                  "content": [
+                    {
+                      "content": null,
+                      "id": null,
+                      "input": null,
+                      "name": null,
+                      "source": null,
+                      "text": "Thanks!",
+                      "tool_use_id": null,
+                      "type": "text"
+                    }
+                  ],
+                  "created_at": "2026-04-01T10:02:00Z",
+                  "files": [],
+                  "files_v2": [],
+                  "is_command_marker": false,
+                  "is_prelude": false,
+                  "parent_message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
+                  "sender": "human",
+                  "slash_command": null,
+                  "text": "Thanks!",
+                  "truncated": false,
+                  "updated_at": "2026-04-01T10:02:00Z",
+                  "uuid": "fa504360-824e-981c-4676-531d8f59bf5d"
+                }
+              }
+            ],
+            "message": {
+              "assistant_canned_response_consumed": false,
+              "attachments": [],
+              "content": [
+                {
+                  "content": null,
+                  "id": null,
+                  "input": null,
+                  "name": null,
+                  "source": null,
+                  "text": "Running grep.",
+                  "tool_use_id": null,
+                  "type": "text"
+                },
+                {
+                  "content": null,
+                  "id": null,
+                  "input": {
+                    "command": "grep -r FIXTURE_TOOL src"
+                  },
+                  "name": "bash",
+                  "source": null,
+                  "text": null,
+                  "tool_use_id": null,
+                  "type": "tool_use"
+                },
+                {
+                  "content": [
+                    {
+                      "content": null,
+                      "id": null,
+                      "input": null,
+                      "name": null,
+                      "source": null,
+                      "text": "FIXTURE_TOOL: 3 hits",
+                      "tool_use_id": null,
+                      "type": "text"
+                    }
+                  ],
+                  "id": null,
+                  "input": null,
+                  "name": null,
+                  "source": null,
+                  "text": null,
+                  "tool_use_id": null,
+                  "type": "tool_result"
+                }
+              ],
+              "created_at": "2026-04-01T10:01:00Z",
+              "files": [],
+              "files_v2": [],
+              "is_command_marker": false,
+              "is_prelude": false,
+              "parent_message_uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625",
+              "sender": "assistant",
+              "slash_command": null,
+              "text": "Running grep.",
+              "truncated": false,
+              "updated_at": "2026-04-01T10:01:00Z",
+              "uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8"
+            }
+          }
+        ],
+        "message": {
+          "assistant_canned_response_consumed": false,
+          "attachments": [],
+          "content": [
+            {
+              "content": null,
+              "id": null,
+              "input": null,
+              "name": null,
+              "source": null,
+              "text": "Run a grep for me. NEEDLE_TOOL",
+              "tool_use_id": null,
+              "type": "text"
+            }
+          ],
+          "created_at": "2026-04-01T10:00:00Z",
+          "files": [],
+          "files_v2": [],
+          "is_command_marker": false,
+          "is_prelude": false,
+          "parent_message_uuid": null,
+          "sender": "human",
+          "slash_command": null,
+          "text": "Run a grep for me. NEEDLE_TOOL",
+          "truncated": false,
+          "updated_at": "2026-04-01T10:00:00Z",
+          "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
+        }
+      }
+    ],
+    "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+  }
+}

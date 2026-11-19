@@ -1,0 +1,119 @@
+{
+  "cached_call": {
+    "conversation_id": "a3c33811-ab27-c195-6938-54121b8673e4",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 3,
+    "messages": [
+      {
+        "char_count": 30,
+        "message_uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625",
+        "position": 0,
+        "sender": "human",
+        "summary": "Run a grep for me. NEEDLE_TOOL",
+        "timestamp": "2026-04-01T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 13,
+        "message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Running grep.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 1
+      },
+      {
+        "char_count": 7,
+        "message_uuid": "fa504360-824e-981c-4676-531d8f59bf5d",
+        "position": 2,
+        "sender": "human",
+        "summary": "Thanks!",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Tool calls",
+    "next_position": null,
+    "project": null,
+    "session_id": "a3c33811-ab27-c195-6938-54121b8673e4",
+    "source": "CLAUDE_AI",
+    "start_position": 0,
+    "updated_at": "2026-04-01T10:03:00+00:00"
+  },
+  "first_call": {
+    "conversation_id": "a3c33811-ab27-c195-6938-54121b8673e4",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 3,
+    "messages": [
+      {
+        "char_count": 30,
+        "message_uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625",
+        "position": 0,
+        "sender": "human",
+        "summary": "Run a grep for me. NEEDLE_TOOL",
+        "timestamp": "2026-04-01T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 13,
+        "message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Running grep.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 1
+      },
+      {
+        "char_count": 7,
+        "message_uuid": "fa504360-824e-981c-4676-531d8f59bf5d",
+        "position": 2,
+        "sender": "human",
+        "summary": "Thanks!",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Tool calls",
+    "next_position": null,
+    "project": null,
+    "session_id": "a3c33811-ab27-c195-6938-54121b8673e4",
+    "source": "CLAUDE_AI",
+    "start_position": 0,
+    "updated_at": "2026-04-01T10:03:00+00:00"
+  },
+  "page_1_size_2": {
+    "conversation_id": "a3c33811-ab27-c195-6938-54121b8673e4",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 3,
+    "messages": [
+      {
+        "char_count": 13,
+        "message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Running grep.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 1
+      },
+      {
+        "char_count": 7,
+        "message_uuid": "fa504360-824e-981c-4676-531d8f59bf5d",
+        "position": 2,
+        "sender": "human",
+        "summary": "Thanks!",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Tool calls",
+    "next_position": null,
+    "project": null,
+    "session_id": "a3c33811-ab27-c195-6938-54121b8673e4",
+    "source": "CLAUDE_AI",
+    "start_position": 1,
+    "updated_at": "2026-04-01T10:03:00+00:00"
+  }
+}

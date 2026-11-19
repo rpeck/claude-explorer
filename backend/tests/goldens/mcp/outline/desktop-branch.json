@@ -1,0 +1,137 @@
+{
+  "cached_call": {
+    "conversation_id": "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 4,
+    "messages": [
+      {
+        "char_count": 38,
+        "message_uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3",
+        "position": 0,
+        "sender": "human",
+        "summary": "Tell me about branching. NEEDLE_BRANCH",
+        "timestamp": "2026-04-01T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 60,
+        "message_uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Branches happen when you regenerate from an earlier message.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 43,
+        "message_uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b",
+        "position": 2,
+        "sender": "human",
+        "summary": "What does the tree visualization look like?",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 65,
+        "message_uuid": "d080483b-90a6-a8ee-4a53-578a945a0e53",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "A read-only tree where you can click any leaf to switch branches.",
+        "timestamp": "2026-04-01T10:03:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Branch tree",
+    "next_position": null,
+    "project": null,
+    "session_id": "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
+    "source": "CLAUDE_AI",
+    "start_position": 0,
+    "updated_at": "2026-04-01T10:04:00+00:00"
+  },
+  "first_call": {
+    "conversation_id": "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 4,
+    "messages": [
+      {
+        "char_count": 38,
+        "message_uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3",
+        "position": 0,
+        "sender": "human",
+        "summary": "Tell me about branching. NEEDLE_BRANCH",
+        "timestamp": "2026-04-01T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 60,
+        "message_uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Branches happen when you regenerate from an earlier message.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 43,
+        "message_uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b",
+        "position": 2,
+        "sender": "human",
+        "summary": "What does the tree visualization look like?",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 65,
+        "message_uuid": "d080483b-90a6-a8ee-4a53-578a945a0e53",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "A read-only tree where you can click any leaf to switch branches.",
+        "timestamp": "2026-04-01T10:03:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Branch tree",
+    "next_position": null,
+    "project": null,
+    "session_id": "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
+    "source": "CLAUDE_AI",
+    "start_position": 0,
+    "updated_at": "2026-04-01T10:04:00+00:00"
+  },
+  "page_1_size_2": {
+    "conversation_id": "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 4,
+    "messages": [
+      {
+        "char_count": 60,
+        "message_uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Branches happen when you regenerate from an earlier message.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 43,
+        "message_uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b",
+        "position": 2,
+        "sender": "human",
+        "summary": "What does the tree visualization look like?",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: Branch tree",
+    "next_position": 3,
+    "project": null,
+    "session_id": "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
+    "source": "CLAUDE_AI",
+    "start_position": 1,
+    "updated_at": "2026-04-01T10:04:00+00:00"
+  }
+}

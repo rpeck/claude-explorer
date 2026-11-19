@@ -1,0 +1,439 @@
+{
+  "results": [
+    {
+      "conversation_created_at": "2026-10-06T19:00:00Z",
+      "conversation_name": "Remote fixture: widget rollout plan",
+      "conversation_updated_at": "2026-10-06T19:06:00Z",
+      "conversation_uuid": "session_01FIXTUREREMOTE000000000001",
+      "matching_messages": [
+        {
+          "created_at": null,
+          "fragments": null,
+          "match_end": 14,
+          "match_start": 7,
+          "message_uuid": "title",
+          "sender": "title",
+          "snippet": "Remote fixture: widget rollout plan"
+        },
+        {
+          "created_at": "2026-10-06T19:03:00Z",
+          "fragments": null,
+          "match_end": 37,
+          "match_start": 30,
+          "message_uuid": "a-3",
+          "sender": "assistant",
+          "snippet": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout."
+        },
+        {
+          "created_at": "2026-10-06T19:02:00Z",
+          "fragments": null,
+          "match_end": 23,
+          "match_start": 16,
+          "message_uuid": "u-2",
+          "sender": "human",
+          "snippet": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service."
+        }
+      ],
+      "project_name": "remote-fixture-project"
+    },
+    {
+      "conversation_created_at": "2026-04-01T10:00:00Z",
+      "conversation_name": "Phase 5 fixture: TLS handshakes (long)",
+      "conversation_updated_at": "2026-04-01T10:30:00Z",
+      "conversation_uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a",
+      "matching_messages": [
+        {
+          "created_at": null,
+          "fragments": null,
+          "match_end": 15,
+          "match_start": 8,
+          "message_uuid": "title",
+          "sender": "title",
+          "snippet": "Phase 5 fixture: TLS handshakes (long)"
+        },
+        {
+          "created_at": "2026-04-01T10:29:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "d7a4e89e-982e-6f1e-0389-da8242eb794e",
+          "sender": "assistant",
+          "snippet": "Filler message #30 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:28:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "f428cc00-c20e-7da8-df58-13befa51c620",
+          "sender": "human",
+          "snippet": "Filler message #29 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:27:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8",
+          "sender": "assistant",
+          "snippet": "Filler message #28 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:26:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237",
+          "sender": "human",
+          "snippet": "Filler message #27 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:25:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32",
+          "sender": "assistant",
+          "snippet": "Filler message #26 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:24:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
+          "sender": "human",
+          "snippet": "Filler message #25 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:23:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0",
+          "sender": "assistant",
+          "snippet": "Filler message #24 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:22:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456",
+          "sender": "human",
+          "snippet": "Filler message #23 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:21:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24",
+          "sender": "assistant",
+          "snippet": "Filler message #22 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:20:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "815788d8-7001-9307-6a33-effbdb26241e",
+          "sender": "human",
+          "snippet": "Filler message #21 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:19:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
+          "sender": "assistant",
+          "snippet": "Filler message #20 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:18:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1",
+          "sender": "human",
+          "snippet": "Filler message #19 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:17:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0",
+          "sender": "assistant",
+          "snippet": "Filler message #18 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:16:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
+          "sender": "human",
+          "snippet": "Filler message #17 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:15:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "89569547-6e14-ff3e-3a98-d06073a7064b",
+          "sender": "assistant",
+          "snippet": "Filler message #16 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:14:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
+          "sender": "human",
+          "snippet": "Filler message #15 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:13:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "637ac55b-9dc6-8192-af6a-69867b348077",
+          "sender": "assistant",
+          "snippet": "Filler message #14 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:12:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e",
+          "sender": "human",
+          "snippet": "Filler message #13 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:11:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf",
+          "sender": "assistant",
+          "snippet": "Filler message #12 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:10:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
+          "sender": "human",
+          "snippet": "Filler message #11 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:09:00Z",
+          "fragments": null,
+          "match_end": 52,
+          "match_start": 45,
+          "message_uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
+          "sender": "assistant",
+          "snippet": "Filler message #10 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:08:00Z",
+          "fragments": null,
+          "match_end": 51,
+          "match_start": 44,
+          "message_uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b",
+          "sender": "human",
+          "snippet": "Filler message #9 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:07:00Z",
+          "fragments": null,
+          "match_end": 51,
+          "match_start": 44,
+          "message_uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
+          "sender": "assistant",
+          "snippet": "Filler message #8 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:06:00Z",
+          "fragments": null,
+          "match_end": 51,
+          "match_start": 44,
+          "message_uuid": "9562a307-1beb-5462-ece4-34f59a16788c",
+          "sender": "human",
+          "snippet": "Filler message #7 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:05:00Z",
+          "fragments": null,
+          "match_end": 51,
+          "match_start": 44,
+          "message_uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88",
+          "sender": "assistant",
+          "snippet": "Filler message #6 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:03:00Z",
+          "fragments": null,
+          "match_end": 51,
+          "match_start": 44,
+          "message_uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
+          "sender": "assistant",
+          "snippet": "Filler message #4 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:02:00Z",
+          "fragments": null,
+          "match_end": 51,
+          "match_start": 44,
+          "message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
+          "sender": "human",
+          "snippet": "Filler message #3 for the long-conversation fixture."
+        },
+        {
+          "created_at": "2026-04-01T10:01:00Z",
+          "fragments": null,
+          "match_end": 51,
+          "match_start": 44,
+          "message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
+          "sender": "assistant",
+          "snippet": "Filler message #2 for the long-conversation fixture."
+        }
+      ],
+      "project_name": null
+    },
+    {
+      "conversation_created_at": "2026-04-01T10:00:00Z",
+      "conversation_name": "Phase 5 fixture: Branch tree",
+      "conversation_updated_at": "2026-04-01T10:04:00Z",
+      "conversation_uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
+      "matching_messages": [
+        {
+          "created_at": null,
+          "fragments": null,
+          "match_end": 15,
+          "match_start": 8,
+          "message_uuid": "title",
+          "sender": "title",
+          "snippet": "Phase 5 fixture: Branch tree"
+        }
+      ],
+      "project_name": null
+    },
+    {
+      "conversation_created_at": "2026-04-01T10:00:00Z",
+      "conversation_name": "Phase 5 fixture: Tool calls",
+      "conversation_updated_at": "2026-04-01T10:03:00Z",
+      "conversation_uuid": "a3c33811-ab27-c195-6938-54121b8673e4",
+      "matching_messages": [
+        {
+          "created_at": null,
+          "fragments": null,
+          "match_end": 15,
+          "match_start": 8,
+          "message_uuid": "title",
+          "sender": "title",
+          "snippet": "Phase 5 fixture: Tool calls"
+        },
+        {
+          "created_at": "2026-04-01T10:01:00Z",
+          "fragments": null,
+          "match_end": 42,
+          "match_start": 35,
+          "message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
+          "sender": "assistant",
+          "snippet": "Running grep.\nbash\ncommand\ngrep -r FIXTURE_TOOL src\nFIXTURE_TOOL: 3 hits"
+        }
+      ],
+      "project_name": null
+    },
+    {
+      "conversation_created_at": "2026-04-01T10:00:00Z",
+      "conversation_name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+      "conversation_updated_at": "2026-04-01T10:03:00Z",
+      "conversation_uuid": "435e56ed-50ba-21c0-3495-0e8749b20543",
+      "matching_messages": [
+        {
+          "created_at": null,
+          "fragments": null,
+          "match_end": 23,
+          "match_start": 16,
+          "message_uuid": "title",
+          "sender": "title",
+          "snippet": "Hi! NEEDLE_CC — fixture session for Phase 5 tests."
+        },
+        {
+          "created_at": "2026-04-01T10:01:00Z",
+          "fragments": null,
+          "match_end": 37,
+          "match_start": 30,
+          "message_uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d",
+          "sender": "assistant",
+          "snippet": "Hello! Ready to help with the fixture project."
+        },
+        {
+          "created_at": "2026-04-01T10:00:00Z",
+          "fragments": null,
+          "match_end": 23,
+          "match_start": 16,
+          "message_uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd",
+          "sender": "human",
+          "snippet": "Hi! NEEDLE_CC — fixture session for Phase 5 tests."
+        }
+      ],
+      "project_name": "project"
+    },
+    {
+      "conversation_created_at": "2025-05-25T10:00:00Z",
+      "conversation_name": "Synthetic Cowork Fixture One",
+      "conversation_updated_at": "2025-05-25T10:01:05Z",
+      "conversation_uuid": "aaaa1111-2222-3333-4444-555566667777",
+      "matching_messages": [
+        {
+          "created_at": "2026-05-25T10:01:00Z",
+          "fragments": null,
+          "match_end": 42,
+          "match_start": 35,
+          "message_uuid": "u-2",
+          "sender": "human",
+          "snippet": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded."
+        },
+        {
+          "created_at": "2026-05-25T10:00:05Z",
+          "fragments": null,
+          "match_end": 29,
+          "match_start": 22,
+          "message_uuid": "a-1",
+          "sender": "assistant",
+          "snippet": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token."
+        },
+        {
+          "created_at": "2026-05-25T10:00:00Z",
+          "fragments": null,
+          "match_end": 64,
+          "match_start": 57,
+          "message_uuid": "u-1",
+          "sender": "human",
+          "snippet": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ."
+        },
+        {
+          "created_at": null,
+          "fragments": null,
+          "match_end": 24,
+          "match_start": 17,
+          "message_uuid": "title",
+          "sender": "title",
+          "snippet": "Synthetic Cowork Fixture One"
+        }
+      ],
+      "project_name": "synthetic-sandbox"
+    }
+  ],
+  "returned_messages": 42,
+  "total_messages_matched": 42,
+  "truncated": false
+}
