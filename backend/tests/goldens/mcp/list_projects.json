@@ -1,0 +1,33 @@
+{
+  "CLAUDE_AI": [],
+  "CLAUDE_CODE": [
+    {
+      "project": "project",
+      "session_count": 1
+    }
+  ],
+  "CLAUDE_COWORK": [
+    {
+      "project": "remote-fixture-project",
+      "session_count": 1
+    },
+    {
+      "project": "synthetic-sandbox",
+      "session_count": 1
+    }
+  ],
+  "all": [
+    {
+      "project": "remote-fixture-project",
+      "session_count": 1
+    },
+    {
+      "project": "project",
+      "session_count": 1
+    },
+    {
+      "project": "synthetic-sandbox",
+      "session_count": 1
+    }
+  ]
+}

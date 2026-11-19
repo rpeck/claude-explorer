@@ -1,0 +1,137 @@
+{
+  "cached_call": {
+    "conversation_id": "aaaa1111-2222-3333-4444-555566667777",
+    "created_at": "2025-05-25T10:00:00+00:00",
+    "message_count": 4,
+    "messages": [
+      {
+        "char_count": 75,
+        "message_uuid": "u-1",
+        "position": 0,
+        "sender": "human",
+        "summary": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+        "timestamp": "2026-05-25T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 46,
+        "message_uuid": "a-1",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+        "timestamp": "2026-05-25T10:00:05+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 62,
+        "message_uuid": "u-2",
+        "position": 2,
+        "sender": "human",
+        "summary": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+        "timestamp": "2026-05-25T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 36,
+        "message_uuid": "a-2",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "Reply with thinking block preserved.",
+        "timestamp": "2026-05-25T10:01:05+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-opus-4-7",
+    "name": "Synthetic Cowork Fixture One",
+    "next_position": null,
+    "project": "synthetic-sandbox",
+    "session_id": "aaaa1111-2222-3333-4444-555566667777",
+    "source": "CLAUDE_COWORK",
+    "start_position": 0,
+    "updated_at": "2025-05-25T10:01:05+00:00"
+  },
+  "first_call": {
+    "conversation_id": "aaaa1111-2222-3333-4444-555566667777",
+    "created_at": "2025-05-25T10:00:00+00:00",
+    "message_count": 4,
+    "messages": [
+      {
+        "char_count": 75,
+        "message_uuid": "u-1",
+        "position": 0,
+        "sender": "human",
+        "summary": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+        "timestamp": "2026-05-25T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 46,
+        "message_uuid": "a-1",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+        "timestamp": "2026-05-25T10:00:05+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 62,
+        "message_uuid": "u-2",
+        "position": 2,
+        "sender": "human",
+        "summary": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+        "timestamp": "2026-05-25T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 36,
+        "message_uuid": "a-2",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "Reply with thinking block preserved.",
+        "timestamp": "2026-05-25T10:01:05+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-opus-4-7",
+    "name": "Synthetic Cowork Fixture One",
+    "next_position": null,
+    "project": "synthetic-sandbox",
+    "session_id": "aaaa1111-2222-3333-4444-555566667777",
+    "source": "CLAUDE_COWORK",
+    "start_position": 0,
+    "updated_at": "2025-05-25T10:01:05+00:00"
+  },
+  "page_1_size_2": {
+    "conversation_id": "aaaa1111-2222-3333-4444-555566667777",
+    "created_at": "2025-05-25T10:00:00+00:00",
+    "message_count": 4,
+    "messages": [
+      {
+        "char_count": 46,
+        "message_uuid": "a-1",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+        "timestamp": "2026-05-25T10:00:05+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 62,
+        "message_uuid": "u-2",
+        "position": 2,
+        "sender": "human",
+        "summary": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+        "timestamp": "2026-05-25T10:01:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-opus-4-7",
+    "name": "Synthetic Cowork Fixture One",
+    "next_position": 3,
+    "project": "synthetic-sandbox",
+    "session_id": "aaaa1111-2222-3333-4444-555566667777",
+    "source": "CLAUDE_COWORK",
+    "start_position": 1,
+    "updated_at": "2025-05-25T10:01:05+00:00"
+  }
+}

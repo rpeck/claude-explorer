@@ -1,0 +1,1866 @@
+{
+  "detail": {
+    "compact_markers": [],
+    "created_at": "2026-04-01T10:00:00Z",
+    "current_leaf_message_uuid": "d7a4e89e-982e-6f1e-0389-da8242eb794e",
+    "error": null,
+    "file_path": "<TMP>/data/by-org/00000000-1111-2222-3333-444444444444/0f415a45-9c62-8671-d4ad-53b84acb7e1a.json",
+    "git_branch": null,
+    "has_branches": false,
+    "human_message_count": 15,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 30,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Hi! Let's talk about TLS.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:00:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Hi! Let's talk about TLS.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:00:00Z",
+        "uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #2 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:01:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #2 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:01:00Z",
+        "uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #3 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:02:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #3 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:02:00Z",
+        "uuid": "fa51312a-7092-0f1f-f773-e5773811ed05"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #4 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:03:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #4 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:03:00Z",
+        "uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:04:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:04:00Z",
+        "uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #6 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:05:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #6 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:05:00Z",
+        "uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #7 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:06:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #7 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:06:00Z",
+        "uuid": "9562a307-1beb-5462-ece4-34f59a16788c"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #8 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:07:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "9562a307-1beb-5462-ece4-34f59a16788c",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #8 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:07:00Z",
+        "uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #9 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:08:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #9 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:08:00Z",
+        "uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #10 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:09:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #10 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:09:00Z",
+        "uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #11 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:10:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #11 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:10:00Z",
+        "uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #12 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:11:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #12 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:11:00Z",
+        "uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #13 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:12:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #13 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:12:00Z",
+        "uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #14 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:13:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #14 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:13:00Z",
+        "uuid": "637ac55b-9dc6-8192-af6a-69867b348077"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #15 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:14:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "637ac55b-9dc6-8192-af6a-69867b348077",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #15 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:14:00Z",
+        "uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #16 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:15:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #16 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:15:00Z",
+        "uuid": "89569547-6e14-ff3e-3a98-d06073a7064b"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #17 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:16:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "89569547-6e14-ff3e-3a98-d06073a7064b",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #17 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:16:00Z",
+        "uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #18 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:17:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #18 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:17:00Z",
+        "uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #19 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:18:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #19 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:18:00Z",
+        "uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #20 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:19:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #20 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:19:00Z",
+        "uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #21 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:20:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #21 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:20:00Z",
+        "uuid": "815788d8-7001-9307-6a33-effbdb26241e"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #22 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:21:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "815788d8-7001-9307-6a33-effbdb26241e",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #22 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:21:00Z",
+        "uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #23 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:22:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #23 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:22:00Z",
+        "uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #24 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:23:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #24 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:23:00Z",
+        "uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #25 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:24:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #25 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:24:00Z",
+        "uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #26 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:25:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #26 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:25:00Z",
+        "uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #27 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:26:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #27 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:26:00Z",
+        "uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #28 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:27:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #28 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:27:00Z",
+        "uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #29 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:28:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8",
+        "sender": "human",
+        "slash_command": null,
+        "text": "Filler message #29 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:28:00Z",
+        "uuid": "f428cc00-c20e-7da8-df58-13befa51c620"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Filler message #30 for the long-conversation fixture.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:29:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "f428cc00-c20e-7da8-df58-13befa51c620",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Filler message #30 for the long-conversation fixture.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:29:00Z",
+        "uuid": "d7a4e89e-982e-6f1e-0389-da8242eb794e"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: TLS handshakes (long)",
+    "organization_id": null,
+    "organization_name": null,
+    "prelude_hidden_count": 0,
+    "project_name": null,
+    "project_path": null,
+    "sandbox_path": null,
+    "source": "CLAUDE_AI",
+    "subagents": [],
+    "summary": "Phase 5 fixture: TLS handshakes (long)",
+    "updated_at": "2026-04-01T10:30:00Z",
+    "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+  },
+  "tree": {
+    "active_path": [
+      "d2640df7-c9b5-db2f-994a-7abc63d27173",
+      "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
+      "fa51312a-7092-0f1f-f773-e5773811ed05",
+      "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
+      "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf",
+      "97a1573b-2c69-e86a-c02c-203a09b75a88",
+      "9562a307-1beb-5462-ece4-34f59a16788c",
+      "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
+      "863a3dec-c482-60fc-0dfc-8df3d718b92b",
+      "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
+      "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
+      "8b6e9753-ca14-6b60-0356-f813ecd49adf",
+      "f0b7b37a-7d46-67dd-f274-06495b55de2e",
+      "637ac55b-9dc6-8192-af6a-69867b348077",
+      "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
+      "89569547-6e14-ff3e-3a98-d06073a7064b",
+      "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
+      "2ba316db-8028-30d0-4965-e4c3241ce4d0",
+      "5b024584-87df-dbe9-8d80-df0481fc6fc1",
+      "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
+      "815788d8-7001-9307-6a33-effbdb26241e",
+      "489849c2-4fea-6ce4-9dee-3858c0df7d24",
+      "97a45ef2-bcf5-3a9e-bec1-478276283456",
+      "3628b82e-8066-6da7-d1cc-b969466a96a0",
+      "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
+      "8cd93a7c-2910-ce96-667f-52622a7fdc32",
+      "9eed67df-ebad-7578-6df9-d5c694f4e237",
+      "dbacb2d3-6788-e202-e651-5747144cb6c8",
+      "f428cc00-c20e-7da8-df58-13befa51c620",
+      "d7a4e89e-982e-6f1e-0389-da8242eb794e"
+    ],
+    "root_messages": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [
+                                      {
+                                        "children": [
+                                          {
+                                            "children": [
+                                              {
+                                                "children": [
+                                                  {
+                                                    "children": [
+                                                      {
+                                                        "children": [
+                                                          {
+                                                            "children": [
+                                                              {
+                                                                "children": [
+                                                                  {
+                                                                    "children": [
+                                                                      {
+                                                                        "children": [
+                                                                          {
+                                                                            "children": [
+                                                                              {
+                                                                                "children": [
+                                                                                  {
+                                                                                    "children": [
+                                                                                      {
+                                                                                        "children": [
+                                                                                          {
+                                                                                            "children": [
+                                                                                              {
+                                                                                                "children": [
+                                                                                                  {
+                                                                                                    "children": [
+                                                                                                      {
+                                                                                                        "children": [
+                                                                                                          {
+                                                                                                            "children": [
+                                                                                                              {
+                                                                                                                "children": [
+                                                                                                                  {
+                                                                                                                    "children": [
+                                                                                                                      {
+                                                                                                                        "children": [
+                                                                                                                          {
+                                                                                                                            "children": [],
+                                                                                                                            "message": {
+                                                                                                                              "assistant_canned_response_consumed": false,
+                                                                                                                              "attachments": [],
+                                                                                                                              "content": [
+                                                                                                                                {
+                                                                                                                                  "content": null,
+                                                                                                                                  "id": null,
+                                                                                                                                  "input": null,
+                                                                                                                                  "name": null,
+                                                                                                                                  "source": null,
+                                                                                                                                  "text": "Filler message #30 for the long-conversation fixture.",
+                                                                                                                                  "tool_use_id": null,
+                                                                                                                                  "type": "text"
+                                                                                                                                }
+                                                                                                                              ],
+                                                                                                                              "created_at": "2026-04-01T10:29:00Z",
+                                                                                                                              "files": [],
+                                                                                                                              "files_v2": [],
+                                                                                                                              "is_command_marker": false,
+                                                                                                                              "is_prelude": false,
+                                                                                                                              "parent_message_uuid": "f428cc00-c20e-7da8-df58-13befa51c620",
+                                                                                                                              "sender": "assistant",
+                                                                                                                              "slash_command": null,
+                                                                                                                              "text": "Filler message #30 for the long-conversation fixture.",
+                                                                                                                              "truncated": false,
+                                                                                                                              "updated_at": "2026-04-01T10:29:00Z",
+                                                                                                                              "uuid": "d7a4e89e-982e-6f1e-0389-da8242eb794e"
+                                                                                                                            }
+                                                                                                                          }
+                                                                                                                        ],
+                                                                                                                        "message": {
+                                                                                                                          "assistant_canned_response_consumed": false,
+                                                                                                                          "attachments": [],
+                                                                                                                          "content": [
+                                                                                                                            {
+                                                                                                                              "content": null,
+                                                                                                                              "id": null,
+                                                                                                                              "input": null,
+                                                                                                                              "name": null,
+                                                                                                                              "source": null,
+                                                                                                                              "text": "Filler message #29 for the long-conversation fixture.",
+                                                                                                                              "tool_use_id": null,
+                                                                                                                              "type": "text"
+                                                                                                                            }
+                                                                                                                          ],
+                                                                                                                          "created_at": "2026-04-01T10:28:00Z",
+                                                                                                                          "files": [],
+                                                                                                                          "files_v2": [],
+                                                                                                                          "is_command_marker": false,
+                                                                                                                          "is_prelude": false,
+                                                                                                                          "parent_message_uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8",
+                                                                                                                          "sender": "human",
+                                                                                                                          "slash_command": null,
+                                                                                                                          "text": "Filler message #29 for the long-conversation fixture.",
+                                                                                                                          "truncated": false,
+                                                                                                                          "updated_at": "2026-04-01T10:28:00Z",
+                                                                                                                          "uuid": "f428cc00-c20e-7da8-df58-13befa51c620"
+                                                                                                                        }
+                                                                                                                      }
+                                                                                                                    ],
+                                                                                                                    "message": {
+                                                                                                                      "assistant_canned_response_consumed": false,
+                                                                                                                      "attachments": [],
+                                                                                                                      "content": [
+                                                                                                                        {
+                                                                                                                          "content": null,
+                                                                                                                          "id": null,
+                                                                                                                          "input": null,
+                                                                                                                          "name": null,
+                                                                                                                          "source": null,
+                                                                                                                          "text": "Filler message #28 for the long-conversation fixture.",
+                                                                                                                          "tool_use_id": null,
+                                                                                                                          "type": "text"
+                                                                                                                        }
+                                                                                                                      ],
+                                                                                                                      "created_at": "2026-04-01T10:27:00Z",
+                                                                                                                      "files": [],
+                                                                                                                      "files_v2": [],
+                                                                                                                      "is_command_marker": false,
+                                                                                                                      "is_prelude": false,
+                                                                                                                      "parent_message_uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237",
+                                                                                                                      "sender": "assistant",
+                                                                                                                      "slash_command": null,
+                                                                                                                      "text": "Filler message #28 for the long-conversation fixture.",
+                                                                                                                      "truncated": false,
+                                                                                                                      "updated_at": "2026-04-01T10:27:00Z",
+                                                                                                                      "uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8"
+                                                                                                                    }
+                                                                                                                  }
+                                                                                                                ],
+                                                                                                                "message": {
+                                                                                                                  "assistant_canned_response_consumed": false,
+                                                                                                                  "attachments": [],
+                                                                                                                  "content": [
+                                                                                                                    {
+                                                                                                                      "content": null,
+                                                                                                                      "id": null,
+                                                                                                                      "input": null,
+                                                                                                                      "name": null,
+                                                                                                                      "source": null,
+                                                                                                                      "text": "Filler message #27 for the long-conversation fixture.",
+                                                                                                                      "tool_use_id": null,
+                                                                                                                      "type": "text"
+                                                                                                                    }
+                                                                                                                  ],
+                                                                                                                  "created_at": "2026-04-01T10:26:00Z",
+                                                                                                                  "files": [],
+                                                                                                                  "files_v2": [],
+                                                                                                                  "is_command_marker": false,
+                                                                                                                  "is_prelude": false,
+                                                                                                                  "parent_message_uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32",
+                                                                                                                  "sender": "human",
+                                                                                                                  "slash_command": null,
+                                                                                                                  "text": "Filler message #27 for the long-conversation fixture.",
+                                                                                                                  "truncated": false,
+                                                                                                                  "updated_at": "2026-04-01T10:26:00Z",
+                                                                                                                  "uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237"
+                                                                                                                }
+                                                                                                              }
+                                                                                                            ],
+                                                                                                            "message": {
+                                                                                                              "assistant_canned_response_consumed": false,
+                                                                                                              "attachments": [],
+                                                                                                              "content": [
+                                                                                                                {
+                                                                                                                  "content": null,
+                                                                                                                  "id": null,
+                                                                                                                  "input": null,
+                                                                                                                  "name": null,
+                                                                                                                  "source": null,
+                                                                                                                  "text": "Filler message #26 for the long-conversation fixture.",
+                                                                                                                  "tool_use_id": null,
+                                                                                                                  "type": "text"
+                                                                                                                }
+                                                                                                              ],
+                                                                                                              "created_at": "2026-04-01T10:25:00Z",
+                                                                                                              "files": [],
+                                                                                                              "files_v2": [],
+                                                                                                              "is_command_marker": false,
+                                                                                                              "is_prelude": false,
+                                                                                                              "parent_message_uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
+                                                                                                              "sender": "assistant",
+                                                                                                              "slash_command": null,
+                                                                                                              "text": "Filler message #26 for the long-conversation fixture.",
+                                                                                                              "truncated": false,
+                                                                                                              "updated_at": "2026-04-01T10:25:00Z",
+                                                                                                              "uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32"
+                                                                                                            }
+                                                                                                          }
+                                                                                                        ],
+                                                                                                        "message": {
+                                                                                                          "assistant_canned_response_consumed": false,
+                                                                                                          "attachments": [],
+                                                                                                          "content": [
+                                                                                                            {
+                                                                                                              "content": null,
+                                                                                                              "id": null,
+                                                                                                              "input": null,
+                                                                                                              "name": null,
+                                                                                                              "source": null,
+                                                                                                              "text": "Filler message #25 for the long-conversation fixture.",
+                                                                                                              "tool_use_id": null,
+                                                                                                              "type": "text"
+                                                                                                            }
+                                                                                                          ],
+                                                                                                          "created_at": "2026-04-01T10:24:00Z",
+                                                                                                          "files": [],
+                                                                                                          "files_v2": [],
+                                                                                                          "is_command_marker": false,
+                                                                                                          "is_prelude": false,
+                                                                                                          "parent_message_uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0",
+                                                                                                          "sender": "human",
+                                                                                                          "slash_command": null,
+                                                                                                          "text": "Filler message #25 for the long-conversation fixture.",
+                                                                                                          "truncated": false,
+                                                                                                          "updated_at": "2026-04-01T10:24:00Z",
+                                                                                                          "uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e"
+                                                                                                        }
+                                                                                                      }
+                                                                                                    ],
+                                                                                                    "message": {
+                                                                                                      "assistant_canned_response_consumed": false,
+                                                                                                      "attachments": [],
+                                                                                                      "content": [
+                                                                                                        {
+                                                                                                          "content": null,
+                                                                                                          "id": null,
+                                                                                                          "input": null,
+                                                                                                          "name": null,
+                                                                                                          "source": null,
+                                                                                                          "text": "Filler message #24 for the long-conversation fixture.",
+                                                                                                          "tool_use_id": null,
+                                                                                                          "type": "text"
+                                                                                                        }
+                                                                                                      ],
+                                                                                                      "created_at": "2026-04-01T10:23:00Z",
+                                                                                                      "files": [],
+                                                                                                      "files_v2": [],
+                                                                                                      "is_command_marker": false,
+                                                                                                      "is_prelude": false,
+                                                                                                      "parent_message_uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456",
+                                                                                                      "sender": "assistant",
+                                                                                                      "slash_command": null,
+                                                                                                      "text": "Filler message #24 for the long-conversation fixture.",
+                                                                                                      "truncated": false,
+                                                                                                      "updated_at": "2026-04-01T10:23:00Z",
+                                                                                                      "uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0"
+                                                                                                    }
+                                                                                                  }
+                                                                                                ],
+                                                                                                "message": {
+                                                                                                  "assistant_canned_response_consumed": false,
+                                                                                                  "attachments": [],
+                                                                                                  "content": [
+                                                                                                    {
+                                                                                                      "content": null,
+                                                                                                      "id": null,
+                                                                                                      "input": null,
+                                                                                                      "name": null,
+                                                                                                      "source": null,
+                                                                                                      "text": "Filler message #23 for the long-conversation fixture.",
+                                                                                                      "tool_use_id": null,
+                                                                                                      "type": "text"
+                                                                                                    }
+                                                                                                  ],
+                                                                                                  "created_at": "2026-04-01T10:22:00Z",
+                                                                                                  "files": [],
+                                                                                                  "files_v2": [],
+                                                                                                  "is_command_marker": false,
+                                                                                                  "is_prelude": false,
+                                                                                                  "parent_message_uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24",
+                                                                                                  "sender": "human",
+                                                                                                  "slash_command": null,
+                                                                                                  "text": "Filler message #23 for the long-conversation fixture.",
+                                                                                                  "truncated": false,
+                                                                                                  "updated_at": "2026-04-01T10:22:00Z",
+                                                                                                  "uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456"
+                                                                                                }
+                                                                                              }
+                                                                                            ],
+                                                                                            "message": {
+                                                                                              "assistant_canned_response_consumed": false,
+                                                                                              "attachments": [],
+                                                                                              "content": [
+                                                                                                {
+                                                                                                  "content": null,
+                                                                                                  "id": null,
+                                                                                                  "input": null,
+                                                                                                  "name": null,
+                                                                                                  "source": null,
+                                                                                                  "text": "Filler message #22 for the long-conversation fixture.",
+                                                                                                  "tool_use_id": null,
+                                                                                                  "type": "text"
+                                                                                                }
+                                                                                              ],
+                                                                                              "created_at": "2026-04-01T10:21:00Z",
+                                                                                              "files": [],
+                                                                                              "files_v2": [],
+                                                                                              "is_command_marker": false,
+                                                                                              "is_prelude": false,
+                                                                                              "parent_message_uuid": "815788d8-7001-9307-6a33-effbdb26241e",
+                                                                                              "sender": "assistant",
+                                                                                              "slash_command": null,
+                                                                                              "text": "Filler message #22 for the long-conversation fixture.",
+                                                                                              "truncated": false,
+                                                                                              "updated_at": "2026-04-01T10:21:00Z",
+                                                                                              "uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24"
+                                                                                            }
+                                                                                          }
+                                                                                        ],
+                                                                                        "message": {
+                                                                                          "assistant_canned_response_consumed": false,
+                                                                                          "attachments": [],
+                                                                                          "content": [
+                                                                                            {
+                                                                                              "content": null,
+                                                                                              "id": null,
+                                                                                              "input": null,
+                                                                                              "name": null,
+                                                                                              "source": null,
+                                                                                              "text": "Filler message #21 for the long-conversation fixture.",
+                                                                                              "tool_use_id": null,
+                                                                                              "type": "text"
+                                                                                            }
+                                                                                          ],
+                                                                                          "created_at": "2026-04-01T10:20:00Z",
+                                                                                          "files": [],
+                                                                                          "files_v2": [],
+                                                                                          "is_command_marker": false,
+                                                                                          "is_prelude": false,
+                                                                                          "parent_message_uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
+                                                                                          "sender": "human",
+                                                                                          "slash_command": null,
+                                                                                          "text": "Filler message #21 for the long-conversation fixture.",
+                                                                                          "truncated": false,
+                                                                                          "updated_at": "2026-04-01T10:20:00Z",
+                                                                                          "uuid": "815788d8-7001-9307-6a33-effbdb26241e"
+                                                                                        }
+                                                                                      }
+                                                                                    ],
+                                                                                    "message": {
+                                                                                      "assistant_canned_response_consumed": false,
+                                                                                      "attachments": [],
+                                                                                      "content": [
+                                                                                        {
+                                                                                          "content": null,
+                                                                                          "id": null,
+                                                                                          "input": null,
+                                                                                          "name": null,
+                                                                                          "source": null,
+                                                                                          "text": "Filler message #20 for the long-conversation fixture.",
+                                                                                          "tool_use_id": null,
+                                                                                          "type": "text"
+                                                                                        }
+                                                                                      ],
+                                                                                      "created_at": "2026-04-01T10:19:00Z",
+                                                                                      "files": [],
+                                                                                      "files_v2": [],
+                                                                                      "is_command_marker": false,
+                                                                                      "is_prelude": false,
+                                                                                      "parent_message_uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1",
+                                                                                      "sender": "assistant",
+                                                                                      "slash_command": null,
+                                                                                      "text": "Filler message #20 for the long-conversation fixture.",
+                                                                                      "truncated": false,
+                                                                                      "updated_at": "2026-04-01T10:19:00Z",
+                                                                                      "uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a"
+                                                                                    }
+                                                                                  }
+                                                                                ],
+                                                                                "message": {
+                                                                                  "assistant_canned_response_consumed": false,
+                                                                                  "attachments": [],
+                                                                                  "content": [
+                                                                                    {
+                                                                                      "content": null,
+                                                                                      "id": null,
+                                                                                      "input": null,
+                                                                                      "name": null,
+                                                                                      "source": null,
+                                                                                      "text": "Filler message #19 for the long-conversation fixture.",
+                                                                                      "tool_use_id": null,
+                                                                                      "type": "text"
+                                                                                    }
+                                                                                  ],
+                                                                                  "created_at": "2026-04-01T10:18:00Z",
+                                                                                  "files": [],
+                                                                                  "files_v2": [],
+                                                                                  "is_command_marker": false,
+                                                                                  "is_prelude": false,
+                                                                                  "parent_message_uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0",
+                                                                                  "sender": "human",
+                                                                                  "slash_command": null,
+                                                                                  "text": "Filler message #19 for the long-conversation fixture.",
+                                                                                  "truncated": false,
+                                                                                  "updated_at": "2026-04-01T10:18:00Z",
+                                                                                  "uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1"
+                                                                                }
+                                                                              }
+                                                                            ],
+                                                                            "message": {
+                                                                              "assistant_canned_response_consumed": false,
+                                                                              "attachments": [],
+                                                                              "content": [
+                                                                                {
+                                                                                  "content": null,
+                                                                                  "id": null,
+                                                                                  "input": null,
+                                                                                  "name": null,
+                                                                                  "source": null,
+                                                                                  "text": "Filler message #18 for the long-conversation fixture.",
+                                                                                  "tool_use_id": null,
+                                                                                  "type": "text"
+                                                                                }
+                                                                              ],
+                                                                              "created_at": "2026-04-01T10:17:00Z",
+                                                                              "files": [],
+                                                                              "files_v2": [],
+                                                                              "is_command_marker": false,
+                                                                              "is_prelude": false,
+                                                                              "parent_message_uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
+                                                                              "sender": "assistant",
+                                                                              "slash_command": null,
+                                                                              "text": "Filler message #18 for the long-conversation fixture.",
+                                                                              "truncated": false,
+                                                                              "updated_at": "2026-04-01T10:17:00Z",
+                                                                              "uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0"
+                                                                            }
+                                                                          }
+                                                                        ],
+                                                                        "message": {
+                                                                          "assistant_canned_response_consumed": false,
+                                                                          "attachments": [],
+                                                                          "content": [
+                                                                            {
+                                                                              "content": null,
+                                                                              "id": null,
+                                                                              "input": null,
+                                                                              "name": null,
+                                                                              "source": null,
+                                                                              "text": "Filler message #17 for the long-conversation fixture.",
+                                                                              "tool_use_id": null,
+                                                                              "type": "text"
+                                                                            }
+                                                                          ],
+                                                                          "created_at": "2026-04-01T10:16:00Z",
+                                                                          "files": [],
+                                                                          "files_v2": [],
+                                                                          "is_command_marker": false,
+                                                                          "is_prelude": false,
+                                                                          "parent_message_uuid": "89569547-6e14-ff3e-3a98-d06073a7064b",
+                                                                          "sender": "human",
+                                                                          "slash_command": null,
+                                                                          "text": "Filler message #17 for the long-conversation fixture.",
+                                                                          "truncated": false,
+                                                                          "updated_at": "2026-04-01T10:16:00Z",
+                                                                          "uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43"
+                                                                        }
+                                                                      }
+                                                                    ],
+                                                                    "message": {
+                                                                      "assistant_canned_response_consumed": false,
+                                                                      "attachments": [],
+                                                                      "content": [
+                                                                        {
+                                                                          "content": null,
+                                                                          "id": null,
+                                                                          "input": null,
+                                                                          "name": null,
+                                                                          "source": null,
+                                                                          "text": "Filler message #16 for the long-conversation fixture.",
+                                                                          "tool_use_id": null,
+                                                                          "type": "text"
+                                                                        }
+                                                                      ],
+                                                                      "created_at": "2026-04-01T10:15:00Z",
+                                                                      "files": [],
+                                                                      "files_v2": [],
+                                                                      "is_command_marker": false,
+                                                                      "is_prelude": false,
+                                                                      "parent_message_uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
+                                                                      "sender": "assistant",
+                                                                      "slash_command": null,
+                                                                      "text": "Filler message #16 for the long-conversation fixture.",
+                                                                      "truncated": false,
+                                                                      "updated_at": "2026-04-01T10:15:00Z",
+                                                                      "uuid": "89569547-6e14-ff3e-3a98-d06073a7064b"
+                                                                    }
+                                                                  }
+                                                                ],
+                                                                "message": {
+                                                                  "assistant_canned_response_consumed": false,
+                                                                  "attachments": [],
+                                                                  "content": [
+                                                                    {
+                                                                      "content": null,
+                                                                      "id": null,
+                                                                      "input": null,
+                                                                      "name": null,
+                                                                      "source": null,
+                                                                      "text": "Filler message #15 for the long-conversation fixture.",
+                                                                      "tool_use_id": null,
+                                                                      "type": "text"
+                                                                    }
+                                                                  ],
+                                                                  "created_at": "2026-04-01T10:14:00Z",
+                                                                  "files": [],
+                                                                  "files_v2": [],
+                                                                  "is_command_marker": false,
+                                                                  "is_prelude": false,
+                                                                  "parent_message_uuid": "637ac55b-9dc6-8192-af6a-69867b348077",
+                                                                  "sender": "human",
+                                                                  "slash_command": null,
+                                                                  "text": "Filler message #15 for the long-conversation fixture.",
+                                                                  "truncated": false,
+                                                                  "updated_at": "2026-04-01T10:14:00Z",
+                                                                  "uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382"
+                                                                }
+                                                              }
+                                                            ],
+                                                            "message": {
+                                                              "assistant_canned_response_consumed": false,
+                                                              "attachments": [],
+                                                              "content": [
+                                                                {
+                                                                  "content": null,
+                                                                  "id": null,
+                                                                  "input": null,
+                                                                  "name": null,
+                                                                  "source": null,
+                                                                  "text": "Filler message #14 for the long-conversation fixture.",
+                                                                  "tool_use_id": null,
+                                                                  "type": "text"
+                                                                }
+                                                              ],
+                                                              "created_at": "2026-04-01T10:13:00Z",
+                                                              "files": [],
+                                                              "files_v2": [],
+                                                              "is_command_marker": false,
+                                                              "is_prelude": false,
+                                                              "parent_message_uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e",
+                                                              "sender": "assistant",
+                                                              "slash_command": null,
+                                                              "text": "Filler message #14 for the long-conversation fixture.",
+                                                              "truncated": false,
+                                                              "updated_at": "2026-04-01T10:13:00Z",
+                                                              "uuid": "637ac55b-9dc6-8192-af6a-69867b348077"
+                                                            }
+                                                          }
+                                                        ],
+                                                        "message": {
+                                                          "assistant_canned_response_consumed": false,
+                                                          "attachments": [],
+                                                          "content": [
+                                                            {
+                                                              "content": null,
+                                                              "id": null,
+                                                              "input": null,
+                                                              "name": null,
+                                                              "source": null,
+                                                              "text": "Filler message #13 for the long-conversation fixture.",
+                                                              "tool_use_id": null,
+                                                              "type": "text"
+                                                            }
+                                                          ],
+                                                          "created_at": "2026-04-01T10:12:00Z",
+                                                          "files": [],
+                                                          "files_v2": [],
+                                                          "is_command_marker": false,
+                                                          "is_prelude": false,
+                                                          "parent_message_uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf",
+                                                          "sender": "human",
+                                                          "slash_command": null,
+                                                          "text": "Filler message #13 for the long-conversation fixture.",
+                                                          "truncated": false,
+                                                          "updated_at": "2026-04-01T10:12:00Z",
+                                                          "uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e"
+                                                        }
+                                                      }
+                                                    ],
+                                                    "message": {
+                                                      "assistant_canned_response_consumed": false,
+                                                      "attachments": [],
+                                                      "content": [
+                                                        {
+                                                          "content": null,
+                                                          "id": null,
+                                                          "input": null,
+                                                          "name": null,
+                                                          "source": null,
+                                                          "text": "Filler message #12 for the long-conversation fixture.",
+                                                          "tool_use_id": null,
+                                                          "type": "text"
+                                                        }
+                                                      ],
+                                                      "created_at": "2026-04-01T10:11:00Z",
+                                                      "files": [],
+                                                      "files_v2": [],
+                                                      "is_command_marker": false,
+                                                      "is_prelude": false,
+                                                      "parent_message_uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
+                                                      "sender": "assistant",
+                                                      "slash_command": null,
+                                                      "text": "Filler message #12 for the long-conversation fixture.",
+                                                      "truncated": false,
+                                                      "updated_at": "2026-04-01T10:11:00Z",
+                                                      "uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf"
+                                                    }
+                                                  }
+                                                ],
+                                                "message": {
+                                                  "assistant_canned_response_consumed": false,
+                                                  "attachments": [],
+                                                  "content": [
+                                                    {
+                                                      "content": null,
+                                                      "id": null,
+                                                      "input": null,
+                                                      "name": null,
+                                                      "source": null,
+                                                      "text": "Filler message #11 for the long-conversation fixture.",
+                                                      "tool_use_id": null,
+                                                      "type": "text"
+                                                    }
+                                                  ],
+                                                  "created_at": "2026-04-01T10:10:00Z",
+                                                  "files": [],
+                                                  "files_v2": [],
+                                                  "is_command_marker": false,
+                                                  "is_prelude": false,
+                                                  "parent_message_uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
+                                                  "sender": "human",
+                                                  "slash_command": null,
+                                                  "text": "Filler message #11 for the long-conversation fixture.",
+                                                  "truncated": false,
+                                                  "updated_at": "2026-04-01T10:10:00Z",
+                                                  "uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28"
+                                                }
+                                              }
+                                            ],
+                                            "message": {
+                                              "assistant_canned_response_consumed": false,
+                                              "attachments": [],
+                                              "content": [
+                                                {
+                                                  "content": null,
+                                                  "id": null,
+                                                  "input": null,
+                                                  "name": null,
+                                                  "source": null,
+                                                  "text": "Filler message #10 for the long-conversation fixture.",
+                                                  "tool_use_id": null,
+                                                  "type": "text"
+                                                }
+                                              ],
+                                              "created_at": "2026-04-01T10:09:00Z",
+                                              "files": [],
+                                              "files_v2": [],
+                                              "is_command_marker": false,
+                                              "is_prelude": false,
+                                              "parent_message_uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b",
+                                              "sender": "assistant",
+                                              "slash_command": null,
+                                              "text": "Filler message #10 for the long-conversation fixture.",
+                                              "truncated": false,
+                                              "updated_at": "2026-04-01T10:09:00Z",
+                                              "uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998"
+                                            }
+                                          }
+                                        ],
+                                        "message": {
+                                          "assistant_canned_response_consumed": false,
+                                          "attachments": [],
+                                          "content": [
+                                            {
+                                              "content": null,
+                                              "id": null,
+                                              "input": null,
+                                              "name": null,
+                                              "source": null,
+                                              "text": "Filler message #9 for the long-conversation fixture.",
+                                              "tool_use_id": null,
+                                              "type": "text"
+                                            }
+                                          ],
+                                          "created_at": "2026-04-01T10:08:00Z",
+                                          "files": [],
+                                          "files_v2": [],
+                                          "is_command_marker": false,
+                                          "is_prelude": false,
+                                          "parent_message_uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
+                                          "sender": "human",
+                                          "slash_command": null,
+                                          "text": "Filler message #9 for the long-conversation fixture.",
+                                          "truncated": false,
+                                          "updated_at": "2026-04-01T10:08:00Z",
+                                          "uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b"
+                                        }
+                                      }
+                                    ],
+                                    "message": {
+                                      "assistant_canned_response_consumed": false,
+                                      "attachments": [],
+                                      "content": [
+                                        {
+                                          "content": null,
+                                          "id": null,
+                                          "input": null,
+                                          "name": null,
+                                          "source": null,
+                                          "text": "Filler message #8 for the long-conversation fixture.",
+                                          "tool_use_id": null,
+                                          "type": "text"
+                                        }
+                                      ],
+                                      "created_at": "2026-04-01T10:07:00Z",
+                                      "files": [],
+                                      "files_v2": [],
+                                      "is_command_marker": false,
+                                      "is_prelude": false,
+                                      "parent_message_uuid": "9562a307-1beb-5462-ece4-34f59a16788c",
+                                      "sender": "assistant",
+                                      "slash_command": null,
+                                      "text": "Filler message #8 for the long-conversation fixture.",
+                                      "truncated": false,
+                                      "updated_at": "2026-04-01T10:07:00Z",
+                                      "uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86"
+                                    }
+                                  }
+                                ],
+                                "message": {
+                                  "assistant_canned_response_consumed": false,
+                                  "attachments": [],
+                                  "content": [
+                                    {
+                                      "content": null,
+                                      "id": null,
+                                      "input": null,
+                                      "name": null,
+                                      "source": null,
+                                      "text": "Filler message #7 for the long-conversation fixture.",
+                                      "tool_use_id": null,
+                                      "type": "text"
+                                    }
+                                  ],
+                                  "created_at": "2026-04-01T10:06:00Z",
+                                  "files": [],
+                                  "files_v2": [],
+                                  "is_command_marker": false,
+                                  "is_prelude": false,
+                                  "parent_message_uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88",
+                                  "sender": "human",
+                                  "slash_command": null,
+                                  "text": "Filler message #7 for the long-conversation fixture.",
+                                  "truncated": false,
+                                  "updated_at": "2026-04-01T10:06:00Z",
+                                  "uuid": "9562a307-1beb-5462-ece4-34f59a16788c"
+                                }
+                              }
+                            ],
+                            "message": {
+                              "assistant_canned_response_consumed": false,
+                              "attachments": [],
+                              "content": [
+                                {
+                                  "content": null,
+                                  "id": null,
+                                  "input": null,
+                                  "name": null,
+                                  "source": null,
+                                  "text": "Filler message #6 for the long-conversation fixture.",
+                                  "tool_use_id": null,
+                                  "type": "text"
+                                }
+                              ],
+                              "created_at": "2026-04-01T10:05:00Z",
+                              "files": [],
+                              "files_v2": [],
+                              "is_command_marker": false,
+                              "is_prelude": false,
+                              "parent_message_uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf",
+                              "sender": "assistant",
+                              "slash_command": null,
+                              "text": "Filler message #6 for the long-conversation fixture.",
+                              "truncated": false,
+                              "updated_at": "2026-04-01T10:05:00Z",
+                              "uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88"
+                            }
+                          }
+                        ],
+                        "message": {
+                          "assistant_canned_response_consumed": false,
+                          "attachments": [],
+                          "content": [
+                            {
+                              "content": null,
+                              "id": null,
+                              "input": null,
+                              "name": null,
+                              "source": null,
+                              "text": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
+                              "tool_use_id": null,
+                              "type": "text"
+                            }
+                          ],
+                          "created_at": "2026-04-01T10:04:00Z",
+                          "files": [],
+                          "files_v2": [],
+                          "is_command_marker": false,
+                          "is_prelude": false,
+                          "parent_message_uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
+                          "sender": "human",
+                          "slash_command": null,
+                          "text": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
+                          "truncated": false,
+                          "updated_at": "2026-04-01T10:04:00Z",
+                          "uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf"
+                        }
+                      }
+                    ],
+                    "message": {
+                      "assistant_canned_response_consumed": false,
+                      "attachments": [],
+                      "content": [
+                        {
+                          "content": null,
+                          "id": null,
+                          "input": null,
+                          "name": null,
+                          "source": null,
+                          "text": "Filler message #4 for the long-conversation fixture.",
+                          "tool_use_id": null,
+                          "type": "text"
+                        }
+                      ],
+                      "created_at": "2026-04-01T10:03:00Z",
+                      "files": [],
+                      "files_v2": [],
+                      "is_command_marker": false,
+                      "is_prelude": false,
+                      "parent_message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
+                      "sender": "assistant",
+                      "slash_command": null,
+                      "text": "Filler message #4 for the long-conversation fixture.",
+                      "truncated": false,
+                      "updated_at": "2026-04-01T10:03:00Z",
+                      "uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23"
+                    }
+                  }
+                ],
+                "message": {
+                  "assistant_canned_response_consumed": false,
+                  "attachments": [],
+                  "content": [
+                    {
+                      "content": null,
+                      "id": null,
+                      "input": null,
+                      "name": null,
+                      "source": null,
+                      "text": "Filler message #3 for the long-conversation fixture.",
+                      "tool_use_id": null,
+                      "type": "text"
+                    }
+                  ],
+                  "created_at": "2026-04-01T10:02:00Z",
+                  "files": [],
+                  "files_v2": [],
+                  "is_command_marker": false,
+                  "is_prelude": false,
+                  "parent_message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
+                  "sender": "human",
+                  "slash_command": null,
+                  "text": "Filler message #3 for the long-conversation fixture.",
+                  "truncated": false,
+                  "updated_at": "2026-04-01T10:02:00Z",
+                  "uuid": "fa51312a-7092-0f1f-f773-e5773811ed05"
+                }
+              }
+            ],
+            "message": {
+              "assistant_canned_response_consumed": false,
+              "attachments": [],
+              "content": [
+                {
+                  "content": null,
+                  "id": null,
+                  "input": null,
+                  "name": null,
+                  "source": null,
+                  "text": "Filler message #2 for the long-conversation fixture.",
+                  "tool_use_id": null,
+                  "type": "text"
+                }
+              ],
+              "created_at": "2026-04-01T10:01:00Z",
+              "files": [],
+              "files_v2": [],
+              "is_command_marker": false,
+              "is_prelude": false,
+              "parent_message_uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173",
+              "sender": "assistant",
+              "slash_command": null,
+              "text": "Filler message #2 for the long-conversation fixture.",
+              "truncated": false,
+              "updated_at": "2026-04-01T10:01:00Z",
+              "uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa"
+            }
+          }
+        ],
+        "message": {
+          "assistant_canned_response_consumed": false,
+          "attachments": [],
+          "content": [
+            {
+              "content": null,
+              "id": null,
+              "input": null,
+              "name": null,
+              "source": null,
+              "text": "Hi! Let's talk about TLS.",
+              "tool_use_id": null,
+              "type": "text"
+            }
+          ],
+          "created_at": "2026-04-01T10:00:00Z",
+          "files": [],
+          "files_v2": [],
+          "is_command_marker": false,
+          "is_prelude": false,
+          "parent_message_uuid": null,
+          "sender": "human",
+          "slash_command": null,
+          "text": "Hi! Let's talk about TLS.",
+          "truncated": false,
+          "updated_at": "2026-04-01T10:00:00Z",
+          "uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173"
+        }
+      }
+    ],
+    "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+  }
+}

@@ -1,0 +1,463 @@
+{
+  "default": {
+    "sessions": [
+      {
+        "created_at": "2026-10-06T19:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-opus-5-5",
+        "name": "Remote fixture: widget rollout plan",
+        "project": "remote-fixture-project",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2026-10-06T19:06:00+00:00",
+        "uuid": "session_01FIXTUREREMOTE000000000001"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 15,
+        "message_count": 30,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: TLS handshakes (long)",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:30:00+00:00",
+        "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Branch tree",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:04:00+00:00",
+        "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 3,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Tool calls",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+        "project": "project",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+      },
+      {
+        "created_at": "2025-05-25T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-opus-4-7",
+        "name": "Synthetic Cowork Fixture One",
+        "project": "synthetic-sandbox",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2025-05-25T10:01:05+00:00",
+        "uuid": "aaaa1111-2222-3333-4444-555566667777"
+      }
+    ],
+    "total": 6
+  },
+  "page_2_of_size_2": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Branch tree",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:04:00+00:00",
+        "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 3,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Tool calls",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+      }
+    ],
+    "total": 6
+  },
+  "project_fixture": {
+    "sessions": [
+      {
+        "created_at": "2026-10-06T19:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-opus-5-5",
+        "name": "Remote fixture: widget rollout plan",
+        "project": "remote-fixture-project",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2026-10-06T19:06:00+00:00",
+        "uuid": "session_01FIXTUREREMOTE000000000001"
+      }
+    ],
+    "total": 1
+  },
+  "query_COWORK_FIXTURE_HELLO_XYZ": {
+    "sessions": [
+      {
+        "created_at": "2025-05-25T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 3,
+        "message_count": 4,
+        "model": "claude-opus-4-7",
+        "name": "Synthetic Cowork Fixture One",
+        "project": "synthetic-sandbox",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2025-05-25T10:01:05+00:00",
+        "uuid": "aaaa1111-2222-3333-4444-555566667777"
+      }
+    ],
+    "total": 1
+  },
+  "query_NEEDLE_BRANCH": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 1,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Branch tree",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:04:00+00:00",
+        "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+      }
+    ],
+    "total": 1
+  },
+  "query_NEEDLE_CC": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 2,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+        "project": "project",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+      }
+    ],
+    "total": 1
+  },
+  "query_NEEDLE_HANDSHAKE": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 15,
+        "match_count": 1,
+        "message_count": 30,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: TLS handshakes (long)",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:30:00+00:00",
+        "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+      }
+    ],
+    "total": 1
+  },
+  "query_NEEDLE_TOOL": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 1,
+        "message_count": 3,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Tool calls",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+      }
+    ],
+    "total": 1
+  },
+  "query_REMOTE_FIXTURE_TOKEN": {
+    "sessions": [
+      {
+        "created_at": "2026-10-06T19:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 2,
+        "message_count": 4,
+        "model": "claude-opus-5-5",
+        "name": "Remote fixture: widget rollout plan",
+        "project": "remote-fixture-project",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2026-10-06T19:06:00+00:00",
+        "uuid": "session_01FIXTUREREMOTE000000000001"
+      }
+    ],
+    "total": 1
+  },
+  "query_fixture": {
+    "sessions": [
+      {
+        "created_at": "2026-10-06T19:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 3,
+        "message_count": 4,
+        "model": "claude-opus-5-5",
+        "name": "Remote fixture: widget rollout plan",
+        "project": "remote-fixture-project",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2026-10-06T19:06:00+00:00",
+        "uuid": "session_01FIXTUREREMOTE000000000001"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 15,
+        "match_count": 29,
+        "message_count": 30,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: TLS handshakes (long)",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:30:00+00:00",
+        "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 1,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Branch tree",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:04:00+00:00",
+        "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 2,
+        "message_count": 3,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Tool calls",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 3,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+        "project": "project",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+      },
+      {
+        "created_at": "2025-05-25T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 4,
+        "message_count": 4,
+        "model": "claude-opus-4-7",
+        "name": "Synthetic Cowork Fixture One",
+        "project": "synthetic-sandbox",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2025-05-25T10:01:05+00:00",
+        "uuid": "aaaa1111-2222-3333-4444-555566667777"
+      }
+    ],
+    "total": 6
+  },
+  "query_fixture_CLAUDE_AI": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 15,
+        "match_count": 29,
+        "message_count": 30,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: TLS handshakes (long)",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:30:00+00:00",
+        "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 1,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Branch tree",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:04:00+00:00",
+        "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 2,
+        "message_count": 3,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Tool calls",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+      }
+    ],
+    "total": 3
+  },
+  "query_fixture_CLAUDE_CODE": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 3,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+        "project": "project",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+      }
+    ],
+    "total": 1
+  },
+  "query_fixture_CLAUDE_COWORK": {
+    "sessions": [
+      {
+        "created_at": "2026-10-06T19:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 3,
+        "message_count": 4,
+        "model": "claude-opus-5-5",
+        "name": "Remote fixture: widget rollout plan",
+        "project": "remote-fixture-project",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2026-10-06T19:06:00+00:00",
+        "uuid": "session_01FIXTUREREMOTE000000000001"
+      },
+      {
+        "created_at": "2025-05-25T10:00:00+00:00",
+        "human_message_count": 2,
+        "match_count": 4,
+        "message_count": 4,
+        "model": "claude-opus-4-7",
+        "name": "Synthetic Cowork Fixture One",
+        "project": "synthetic-sandbox",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2025-05-25T10:01:05+00:00",
+        "uuid": "aaaa1111-2222-3333-4444-555566667777"
+      }
+    ],
+    "total": 2
+  },
+  "source_CLAUDE_AI": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 15,
+        "message_count": 30,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: TLS handshakes (long)",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:30:00+00:00",
+        "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Branch tree",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:04:00+00:00",
+        "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
+      },
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 3,
+        "model": "claude-sonnet-4-6",
+        "name": "Phase 5 fixture: Tool calls",
+        "project": null,
+        "source": "CLAUDE_AI",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
+      }
+    ],
+    "total": 3
+  },
+  "source_CLAUDE_CODE": {
+    "sessions": [
+      {
+        "created_at": "2026-04-01T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-sonnet-4-6",
+        "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+        "project": "project",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T10:03:00+00:00",
+        "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+      }
+    ],
+    "total": 1
+  },
+  "source_CLAUDE_COWORK": {
+    "sessions": [
+      {
+        "created_at": "2026-10-06T19:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-opus-5-5",
+        "name": "Remote fixture: widget rollout plan",
+        "project": "remote-fixture-project",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2026-10-06T19:06:00+00:00",
+        "uuid": "session_01FIXTUREREMOTE000000000001"
+      },
+      {
+        "created_at": "2025-05-25T10:00:00+00:00",
+        "human_message_count": 2,
+        "message_count": 4,
+        "model": "claude-opus-4-7",
+        "name": "Synthetic Cowork Fixture One",
+        "project": "synthetic-sandbox",
+        "source": "CLAUDE_COWORK",
+        "updated_at": "2025-05-25T10:01:05+00:00",
+        "uuid": "aaaa1111-2222-3333-4444-555566667777"
+      }
+    ],
+    "total": 2
+  }
+}

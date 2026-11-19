@@ -1,0 +1,140 @@
+{
+  "all_default": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Run a grep for me. NEEDLE_TOOL",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Running grep.",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8"
+    },
+    {
+      "position": 2,
+      "sender": "human",
+      "text": "Thanks!",
+      "timestamp": "2026-04-01T10:02:00+00:00",
+      "uuid": "fa504360-824e-981c-4676-531d8f59bf5d"
+    }
+  ],
+  "all_tool_calls": [
+    {
+      "content": [
+        {
+          "text": "Run a grep for me. NEEDLE_TOOL",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
+    },
+    {
+      "content": [
+        {
+          "text": "Running grep.",
+          "type": "text"
+        },
+        {
+          "input": {
+            "command": "grep -r FIXTURE_TOOL src"
+          },
+          "name": "bash",
+          "type": "tool_use"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8"
+    },
+    {
+      "content": [
+        {
+          "text": "Thanks!",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:02:00+00:00",
+      "uuid": "fa504360-824e-981c-4676-531d8f59bf5d"
+    }
+  ],
+  "all_tool_results": [
+    {
+      "content": [
+        {
+          "text": "Run a grep for me. NEEDLE_TOOL",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
+    },
+    {
+      "content": [
+        {
+          "text": "Running grep.",
+          "type": "text"
+        },
+        {
+          "input": {
+            "command": "grep -r FIXTURE_TOOL src"
+          },
+          "name": "bash",
+          "type": "tool_use"
+        },
+        {
+          "content": [
+            {
+              "text": "FIXTURE_TOOL: 3 hits",
+              "type": "text"
+            }
+          ],
+          "type": "tool_result"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8"
+    },
+    {
+      "content": [
+        {
+          "text": "Thanks!",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:02:00+00:00",
+      "uuid": "fa504360-824e-981c-4676-531d8f59bf5d"
+    }
+  ],
+  "positions_0_1": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Run a grep for me. NEEDLE_TOOL",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Running grep.",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8"
+    }
+  ]
+}

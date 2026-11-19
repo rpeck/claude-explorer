@@ -1,0 +1,147 @@
+{
+  "detail": {
+    "compact_markers": [],
+    "created_at": "2026-04-01T10:00:00Z",
+    "current_leaf_message_uuid": "ac46e527-7009-7ed1-81f2-b8f0403e7f9a",
+    "error": null,
+    "file_path": "<TMP>/claude/projects/-fixture-project/435e56ed-50ba-21c0-3495-0e8749b20543.jsonl",
+    "git_branch": "fixture-branch",
+    "has_branches": false,
+    "human_message_count": 2,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 4,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:00:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:00:00Z",
+        "uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Hello! Ready to help with the fixture project.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:01:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Hello! Ready to help with the fixture project.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:01:00Z",
+        "uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "What's 2+2?",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:02:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d",
+        "sender": "human",
+        "slash_command": null,
+        "text": "What's 2+2?",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:02:00Z",
+        "uuid": "8a4750e3-65d9-dad3-d43d-9d0705b5d3e1"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Four.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T10:03:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": "8a4750e3-65d9-dad3-d43d-9d0705b5d3e1",
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Four.",
+        "truncated": false,
+        "updated_at": "2026-04-01T10:03:00Z",
+        "uuid": "ac46e527-7009-7ed1-81f2-b8f0403e7f9a"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+    "organization_id": null,
+    "organization_name": null,
+    "prelude_hidden_count": 0,
+    "project_name": "project",
+    "project_path": "/fixture/project",
+    "sandbox_path": null,
+    "source": "CLAUDE_CODE",
+    "subagents": [],
+    "summary": "",
+    "updated_at": "2026-04-01T10:03:00Z",
+    "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+  },
+  "tree": {
+    "active_path": [],
+    "root_messages": [],
+    "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+  }
+}

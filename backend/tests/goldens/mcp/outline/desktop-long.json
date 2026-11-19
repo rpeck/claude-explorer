@@ -1,0 +1,605 @@
+{
+  "cached_call": {
+    "conversation_id": "0f415a45-9c62-8671-d4ad-53b84acb7e1a",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 30,
+    "messages": [
+      {
+        "char_count": 25,
+        "message_uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173",
+        "position": 0,
+        "sender": "human",
+        "summary": "Hi! Let's talk about TLS.",
+        "timestamp": "2026-04-01T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Filler message #2 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
+        "position": 2,
+        "sender": "human",
+        "summary": "Filler message #3 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "Filler message #4 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:03:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 163,
+        "message_uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf",
+        "position": 4,
+        "sender": "human",
+        "summary": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
+        "timestamp": "2026-04-01T10:04:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88",
+        "position": 5,
+        "sender": "assistant",
+        "summary": "Filler message #6 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:05:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "9562a307-1beb-5462-ece4-34f59a16788c",
+        "position": 6,
+        "sender": "human",
+        "summary": "Filler message #7 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:06:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
+        "position": 7,
+        "sender": "assistant",
+        "summary": "Filler message #8 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:07:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b",
+        "position": 8,
+        "sender": "human",
+        "summary": "Filler message #9 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:08:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
+        "position": 9,
+        "sender": "assistant",
+        "summary": "Filler message #10 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:09:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
+        "position": 10,
+        "sender": "human",
+        "summary": "Filler message #11 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:10:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf",
+        "position": 11,
+        "sender": "assistant",
+        "summary": "Filler message #12 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:11:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e",
+        "position": 12,
+        "sender": "human",
+        "summary": "Filler message #13 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:12:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "637ac55b-9dc6-8192-af6a-69867b348077",
+        "position": 13,
+        "sender": "assistant",
+        "summary": "Filler message #14 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:13:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
+        "position": 14,
+        "sender": "human",
+        "summary": "Filler message #15 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:14:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "89569547-6e14-ff3e-3a98-d06073a7064b",
+        "position": 15,
+        "sender": "assistant",
+        "summary": "Filler message #16 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:15:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
+        "position": 16,
+        "sender": "human",
+        "summary": "Filler message #17 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:16:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0",
+        "position": 17,
+        "sender": "assistant",
+        "summary": "Filler message #18 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:17:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1",
+        "position": 18,
+        "sender": "human",
+        "summary": "Filler message #19 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:18:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
+        "position": 19,
+        "sender": "assistant",
+        "summary": "Filler message #20 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:19:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "815788d8-7001-9307-6a33-effbdb26241e",
+        "position": 20,
+        "sender": "human",
+        "summary": "Filler message #21 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:20:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24",
+        "position": 21,
+        "sender": "assistant",
+        "summary": "Filler message #22 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:21:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456",
+        "position": 22,
+        "sender": "human",
+        "summary": "Filler message #23 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:22:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0",
+        "position": 23,
+        "sender": "assistant",
+        "summary": "Filler message #24 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:23:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
+        "position": 24,
+        "sender": "human",
+        "summary": "Filler message #25 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:24:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32",
+        "position": 25,
+        "sender": "assistant",
+        "summary": "Filler message #26 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:25:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237",
+        "position": 26,
+        "sender": "human",
+        "summary": "Filler message #27 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:26:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8",
+        "position": 27,
+        "sender": "assistant",
+        "summary": "Filler message #28 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:27:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "f428cc00-c20e-7da8-df58-13befa51c620",
+        "position": 28,
+        "sender": "human",
+        "summary": "Filler message #29 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:28:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "d7a4e89e-982e-6f1e-0389-da8242eb794e",
+        "position": 29,
+        "sender": "assistant",
+        "summary": "Filler message #30 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:29:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: TLS handshakes (long)",
+    "next_position": null,
+    "project": null,
+    "session_id": "0f415a45-9c62-8671-d4ad-53b84acb7e1a",
+    "source": "CLAUDE_AI",
+    "start_position": 0,
+    "updated_at": "2026-04-01T10:30:00+00:00"
+  },
+  "first_call": {
+    "conversation_id": "0f415a45-9c62-8671-d4ad-53b84acb7e1a",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 30,
+    "messages": [
+      {
+        "char_count": 25,
+        "message_uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173",
+        "position": 0,
+        "sender": "human",
+        "summary": "Hi! Let's talk about TLS.",
+        "timestamp": "2026-04-01T10:00:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Filler message #2 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
+        "position": 2,
+        "sender": "human",
+        "summary": "Filler message #3 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "Filler message #4 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:03:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 163,
+        "message_uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf",
+        "position": 4,
+        "sender": "human",
+        "summary": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
+        "timestamp": "2026-04-01T10:04:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88",
+        "position": 5,
+        "sender": "assistant",
+        "summary": "Filler message #6 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:05:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "9562a307-1beb-5462-ece4-34f59a16788c",
+        "position": 6,
+        "sender": "human",
+        "summary": "Filler message #7 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:06:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
+        "position": 7,
+        "sender": "assistant",
+        "summary": "Filler message #8 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:07:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b",
+        "position": 8,
+        "sender": "human",
+        "summary": "Filler message #9 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:08:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
+        "position": 9,
+        "sender": "assistant",
+        "summary": "Filler message #10 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:09:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
+        "position": 10,
+        "sender": "human",
+        "summary": "Filler message #11 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:10:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf",
+        "position": 11,
+        "sender": "assistant",
+        "summary": "Filler message #12 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:11:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e",
+        "position": 12,
+        "sender": "human",
+        "summary": "Filler message #13 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:12:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "637ac55b-9dc6-8192-af6a-69867b348077",
+        "position": 13,
+        "sender": "assistant",
+        "summary": "Filler message #14 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:13:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
+        "position": 14,
+        "sender": "human",
+        "summary": "Filler message #15 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:14:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "89569547-6e14-ff3e-3a98-d06073a7064b",
+        "position": 15,
+        "sender": "assistant",
+        "summary": "Filler message #16 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:15:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
+        "position": 16,
+        "sender": "human",
+        "summary": "Filler message #17 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:16:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0",
+        "position": 17,
+        "sender": "assistant",
+        "summary": "Filler message #18 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:17:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1",
+        "position": 18,
+        "sender": "human",
+        "summary": "Filler message #19 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:18:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
+        "position": 19,
+        "sender": "assistant",
+        "summary": "Filler message #20 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:19:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "815788d8-7001-9307-6a33-effbdb26241e",
+        "position": 20,
+        "sender": "human",
+        "summary": "Filler message #21 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:20:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24",
+        "position": 21,
+        "sender": "assistant",
+        "summary": "Filler message #22 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:21:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456",
+        "position": 22,
+        "sender": "human",
+        "summary": "Filler message #23 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:22:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0",
+        "position": 23,
+        "sender": "assistant",
+        "summary": "Filler message #24 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:23:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
+        "position": 24,
+        "sender": "human",
+        "summary": "Filler message #25 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:24:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32",
+        "position": 25,
+        "sender": "assistant",
+        "summary": "Filler message #26 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:25:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237",
+        "position": 26,
+        "sender": "human",
+        "summary": "Filler message #27 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:26:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8",
+        "position": 27,
+        "sender": "assistant",
+        "summary": "Filler message #28 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:27:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "f428cc00-c20e-7da8-df58-13befa51c620",
+        "position": 28,
+        "sender": "human",
+        "summary": "Filler message #29 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:28:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 53,
+        "message_uuid": "d7a4e89e-982e-6f1e-0389-da8242eb794e",
+        "position": 29,
+        "sender": "assistant",
+        "summary": "Filler message #30 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:29:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: TLS handshakes (long)",
+    "next_position": null,
+    "project": null,
+    "session_id": "0f415a45-9c62-8671-d4ad-53b84acb7e1a",
+    "source": "CLAUDE_AI",
+    "start_position": 0,
+    "updated_at": "2026-04-01T10:30:00+00:00"
+  },
+  "page_1_size_2": {
+    "conversation_id": "0f415a45-9c62-8671-d4ad-53b84acb7e1a",
+    "created_at": "2026-04-01T10:00:00+00:00",
+    "message_count": 30,
+    "messages": [
+      {
+        "char_count": 52,
+        "message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "Filler message #2 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 52,
+        "message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
+        "position": 2,
+        "sender": "human",
+        "summary": "Filler message #3 for the long-conversation fixture.",
+        "timestamp": "2026-04-01T10:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "name": "Phase 5 fixture: TLS handshakes (long)",
+    "next_position": 3,
+    "project": null,
+    "session_id": "0f415a45-9c62-8671-d4ad-53b84acb7e1a",
+    "source": "CLAUDE_AI",
+    "start_position": 1,
+    "updated_at": "2026-04-01T10:30:00+00:00"
+  }
+}

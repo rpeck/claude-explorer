@@ -1,0 +1,148 @@
+{
+  "all_default": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
+      "timestamp": "2026-10-06T19:02:00+00:00",
+      "uuid": "u-2"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
+      "timestamp": "2026-10-06T19:03:00+00:00",
+      "uuid": "a-3"
+    },
+    {
+      "position": 2,
+      "sender": "human",
+      "text": "Add a rollback step too.",
+      "timestamp": "2026-10-06T19:05:00+00:00",
+      "uuid": "u-5"
+    },
+    {
+      "position": 3,
+      "sender": "assistant",
+      "text": "Added a rollback step after the canary check.",
+      "timestamp": "2026-10-06T19:06:00+00:00",
+      "uuid": "a-6"
+    }
+  ],
+  "all_tool_calls": [
+    {
+      "content": [
+        {
+          "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-10-06T19:02:00+00:00",
+      "uuid": "u-2"
+    },
+    {
+      "content": [
+        {
+          "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
+          "type": "text"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-10-06T19:03:00+00:00",
+      "uuid": "a-3"
+    },
+    {
+      "content": [
+        {
+          "text": "Add a rollback step too.",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-10-06T19:05:00+00:00",
+      "uuid": "u-5"
+    },
+    {
+      "content": [
+        {
+          "text": "Added a rollback step after the canary check.",
+          "type": "text"
+        }
+      ],
+      "position": 3,
+      "sender": "assistant",
+      "timestamp": "2026-10-06T19:06:00+00:00",
+      "uuid": "a-6"
+    }
+  ],
+  "all_tool_results": [
+    {
+      "content": [
+        {
+          "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-10-06T19:02:00+00:00",
+      "uuid": "u-2"
+    },
+    {
+      "content": [
+        {
+          "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
+          "type": "text"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-10-06T19:03:00+00:00",
+      "uuid": "a-3"
+    },
+    {
+      "content": [
+        {
+          "text": "Add a rollback step too.",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-10-06T19:05:00+00:00",
+      "uuid": "u-5"
+    },
+    {
+      "content": [
+        {
+          "text": "Added a rollback step after the canary check.",
+          "type": "text"
+        }
+      ],
+      "position": 3,
+      "sender": "assistant",
+      "timestamp": "2026-10-06T19:06:00+00:00",
+      "uuid": "a-6"
+    }
+  ],
+  "positions_0_1": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
+      "timestamp": "2026-10-06T19:02:00+00:00",
+      "uuid": "u-2"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
+      "timestamp": "2026-10-06T19:03:00+00:00",
+      "uuid": "a-3"
+    }
+  ]
+}

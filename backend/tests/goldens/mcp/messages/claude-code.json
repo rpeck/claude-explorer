@@ -1,0 +1,148 @@
+{
+  "all_default": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Hello! Ready to help with the fixture project.",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d"
+    },
+    {
+      "position": 2,
+      "sender": "human",
+      "text": "What's 2+2?",
+      "timestamp": "2026-04-01T10:02:00+00:00",
+      "uuid": "8a4750e3-65d9-dad3-d43d-9d0705b5d3e1"
+    },
+    {
+      "position": 3,
+      "sender": "assistant",
+      "text": "Four.",
+      "timestamp": "2026-04-01T10:03:00+00:00",
+      "uuid": "ac46e527-7009-7ed1-81f2-b8f0403e7f9a"
+    }
+  ],
+  "all_tool_calls": [
+    {
+      "content": [
+        {
+          "text": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd"
+    },
+    {
+      "content": [
+        {
+          "text": "Hello! Ready to help with the fixture project.",
+          "type": "text"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d"
+    },
+    {
+      "content": [
+        {
+          "text": "What's 2+2?",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:02:00+00:00",
+      "uuid": "8a4750e3-65d9-dad3-d43d-9d0705b5d3e1"
+    },
+    {
+      "content": [
+        {
+          "text": "Four.",
+          "type": "text"
+        }
+      ],
+      "position": 3,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T10:03:00+00:00",
+      "uuid": "ac46e527-7009-7ed1-81f2-b8f0403e7f9a"
+    }
+  ],
+  "all_tool_results": [
+    {
+      "content": [
+        {
+          "text": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+          "type": "text"
+        }
+      ],
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd"
+    },
+    {
+      "content": [
+        {
+          "text": "Hello! Ready to help with the fixture project.",
+          "type": "text"
+        }
+      ],
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d"
+    },
+    {
+      "content": [
+        {
+          "text": "What's 2+2?",
+          "type": "text"
+        }
+      ],
+      "position": 2,
+      "sender": "human",
+      "timestamp": "2026-04-01T10:02:00+00:00",
+      "uuid": "8a4750e3-65d9-dad3-d43d-9d0705b5d3e1"
+    },
+    {
+      "content": [
+        {
+          "text": "Four.",
+          "type": "text"
+        }
+      ],
+      "position": 3,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T10:03:00+00:00",
+      "uuid": "ac46e527-7009-7ed1-81f2-b8f0403e7f9a"
+    }
+  ],
+  "positions_0_1": [
+    {
+      "position": 0,
+      "sender": "human",
+      "text": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
+      "timestamp": "2026-04-01T10:00:00+00:00",
+      "uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd"
+    },
+    {
+      "position": 1,
+      "sender": "assistant",
+      "text": "Hello! Ready to help with the fixture project.",
+      "timestamp": "2026-04-01T10:01:00+00:00",
+      "uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d"
+    }
+  ]
+}
