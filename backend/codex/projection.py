@@ -273,8 +273,10 @@ def _mcp_tool_call(item: dict[str, Any]) -> tuple[str, dict[str, Any], str]:
     if not output and result.get("structuredContent") is not None:
         output = orjson.dumps(result["structuredContent"]).decode()
     error = item.get("error")
-    if isinstance(error, dict) and error.get("message"):
-        output = _lines(output, str(error["message"]))
+    if isinstance(error, dict):
+        error = error.get("message")
+    if isinstance(error, str) and error:
+        output = _lines(output, error)
     name = ".".join(str(p) for p in (item.get("server"), item.get("tool")) if p) or "mcp"
     return name, _decode_json_text(item.get("arguments", {})), output
 
