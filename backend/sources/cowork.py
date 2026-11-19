@@ -51,6 +51,6 @@ class CoworkAdapter:
         return None
 
     def branch_flag(self, data: dict[str, Any], chat_messages: list[dict[str, Any]]) -> bool:
-        # Computed as for Desktop. Cowork messages have no parent links, so a
-        # row with 2 or more messages reads true; a later leaf fixes that.
-        return self._store._computed_branch_flag(data, chat_messages)
+        # A Cowork session is one chronological stream: its messages have no
+        # parent links, so a parent->children count reads every row as branched.
+        return False
