@@ -50,9 +50,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
-import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -61,7 +59,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from fetcher.atomic import atomic_replace
+from fetcher.atomic import atomic_write_bytes
 from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
 
 log = logging.getLogger(__name__)
@@ -540,17 +538,7 @@ def _build_sidecar(
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        atomic_replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    atomic_write_bytes(path, text.encode("utf-8"))
 
 
 __all__ = [
