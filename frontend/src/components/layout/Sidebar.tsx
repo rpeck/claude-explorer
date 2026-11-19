@@ -7,7 +7,7 @@ import { ProjectPicker } from '@/components/layout/ProjectPicker'
 import { useFilters } from '@/contexts/FilterContext'
 import { ManageFiltersModal } from '@/components/filters/ManageFiltersModal'
 import { MigrationBanner } from '@/components/filters/MigrationBanner'
-import { Search, Settings, Settings2, Download, MessageSquare, Terminal, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Sparkles, Clock, ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { Search, Settings, Settings2, Download, MessageSquare, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Clock, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -31,6 +31,8 @@ import { useKeyboardNavigation } from '@/contexts/KeyboardNavigationContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
 import { cn } from '@/lib/utils'
 import { isSourceFilter, isSortField, type SortField } from '@/lib/types'
+import { SOURCES, sourceHas } from '@/lib/sources'
+import { SourceIcon } from '@/components/conversation/SourceBadge'
 
 interface SidebarProps {
   className?: string
@@ -296,24 +298,14 @@ export function Sidebar({ className }: SidebarProps) {
                   All Conversations
                 </span>
               </SelectItem>
-              <SelectItem value="CLAUDE_AI">
-                <span className="flex items-center gap-2">
-                  <MessageSquare className="h-3 w-3 text-blue-500" />
-                  Claude Desktop
-                </span>
-              </SelectItem>
-              <SelectItem value="CLAUDE_CODE">
-                <span className="flex items-center gap-2">
-                  <Terminal className="h-3 w-3 text-green-500" />
-                  Claude Code
-                </span>
-              </SelectItem>
-              <SelectItem value="CLAUDE_COWORK">
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-3 w-3 text-purple-500" />
-                  Claude Cowork
-                </span>
-              </SelectItem>
+              {SOURCES.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  <span className="flex items-center gap-2">
+                    <SourceIcon source={s.id} />
+                    {s.label}
+                  </span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           {/* cowork-multi-org C6: workspace selector. Reserve the slot to
@@ -418,10 +410,10 @@ export function Sidebar({ className }: SidebarProps) {
               to search messages
             </div>
             <div className="flex items-center gap-2">
-              {/* Group by project toggle - only show when Claude Code sessions are visible.
-                  Cowork (autonomous decision #3) is excluded: its project_path is a VM
+              {/* Group by project toggle - only show when a source with projects is visible.
+                  Cowork (autonomous decision #3) has no projects: its project_path is a VM
                   sandbox path like /sessions/<vm>, which doesn't group meaningfully. */}
-              {sourceFilter !== 'CLAUDE_AI' && sourceFilter !== 'CLAUDE_COWORK' && (
+              {sourceHas(sourceFilter, 'has_projects') && (
                 <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Group sessions by project">
                   <input
                     type="checkbox"
@@ -447,11 +439,10 @@ export function Sidebar({ className }: SidebarProps) {
                 <span>Empty</span>
               </label>
               {/* D8 (Cowork): Show archived toggle. Only meaningful under
-                  the Cowork filter (CC/Desktop have no archived flag) and
-                  under 'all' (where an archived Cowork session could be
-                  hidden). Hidden under CLAUDE_AI / CLAUDE_CODE to avoid
-                  a UI element with no effect. */}
-              {(sourceFilter === 'CLAUDE_COWORK' || sourceFilter === 'all') && (
+                  a source with an archived flag and under 'all' (where an
+                  archived session could be hidden). Hidden elsewhere to
+                  avoid a UI element with no effect. */}
+              {sourceHas(sourceFilter, 'has_archive_state') && (
                 <label className="flex items-center gap-1 text-xs text-zinc-500 cursor-pointer" title="Show archived Cowork sessions">
                   {/* Phase 1 a11y: nested label with sibling text. */}
                   {/* oxlint-disable-next-line react-doctor/control-has-associated-label */}

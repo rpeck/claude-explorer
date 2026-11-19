@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { queryKeys } from '@/lib/queryClient'
-import type { ConversationFilters, SortField, SortOrder } from '@/lib/types'
+import type { ConversationFilters, SortField, SortOrder, SourceFilter } from '@/lib/types'
 
 export function useConversations(
   filters?: ConversationFilters,
@@ -112,7 +112,7 @@ export function useConversationTree(
 
 export function useSearch(
   query: string,
-  source: 'all' | 'CLAUDE_AI' | 'CLAUDE_CODE' | 'CLAUDE_COWORK' = 'all',
+  source: SourceFilter = 'all',
   contextSize: 'snippet' | 'full' = 'snippet',
   sort: SortField = 'updated_at',
   sortOrder: SortOrder = 'desc',

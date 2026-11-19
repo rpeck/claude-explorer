@@ -1,5 +1,8 @@
 // Conversation types
 
+import generatedSources from './sources.generated.json'
+
+// Keep in step with `sources.generated.json` (the backend `SourceId`).
 export type ConversationSource = 'CLAUDE_AI' | 'CLAUDE_CODE' | 'CLAUDE_COWORK'
 
 export interface SubagentSummary {
@@ -361,7 +364,7 @@ export function isSearchResponse(v: unknown): v is SearchResponse {
 
 // Filter types
 
-export type SourceFilter = 'all' | 'CLAUDE_AI' | 'CLAUDE_CODE' | 'CLAUDE_COWORK'
+export type SourceFilter = 'all' | ConversationSource
 
 export type SortField = 'updated_at' | 'created_at' | 'name' | 'project'
 export type SortOrder = 'asc' | 'desc'
@@ -373,7 +376,7 @@ export type SortOrder = 'asc' | 'desc'
 // predicates to silently reject unknown values instead of writing
 // garbage to a typed setter (which would propagate into the backend
 // query string, e.g. `?source=garbage`).
-const SOURCE_FILTERS: readonly SourceFilter[] = ['all', 'CLAUDE_AI', 'CLAUDE_CODE', 'CLAUDE_COWORK']
+const SOURCE_FILTERS: readonly string[] = ['all', ...generatedSources.map((s) => s.id)]
 const SORT_FIELDS: readonly SortField[] = [
   'updated_at',
   'created_at',

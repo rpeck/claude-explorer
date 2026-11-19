@@ -8,6 +8,7 @@ import type {
   SearchResponse,
   SortField,
   SortOrder,
+  SourceFilter,
   AppConfig,
   AppConfigStats,
   WatcherHealth,
@@ -137,7 +138,7 @@ export const api = {
 
   search: async (
     query: string,
-    source: 'all' | 'CLAUDE_AI' | 'CLAUDE_CODE' | 'CLAUDE_COWORK',
+    source: SourceFilter,
     contextSize: 'snippet' | 'full',
     sort: SortField,
     sortOrder: SortOrder,
