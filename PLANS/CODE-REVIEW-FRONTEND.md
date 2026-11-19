@@ -337,7 +337,7 @@ Render and keyboard-nav now share the visibility shape via the same base predica
 
 The exported hook is `useBookmarks`. The plan's original framing claimed this was inconsistent with `useFilters`, `useSettings`, `useSearchPanel`, `useKeyboardNavigation` — but on re-inspection, ALL of those follow the short-form `use<Plural>` / `use<Domain>` pattern, NOT `use<X>Context`. `useBookmarks` matches the codebase convention.
 
-**Council Round-2 convergence**: Both Architect and Engineer KEEP. Renaming would force broad mechanical refactor across consumers with no runtime benefit, and the current name is arguably cleaner. Naming churn is a classic AFK footgun (high diff, low value, merge conflict potential).
+**Council Round-2 convergence**: Both Architect and Engineer KEEP. Renaming would force broad mechanical refactor across consumers with no runtime benefit, and the current name is arguably cleaner. Naming churn is a classic AFK trap (high diff, low value, merge conflict potential).
 
 ### Two new lint-suppression findings — **DONE (2026-05-22)**
 

@@ -200,7 +200,7 @@ Transient-break verification: 2 of 2 bug fixes (A-BUG-1, A2-PLIST-XSS) confirmed
 
 **Finding (both panelists, convergent):** `fetcher/mitmproxy_addon.py:267` logged `self.session_key[:20]` to the success banner. Anthropic session keys begin with the fixed prefix `sk-ant-sid01-` (13 chars), so a 20-char slice exposed 7 chars of bearer-token entropy to terminal scrollback, screen recordings, CI logs, and shell screenshots. The mitmproxy addon runs as a separate process (not the FastAPI server), so log aggregation isn't a vector — but the local-environment risk is real and `fetcher/cli.py` and `fetcher/playwright_capture.py` already redact (see `fetcher/tests/test_capture_redaction.py`).
 
-**Chosen approach:** Replace the prefix echo with a static `"   Session key: *** [REDACTED]"` placeholder line. Preserves banner shape (operators still see a session-key line for visual confirmation) without leaking entropy. Converts the surrounding `log.info(f"...")` calls in `_print_success` to parameterized form (`log.info("...%s...", value)`) to reduce future accidental interpolation footguns.
+**Chosen approach:** Replace the prefix echo with a static `"   Session key: *** [REDACTED]"` placeholder line. Preserves banner shape (operators still see a session-key line for visual confirmation) without leaking entropy. Converts the surrounding `log.info(f"...")` calls in `_print_success` to parameterized form (`log.info("...%s...", value)`) to reduce future accidental interpolation traps.
 
 **Top rejected:** Removing the line entirely (Engineer's Round 1 position). Council Round 2 converged on the placeholder for banner-shape continuity (support correlation).
 
@@ -403,7 +403,7 @@ Already-annotated (kept): `reindex_search` (419), `rehydrate` (496), `warm_cc_ca
 - LINE 225: merge_orgs_and_save failure
 - LINE 248: save_credentials failure
 
-**Why:** Avoids eager interpolation when the log level is suppressed (these are `WARNING` and almost always emitted, so perf is marginal — but the static-format-string property matters for log-aggregation grouping). Reduces future footgun risk: a token-bearing variable accidentally interpolated into an f-string still reaches `log.warning`'s output stream before any handler-level redaction filter can intervene; parameterized form keeps the args distinct so a custom filter can scrub by argument position.
+**Why:** Avoids eager interpolation when the log level is suppressed (these are `WARNING` and almost always emitted, so perf is marginal — but the static-format-string property matters for log-aggregation grouping). Reduces future trap risk: a token-bearing variable accidentally interpolated into an f-string still reaches `log.warning`'s output stream before any handler-level redaction filter can intervene; parameterized form keeps the args distinct so a custom filter can scrub by argument position.
 
 **Top rejected:** "Stylistic; no perf gain" (Architect's Round 1). The structural argument — established convention + future-proofing against sensitive-arg interpolation — won.
 
@@ -518,7 +518,7 @@ Sub-packaging would have given a cleaner internal layout but kept the CLI under 
 |---|---|---|---|---|
 | Shim creates real back-edge? | "Trivial to make `from pathlib import Path` part of shim" | "Yes — `fetcher.cli → cli.main → fetcher.bulk_fetch` is a real dependency edge resolved at import time" | Architect wins | `cli/main.py:91` (`from backend.config import get_settings`), `cli/main.py:102` (`from fetcher.bulk_fetch import ClaudeFetcher`) — both lazy imports inside command bodies; the shim would still execute the module body's top-level imports |
 | Test-suite churn footprint? | "8 import sites" (overstated) | "5 test files, trivial sed pass" | Architect wins | Recon confirms 5 files; one of the "8 sites" was inside cli.py itself |
-| Wheel-packaging footgun? | Real risk | "Mitigated by build verification step" | Both wins — agreed to do the verification step | `pyproject.toml:81` previously listed only `["backend", "fetcher", "mcp_server"]`; added `"cli"` |
+| Wheel-packaging trap? | Real risk | "Mitigated by build verification step" | Both wins — agreed to do the verification step | `pyproject.toml:81` previously listed only `["backend", "fetcher", "mcp_server"]`; added `"cli"` |
 
 ### Residual Risks
 
@@ -557,7 +557,7 @@ $ unzip -p dist/claude_explorer-0.1.0-py3-none-any.whl "*.dist-info/entry_points
 claude-explorer = cli.main:main
 ```
 
-All three `cli/` files present in the wheel; entry point correctly resolves. Footgun mitigated.
+All three `cli/` files present in the wheel; entry point correctly resolves. Trap mitigated.
 
 ## §5.12 attribute-patch transient-break verification
 
