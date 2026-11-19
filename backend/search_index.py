@@ -323,6 +323,22 @@ CREATE INDEX IF NOT EXISTS message_rowids_conv_uuid
     ON message_rowids (conv_uuid);
 """
 
+
+# ``cowork_sidecar_mtimes`` (2026-11-19) holds the mtime of each indexed
+# Cowork session's sidecar (``local_<uuid>.json``: title, archive state).
+# ``indexed_files.mtime`` is the mtime of ``audit.jsonl`` only, so a change
+# to the sidecar alone caused no reindex. The sidecar mtime is in its own
+# table, and ``indexed_files.mtime`` keeps its meaning: an older process
+# that ignores this table does not see each new upsert as a change, so old
+# and new processes do not reindex each other. The table is additive (no
+# SCHEMA_VERSION bump). A missing sidecar has no row.
+COWORK_SIDECAR_MTIMES_SQL = """
+CREATE TABLE IF NOT EXISTS cowork_sidecar_mtimes (
+    path TEXT PRIMARY KEY,
+    sidecar_mtime REAL NOT NULL
+)
+"""
+
 SCHEMA_SQL = MESSAGE_ROWIDS_SQL + """
 CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
     conv_uuid UNINDEXED,
@@ -624,6 +640,9 @@ class SearchIndex:
         self._schema_ok = True
 
         self._init_schema()
+        # Outside _init_schema, so that each of its paths gets the table.
+        with self._write_lock, self._write_conn:
+            self._write_conn.execute(COWORK_SIDECAR_MTIMES_SQL)
 
     # ----- schema ----------------------------------------------------
 
@@ -1193,8 +1212,12 @@ class SearchIndex:
         conv: dict[str, Any],
         file_path: Path,
         mtime: float,
+        sidecar_mtime: float | None = None,
     ) -> int:
         """Insert all messages for one conversation; replace any existing rows.
+
+        ``sidecar_mtime`` is the mtime of a Cowork session's sidecar, or
+        ``None`` when it has no sidecar (and for the other sources).
 
         Wrapped in a single transaction so a crash mid-upsert leaves either
         the OLD state (rolled back) or the NEW state — never a half-deleted
@@ -1359,6 +1382,7 @@ class SearchIndex:
                 "VALUES (?, ?, ?, ?)",
                 (str(file_path), float(mtime), int(time.time()), conv_uuid),
             )
+            self._set_sidecar_mtime(file_path, sidecar_mtime)
 
         return len(rows)
 
@@ -1377,6 +1401,7 @@ class SearchIndex:
                 self._write_conn.execute(
                     "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
                 )
+                self._set_sidecar_mtime(file_path, None)
 
     def delete_by_path(self, file_path: Path) -> None:
         """Remove all rows for a file that no longer exists on disk.
@@ -1432,6 +1457,23 @@ class SearchIndex:
             self._write_conn.execute(
                 "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
             )
+            self._set_sidecar_mtime(file_path, None)
+
+    def _set_sidecar_mtime(self, file_path: Path, sidecar_mtime: float | None) -> None:
+        """Record the sidecar mtime of ``file_path``; ``None`` removes it.
+
+        Call it in the write transaction of the ``indexed_files`` change.
+        """
+        if sidecar_mtime is None:
+            self._write_conn.execute(
+                "DELETE FROM cowork_sidecar_mtimes WHERE path = ?", (str(file_path),)
+            )
+        else:
+            self._write_conn.execute(
+                "INSERT OR REPLACE INTO cowork_sidecar_mtimes (path, sidecar_mtime) "
+                "VALUES (?, ?)",
+                (str(file_path), float(sidecar_mtime)),
+            )
 
     @_tracked_read
     def needs_update(self, file_path: Path, current_mtime: float) -> bool:
@@ -1482,6 +1524,13 @@ class SearchIndex:
         cur = conn.execute("SELECT path, mtime FROM indexed_files")
         return {row[0]: row[1] for row in cur.fetchall()}
 
+    @_tracked_read
+    def _read_sidecar_mtimes_map(self) -> dict[str, float]:
+        """Snapshot of ``cowork_sidecar_mtimes`` as ``{path: sidecar_mtime}``."""
+        conn = self._get_read_conn()
+        cur = conn.execute("SELECT path, sidecar_mtime FROM cowork_sidecar_mtimes")
+        return {row[0]: row[1] for row in cur.fetchall()}
+
     def clear_all(self) -> None:
         """Wipe all rows. Caller is responsible for a subsequent rebuild.
 
@@ -1500,6 +1549,7 @@ class SearchIndex:
             self._write_conn.execute("DELETE FROM messages")
             self._write_conn.execute("DELETE FROM message_rowids")
             self._write_conn.execute("DELETE FROM indexed_files")
+            self._write_conn.execute("DELETE FROM cowork_sidecar_mtimes")
             self._write_conn.execute("DELETE FROM conversations")
         with self._unloadable_lock:
             self._unloadable.clear()
@@ -2595,6 +2645,20 @@ def _load_conversation_at(
         return None
 
 
+def _cowork_sidecar_mtime(path: Path, source: str) -> float | None:
+    """The mtime of the sidecar of a Cowork ``audit.jsonl``, or ``None``.
+
+    ``None`` also for the other sources, and for a missing sidecar. The
+    sidecar path matches ``cowork_reader.read_cowork_conversation``.
+    """
+    if source != "CLAUDE_COWORK":
+        return None
+    try:
+        return path.parent.with_suffix(".json").stat().st_mtime
+    except OSError:
+        return None
+
+
 def _note_unloadable(
     index: SearchIndex, path: Path, source: str, before: os.stat_result | None
 ) -> None:
@@ -2653,7 +2717,8 @@ def _drift_first_scan(
 
     ``drifted_paths``: paths whose mtime no longer matches the indexed
     row, OR which aren't in ``indexed_files`` at all (new files /
-    first install). A path that loaded as nothing at its current mtime
+    first install), OR whose Cowork sidecar mtime no longer matches
+    ``cowork_sidecar_mtimes``. A path that loaded as nothing at its current mtime
     and size is left out (see :func:`_note_unloadable`).
 
     ``missing_paths``: paths in ``indexed_files`` that no longer exist
@@ -2686,6 +2751,7 @@ def _drift_first_scan(
     # per live path and avoids the cross-thread sharing of _write_conn
     # that the old per-file needs_update() check had.
     indexed_mtimes = index._read_indexed_files_map()
+    sidecar_mtimes = index._read_sidecar_mtimes_map()
     # Files that loaded as nothing at this mtime and size: skip them, or
     # every pass reads them again (see _note_unloadable).
     index._prune_unloadable({str(p) for p in live_set})
@@ -2705,7 +2771,12 @@ def _drift_first_scan(
             continue
         current_mtime = st.st_mtime
         indexed_mtime = indexed_mtimes.get(str(path))
-        if indexed_mtime is None or float(indexed_mtime) != float(current_mtime):
+        if (
+            indexed_mtime is None
+            or float(indexed_mtime) != float(current_mtime)
+            # A Cowork title or archive change touches only the sidecar.
+            or sidecar_mtimes.get(str(path)) != _cowork_sidecar_mtime(path, source)
+        ):
             if unloadable.get(str(path)) == (float(current_mtime), int(st.st_size)):
                 continue
             drifted.append((path, source))
@@ -2786,6 +2857,9 @@ def build_full_index(
             mtime_before = st_before.st_mtime
         except OSError:
             st_before = mtime_before = None
+        # Stat the sidecar before the read too: if it changes during the
+        # read, the stored value differs from it, and the next pass retries.
+        sidecar_mtime = _cowork_sidecar_mtime(path, source)
         conv = _load_conversation_at(path, store, source=source)
         if conv is None:
             _note_unloadable(index, path, source, st_before)
@@ -2813,7 +2887,9 @@ def build_full_index(
         else:
             mtime = mtime_before
         try:
-            messages_indexed += index.upsert_conversation(conv, path, mtime)
+            messages_indexed += index.upsert_conversation(
+                conv, path, mtime, sidecar_mtime
+            )
             files_indexed += 1
             index._forget_unloadable(path)
         except sqlite3.Error:
@@ -2885,6 +2961,8 @@ def update_drifted_files(
         except OSError:
             continue
         mtime_before = st_before.st_mtime
+        # Before the read, as in build_full_index.
+        sidecar_mtime = _cowork_sidecar_mtime(path, source)
         conv = _load_conversation_at(path, store, source=source)
         if conv is None:
             _note_unloadable(index, path, source, st_before)
@@ -2901,7 +2979,7 @@ def update_drifted_files(
             )
             continue
         try:
-            index.upsert_conversation(conv, path, mtime_before)
+            index.upsert_conversation(conv, path, mtime_before, sidecar_mtime)
             updated += 1
             index._forget_unloadable(path)
         except sqlite3.Error:
