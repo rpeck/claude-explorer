@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 import time
 from pathlib import Path
 
@@ -92,3 +93,26 @@ def atomic_replace(
 
     # Unreachable: the loop either returns or raises.
     raise AssertionError(f"atomic_replace fell through for {dst}") from last
+
+
+def atomic_write_bytes(path: str | Path, data: bytes) -> None:
+    """Replace ``path`` with ``data``, so a reader sees the old or the new file.
+
+    The bytes go to a unique temp file in the same folder, then ``fsync``,
+    then :func:`atomic_replace` with its Windows retry. On a failure the temp
+    file is removed and the old file stays.
+    """
+    path = Path(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        atomic_replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise

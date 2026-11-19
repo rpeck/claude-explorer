@@ -25,6 +25,8 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+from fetcher.atomic import atomic_write_bytes
+
 from .config import get_settings
 
 log = logging.getLogger(__name__)
@@ -146,7 +148,7 @@ def copy_marker_image_to_cache(
     dst = cache_path_for(conv_uuid, sess, n, sha8, ext)
     dst.parent.mkdir(parents=True, exist_ok=True)
     if not dst.exists():
-        dst.write_bytes(bytes_)
+        atomic_write_bytes(dst, bytes_)
     return dst
 
 
