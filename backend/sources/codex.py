@@ -68,7 +68,7 @@ DESCRIPTOR = SourceDescriptor(
 )
 
 #: The search index reindexes the Codex rows when this changes (§4.4).
-CODEX_PROJECTION_VERSION = 1
+CODEX_PROJECTION_VERSION = 2
 
 ARCHIVE_DIR = "codex"
 HOME_FILE = "home.json"
