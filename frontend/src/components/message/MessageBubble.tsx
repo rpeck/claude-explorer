@@ -10,7 +10,7 @@ import { useCopyFeedback } from '@/hooks/useCopyFeedback'
 import { cn, formatMessageTimestamp, messageToMarkdown, messageHasVisibleContent, isExcludableMarker } from '@/lib/utils'
 import { dedupeImageFiles } from '@/lib/imageFiles'
 import { errorToast } from '@/lib/errorToast'
-import type { Message } from '@/lib/types'
+import type { ConversationSource, Message } from '@/lib/types'
 import { collectCcImages } from './blocks/imageCollection'
 import { ContentBlockList } from './blocks/ContentBlockRenderer'
 import { revealedToolBlockIndexes } from '@/components/search/toolReveal'
@@ -19,7 +19,7 @@ interface MessageBubbleProps {
   message: Message
   isKeyboardSelected?: boolean
   conversationId?: string
-  conversationSource?: 'CLAUDE_AI' | 'CLAUDE_CODE' | 'CLAUDE_COWORK'
+  conversationSource?: ConversationSource
   /** "Show tool calls" toggle from SettingsContext.
    *
    *  PROP, not context (2026-05-23 perf regression fix): the previous
