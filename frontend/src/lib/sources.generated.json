@@ -1,0 +1,35 @@
+[
+  {
+    "id": "CLAUDE_AI",
+    "label": "Claude Desktop",
+    "short_label": "Desktop",
+    "chronological": false,
+    "has_projects": false,
+    "has_archive_state": false,
+    "has_organizations": true,
+    "refetchable": true,
+    "messages_change_in_place": false
+  },
+  {
+    "id": "CLAUDE_CODE",
+    "label": "Claude Code",
+    "short_label": "Code",
+    "chronological": true,
+    "has_projects": true,
+    "has_archive_state": false,
+    "has_organizations": false,
+    "refetchable": false,
+    "messages_change_in_place": false
+  },
+  {
+    "id": "CLAUDE_COWORK",
+    "label": "Claude Cowork",
+    "short_label": "Cowork",
+    "chronological": true,
+    "has_projects": false,
+    "has_archive_state": true,
+    "has_organizations": true,
+    "refetchable": false,
+    "messages_change_in_place": false
+  }
+]
