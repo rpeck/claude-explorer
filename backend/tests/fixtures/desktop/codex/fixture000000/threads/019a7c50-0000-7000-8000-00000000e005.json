@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "thread_id": "019a7c50-0000-7000-8000-00000000e005",
+  "home_key": "fixture000000",
+  "source_name": null,
+  "title": "Review the proposed command: rm -rf build/",
+  "cwd": "/home/fixture/proj-alpha",
+  "model": "gpt-5.5-codex",
+  "archived": false,
+  "history_mode": "paginated",
+  "thread_source": "guardian_review",
+  "parent_thread_id": null,
+  "imported_from": null,
+  "rollouts": [
+    {
+      "stem": "rollout-2026-11-10T09-20-00-019a7c50-0000-7000-8000-00000000e005",
+      "copied_bytes": 1490,
+      "session_meta_ts_ms": 1794302400000
+    }
+  ],
+  "current_stem": "rollout-2026-11-10T09-20-00-019a7c50-0000-7000-8000-00000000e005",
+  "current_ambiguous": false,
+  "updated_at_ms": 1794302410000
+}

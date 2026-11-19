@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "thread_id": "0199e030-0000-7000-8000-00000000c003",
+  "home_key": "fixture000000",
+  "source_name": "Gamma release notes",
+  "title": "Gamma release notes",
+  "cwd": "/home/fixture/proj-gamma",
+  "model": "gpt-5.5-codex",
+  "archived": true,
+  "history_mode": "paginated",
+  "thread_source": "user",
+  "parent_thread_id": null,
+  "imported_from": null,
+  "rollouts": [
+    {
+      "stem": "rollout-2026-10-05T08-15-00-0199e030-0000-7000-8000-00000000c003",
+      "copied_bytes": 1433,
+      "session_meta_ts_ms": 1791188100000
+    }
+  ],
+  "current_stem": "rollout-2026-10-05T08-15-00-0199e030-0000-7000-8000-00000000c003",
+  "current_ambiguous": false,
+  "updated_at_ms": 1791188220000
+}
