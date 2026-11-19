@@ -31,6 +31,7 @@ body:
     id: source_filter
     attributes:
       label: Source filter ("Codex")
+      description: '"Codex" is in the filter list, and it shows only Codex sessions.'
       options: ["Pass", "Fail"]
     validations:
       required: true
@@ -42,6 +43,7 @@ body:
     id: project_grouping
     attributes:
       label: Project grouping
+      description: 'Codex sessions group by their project folder.'
       options: ["Pass", "Fail"]
     validations:
       required: true
@@ -53,6 +55,7 @@ body:
     id: search_jump
     attributes:
       label: Search and the jump to a match
+      description: 'A search for a word from a Codex session finds it, and a click on the result jumps to the message.'
       options: ["Pass", "Fail"]
     validations:
       required: true
@@ -64,6 +67,7 @@ body:
     id: detail_controls
     attributes:
       label: Detail controls
+      description: 'The header shows Thread ID, Codex name, and Codex home, and each copy button copies its value; Show Tools shows and hides tool calls; notices show above the messages.'
       options: ["Pass", "Fail"]
     validations:
       required: true
@@ -75,6 +79,7 @@ body:
     id: export
     attributes:
       label: Export (copy, Markdown, PDF)
+      description: 'Copy as Markdown, Markdown, and PDF work for a Codex session, and the export starts with the Thread ID, Codex name, and Codex home lines.'
       options: ["Pass", "Fail"]
     validations:
       required: true
@@ -86,6 +91,7 @@ body:
     id: mcp_tools
     attributes:
       label: MCP tools
+      description: 'In Codex (or another MCP client), `list_sessions` with `source="CODEX"` lists the Codex sessions, and `get_session_outline` shows one; an unknown source gives an error.'
       options: ["Pass", "Fail"]
     validations:
       required: true

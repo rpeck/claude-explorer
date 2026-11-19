@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+from fastmcp.exceptions import ToolError
+
 from mcp_server.server import list_sessions
 
 
@@ -68,11 +71,12 @@ def test_source_filter_claude_cowork_excludes_other_sources(mcp_data):
     assert result == {"sessions": [], "total": 0}
 
 
-def test_invalid_source_falls_back_to_all(mcp_data):
+def test_invalid_source_is_refused(mcp_data):
+    # An unknown source used to widen to all sources (#73); now it is an error.
     mcp_data.add_desktop_session("u-1")
     mcp_data.add_cc_session("cc-1")
-    result = _call(source="NOT_A_SOURCE")
-    assert result["total"] == 2
+    with pytest.raises(ToolError, match='Unknown source "NOT_A_SOURCE"'):
+        _call(source="NOT_A_SOURCE")
 
 
 def test_project_filter_substring_case_insensitive(mcp_data):

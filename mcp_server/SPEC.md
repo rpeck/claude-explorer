@@ -115,7 +115,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `query` | `str \| None` | `None` | Full-text search across session names and message content. Omit to list all sessions. |
-| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, `"CLAUDE_COWORK"`, or `"CODEX"`. Any other value (or `None`) means "all". |
+| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, `"CLAUDE_COWORK"`, or `"CODEX"`, in any case. `"all"` (any case) or `None` means every source. Any other value is a tool error. |
 | `project` | `str \| None` | `None` | Filter by project name (case-insensitive substring match against `ConversationSummary.project_name`). |
 | `organization_id` | `str \| None` | `None` | Workspace UUID. Only conversations whose `organization_id` matches exactly. Claude Code sessions have none, so they never match. |
 | `limit` | `int` | `20` | Max results to return. Clamped to `[1, 100]`. |
@@ -155,9 +155,9 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 - Without `query`: lists all conversations from the store via `list_conversations(source=...)`. No `match_count` field is added.
 - `project` filter applies *after* the query/list step, in Python, on `entry["project"]`. Case-insensitive substring.
 - `total` is the size of the filtered list *before* `[offset : offset + limit]` slicing. Pagination consumers should use `total` to detect end-of-list.
-- Invalid `source` values (anything not in `backend.sources.ids.SourceId`) silently fall back to `"all"`.
+- Source matching: the value loses its outer spaces, and a known source id then matches in any case (`" Codex "` means `"CODEX"`). An empty value means `"all"`. An unknown value raises a `ToolError` that names the value and lists every valid value from `backend.sources.registry`, for example `Unknown source "codx". Use one of: all, CLAUDE_AI, CLAUDE_CODE, CLAUDE_COWORK, CODEX.` Both tools use `_source_filter`, and it runs before the archive copy (issue #73).
 
-**Errors:** none raised; bad inputs produce empty results or silently broaden the search.
+**Errors:** an unknown `source` (above). Other bad inputs produce empty results or are clamped.
 
 ---
 
@@ -174,7 +174,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, `"CLAUDE_COWORK"`, or `"CODEX"`. Any other value (or `None`) means "all". |
+| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, `"CLAUDE_COWORK"`, or `"CODEX"`, in any case. `"all"` (any case) or `None` means every source. Any other value is a tool error. |
 
 **Return shape:**
 
@@ -190,9 +190,9 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 - Walks `store.list_conversations(source=src)`.
 - Aggregates by `ConversationSummary.project_name`. Conversations with `project_name == None` are excluded from the count entirely.
 - Returns entries sorted by `session_count` descending (`Counter.most_common()`).
-- Invalid `source` values silently fall back to `"all"`.
+- `source` matching is the same as in `list_sessions` (same helper).
 
-**Errors:** none raised.
+**Errors:** an unknown `source`, as in `list_sessions`.
 
 ---
 
@@ -477,7 +477,6 @@ These deliberately ship as-is in V1; flagged for future work, not blockers for t
 - **`image` content blocks in `get_messages`:** `_filter_content_blocks` has no `image` branch. Image blocks are silently dropped from the structured-content mode output. Text-mode unchanged. Filed because the bundle Markdown export does include images; consumers of the MCP path get a less faithful rendering.
 - **`positions` precedence over `message_uuids`:** when both are supplied, `message_uuids` is ignored without warning. Could be tightened to raise `ValueError`.
 - **Order of `message_uuids` results:** results return in the order they appear in the conversation, not in the order supplied. Document or fix to match input order.
-- **`source` validation:** invalid values silently fall back to `"all"`. A loud failure (or strict typing via FastMCP enum) would be cleaner.
 - **No pagination on `get_session_outline`:** sessions with tens of thousands of messages return the full outline in one payload. The summaries are small (200 chars × `N`), so the practical ceiling is high, but a `limit`/`offset` pair would let very long sessions stream.
 
 ## 11. Testing
