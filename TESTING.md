@@ -131,7 +131,7 @@ exit code of the runner to verify it.
    - Before you report green, confirm that the pass count of the runner is at
      or above the known baseline. These are the only baseline numbers in the
      guide; update them here when a suite grows. Measured on 2026-11-19:
-     - Python pytest (`uv run pytest`): **2904 passed / 7 skipped**.
+     - Python pytest (`uv run pytest`): **2963 passed / 7 skipped**.
      - vitest: **884 passed / 95 files**.
      - Playwright: **568 tests / 131 files**.
    - Before you report green, also grep the output for each of these strings:
@@ -156,8 +156,8 @@ exit code of the runner to verify it.
        `npx playwright test --list`. The `--list` option fails with an error
        on a file that does not parse.
      - pytest: compare `find backend fetcher mcp_server -name 'test_*.py' | wc -l`
-       (= 232) with the unique files from
-       `uv run pytest --collect-only -q -n 0` (= 231).
+       (= 233) with the unique files from
+       `uv run pytest --collect-only -q -n 0` (= 232).
      - On Windows, use these PowerShell forms. They give the same numbers:
        - vitest: `(Get-ChildItem frontend/src -Recurse -Include *.test.ts,*.test.tsx).Count`
        - Playwright: `(Get-ChildItem frontend/e2e -Recurse -Filter *.spec.ts).Count`
