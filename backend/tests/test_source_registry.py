@@ -46,8 +46,6 @@ from typing import get_args
 
 import pytest
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N1 not implemented yet")
-
 REPO = Path(__file__).resolve().parents[2]
 GENERATED_JSON = REPO / "frontend" / "src" / "lib" / "sources.generated.json"
 GENERATOR = REPO / "scripts" / "generate_sources_json.py"
