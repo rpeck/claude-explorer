@@ -7,6 +7,12 @@
  *   - ConversationToolbar: Re-download reads `refetchable`.
  *   - ConversationList: the project label of a row reads `has_projects`;
  *     the group badge keeps today's look with the real registry.
+ *   - ConversationList group badge (orchestrator decision, option (a)):
+ *     each SOURCE_PRESETS entry has `groupBadge: boolean`, true for
+ *     CLAUDE_AI only. A folder shows the source badge when all its rows
+ *     come from one source whose preset has `groupBadge`; otherwise the
+ *     folder icon. The tests change the real SOURCE_PRESETS object after
+ *     the import, so they do not depend on how the list reads it.
  */
 import { createElement, type ComponentType } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -190,5 +196,80 @@ describe('ConversationList group badge (real registry, no visual change)', () =>
     expect(icon('Org A')).toContain('text-blue-500')
     expect(icon('a/b')).toContain('lucide-folder-code')
     expect(icon('Org B')).toContain('lucide-folder-code')
+  })
+})
+
+type Presets = Record<string, Record<string, unknown>>
+
+/** The real SOURCE_PRESETS of this test's module graph (N2 exports it). */
+async function presets(): Promise<Presets> {
+  const mod = (await import('@/components/conversation/SourceBadge')) as unknown as { SOURCE_PRESETS?: Presets }
+  expect(mod.SOURCE_PRESETS).toBeDefined()
+  return mod.SOURCE_PRESETS ?? {}
+}
+
+/** The class of the badge icon in the folder header named `name`. */
+function groupIcon(name: string): string {
+  return (
+    screen
+      .getAllByTestId('list-group-header')
+      .find((h) => h.getAttribute('data-group-name') === name)
+      ?.querySelectorAll('svg')[1]
+      ?.getAttribute('class') ?? ''
+  )
+}
+
+/** The real registry plus FAKE without projects: its rows go in their workspace folder. */
+const withFakeNoProjects = () => [...withFake().slice(0, -1), { ...FAKE, has_projects: false }]
+
+describe('ConversationList group badge reads the groupBadge preset field', () => {
+  xfail('every preset has a boolean groupBadge, true for CLAUDE_AI only', async () => {
+    setRealRegistry()
+    const all = await presets()
+    for (const [id, preset] of Object.entries(all)) {
+      expect(typeof preset.groupBadge, id).toBe('boolean')
+      expect(preset.groupBadge, id).toBe(id === 'CLAUDE_AI')
+    }
+  })
+
+  xfail('a one-source folder of a source whose preset has groupBadge gets that source badge', async () => {
+    setRegistry(withFakeNoProjects())
+    const all = await presets()
+    all[FAKE.id] = { ...all.CLAUDE_CODE, groupBadge: true }
+    await renderList(
+      [listRow({ uuid: 'f', name: 'Fake row', source: FAKE.id, organization_name: 'Org F' })],
+      { groupByProject: true, sourceFilter: 'all' },
+    )
+    await waitFor(() => expect(screen.getAllByTestId('list-group-header')).toHaveLength(1))
+    // The look of the copied CLAUDE_CODE preset: the terminal icon in green.
+    expect(groupIcon('Org F')).toContain('lucide-terminal')
+    expect(groupIcon('Org F')).toContain('text-green-500')
+  })
+
+  xfail('a Desktop-only folder gets the folder icon when the Desktop preset has no groupBadge', async () => {
+    setRealRegistry()
+    const all = await presets()
+    all.CLAUDE_AI = { ...all.CLAUDE_AI, groupBadge: false }
+    await renderList(
+      [listRow({ uuid: 'd', name: 'Desktop row', source: 'CLAUDE_AI', organization_name: 'Org A' })],
+      { groupByProject: true, sourceFilter: 'all' },
+    )
+    await waitFor(() => expect(screen.getAllByTestId('list-group-header')).toHaveLength(1))
+    expect(groupIcon('Org A')).toContain('lucide-folder-code')
+  })
+
+  xfail('a folder with rows of two groupBadge sources gets the folder icon', async () => {
+    setRegistry(withFakeNoProjects())
+    const all = await presets()
+    all[FAKE.id] = { ...all.CLAUDE_CODE, groupBadge: true }
+    await renderList(
+      [
+        listRow({ uuid: 'd', name: 'Desktop row', source: 'CLAUDE_AI', organization_name: 'Org M' }),
+        listRow({ uuid: 'f', name: 'Fake row', source: FAKE.id, organization_name: 'Org M' }),
+      ],
+      { groupByProject: true, sourceFilter: 'all' },
+    )
+    await waitFor(() => expect(screen.getAllByTestId('list-group-header')).toHaveLength(1))
+    expect(groupIcon('Org M')).toContain('lucide-folder-code')
   })
 })
