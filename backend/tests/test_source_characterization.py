@@ -99,7 +99,8 @@ def _markdown_cases():
         yield pytest.param(stem, uuid, id=stem, marks=marks)
 
 
-@pytest.mark.parametrize(("stem", "uuid"), _markdown_cases())
+# A list: pytest 9 warns on a generator, and the CI count step reads that line.
+@pytest.mark.parametrize(("stem", "uuid"), list(_markdown_cases()))
 def test_markdown_export_golden(corpus, api, stem, uuid):
     for include_tools in ("true", "false"):
         r = api.get(
