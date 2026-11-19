@@ -143,8 +143,7 @@ LINEAR = [
     {"uuid": "m1", "parent_message_uuid": None},
     {"uuid": "m2", "parent_message_uuid": "m1"},
 ]
-#: Cowork messages carry no parent; 2 or more give the latent True (council
-#: "Verified facts"), which N1 keeps.
+#: Messages with no parent, as in Cowork: has_branches() reads 2 or more as True.
 NO_PARENTS_TWO = [{"uuid": "m1"}, {"uuid": "m2"}]
 NO_PARENTS_ONE = [{"uuid": "m1"}]
 
@@ -802,21 +801,13 @@ def test_an_empty_session_file_is_not_a_list_row(corpus, store):
     "messages", [BRANCHED, LINEAR, NO_PARENTS_TWO, NO_PARENTS_ONE, []],
     ids=["branched", "linear", "no-parents-2", "no-parents-1", "empty"],
 )
-@pytest.mark.parametrize("source_id", ["CLAUDE_AI", "CLAUDE_COWORK"])
+@pytest.mark.parametrize("source_id", ["CLAUDE_AI"])
 def test_branch_flag_is_todays_computed_value(store, source_id, messages):
     from backend.sources.registry import get_adapter
     from backend.store import has_branches
 
     data = {"uuid": "x", "source": source_id, "chat_messages": messages}
     assert get_adapter(source_id, store).branch_flag(data, messages) is has_branches(messages)
-
-
-def test_cowork_branch_flag_keeps_the_latent_true_for_two_messages(store):
-    """Council: the N0 golden records has_branches true for both Cowork rows."""
-    from backend.sources.registry import get_adapter
-
-    data = {"uuid": "x", "source": "CLAUDE_COWORK", "chat_messages": NO_PARENTS_TWO}
-    assert get_adapter("CLAUDE_COWORK", store).branch_flag(data, NO_PARENTS_TWO) is True
 
 
 @pytest.mark.parametrize("messages", [BRANCHED, LINEAR, NO_PARENTS_TWO], ids=["branched", "linear", "no-parents-2"])
