@@ -714,7 +714,6 @@ CHECKLIST_DESCRIPTION_WORDS = {
 }
 
 
-@pytest.mark.xfail(strict=True, reason="L6 not implemented yet")
 @pytest.mark.parametrize("item", CHECKLIST)
 def test_each_checklist_item_has_a_description_of_what_to_check(item: str) -> None:
     description = fields()[item]["attributes"].get("description", "")

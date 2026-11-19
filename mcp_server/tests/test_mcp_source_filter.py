@@ -36,8 +36,6 @@ from fastmcp import Client
 from backend.tests import codex_fake as fake
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="L6 not implemented yet")
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SPEC = REPO_ROOT / "mcp_server" / "SPEC.md"
 VISIBLE_CODEX = sorted(t for t in fake.ALL_THREADS if t != fake.THREAD_ARCHIVED)
@@ -209,7 +207,7 @@ def test_the_error_lists_the_ids_of_the_registry_at_call_time(monkeypatch: pytes
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("value", ["codex", "Codex"])
+@pytest.mark.parametrize("value", ["codex", "Codex", "CODEX"])
 def test_list_sessions_with_codex_in_any_case_lists_only_the_codex_sessions(corpus: Corpus, value: str) -> None:
     result = _tool("list_sessions", source=value, limit=100)
 
@@ -225,6 +223,13 @@ def test_list_sessions_with_another_source_in_any_case_lists_only_that_source(co
 
 
 
+
+
+@pytest.mark.parametrize("value", [None, "all", "ALL", ""])
+def test_list_sessions_with_no_source_or_all_lists_every_source(corpus: Corpus, value: str | None) -> None:
+    result = _tool("list_sessions", source=value, limit=100)
+
+    assert _uuids(result) == sorted([corpus.desktop, corpus.cc, *VISIBLE_CODEX])
 
 
 def test_list_sessions_search_with_a_lowercase_source_filters_by_that_source(corpus: Corpus) -> None:
@@ -260,7 +265,7 @@ def _projects(result: list[dict[str, Any]]) -> set[str]:
     return {p["project"] for p in result}
 
 
-@pytest.mark.parametrize("value", ["codex", "Codex"])
+@pytest.mark.parametrize("value", ["codex", "Codex", "CODEX"])
 def test_list_projects_with_codex_in_any_case_lists_only_codex_projects(corpus: Corpus, value: str) -> None:
     codex_projects = _projects(_tool("list_projects", source="CODEX"))
 
@@ -272,6 +277,14 @@ def test_list_projects_with_codex_in_any_case_lists_only_codex_projects(corpus: 
 
 
 
+
+
+@pytest.mark.parametrize("value", [None, "all", "All", ""])
+def test_list_projects_with_no_source_or_all_lists_every_source(corpus: Corpus, value: str | None) -> None:
+    result = _projects(_tool("list_projects", source=value))
+
+    assert "proj-alpha" in result
+    assert "cc-project" in " ".join(result)
 
 
 @pytest.mark.parametrize("value", BAD_VALUES)
