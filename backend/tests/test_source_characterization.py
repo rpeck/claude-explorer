@@ -83,24 +83,7 @@ def test_viewer_golden(corpus, api, stem, uuid):
     check_golden(f"api/viewer/{stem}.json", {"detail": detail, "tree": tree})
 
 
-def _markdown_cases():
-    for stem, uuid in CONVERSATIONS:
-        marks = ()
-        if stem == "claude-code":
-            # Known bug (reported to the orchestrator, 2026-11-19): the
-            # Content-Disposition header must be Latin-1, and this title has
-            # an em dash. The MCP export_session golden pins the same body.
-            # When the fix lands, this xfail fails: record the golden then.
-            marks = pytest.mark.xfail(
-                strict=True,
-                raises=UnicodeEncodeError,
-                reason="export route: non-Latin-1 title in Content-Disposition",
-            )
-        yield pytest.param(stem, uuid, id=stem, marks=marks)
-
-
-# A list: pytest 9 warns on a generator, and the CI count step reads that line.
-@pytest.mark.parametrize(("stem", "uuid"), list(_markdown_cases()))
+@pytest.mark.parametrize(("stem", "uuid"), CONVERSATIONS, ids=CONVERSATION_IDS)
 def test_markdown_export_golden(corpus, api, stem, uuid):
     for include_tools in ("true", "false"):
         r = api.get(
