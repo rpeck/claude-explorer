@@ -4,7 +4,7 @@
 
 ## 1. Purpose and design principles
 
-The MCP server exposes a saved Claude conversation archive (Claude Desktop + Claude Code) as five tools an LLM client (Claude Desktop, Claude Code, or any MCP-compatible client) can call. It is a **read-only facade** over the same on-disk store the FastAPI/React app uses; it ships no write paths.
+The MCP server exposes a saved Claude conversation archive (Claude Desktop + Claude Code) as five tools an LLM client (Claude Desktop, Claude Code, or any MCP-compatible client) can call. It is a **read-only facade** over the same on-disk store the FastAPI/React app uses. Its one write path is the archive copy (§8): before each tool call it copies new source files into the Explorer archive, so an MCPB-only user without `serve` or the watcher also keeps their history.
 
 Design rules, in priority order:
 
@@ -139,7 +139,9 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
     },
     ...
   ],
-  "total": <int>   // Total matches BEFORE limit/offset slicing
+  "total": <int>,   // Total matches BEFORE limit/offset slicing
+  "notices": ["<text>"],   // ONLY present when not empty: e.g. the cloud-sync gate is closed (names the provider)
+  "sync_pending": true     // ONLY present when true: another writer held the archive lock (§8)
 }
 ```
 
@@ -239,7 +241,8 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
       "timestamp": "<iso8601>"
     },
     ...
-  ]
+  ],
+  "sync_pending": true        // ONLY present when true: another writer held the archive lock (§8)
 }
 ```
 
@@ -441,7 +444,11 @@ CREATE INDEX IF NOT EXISTS idx_msg_session
 
 ## 8. Security boundaries
 
-- **Read-only.** No tool mutates the conversation store, the SQLite cache (other than its own outline rows), or anything else outside the cache table writes.
+- **Read-only, except the archive copy.** No tool mutates the conversation store, the SQLite cache (other than its own outline rows), or anything else outside the cache table writes. The one exception is the archive copy:
+  - **When:** at the start of each tool call, at most once per debounce interval (`CLAUDE_EXPLORER_SEARCH_DRIFT_DEBOUNCE_SEC`, default 2 s), inline, with no thread and no timer (`_sync_archive`).
+  - **What:** `backend.write_gate.run_archive_syncs(store, "mcp", 0)` copies each source's new files into the archive under its `ArchiveLock`. It reads a source home and never writes into it.
+  - **Lock busy:** the tool reads the archive as it is, and `list_sessions` and `get_session_outline` return `sync_pending: true` (plan D15). The next call tries again at once.
+  - **Gates:** a corrupt config skips the copy. A data folder in a cloud-sync folder skips it until the user opts in (plan D13), and `list_sessions` returns a `notices` item that names the provider.
 - **No network egress.** The server speaks JSON-RPC over stdin/stdout. There is no HTTP listener, no outbound socket, no auth header construction. The substrate (`backend.store`) reads local files; the export path renders Markdown without fetching anything remote.
 - **stdio-only transport.** A client must spawn the server as a subprocess to talk to it. There is no `--port` flag and no `--host` flag.
 - **No credentials handled.** Credentials live in `~/.claude-explorer/credentials.json` for fetcher use only; the MCP server does not read them.

@@ -138,6 +138,58 @@ class _FetchStreamResponse(StreamingResponse):
             finally:
                 _refresh_in_progress = False
 
+#: ``phase`` of the archive copy's progress frame (plan §4.3).
+CODEX_PHASE = "codex"
+#: Refresh and ``/fetch/start`` wait this long for the archive lock of
+#: another writer (the watcher, the CLI, an MCP server).
+ARCHIVE_LOCK_TIMEOUT_S = 60.0
+ARCHIVE_BUSY_MESSAGE = (
+    "Another Claude Explorer process is copying the Codex sessions into the "
+    "archive. This fetch skipped the copy; the next one does it."
+)
+
+
+def refuse_if_cloud_sync_gate() -> None:
+    """Plan D13: refuse a fetch before any network call while the cloud-sync
+    gate is closed. The message names the folder and the provider."""
+    from ..write_gate import cloud_sync_block, cloud_sync_message
+
+    block = cloud_sync_block(get_settings())
+    if block is not None:
+        raise HTTPException(status_code=409, detail=cloud_sync_message(block))
+
+
+async def _archive_sync_stream() -> AsyncGenerator[str, None]:
+    """Copy each source into the archive before the claude.ai fetch (plan §4.3).
+
+    Waits up to ``ARCHIVE_LOCK_TIMEOUT_S`` in a worker thread, off the event
+    loop. A busy lock skips the copy with one ``progress`` frame, and the
+    fetch continues. A failure is logged and never stops the fetch.
+    """
+    from .. import cc_watcher
+    from ..store import ConversationStore
+    from ..write_gate import run_archive_syncs, sync_busy
+
+    store = ConversationStore()
+    try:
+        reports = await asyncio.to_thread(
+            run_archive_syncs, store, "refresh", ARCHIVE_LOCK_TIMEOUT_S
+        )
+    except Exception:
+        logger.exception("archive copy before the fetch failed")
+        return
+    if sync_busy(reports):
+        yield _send_event({
+            "type": "progress",
+            "message": ARCHIVE_BUSY_MESSAGE,
+            "current": 0,
+            "total": 0,
+            "phase": CODEX_PHASE,
+        })
+    if any(r.wrote_any for r in reports):
+        cc_watcher._schedule_drift(store.data_dir)
+
+
 #: ``phase`` of the remote Cowork step's progress frames. Their
 #: ``current``/``total`` start again at 1 for each workspace, after the chat
 #: phase's cumulative counts, so the web page labels them "Cowork task N/M".
@@ -539,6 +591,8 @@ async def fetch_conversations_stream(
         return f"data: {json.dumps(data)}\n\n"
 
     try:
+        async for frame in _archive_sync_stream():
+            yield frame
         # Load credentials
         try:
             creds = load_credentials(DEFAULT_CREDENTIALS_PATH)
@@ -740,7 +794,7 @@ async def fetch_conversations_stream(
     # writes a fresh copy of the conversation to data_dir; refuse when
     # the config that resolved data_dir is corrupt. /fetch/status (read)
     # is NOT gated.
-    dependencies=[Depends(refuse_if_config_corrupt)],
+    dependencies=[Depends(refuse_if_config_corrupt), Depends(refuse_if_cloud_sync_gate)],
 )
 async def force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     """Force re-fetch of a single conversation, bypassing the incremental skip.
@@ -850,13 +904,13 @@ async def _force_refetch_conversation(uuid: str) -> ForceRefetchResponse:
     summary="Start a bulk fetch from Claude (Server-Sent Events stream)",
     responses={
         200: {"content": {"text/event-stream": {}}},
-        409: {"description": "A fetch or refresh is already in progress on this worker"},
+        409: {"description": "A fetch or refresh is already in progress on this worker, or the cloud-sync gate is closed"},
         503: {"description": "Config file is corrupt; refuse to write to data_dir"},
     },
     # Layer 2: refuse when config corrupt. The gate fires before the
     # StreamingResponse is constructed so the client sees a real
     # HTTP 503, not a stream emitting SSE `error` frames after 200 OK.
-    dependencies=[Depends(refuse_if_config_corrupt)],
+    dependencies=[Depends(refuse_if_config_corrupt), Depends(refuse_if_cloud_sync_gate)],
 )
 async def fetch_conversations(
     incremental: bool = True,
@@ -1413,6 +1467,9 @@ async def refresh_pipeline_stream(
     """
     global _refresh_in_progress
     try:
+        # Before the capture, so a user without credentials still copies.
+        async for frame in _archive_sync_stream():
+            yield frame
         captured_already = False
 
         # ---- Phase 1: capture if creds missing ---------------------------
@@ -1538,13 +1595,13 @@ async def refresh_pipeline_stream(
     summary="One-button Refresh: capture credentials if needed, then fetch (SSE)",
     responses={
         200: {"content": {"text/event-stream": {}}},
-        409: {"description": "A refresh is already in progress on this worker"},
+        409: {"description": "A refresh is already in progress on this worker, or the cloud-sync gate is closed"},
         503: {"description": "Config file is corrupt; refuse to write to data_dir"},
     },
     # Layer 2: see /fetch/start for SSE-timing rationale. /fetch/refresh
     # is the primary user-visible writer path (sidebar Refresh button),
     # so this is the single most important gate.
-    dependencies=[Depends(refuse_if_config_corrupt)],
+    dependencies=[Depends(refuse_if_config_corrupt), Depends(refuse_if_cloud_sync_gate)],
 )
 async def refresh_pipeline(
     incremental: bool = True,

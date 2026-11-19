@@ -15,7 +15,9 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+import time
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,7 +28,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools.base import ToolResult
 
-from backend.config import Settings
+from backend.config import Settings, read_env
 from backend.export import (
     conversation_to_markdown,
     filter_tool_placeholders,
@@ -36,7 +38,10 @@ from backend.search import search_conversations
 from backend.sources.ids import SourceFilter
 from backend.sources.registry import get_descriptor, get_descriptors
 from backend.store import ConversationStore
+from backend.write_gate import run_archive_syncs, sync_busy
 from mcp_server import __version__
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Server setup
@@ -141,6 +146,64 @@ def _get_store() -> ConversationStore:
     if _store is None:
         _store = ConversationStore()
     return _store
+
+
+# Plan §4.3, D15: each tool call runs one archive copy inline, with no wait
+# for the lock and no thread or timer, at most once per debounce interval.
+_last_sync_at: float | None = None
+_sync_pending = False
+_sync_notices: list[str] = []
+
+
+def _sync_interval() -> float:
+    """The watcher's debounce (``CLAUDE_EXPLORER_SEARCH_DRIFT_DEBOUNCE_SEC``)."""
+    raw = read_env("CLAUDE_EXPLORER_SEARCH_DRIFT_DEBOUNCE_SEC")
+    try:
+        return max(0.05, float(raw)) if raw else 2.0
+    except ValueError:
+        return 2.0
+
+
+def _sync_archive() -> None:
+    """Copy each source into the archive before a tool reads it.
+
+    A busy lock leaves the archive as it is and sets ``sync_pending``; the
+    next call tries again at once. A closed cloud-sync gate becomes a notice.
+    """
+    global _last_sync_at, _sync_pending, _sync_notices
+    now = time.monotonic()
+    if _last_sync_at is not None and now - _last_sync_at < _sync_interval():
+        return
+    try:
+        reports = run_archive_syncs(_get_store(), "mcp", 0)
+    except Exception:
+        log.exception("archive copy before an MCP tool call failed")
+        return
+    _sync_pending = sync_busy(reports)
+    if not _sync_pending:
+        _last_sync_at = now
+    _sync_notices = [
+        w for r in reports if r.skipped_reason == "cloud_sync_gate" for w in r.warnings
+    ]
+
+
+def _sync_fields(*, notices: bool = False) -> dict[str, Any]:
+    """``sync_pending`` only when true, ``notices`` only when not empty: an
+    empty field costs the client model tokens on every call."""
+    out: dict[str, Any] = {}
+    if notices and _sync_notices:
+        out["notices"] = list(_sync_notices)
+    if _sync_pending:
+        out["sync_pending"] = True
+    return out
+
+
+def reset_archive_sync_for_tests() -> None:
+    """Test hook: forget the last copy time and the ``sync_pending`` state."""
+    global _last_sync_at, _sync_pending, _sync_notices
+    _last_sync_at = None
+    _sync_pending = False
+    _sync_notices = []
 
 
 def _db_path() -> Path:
@@ -475,6 +538,7 @@ def list_sessions(
     subset (source, project, organization_id) — see
     PLANS/2026.05.14-search-scope-propagation-spec.md.
     """
+    _sync_archive()
     store = _get_store()
     limit = min(max(1, limit), 100)
     offset = max(0, offset)
@@ -554,7 +618,7 @@ def list_sessions(
     total = len(sessions)
     sessions = sessions[offset : offset + limit]
 
-    return {"sessions": sessions, "total": total}
+    return {"sessions": sessions, "total": total, **_sync_fields(notices=True)}
 
 
 @mcp.tool()
@@ -567,6 +631,7 @@ def list_projects(
     Args:
         source: Filter by source: "CLAUDE_AI", "CLAUDE_CODE", or "CLAUDE_COWORK".
     """
+    _sync_archive()
     store = _get_store()
 
     src: SourceFilter = "all"
@@ -610,6 +675,7 @@ def get_session_outline(
         start_position: First position of the page (0-indexed, default 0).
         limit: Max entries in the page (default 100, max 500).
     """
+    _sync_archive()
     store = _get_store()
     conversation = store.get_conversation(conversation_id)
     if conversation is None:
@@ -640,6 +706,7 @@ def get_session_outline(
         "start_position": start,
         "next_position": next_position,
         "messages": summaries[start:end],
+        **_sync_fields(),
     }
 
 
@@ -666,6 +733,7 @@ def get_messages(
         include_tool_calls: Include tool call names and inputs (default false).
         include_tool_results: Include full tool results (default false, implies tool calls).
     """
+    _sync_archive()
     store = _get_store()
     conversation = store.get_conversation(conversation_id)
     if conversation is None:
@@ -728,6 +796,7 @@ def export_session(
         end_position: End position (0-indexed, inclusive). Omit for end.
         include_tools: Include tool calls and results in output (default true).
     """
+    _sync_archive()
     store = _get_store()
     conversation = store.get_conversation(conversation_id)
     if conversation is None:

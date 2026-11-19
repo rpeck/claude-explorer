@@ -533,8 +533,9 @@ class FetchProgress(BaseModel):
     cowork_tasks_failed: int | None = None
     #: ``"cowork"`` on the remote Cowork step's progress frames. Their
     #: ``current``/``total`` count the tasks of one workspace from 1, not
-    #: the chat phase's cumulative counts.
-    phase: Literal["cowork"] | None = None
+    #: the chat phase's cumulative counts. ``"codex"`` on the frame that
+    #: says the archive copy was skipped, because another writer held the lock.
+    phase: Literal["cowork", "codex"] | None = None
 
 
 class ForceRefetchResponse(BaseModel):
