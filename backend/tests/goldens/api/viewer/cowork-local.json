@@ -1,0 +1,157 @@
+{
+  "detail": {
+    "compact_markers": [],
+    "created_at": "2025-05-25T10:00:00Z",
+    "current_leaf_message_uuid": "a-2",
+    "error": null,
+    "file_path": "<TMP>/desktop-app/local-agent-mode-sessions/d_deployment1/o_org1/local_aaaa1111-2222-3333-4444-555566667777/audit.jsonl",
+    "git_branch": "",
+    "has_branches": false,
+    "human_message_count": 2,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 4,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-05-25T10:00:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
+        "truncated": false,
+        "updated_at": "2026-05-25T10:00:00Z",
+        "uuid": "u-1"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-05-25T10:00:05Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
+        "truncated": false,
+        "updated_at": "2026-05-25T10:00:05Z",
+        "uuid": "a-1"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-05-25T10:01:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
+        "truncated": false,
+        "updated_at": "2026-05-25T10:01:00Z",
+        "uuid": "u-2"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": null,
+            "tool_use_id": null,
+            "type": "thinking"
+          },
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Reply with thinking block preserved.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-05-25T10:01:05Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Reply with thinking block preserved.",
+        "truncated": false,
+        "updated_at": "2026-05-25T10:01:05Z",
+        "uuid": "a-2"
+      }
+    ],
+    "model": "claude-opus-4-7",
+    "name": "Synthetic Cowork Fixture One",
+    "organization_id": null,
+    "organization_name": null,
+    "prelude_hidden_count": 0,
+    "project_name": "synthetic-sandbox",
+    "project_path": "/sessions/synthetic-sandbox",
+    "sandbox_path": "/sessions/synthetic-sandbox",
+    "source": "CLAUDE_COWORK",
+    "subagents": [],
+    "summary": "",
+    "updated_at": "2025-05-25T10:01:05Z",
+    "uuid": "aaaa1111-2222-3333-4444-555566667777"
+  },
+  "tree": {
+    "active_path": [],
+    "root_messages": [],
+    "uuid": "aaaa1111-2222-3333-4444-555566667777"
+  }
+}

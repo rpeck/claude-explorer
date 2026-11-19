@@ -1,0 +1,147 @@
+{
+  "detail": {
+    "compact_markers": [],
+    "created_at": "2026-10-06T19:00:00Z",
+    "current_leaf_message_uuid": "a-6",
+    "error": null,
+    "file_path": "<TMP>/data/cowork-remote/00000000-1111-2222-3333-555555555555/remote_session_01FIXTUREREMOTE000000000001/audit.jsonl",
+    "git_branch": "",
+    "has_branches": false,
+    "human_message_count": 2,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 4,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-10-06T19:02:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
+        "truncated": false,
+        "updated_at": "2026-10-06T19:02:00Z",
+        "uuid": "u-2"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-10-06T19:03:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
+        "truncated": false,
+        "updated_at": "2026-10-06T19:03:00Z",
+        "uuid": "a-3"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Add a rollback step too.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-10-06T19:05:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "slash_command": null,
+        "text": "Add a rollback step too.",
+        "truncated": false,
+        "updated_at": "2026-10-06T19:05:00Z",
+        "uuid": "u-5"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Added a rollback step after the canary check.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-10-06T19:06:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "parent_message_uuid": null,
+        "sender": "assistant",
+        "slash_command": null,
+        "text": "Added a rollback step after the canary check.",
+        "truncated": false,
+        "updated_at": "2026-10-06T19:06:00Z",
+        "uuid": "a-6"
+      }
+    ],
+    "model": "claude-opus-5-5",
+    "name": "Remote fixture: widget rollout plan",
+    "organization_id": null,
+    "organization_name": null,
+    "prelude_hidden_count": 0,
+    "project_name": "remote-fixture-project",
+    "project_path": "/workspace/remote-fixture-project",
+    "sandbox_path": "/workspace/remote-fixture-project",
+    "source": "CLAUDE_COWORK",
+    "subagents": [],
+    "summary": "",
+    "updated_at": "2026-10-06T19:06:00Z",
+    "uuid": "session_01FIXTUREREMOTE000000000001"
+  },
+  "tree": {
+    "active_path": [],
+    "root_messages": [],
+    "uuid": "session_01FIXTUREREMOTE000000000001"
+  }
+}
