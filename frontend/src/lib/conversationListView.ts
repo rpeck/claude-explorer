@@ -7,6 +7,7 @@
  * List filters". Kept free of React so that vitest can pin each rule.
  */
 import type { ConversationFilters, ConversationListItem, SortField, SortOrder, SourceFilter } from './types'
+import { sourceHas } from './sources'
 
 /**
  * The `/api/conversations` query of the list. ConversationList and the
@@ -68,7 +69,7 @@ const HOUR_MS = 60 * 60 * 1000
 
 /** The folder that a row goes in (the same names as before 2026-10-25). */
 export function folderName(conv: ConversationListItem): string {
-  if (conv.source === 'CLAUDE_CODE') return conv.project_name || 'Unknown Project'
+  if (sourceHas(conv.source, 'has_projects')) return conv.project_name || 'Unknown Project'
   if (conv.organization_name) return conv.organization_name
   // mitm-only-captured org: the same fallback as the Sidebar selector.
   if (conv.organization_id) return `Workspace (${conv.organization_id.slice(0, 8)})`
@@ -89,7 +90,7 @@ function sortValue(conv: ConversationListItem, field: SortField, folderLabel: st
   }
 }
 
-/** Name mode (and every row that is not a Claude Code session): the folder name. */
+/** Name mode (and every row of a source without projects): the folder name. */
 export function nameFolderOf(conv: ConversationListItem): FolderId {
   const name = folderName(conv)
   return { key: name, label: name }
@@ -103,9 +104,9 @@ export function pathFolderOf(
   inventory: ConversationListItem[],
   home: string | undefined,
 ): (conv: ConversationListItem) => FolderId {
-  const labels = pathLabels(claudeCodePaths(inventory), home)
+  const labels = pathLabels(projectPaths(inventory), home)
   return (conv) => {
-    if (conv.source !== 'CLAUDE_CODE') return nameFolderOf(conv)
+    if (!sourceHas(conv.source, 'has_projects')) return nameFolderOf(conv)
     const path = conv.project_path
     if (!path) return { key: 'Unknown Project', label: 'Unknown Project' }
     return { key: path, label: labels.get(path) ?? displayPath(path, home), title: displayPath(path, home) }
@@ -191,9 +192,9 @@ export function displayPath(path: string, home: string | undefined): string {
   return path
 }
 
-function claudeCodePaths(convs: ConversationListItem[]): string[] {
+function projectPaths(convs: ConversationListItem[]): string[] {
   const paths = new Set<string>()
-  for (const c of convs) if (c.source === 'CLAUDE_CODE' && c.project_path) paths.add(c.project_path)
+  for (const c of convs) if (sourceHas(c.source, 'has_projects') && c.project_path) paths.add(c.project_path)
   return [...paths]
 }
 
@@ -246,9 +247,9 @@ export interface ProjectEntry {
 }
 
 /**
- * The picker's entries from the inventory (the loaded Claude Code
- * sessions), newest first by each entry's latest session; a tie sorts by
- * label, A to Z, ignoring case.
+ * The picker's entries from the inventory (the loaded sessions of the
+ * sources with projects), newest first by each entry's latest session;
+ * a tie sorts by label, A to Z, ignoring case.
  */
 export function projectEntries(
   convs: ConversationListItem[],
@@ -257,7 +258,7 @@ export function projectEntries(
 ): ProjectEntry[] {
   const groups = new Map<string, { id: string; paths: Set<string>; latest: number }>()
   for (const conv of convs) {
-    if (conv.source !== 'CLAUDE_CODE' || !conv.project_path) continue
+    if (!sourceHas(conv.source, 'has_projects') || !conv.project_path) continue
     const id = key === 'path' ? conv.project_path : conv.project_name
     if (!id) continue
     const groupKey = key === 'path' ? id : id.toLowerCase()
@@ -329,11 +330,11 @@ export function recentLabel(recentOnly: boolean, hours: number): string {
 
 /**
  * The list groups only where the "Group sessions by project" checkbox
- * shows: the sources "All Conversations" and "Claude Code". Under Claude
- * Desktop or Cowork, a hidden checkbox must not keep the list grouped.
+ * shows: "All Conversations" and each source with projects. Under a
+ * source without projects, a hidden checkbox must not keep the list grouped.
  */
 export function groupingApplies(groupByProject: boolean, source: SourceFilter | undefined): boolean {
-  return groupByProject && (source === undefined || source === 'all' || source === 'CLAUDE_CODE')
+  return groupByProject && sourceHas(source, 'has_projects')
 }
 
 /**

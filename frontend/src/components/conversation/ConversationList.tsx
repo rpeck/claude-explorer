@@ -9,7 +9,8 @@ import { cn, formatDate } from '@/lib/utils'
 import { applyActiveFilter, patternMatches, type FilterMode } from '@/lib/filterEngine'
 import { useFilters } from '@/contexts/FilterContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
-import { SourceBadge } from '@/components/conversation/SourceBadge'
+import { SOURCE_PRESETS, SourceBadge } from '@/components/conversation/SourceBadge'
+import { sourceHas } from '@/lib/sources'
 import { TitleText } from '@/components/TitleText'
 import { useNow } from '@/hooks/useNow'
 import {
@@ -335,6 +336,7 @@ export function ConversationList({
       <div className="flex flex-col">
         {folders.map(({ key: groupKey, name: groupName, title: groupTitle, convs: groupConvs }) => {
           const isCollapsed = collapsedGroups.has(groupKey)
+          const groupSource = groupConvs[0]?.source
 
           return (
             <div key={groupKey}>
@@ -355,14 +357,16 @@ export function ConversationList({
                 />
                 {/* Source/tenant orthogonality (P1-1): icon driven by
                     source, not group label. A group consisting entirely of
-                    CLAUDE_AI conversations gets the canonical Desktop
-                    SourceBadge (row variant — blue MessageSquare via the
-                    SOURCE_PRESETS map); anything else (CLAUDE_CODE or
-                    mixed) gets the FolderCode. SourceBadge is the single
+                    one source whose preset has groupBadge (Desktop) gets
+                    that source's SourceBadge (row variant, via the
+                    SOURCE_PRESETS map); anything else (a project, Cowork,
+                    or mixed) gets the FolderCode. SourceBadge is the single
                     site for the source→icon+color mapping (extracted
                     2026-05-30 P1.2, rubric F). */}
-                {groupConvs.every((c) => c.source === 'CLAUDE_AI') ? (
-                  <SourceBadge source="CLAUDE_AI" variant="row" />
+                {groupSource &&
+                SOURCE_PRESETS[groupSource]?.groupBadge &&
+                groupConvs.every((c) => c.source === groupSource) ? (
+                  <SourceBadge source={groupSource} variant="row" />
                 ) : (
                   <FolderCode className="h-3 w-3 text-amber-500" />
                 )}
@@ -894,8 +898,8 @@ function ConversationListItem({
             <GitBranch className="h-4 w-4 text-zinc-400" />
           )}
         </div>
-        {/* Project name for Claude Code sessions (hide when grouped by project) */}
-        {showProject && conversation.source === 'CLAUDE_CODE' && conversation.project_name && (
+        {/* Project name for sources with projects (hide when grouped by project) */}
+        {showProject && sourceHas(conversation.source, 'has_projects') && conversation.project_name && (
           <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
             <FolderCode className="h-3 w-3 text-amber-500" />
             <span className="truncate">{conversation.project_name}</span>
