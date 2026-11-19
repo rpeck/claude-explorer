@@ -9,10 +9,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
-import { REAL, setRealRegistry, xfail } from './fakeRegistry'
+import { REAL, setRealRegistry } from './fakeRegistry'
 
 describe('SOURCE_PRESETS covers the registry', () => {
-  xfail('SourceBadge exports SOURCE_PRESETS with an entry for every registry source', async () => {
+  it('SourceBadge exports SOURCE_PRESETS with an entry for every registry source', async () => {
     setRealRegistry()
     const mod = (await import('@/components/conversation/SourceBadge')) as unknown as {
       SOURCE_PRESETS?: Record<string, unknown>

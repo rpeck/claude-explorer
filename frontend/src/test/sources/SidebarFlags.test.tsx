@@ -11,12 +11,12 @@
  *     `has_archive_state`.
  *
  * The plain tests pin today's Sidebar with the real registry (no visual
- * change). Each `xfail` test changes the flags or adds a source.
+ * change). The other tests change the flags or add a source.
  */
 import { beforeAll, describe, expect, it } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FAKE, serveApp, REAL, setRealRegistry, setRegistry, withFake, withFlags, xfail, type Descriptor } from './fakeRegistry'
+import { FAKE, serveApp, REAL, setRealRegistry, setRegistry, withFake, withFlags, type Descriptor } from './fakeRegistry'
 
 const GROUP_TOGGLE = 'Group sessions by project'
 const ARCHIVED_TOGGLE = 'show-archived-sessions-toggle'
@@ -83,7 +83,7 @@ describe('Sidebar source filter items', () => {
     }
   })
 
-  xfail('a new registry source gets its own item, last, with its label', async () => {
+  it('a new registry source gets its own item, last, with its label', async () => {
     const trigger = await renderSidebar('all', withFake())
     const items = await openSourceItems(trigger)
     expect(items.map((o) => o.textContent)).toEqual([
@@ -93,7 +93,7 @@ describe('Sidebar source filter items', () => {
     ])
   })
 
-  xfail('choosing the new source sets the filter to it', async () => {
+  it('choosing the new source sets the filter to it', async () => {
     const trigger = await renderSidebar('all', withFake())
     const items = await openSourceItems(trigger)
     const fake = items.find((o) => o.textContent === FAKE.label)
@@ -102,7 +102,7 @@ describe('Sidebar source filter items', () => {
     await waitFor(() => expect(trigger.textContent).toBe(FAKE.label))
   })
 
-  xfail('the source select shows a saved filter of a new source', async () => {
+  it('the source select shows a saved filter of a new source', async () => {
     const trigger = await renderSidebar(FAKE.id, withFake())
     expect(trigger.textContent).toBe(FAKE.label)
   })
@@ -120,17 +120,17 @@ describe('Sidebar group-by-project toggle reads has_projects', () => {
     expect(screen.queryByLabelText(GROUP_TOGGLE) !== null).toBe(shown)
   })
 
-  xfail('Cowork with has_projects shows the toggle', async () => {
+  it('Cowork with has_projects shows the toggle', async () => {
     await renderSidebar('CLAUDE_COWORK', withFlags('CLAUDE_COWORK', { has_projects: true }))
     expect(screen.getByLabelText(GROUP_TOGGLE)).toBeInTheDocument()
   })
 
-  xfail('Claude Code without has_projects hides the toggle', async () => {
+  it('Claude Code without has_projects hides the toggle', async () => {
     await renderSidebar('CLAUDE_CODE', withFlags('CLAUDE_CODE', { has_projects: false }))
     expect(screen.queryByLabelText(GROUP_TOGGLE)).toBeNull()
   })
 
-  xfail('a new source without has_projects hides the toggle', async () => {
+  it('a new source without has_projects hides the toggle', async () => {
     await renderSidebar(FAKE.id, [...REAL.map((d) => ({ ...d })), { ...FAKE, has_projects: false }])
     expect(screen.queryByLabelText(GROUP_TOGGLE)).toBeNull()
   })
@@ -148,17 +148,17 @@ describe('Sidebar Archived toggle reads has_archive_state', () => {
     expect(screen.queryByTestId(ARCHIVED_TOGGLE) !== null).toBe(shown)
   })
 
-  xfail('Claude Code with has_archive_state shows the toggle', async () => {
+  it('Claude Code with has_archive_state shows the toggle', async () => {
     await renderSidebar('CLAUDE_CODE', withFlags('CLAUDE_CODE', { has_archive_state: true }))
     expect(screen.getByTestId(ARCHIVED_TOGGLE)).toBeInTheDocument()
   })
 
-  xfail('Cowork without has_archive_state hides the toggle', async () => {
+  it('Cowork without has_archive_state hides the toggle', async () => {
     await renderSidebar('CLAUDE_COWORK', withFlags('CLAUDE_COWORK', { has_archive_state: false }))
     expect(screen.queryByTestId(ARCHIVED_TOGGLE)).toBeNull()
   })
 
-  xfail('a new source with has_archive_state shows the toggle', async () => {
+  it('a new source with has_archive_state shows the toggle', async () => {
     await renderSidebar(FAKE.id, withFake())
     expect(screen.getByTestId(ARCHIVED_TOGGLE)).toBeInTheDocument()
   })

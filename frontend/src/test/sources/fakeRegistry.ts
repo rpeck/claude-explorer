@@ -9,7 +9,7 @@
  * Call `setRegistry(list)` first, then import the code under test with
  * `await import(...)`, so that the module graph sees the test list.
  */
-import { it, vi } from 'vitest'
+import { vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { server } from '../mocks/server'
 import realDescriptors from '@/lib/sources.generated.json'
@@ -62,18 +62,17 @@ export function setRealRegistry(): void {
   vi.doUnmock('@/lib/sources.generated.json')
 }
 
-/**
- * N2 is not implemented yet, so each test that needs N2 is an expected
- * failure. `N2_RUN_XFAIL=1` runs them as plain tests (like pytest --runxfail).
- * Remove this when N2 passes.
- */
-export const xfail: typeof it = import.meta.env.N2_RUN_XFAIL ? it : (it.fails as typeof it)
-
 /** Serve the preferences and the side requests that the Sidebar makes. */
 export function serveApp(prefs: Record<string, unknown>): void {
+  const data = { ...prefs }
   server.use(
-    http.get('/api/preferences', () => HttpResponse.json({ version: 1, data: prefs })),
-    http.patch('/api/preferences', () => HttpResponse.json({ version: 1, data: prefs })),
+    http.get('/api/preferences', () => HttpResponse.json({ version: 1, data })),
+    // Merge like the backend: usePreferences puts the PATCH answer in its cache.
+    http.patch('/api/preferences', async ({ request }) => {
+      const body = (await request.json()) as { data?: Record<string, unknown> }
+      Object.assign(data, body.data)
+      return HttpResponse.json({ version: 1, data })
+    }),
     http.get('/api/orgs', () => HttpResponse.json([])),
     http.get('/api/bookmarks', () => HttpResponse.json([])),
     http.get('/api/account', () => HttpResponse.json({ authenticated: false })),

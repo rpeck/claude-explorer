@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { server } from '../mocks/server'
-import { FAKE, serveApp, setRealRegistry, setRegistry, withFake, withFlags, xfail } from './fakeRegistry'
+import { FAKE, serveApp, setRealRegistry, setRegistry, withFake, withFlags } from './fakeRegistry'
 
 function detail(overrides: Record<string, unknown>) {
   return {
@@ -73,14 +73,14 @@ async function renderHeader(conversation: Record<string, unknown>) {
 }
 
 describe('ConversationHeader project-path gate reads has_projects', () => {
-  xfail('a new source with projects shows the list filter button and the project path', async () => {
+  it('a new source with projects shows the list filter button and the project path', async () => {
     setRegistry(withFake())
     await renderHeader(detail({ source: FAKE.id, project_path: '/home/u/work/x/y', project_name: 'y' }))
     expect(screen.getByTitle(PROJECT_PATH_BUTTON)).toBeInTheDocument()
     expect(screen.getByTitle(LIST_FILTER_TITLE)).toBeInTheDocument()
   })
 
-  xfail('Claude Code without has_projects shows neither', async () => {
+  it('Claude Code without has_projects shows neither', async () => {
     setRegistry(withFlags('CLAUDE_CODE', { has_projects: false }))
     await renderHeader(detail({ source: 'CLAUDE_CODE', project_path: '/home/u/src/a/b', project_name: 'b' }))
     expect(screen.queryByTitle(PROJECT_PATH_BUTTON)).toBeNull()
@@ -118,19 +118,19 @@ async function renderToolbar(conversationSource: string) {
 const REDOWNLOAD = { name: 'Re-download this conversation' }
 
 describe('ConversationToolbar Re-download reads refetchable', () => {
-  xfail('Claude Code with refetchable shows Re-download', async () => {
+  it('Claude Code with refetchable shows Re-download', async () => {
     setRegistry(withFlags('CLAUDE_CODE', { refetchable: true }))
     await renderToolbar('CLAUDE_CODE')
     expect(screen.getByRole('button', REDOWNLOAD)).toBeInTheDocument()
   })
 
-  xfail('Claude Desktop without refetchable hides Re-download', async () => {
+  it('Claude Desktop without refetchable hides Re-download', async () => {
     setRegistry(withFlags('CLAUDE_AI', { refetchable: false }))
     await renderToolbar('CLAUDE_AI')
     expect(screen.queryByRole('button', REDOWNLOAD)).toBeNull()
   })
 
-  xfail('a new refetchable source shows Re-download', async () => {
+  it('a new refetchable source shows Re-download', async () => {
     setRegistry(withFake())
     await renderToolbar(FAKE.id)
     expect(screen.getByRole('button', REDOWNLOAD)).toBeInTheDocument()
@@ -147,14 +147,14 @@ async function renderList(rows: Record<string, unknown>[], props: Record<string,
 }
 
 describe('ConversationList project label reads has_projects', () => {
-  xfail('a row of a new source with projects shows its project name', async () => {
+  it('a row of a new source with projects shows its project name', async () => {
     setRegistry(withFake())
     await renderList([listRow({ source: FAKE.id, name: 'Fake row', project_name: 'fake-proj' })])
     await screen.findByText('Fake row')
     expect(screen.getByText('fake-proj')).toBeInTheDocument()
   })
 
-  xfail('a Claude Code row without has_projects shows no project name', async () => {
+  it('a Claude Code row without has_projects shows no project name', async () => {
     setRegistry(withFlags('CLAUDE_CODE', { has_projects: false }))
     await renderList([listRow({ source: 'CLAUDE_CODE', name: 'Code row', project_name: 'code-proj' })])
     await screen.findByText('Code row')
@@ -223,7 +223,7 @@ function groupIcon(name: string): string {
 const withFakeNoProjects = () => [...withFake().slice(0, -1), { ...FAKE, has_projects: false }]
 
 describe('ConversationList group badge reads the groupBadge preset field', () => {
-  xfail('every preset has a boolean groupBadge, true for CLAUDE_AI only', async () => {
+  it('every preset has a boolean groupBadge, true for CLAUDE_AI only', async () => {
     setRealRegistry()
     const all = await presets()
     for (const [id, preset] of Object.entries(all)) {
@@ -232,7 +232,7 @@ describe('ConversationList group badge reads the groupBadge preset field', () =>
     }
   })
 
-  xfail('a one-source folder of a source whose preset has groupBadge gets that source badge', async () => {
+  it('a one-source folder of a source whose preset has groupBadge gets that source badge', async () => {
     setRegistry(withFakeNoProjects())
     const all = await presets()
     all[FAKE.id] = { ...all.CLAUDE_CODE, groupBadge: true }
@@ -246,7 +246,7 @@ describe('ConversationList group badge reads the groupBadge preset field', () =>
     expect(groupIcon('Org F')).toContain('text-green-500')
   })
 
-  xfail('a Desktop-only folder gets the folder icon when the Desktop preset has no groupBadge', async () => {
+  it('a Desktop-only folder gets the folder icon when the Desktop preset has no groupBadge', async () => {
     setRealRegistry()
     const all = await presets()
     all.CLAUDE_AI = { ...all.CLAUDE_AI, groupBadge: false }
@@ -258,7 +258,7 @@ describe('ConversationList group badge reads the groupBadge preset field', () =>
     expect(groupIcon('Org A')).toContain('lucide-folder-code')
   })
 
-  xfail('a folder with rows of two groupBadge sources gets the folder icon', async () => {
+  it('a folder with rows of two groupBadge sources gets the folder icon', async () => {
     setRegistry(withFakeNoProjects())
     const all = await presets()
     all[FAKE.id] = { ...all.CLAUDE_CODE, groupBadge: true }

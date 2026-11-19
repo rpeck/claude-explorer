@@ -7,13 +7,13 @@
  *     (conversationListView.ts): a source groups by project exactly when
  *     its descriptor has `has_projects`.
  *
- * Each `xfail` test changes the flags (or adds a source) and expects the
+ * The other tests change the flags (or add a source) and expect the
  * rule to follow. The plain tests pin today's behavior with the real
  * registry: N2 must not change it.
  */
 import { describe, expect, it } from 'vitest'
 import type { ConversationListItem, SourceFilter } from '@/lib/types'
-import { FAKE, REAL, setRealRegistry, setRegistry, withFake, withFlags, xfail } from './fakeRegistry'
+import { FAKE, REAL, setRealRegistry, setRegistry, withFake, withFlags } from './fakeRegistry'
 
 function row(overrides: Partial<Record<keyof ConversationListItem, unknown>>): ConversationListItem {
   return {
@@ -40,13 +40,13 @@ describe('isSourceFilter reads the registry', () => {
     for (const d of REAL) expect(isSourceFilter(d.id), d.id).toBe(true)
   })
 
-  xfail('accepts a source id that only the registry names', async () => {
+  it('accepts a source id that only the registry names', async () => {
     setRegistry(withFake())
     const { isSourceFilter } = await import('@/lib/types')
     expect(isSourceFilter(FAKE.id)).toBe(true)
   })
 
-  xfail('rejects a source id that the registry does not name', async () => {
+  it('rejects a source id that the registry does not name', async () => {
     setRegistry(REAL.filter((d) => d.id !== 'CLAUDE_COWORK').map((d) => ({ ...d })))
     const { isSourceFilter } = await import('@/lib/types')
     expect(isSourceFilter('CLAUDE_COWORK')).toBe(false)
@@ -67,7 +67,7 @@ describe('groupingApplies reads has_projects', () => {
     expect(groupingApplies(false, 'all')).toBe(false)
   })
 
-  xfail('groups under a new source that has projects', async () => {
+  it('groups under a new source that has projects', async () => {
     setRegistry(withFake())
     const { groupingApplies } = await import('@/lib/conversationListView')
     expect(groupingApplies(true, asFilter(FAKE.id))).toBe(true)
@@ -80,13 +80,13 @@ describe('groupingApplies reads has_projects', () => {
     expect(groupingApplies(true, 'CLAUDE_CODE')).toBe(true)
   })
 
-  xfail('Claude Code without has_projects does not group', async () => {
+  it('Claude Code without has_projects does not group', async () => {
     setRegistry(withFlags('CLAUDE_CODE', { has_projects: false }))
     const { groupingApplies } = await import('@/lib/conversationListView')
     expect(groupingApplies(true, 'CLAUDE_CODE')).toBe(false)
   })
 
-  xfail('Cowork with has_projects groups', async () => {
+  it('Cowork with has_projects groups', async () => {
     setRegistry(withFlags('CLAUDE_COWORK', { has_projects: true }))
     const { groupingApplies } = await import('@/lib/conversationListView')
     expect(groupingApplies(true, 'CLAUDE_COWORK')).toBe(true)
@@ -105,7 +105,7 @@ describe('folderName reads has_projects', () => {
     expect(folderName(row({ source: 'CLAUDE_AI', organization_name: 'Org A' }))).toBe('Org A')
   })
 
-  xfail('a new source with projects goes in its project', async () => {
+  it('a new source with projects goes in its project', async () => {
     setRegistry(withFake())
     const { folderName } = await import('@/lib/conversationListView')
     expect(folderName(row({ source: FAKE.id, project_name: 'fake-proj', organization_name: 'Org' }))).toBe(
@@ -114,7 +114,7 @@ describe('folderName reads has_projects', () => {
     expect(folderName(row({ source: FAKE.id, organization_name: 'Org' }))).toBe('Unknown Project')
   })
 
-  xfail('Claude Code without has_projects goes in its workspace', async () => {
+  it('Claude Code without has_projects goes in its workspace', async () => {
     setRegistry(withFlags('CLAUDE_CODE', { has_projects: false }))
     const { folderName } = await import('@/lib/conversationListView')
     expect(folderName(row({ source: 'CLAUDE_CODE', project_name: 'proj', organization_name: 'Org C' }))).toBe(
@@ -136,7 +136,7 @@ describe('pathFolderOf reads has_projects', () => {
     expect(folderOf(cowork)).toEqual({ key: 'Org B', label: 'Org B' })
   })
 
-  xfail('a new source with projects gets a path folder with a short label', async () => {
+  it('a new source with projects gets a path folder with a short label', async () => {
     setRegistry(withFake())
     const { pathFolderOf } = await import('@/lib/conversationListView')
     const fake = row({ source: FAKE.id, project_path: '/home/u/work/x/y', project_name: 'y' })
@@ -144,14 +144,14 @@ describe('pathFolderOf reads has_projects', () => {
     expect(folderOf(fake)).toEqual({ key: '/home/u/work/x/y', label: 'x/y', title: '~/work/x/y' })
   })
 
-  xfail('a new source with projects and no path goes in "Unknown Project"', async () => {
+  it('a new source with projects and no path goes in "Unknown Project"', async () => {
     setRegistry(withFake())
     const { pathFolderOf } = await import('@/lib/conversationListView')
     const fake = row({ source: FAKE.id, organization_name: 'Org' })
     expect(pathFolderOf([fake], HOME)(fake)).toEqual({ key: 'Unknown Project', label: 'Unknown Project' })
   })
 
-  xfail('Claude Code without has_projects goes in its workspace folder', async () => {
+  it('Claude Code without has_projects goes in its workspace folder', async () => {
     setRegistry(withFlags('CLAUDE_CODE', { has_projects: false }))
     const { pathFolderOf } = await import('@/lib/conversationListView')
     const code = row({ source: 'CLAUDE_CODE', project_path: '/home/u/src/a/b', organization_name: 'Org C' })
@@ -174,7 +174,7 @@ describe('projectEntries reads has_projects', () => {
     expect(projectEntries(rows, 'name', HOME).map((e) => e.id)).toEqual(['b'])
   })
 
-  xfail('rows of a new source with projects make picker entries', async () => {
+  it('rows of a new source with projects make picker entries', async () => {
     setRegistry(withFake())
     const { projectEntries } = await import('@/lib/conversationListView')
     const rows = [
@@ -187,7 +187,7 @@ describe('projectEntries reads has_projects', () => {
     expect(projectEntries(rows, 'name', HOME).map((e) => e.id)).toEqual(['b', 'y'])
   })
 
-  xfail('Claude Code rows without has_projects make no picker entries', async () => {
+  it('Claude Code rows without has_projects make no picker entries', async () => {
     setRegistry(withFlags('CLAUDE_CODE', { has_projects: false }))
     const { projectEntries } = await import('@/lib/conversationListView')
     const rows = [row({ source: 'CLAUDE_CODE', project_path: '/home/u/src/a/b', project_name: 'b' })]
