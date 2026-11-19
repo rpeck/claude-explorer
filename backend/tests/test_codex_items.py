@@ -37,8 +37,6 @@ import pytest
 from backend.tests import codex_fake as cf
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N12 not implemented yet")
-
 T0 = datetime(2026, 11, 19, 10, 0, 0, tzinfo=UTC)
 TID = "019a9100-0000-7000-8000-0000000000aa"
 CWD = "/home/fixture/proj-items"
