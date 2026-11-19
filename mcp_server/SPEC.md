@@ -89,9 +89,10 @@ The server reads from the same locations the FastAPI app reads:
 
 - **Claude Desktop conversations:** JSON files under `~/.claude-explorer/conversations/<uuid>.json` (canonical) or `~/.claude-exporter/conversations/` (legacy; transparently migrated by `backend.config.migrate_legacy_data_dir`). Override via `CLAUDE_EXPLORER_DATA_DIR`.
 - **Claude Code sessions:** live-read from `~/.claude/projects/<encoded-cwd>/<uuid>.jsonl`. Override via `CLAUDE_DIR`.
+- **Cowork sessions:** local sessions live-read from `<Claude Desktop app dir>/local-agent-mode-sessions/<deployment>/<org>/local_<uuid>/audit.jsonl` (override via `CLAUDE_DESKTOP_APP_DIR`), and remote tasks from `<data_dir>/cowork-remote/<org>/remote_<id>/audit.jsonl`, which the fetch saves.
 - **Outline cache:** SQLite at `<data_dir>.parent / "cache.db"` — i.e. `~/.claude-explorer/cache.db` by default. Created on first call to `get_session_outline`.
 
-`ConversationStore` (instantiated as a module singleton by `_get_store()`) wraps both sources. The store is **lazily initialized** on first tool call.
+`ConversationStore` (instantiated as a module singleton by `_get_store()`) wraps every source. Each source has one adapter in `backend/sources/`; `backend.sources.registry` lists them, and `backend.sources.ids` defines the `SourceId` and `SourceFilter` values that the `source` arguments accept. The outline cache rebuilds a session in full when its source descriptor sets `messages_change_in_place` (no current source does). The store is **lazily initialized** on first tool call.
 
 ## 6. Tool reference
 
@@ -127,7 +128,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
     {
       "uuid": "<session-uuid>",
       "name": "<title>",
-      "source": "CLAUDE_AI" | "CLAUDE_CODE",
+      "source": "CLAUDE_AI" | "CLAUDE_CODE" | "CLAUDE_COWORK",
       "project": "<project-name-or-null>",
       "message_count": <int>,
       "human_message_count": <int>,
@@ -148,7 +149,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 - Without `query`: lists all conversations from the store via `list_conversations(source=...)`. No `match_count` field is added.
 - `project` filter applies *after* the query/list step, in Python, on `entry["project"]`. Case-insensitive substring.
 - `total` is the size of the filtered list *before* `[offset : offset + limit]` slicing. Pagination consumers should use `total` to detect end-of-list.
-- Invalid `source` values (anything not in `{"CLAUDE_AI", "CLAUDE_CODE"}`) silently fall back to `"all"`.
+- Invalid `source` values (anything not in `backend.sources.ids.SourceId`) silently fall back to `"all"`.
 
 **Errors:** none raised; bad inputs produce empty results or silently broaden the search.
 
@@ -167,7 +168,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"` or `"CLAUDE_CODE"`. |
+| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, or `"CLAUDE_COWORK"`. Any other value (or `None`) means "all". |
 
 **Return shape:**
 
@@ -220,7 +221,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
   "session_id": "<uuid>",     // same value; kept for existing readers
   "name": "<title>",
   "model": "<model-or-empty>",
-  "source": "CLAUDE_AI" | "CLAUDE_CODE",
+  "source": "CLAUDE_AI" | "CLAUDE_CODE" | "CLAUDE_COWORK",
   "project": "<project-name-or-null>",
   "message_count": <int>,
   "created_at": "<iso8601>",
@@ -444,7 +445,7 @@ CREATE INDEX IF NOT EXISTS idx_msg_session
 - **No network egress.** The server speaks JSON-RPC over stdin/stdout. There is no HTTP listener, no outbound socket, no auth header construction. The substrate (`backend.store`) reads local files; the export path renders Markdown without fetching anything remote.
 - **stdio-only transport.** A client must spawn the server as a subprocess to talk to it. There is no `--port` flag and no `--host` flag.
 - **No credentials handled.** Credentials live in `~/.claude-explorer/credentials.json` for fetcher use only; the MCP server does not read them.
-- **Path traversal:** all file lookups go through `backend.store`, which resolves session UUIDs against the configured data directory; UUIDs supplied to `get_session_outline`, `get_messages`, and `export_session` cannot escape the data root via `..` or symlinks because the store enumerates files first and matches by UUID, not by user-supplied path.
+- **Path traversal:** all file lookups go through `backend.store` and its source adapters, which resolve session UUIDs against the configured data directory; UUIDs supplied to `get_session_outline`, `get_messages`, and `export_session` cannot escape the data root via `..` or symlinks because the store enumerates files first and matches by UUID, not by user-supplied path.
 
 ## 9. Performance notes
 

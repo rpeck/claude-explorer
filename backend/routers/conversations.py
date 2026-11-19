@@ -11,6 +11,7 @@ from ..models import (
     ConversationTree,
 )
 from ..responses import OrjsonResponse
+from ..sources.ids import SourceFilter
 from ..store import ConversationStore
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -39,7 +40,7 @@ async def list_conversations(
     search: str | None = Query(None, description="Search in name/summary"),
     starred: bool | None = Query(None, description="Filter by starred status"),
     model: str | None = Query(None, description="Filter by model"),
-    source: Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"] = Query(
+    source: SourceFilter = Query(  # noqa: B008  (ruff treats only a bare Literal as immutable)
         "all", description="Filter by source (all, CLAUDE_AI, CLAUDE_CODE)"
     ),
     sort: Literal["updated_at", "created_at", "name", "project"] = Query(
