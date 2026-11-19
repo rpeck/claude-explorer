@@ -273,15 +273,15 @@ class RemoteCoworkFetcher:
         org_dir = self.root / org_uuid
         return org_dir / name, org_dir / f"{name}.json"
 
-    def save_session(
-        self, org_uuid: str, session: dict, new_events: list[dict], replace: bool
-    ) -> int:
-        """Write the session's ``audit.jsonl`` and sidecar.
+    def save_session(self, org_uuid: str, session: dict, new_events: list[dict]) -> int:
+        """Merge ``new_events`` into the session's ``audit.jsonl``; write the sidecar.
 
-        ``replace=False`` appends ``new_events`` to the existing file;
-        ``replace=True`` rewrites it from ``new_events`` alone. Returns how
-        many lines ``new_events`` added to the file. Dropped payload types
-        and duplicates add none.
+        The file becomes the union of its lines and the events, by
+        ``_sequence_num``: an event replaces the line with its number, and a
+        line that no event replaces stays (issue #51). So a Full Refresh,
+        which fetches the whole session, never loses an event that the API
+        stopped returning. Returns how many lines ``new_events`` wrote.
+        Dropped payload types and duplicate uuids write none.
 
         The sidecar always gets the session's current metadata (a new title,
         say) and ``lastSequenceNum``, the highest sequence number fetched so
@@ -292,40 +292,49 @@ class RemoteCoworkFetcher:
         session_dir.mkdir(parents=True, exist_ok=True)
         audit_path = session_dir / "audit.jsonl"
 
-        last_seq: int | None = None
-        if not replace:
-            last_seq = self._stored_state(org_uuid, session_id).after_seq
+        last_seq = self._stored_state(org_uuid, session_id).after_seq
         for ev in new_events:
             seq = _seq(ev)
             if seq is not None and (last_seq is None or seq > last_seq):
                 last_seq = seq
 
-        lines: list[str] = []
+        new_lines = [line for ev in new_events if (line := _event_to_audit_line(ev)) is not None]
+        new_seqs = {line["_sequence_num"] for line in new_lines if line["_sequence_num"] is not None}
+
+        # (sort key, raw line). A line without a number sorts after the line before it.
+        merged: list[tuple[int, str]] = []
         seen_uuids: set[str] = set()
-        added = 0
-        if not replace and audit_path.exists():
+        key = -1
+        if audit_path.exists():
             for raw in audit_path.read_text(encoding="utf-8").splitlines():
                 if not raw.strip():
                     continue
-                lines.append(raw)
                 try:
-                    u = json.loads(raw).get("uuid")
-                except (json.JSONDecodeError, AttributeError):
-                    continue
-                if u:
-                    seen_uuids.add(u)
+                    old = json.loads(raw)
+                except json.JSONDecodeError:
+                    old = None
+                old = old if isinstance(old, dict) else {}
+                seq = old.get("_sequence_num")
+                if isinstance(seq, int):
+                    if seq in new_seqs:
+                        continue
+                    key = seq
+                merged.append((key, raw))
+                if old.get("uuid"):
+                    seen_uuids.add(old["uuid"])
 
-        for ev in new_events:
-            line = _event_to_audit_line(ev)
-            if line is None:
-                continue
+        added = 0
+        for line in new_lines:
             u = line.get("uuid")
             if u and u in seen_uuids:
                 continue
             if u:
                 seen_uuids.add(u)
-            lines.append(json.dumps(line, ensure_ascii=False))
+            seq = line["_sequence_num"]
+            merged.append((seq if seq is not None else key, json.dumps(line, ensure_ascii=False)))
             added += 1
+        merged.sort(key=lambda item: item[0])
+        lines = [raw for _, raw in merged]
 
         # The audit file first, then the sidecar: a crash between the two
         # leaves a sidecar that is behind, never ahead (see _stored_state).
@@ -415,7 +424,7 @@ class RemoteCoworkFetcher:
         metadata is saved anyway.
         """
         events = self.fetch_events_after(org_uuid, session["id"], after_seq)
-        return self.save_session(org_uuid, session, events, replace=after_seq is None)
+        return self.save_session(org_uuid, session, events)
 
     def sync_org(
         self,
