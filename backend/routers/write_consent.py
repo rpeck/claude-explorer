@@ -25,12 +25,28 @@ from fetcher.atomic import atomic_write_bytes
 
 from ..config import Settings, canonical_home_dir, get_settings, legacy_home_dir
 from ..deps import refuse_if_config_corrupt
-from ..write_gate import cloud_synced_target, same_path
+from ..write_gate import (
+    cloud_sync_block,
+    cloud_sync_message,
+    cloud_synced_target,
+    same_path,
+)
 from .shutdown import _origin_allowed
 
 router = APIRouter()
 
 ACTION_HEADER_VALUE = "allow-cloud-sync-writes"
+
+
+def refuse_if_cloud_sync_gate() -> None:
+    """Plan D13: refuse a writer route (409) while the cloud-sync gate is closed.
+
+    A fetch refuses before any network call. The message names the folder
+    and the provider. Put it after ``refuse_if_config_corrupt``.
+    """
+    block = cloud_sync_block(get_settings())
+    if block is not None:
+        raise HTTPException(status_code=409, detail=cloud_sync_message(block))
 
 
 class CloudSyncConsent(BaseModel):

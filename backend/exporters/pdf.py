@@ -448,18 +448,21 @@ def _resolve_cc_image_path(abs_path: str) -> Path | None:
     if candidate.is_file():
         return candidate
 
-    # Fallback to the permanent cache. Mirrors backend.routers.files.get_cc_image.
+    # Fallback to the permanent cache and the pending folder (plan D13).
+    # Mirrors backend.routers.files.get_cc_image.
     try:
-        from ..cc_image_cache import cache_dir
+        from ..cc_image_cache import image_dirs
     except ImportError:  # pragma: no cover — defensive
         return None
     sess = candidate.parent.name
     n = candidate.stem
     ext = candidate.suffix.lstrip(".") or "png"
-    cache_root = cache_dir()
-    if not cache_root.exists():
-        return None
-    matches = list(cache_root.glob(f"*/{sess}--{n}.*.{ext}"))
+    matches = [
+        hit
+        for cache_root in image_dirs()
+        if cache_root.exists()
+        for hit in cache_root.glob(f"*/{sess}--{n}.*.{ext}")
+    ]
     if not matches:
         return None
     return max(matches, key=lambda x: x.stat().st_mtime)

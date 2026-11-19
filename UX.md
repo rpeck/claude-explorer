@@ -733,6 +733,9 @@ allows it (plan D13).
     not detected.
 - **While the gate is closed:**
   - Refresh and the other fetch actions are refused (HTTP 409).
+  - A settings change is not saved on the server (`PUT` and `PATCH
+    /api/preferences` get HTTP 409). The page keeps it in the browser's
+    local storage.
   - The archive copy of the local sources is skipped.
   - The search index and the list-summary cache write nothing. Search
     uses its linear-scan fallback, and the list reads each session.

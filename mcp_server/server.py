@@ -28,7 +28,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools.base import ToolResult
 
-from backend.config import Settings, read_env
+from backend.config import Settings, get_settings, read_env
 from backend.export import (
     conversation_to_markdown,
     filter_tool_placeholders,
@@ -38,7 +38,7 @@ from backend.search import search_conversations
 from backend.sources.ids import SourceFilter
 from backend.sources.registry import get_descriptor, get_descriptors
 from backend.store import ConversationStore
-from backend.write_gate import run_archive_syncs, sync_busy
+from backend.write_gate import cloud_sync_block, run_archive_syncs, sync_busy
 from mcp_server import __version__
 
 log = logging.getLogger(__name__)
@@ -211,8 +211,14 @@ def _db_path() -> Path:
 
 
 def _get_db() -> sqlite3.Connection:
-    """Open a new SQLite connection (per-call for thread safety)."""
-    conn = sqlite3.connect(str(_db_path()))
+    """Open a new SQLite connection (per-call for thread safety).
+
+    While the cloud-sync gate is closed (plan D13), the outline is built in
+    an in-memory database, so ``cache.db`` next to the data folder gets no
+    message summaries.
+    """
+    gate_closed = cloud_sync_block(get_settings()) is not None
+    conn = sqlite3.connect(":memory:" if gate_closed else str(_db_path()))
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = sqlite3.Row

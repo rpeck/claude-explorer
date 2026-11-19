@@ -448,7 +448,7 @@ CREATE INDEX IF NOT EXISTS idx_msg_session
   - **When:** at the start of each tool call, at most once per debounce interval (`CLAUDE_EXPLORER_SEARCH_DRIFT_DEBOUNCE_SEC`, default 2 s), inline, with no thread and no timer (`_sync_archive`).
   - **What:** `backend.write_gate.run_archive_syncs(store, "mcp", 0)` copies each source's new files into the archive under its `ArchiveLock`. It reads a source home and never writes into it.
   - **Lock busy:** the tool reads the archive as it is, and `list_sessions` and `get_session_outline` return `sync_pending: true` (plan D15). The next call tries again at once.
-  - **Gates:** a corrupt config skips the copy. A data folder in a cloud-sync folder skips it until the user opts in (plan D13), and `list_sessions` returns a `notices` item that names the provider.
+  - **Gates:** a corrupt config skips the copy. A data folder in a cloud-sync folder skips it until the user opts in (plan D13), and `list_sessions` returns a `notices` item that names the provider. While that gate is closed, `get_session_outline` builds its outline in an in-memory database, so `cache.db` gets no rows.
 - **No network egress.** The server speaks JSON-RPC over stdin/stdout. There is no HTTP listener, no outbound socket, no auth header construction. The substrate (`backend.store`) reads local files; the export path renders Markdown without fetching anything remote.
 - **stdio-only transport.** A client must spawn the server as a subprocess to talk to it. There is no `--port` flag and no `--host` flag.
 - **No credentials handled.** Credentials live in `~/.claude-explorer/credentials.json` for fetcher use only; the MCP server does not read them.

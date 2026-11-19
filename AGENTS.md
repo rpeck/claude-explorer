@@ -88,8 +88,9 @@ the drag-drop Claude Desktop extension that wraps `mcp_server.server`'s
    modules `backend.store` / `backend.search` lazy-import at call time
    (`backend.cowork_reader`, `backend.summary_cache`,
    `backend.search_index`).
-3. Writes a stripped `pyproject.toml` with ONLY the 4 deps the MCP
-   path uses (`fastmcp`, `pydantic`, `orjson`, `platformdirs`).
+3. Writes a stripped `pyproject.toml` with ONLY the 5 deps the MCP
+   path uses (`fastmcp`, `pydantic`, `orjson`, `platformdirs`,
+   `portalocker`; the last one is the archive lock).
 4. Writes `manifest.json` with `manifest_version: "0.4"` +
    `server.type: "uv"` — Claude Desktop ships Node but not Python,
    so UV resolves + installs on the user's machine on first launch.
@@ -596,7 +597,8 @@ corrupt config and then cloud sync, and then calls each adapter's
 - **Detection:** `backend/cloud_sync.py`, on `data_dir`, `search-index.sqlite`, and `cc-images/`. It fails closed.
 - **Opt-in:** `allow_writes_in_cloud_sync` in `config.json` must equal the resolved `data_dir`. `POST /api/write-consent/cloud-sync` (`backend/routers/write_consent.py`) writes it, with the `shutdown` route's header and Origin rules and the corrupt-config gate.
 - **While closed:**
-  - The fetch routes return 409 before any network call; the CLI `fetch` refuses.
+  - The fetch routes return 409 before any network call; the CLI `fetch` refuses. The preferences `PUT` and `PATCH` also return 409 (`write_consent.refuse_if_cloud_sync_gate`, after the corrupt-config dependency).
+  - The MCP outline cache (`cache.db`) is built in memory.
   - The archive copy skips.
   - `get_search_index()` and `get_summary_cache()` return `None`.
   - The lifespan creates no data folder and skips the layout migration.

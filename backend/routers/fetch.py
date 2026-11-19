@@ -56,6 +56,7 @@ from ..fetch_pipeline import (
 # FetchProgress``) keep working — see TESTING.md §5.12 on the
 # attribute-patch idiom.
 from ..models import FetchProgress, FetchStatus, ForceRefetchResponse
+from .write_consent import refuse_if_cloud_sync_gate
 
 __all__ = [
     "FetchProgress",  # re-export for backward-compat test imports
@@ -147,16 +148,6 @@ ARCHIVE_BUSY_MESSAGE = (
     "Another Claude Explorer process is copying the Codex sessions into the "
     "archive. This fetch skipped the copy; the next one does it."
 )
-
-
-def refuse_if_cloud_sync_gate() -> None:
-    """Plan D13: refuse a fetch before any network call while the cloud-sync
-    gate is closed. The message names the folder and the provider."""
-    from ..write_gate import cloud_sync_block, cloud_sync_message
-
-    block = cloud_sync_block(get_settings())
-    if block is not None:
-        raise HTTPException(status_code=409, detail=cloud_sync_message(block))
 
 
 async def _archive_sync_stream() -> AsyncGenerator[str, None]:
