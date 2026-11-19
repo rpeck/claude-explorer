@@ -230,6 +230,10 @@ def _write_bundle_pyproject(
         f'    "orjson>=3.10",\n'
         f'    "platformdirs>=4.0",\n'
         f'    "portalocker>=2.8",\n'
+        # Codex .zst rollouts (backend.codex.zstd). The import is inside a
+        # function, so the closure analyzer cannot see it; 3.14+ uses the
+        # standard library.
+        f"    \"zstandard>=0.23; python_version < '3.14'\",\n"
         f"]\n"
     )
     (bundle_root / "pyproject.toml").write_text(content, encoding="utf-8")
@@ -254,8 +258,8 @@ def _write_manifest(bundle_root: pathlib.Path, version: str) -> None:
         "display_name": "Claude Explorer (Conversation Archive)",
         "version": version,
         "description": (
-            "Search and read your saved Claude Desktop and Claude Code "
-            "conversations from inside Claude."
+            "Search and read your saved Claude Desktop, Claude Code, and "
+            "Codex conversations from inside Claude."
         ),
         "long_description": (
             "Exposes the local conversation archive at "

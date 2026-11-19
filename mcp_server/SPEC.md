@@ -4,7 +4,7 @@
 
 ## 1. Purpose and design principles
 
-The MCP server exposes a saved Claude conversation archive (Claude Desktop + Claude Code) as five tools an LLM client (Claude Desktop, Claude Code, or any MCP-compatible client) can call. It is a **read-only facade** over the same on-disk store the FastAPI/React app uses. Its one write path is the archive copy (§8): before each tool call it copies new source files into the Explorer archive, so an MCPB-only user without `serve` or the watcher also keeps their history.
+The MCP server exposes a saved conversation archive (Claude Desktop, Claude Code, Cowork, and OpenAI Codex) as five tools an LLM client (Claude Desktop, Claude Code, or any MCP-compatible client) can call. It is a **read-only facade** over the same on-disk store the FastAPI/React app uses. Its one write path is the archive copy (§8): before each tool call it copies new source files into the Explorer archive, so an MCPB-only user without `serve` or the watcher also keeps their history.
 
 Design rules, in priority order:
 
@@ -20,7 +20,7 @@ Design rules, in priority order:
 - **Server name.** `Claude Session Explorer` (the `FastMCP(...)` call in `mcp_server/server.py`).
 - **Server-level instructions** (passed to the client at handshake):
 
-  > These tools query saved Claude conversation history. ONLY use them when the user EXPLICITLY asks to search, browse, analyze, or export past conversation sessions. Never call these tools proactively or speculatively.
+  > These tools query saved conversation history (Claude and Codex). ONLY use them when the user EXPLICITLY asks to search, browse, analyze, or export past conversation sessions. Never call these tools proactively or speculatively.
 
   Source: the `instructions=` argument of `FastMCP(...)` in `mcp_server/server.py`.
 
@@ -90,9 +90,10 @@ The server reads from the same locations the FastAPI app reads:
 - **Claude Desktop conversations:** JSON files under `~/.claude-explorer/conversations/<uuid>.json` (canonical) or `~/.claude-exporter/conversations/` (legacy; transparently migrated by `backend.config.migrate_legacy_data_dir`). Override via `CLAUDE_EXPLORER_DATA_DIR`.
 - **Claude Code sessions:** live-read from `~/.claude/projects/<encoded-cwd>/<uuid>.jsonl`. Override via `CLAUDE_DIR`.
 - **Cowork sessions:** local sessions live-read from `<Claude Desktop app dir>/local-agent-mode-sessions/<deployment>/<org>/local_<uuid>/audit.jsonl` (override via `CLAUDE_DESKTOP_APP_DIR`), and remote tasks from `<data_dir>/cowork-remote/<org>/remote_<id>/audit.jsonl`, which the fetch saves.
+- **Codex sessions:** read from the archive copy at `<data_dir>/codex/<home_key>/threads/<thread_id>.json` and `rollouts/<stem>.jsonl`. The archive copy (§8) copies them from the Codex home (`CODEX_HOME`, then `codex_home` in `config.json`, then `~/.codex`) and never writes there. The conversation `uuid` is the Codex thread id, so `codex resume <uuid>` works.
 - **Outline cache:** SQLite at `<data_dir>.parent / "cache.db"` — i.e. `~/.claude-explorer/cache.db` by default. Created on first call to `get_session_outline`.
 
-`ConversationStore` (instantiated as a module singleton by `_get_store()`) wraps every source. Each source has one adapter in `backend/sources/`; `backend.sources.registry` lists them, and `backend.sources.ids` defines the `SourceId` and `SourceFilter` values that the `source` arguments accept. The outline cache rebuilds a session in full when its source descriptor sets `messages_change_in_place` (no current source does). The store is **lazily initialized** on first tool call.
+`ConversationStore` (instantiated as a module singleton by `_get_store()`) wraps every source. Each source has one adapter in `backend/sources/`; `backend.sources.registry` lists them, and `backend.sources.ids` defines the `SourceId` and `SourceFilter` values that the `source` arguments accept. The outline cache rebuilds a session in full when its source descriptor sets `messages_change_in_place` (Codex does: a later snapshot of an item replaces the earlier one). The store is **lazily initialized** on first tool call.
 
 ## 6. Tool reference
 
@@ -114,7 +115,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `query` | `str \| None` | `None` | Full-text search across session names and message content. Omit to list all sessions. |
-| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, or `"CLAUDE_COWORK"`. Any other value (or `None`) means "all". |
+| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, `"CLAUDE_COWORK"`, or `"CODEX"`. Any other value (or `None`) means "all". |
 | `project` | `str \| None` | `None` | Filter by project name (case-insensitive substring match against `ConversationSummary.project_name`). |
 | `organization_id` | `str \| None` | `None` | Workspace UUID. Only conversations whose `organization_id` matches exactly. Claude Code sessions have none, so they never match. |
 | `limit` | `int` | `20` | Max results to return. Clamped to `[1, 100]`. |
@@ -128,14 +129,17 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
     {
       "uuid": "<session-uuid>",
       "name": "<title>",
-      "source": "CLAUDE_AI" | "CLAUDE_CODE" | "CLAUDE_COWORK",
+      "source": "CLAUDE_AI" | "CLAUDE_CODE" | "CLAUDE_COWORK" | "CODEX",
       "project": "<project-name-or-null>",
       "message_count": <int>,
       "human_message_count": <int>,
       "model": "<model-or-empty>",
       "created_at": "<iso8601>",
       "updated_at": "<iso8601>",
-      "match_count": <int>   // ONLY present when `query` was provided
+      "match_count": <int>,  // ONLY present when `query` was provided
+      "source_name": "<Codex session name>" | null,  // Codex only
+      "source_home": "~/<Codex home>",               // Codex only; never the absolute path
+      "notices": ["<text>"]  // ONLY present when not empty, e.g. "incomplete: compacted"
     },
     ...
   ],
@@ -170,7 +174,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, or `"CLAUDE_COWORK"`. Any other value (or `None`) means "all". |
+| `source` | `str \| None` | `None` | Filter by source: `"CLAUDE_AI"`, `"CLAUDE_CODE"`, `"CLAUDE_COWORK"`, or `"CODEX"`. Any other value (or `None`) means "all". |
 
 **Return shape:**
 
@@ -223,7 +227,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
   "session_id": "<uuid>",     // same value; kept for existing readers
   "name": "<title>",
   "model": "<model-or-empty>",
-  "source": "CLAUDE_AI" | "CLAUDE_CODE" | "CLAUDE_COWORK",
+  "source": "CLAUDE_AI" | "CLAUDE_CODE" | "CLAUDE_COWORK" | "CODEX",
   "project": "<project-name-or-null>",
   "message_count": <int>,
   "created_at": "<iso8601>",
@@ -242,6 +246,9 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
     },
     ...
   ],
+  "source_name": "<Codex session name>" | null,  // Codex only
+  "source_home": "~/<Codex home>",               // Codex only; never the absolute path
+  "notices": ["<text>"],      // ONLY present when not empty: the session's notices
   "sync_pending": true        // ONLY present when true: another writer held the archive lock (§8)
 }
 ```
@@ -446,7 +453,8 @@ CREATE INDEX IF NOT EXISTS idx_msg_session
 
 - **Read-only, except the archive copy.** No tool mutates the conversation store, the SQLite cache (other than its own outline rows), or anything else outside the cache table writes. The one exception is the archive copy:
   - **When:** at the start of each tool call, at most once per debounce interval (`CLAUDE_EXPLORER_SEARCH_DRIFT_DEBOUNCE_SEC`, default 2 s), inline, with no thread and no timer (`_sync_archive`).
-  - **What:** `backend.write_gate.run_archive_syncs(store, "mcp", 0)` copies each source's new files into the archive under its `ArchiveLock`. It reads a source home and never writes into it.
+  - **What:** `backend.write_gate.run_archive_syncs(store, "mcp", 0)` copies each source's new files into the archive under its `ArchiveLock`. It reads a source home and never writes into it. Today only Codex copies: its rollouts, names, and `state_5` metadata go to `<data_dir>/codex/<home_key>/`.
+  - **Codex home path:** outputs show it as `~/...` (`source_home`). The absolute path (`source_home_abs`) is for the web UI copy button only; no tool returns it (plan D14).
   - **Lock busy:** the tool reads the archive as it is, and `list_sessions` and `get_session_outline` return `sync_pending: true` (plan D15). The next call tries again at once.
   - **Gates:** a corrupt config skips the copy. A data folder in a cloud-sync folder skips it until the user opts in (plan D13), and `list_sessions` returns a `notices` item that names the provider. While that gate is closed, `get_session_outline` builds its outline in an in-memory database, so `cache.db` gets no rows.
 - **No network egress.** The server speaks JSON-RPC over stdin/stdout. There is no HTTP listener, no outbound socket, no auth header construction. The substrate (`backend.store`) reads local files; the export path renders Markdown without fetching anything remote.

@@ -45,6 +45,8 @@ class SourceDescriptor:
     #: A message can change without a change in the count, so the MCP
     #: outline cache rebuilds in full.
     messages_change_in_place: bool
+    #: The sender label of an assistant message in the exports.
+    assistant_label: str = "Claude"
 
 
 @dataclass(frozen=True)

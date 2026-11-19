@@ -19,10 +19,13 @@ export interface SourceDescriptor {
   /** The Re-download button applies. */
   refetchable: boolean
   messages_change_in_place: boolean
+  /** The sender name of an assistant message, for example "Codex".
+   *  Readers fall back to "Claude" for a source with no descriptor. */
+  assistant_label: string
 }
 
 export type SourceFlag = {
-  [K in keyof SourceDescriptor]: SourceDescriptor[K] extends boolean ? K : never
+  [K in keyof SourceDescriptor]-?: SourceDescriptor[K] extends boolean ? K : never
 }[keyof SourceDescriptor]
 
 /** Every source, in registry order. */

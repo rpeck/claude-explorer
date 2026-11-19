@@ -341,6 +341,18 @@ CREATE TABLE IF NOT EXISTS cowork_sidecar_mtimes (
 )
 """
 
+# ``source_projection_versions`` (N8, 2026-11-19) holds the projection
+# version of each source whose reader can change its output for the same
+# file (``backend.sources.codex.CODEX_PROJECTION_VERSION``). At open, a
+# different stored value marks that source's ``indexed_files`` rows stale,
+# so the drift pass reindexes them. Additive: no SCHEMA_VERSION bump.
+SOURCE_PROJECTION_VERSIONS_SQL = """
+CREATE TABLE IF NOT EXISTS source_projection_versions (
+    source TEXT PRIMARY KEY,
+    version INTEGER NOT NULL
+)
+"""
+
 SCHEMA_SQL = MESSAGE_ROWIDS_SQL + """
 CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
     conv_uuid UNINDEXED,
@@ -645,6 +657,8 @@ class SearchIndex:
         # Outside _init_schema, so that each of its paths gets the table.
         with self._write_lock, self._write_conn:
             self._write_conn.execute(COWORK_SIDECAR_MTIMES_SQL)
+            self._write_conn.execute(SOURCE_PROJECTION_VERSIONS_SQL)
+            self._mark_stale_projections(self._write_conn)
 
     # ----- schema ----------------------------------------------------
 
@@ -1060,6 +1074,37 @@ class SearchIndex:
                 self._write_conn.commit()
             finally:
                 self._schema_ok = True
+
+    @staticmethod
+    def _mark_stale_projections(cur: sqlite3.Connection) -> None:
+        """Mark the Codex files stale when ``CODEX_PROJECTION_VERSION`` changed.
+
+        An mtime of -1 never equals a file's mtime, so the next drift pass
+        upserts each file again; the upsert replaces the old rows. Search
+        keeps the old rows until then.
+        """
+        from .sources import codex  # the module attribute: a test patches it
+
+        source, version = codex.DESCRIPTOR.id, codex.CODEX_PROJECTION_VERSION
+        row = cur.execute(
+            "SELECT version FROM source_projection_versions WHERE source = ?", (source,)
+        ).fetchone()
+        if row is not None and row[0] == version:
+            return
+        stale = cur.execute(
+            "UPDATE indexed_files SET mtime = -1 WHERE conv_uuid IN ("
+            "  SELECT conv_uuid FROM conversations WHERE source = ?)",
+            (source,),
+        ).rowcount
+        cur.execute(
+            "INSERT OR REPLACE INTO source_projection_versions (source, version) VALUES (?, ?)",
+            (source, version),
+        )
+        if stale:
+            logger.info(
+                "search_index: re-indexing %d %s file(s) for projection version %d",
+                stale, source, version,
+            )
 
     @staticmethod
     def _forget_remote_cowork_without_workspace(cur: sqlite3.Cursor) -> None:

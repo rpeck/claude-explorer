@@ -17,6 +17,7 @@ from typing import Any
 
 from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
+from ..sources.registry import get_descriptor
 from ._shared import (
     CC_IMAGE_MARKER_RE,
     MarkdownDialect,
@@ -154,11 +155,12 @@ def _bundle_message_to_markdown(
     dialect: MarkdownDialect,
     attachment_refs: list[tuple[str, str]] | None = None,  # [(rel, display_name), ...]
     missing_attachments: list[str] | None = None,  # display names skipped
+    assistant_label: str = "Claude",
 ) -> str:
     """Render one message for the bundle, swapping CC image refs for
     bundle-relative paths and inserting inline-image refs at their
     block position."""
-    sender = "You" if message.sender == "human" else "Claude"
+    sender = "You" if message.sender == "human" else assistant_label
     timestamp = format_timestamp(message.created_at)
     lines: list[str] = [f"**{sender}:** *{timestamp}*", ""]
 
@@ -454,6 +456,7 @@ def create_markdown_bundle(
                 dialect=dialect,
                 attachment_refs=attachment_refs_per_message.get(message.uuid),
                 missing_attachments=missing_attachments_per_message.get(message.uuid),
+                assistant_label=getattr(get_descriptor(conversation.source), "assistant_label", "Claude"),
             )
         )
     md = "\n".join(md_lines)

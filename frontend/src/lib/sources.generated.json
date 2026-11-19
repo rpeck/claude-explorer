@@ -8,7 +8,8 @@
     "has_archive_state": false,
     "has_organizations": true,
     "refetchable": true,
-    "messages_change_in_place": false
+    "messages_change_in_place": false,
+    "assistant_label": "Claude"
   },
   {
     "id": "CLAUDE_CODE",
@@ -19,7 +20,8 @@
     "has_archive_state": false,
     "has_organizations": false,
     "refetchable": false,
-    "messages_change_in_place": false
+    "messages_change_in_place": false,
+    "assistant_label": "Claude"
   },
   {
     "id": "CLAUDE_COWORK",
@@ -30,6 +32,19 @@
     "has_archive_state": true,
     "has_organizations": true,
     "refetchable": false,
-    "messages_change_in_place": false
+    "messages_change_in_place": false,
+    "assistant_label": "Claude"
+  },
+  {
+    "id": "CODEX",
+    "label": "Codex",
+    "short_label": "Codex",
+    "chronological": true,
+    "has_projects": true,
+    "has_archive_state": true,
+    "has_organizations": false,
+    "refetchable": false,
+    "messages_change_in_place": true,
+    "assistant_label": "Codex"
   }
 ]

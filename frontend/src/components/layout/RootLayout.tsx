@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { SearchPanel } from '@/components/search/SearchPanel'
 import { ConfigCorruptionBanner } from '@/components/ConfigCorruptionBanner'
 import { WatcherMissingBanner } from '@/components/WatcherMissingBanner'
+import { CloudSyncGateBanner } from './CloudSyncGateBanner'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,8 @@ export function RootLayout() {
           when config.json parses cleanly — flex container shrinks
           accordingly with no layout jump. */}
       <ConfigCorruptionBanner />
+      {/* Plan D13: renders nothing while the cloud-sync gate is open. */}
+      <CloudSyncGateBanner />
       {/* PLANS/2026.05.26-watcher-install-detection.md Phase 3.
           Renders nothing when the supervised watcher is installed
           (the common case) — flex container shrinks accordingly, no

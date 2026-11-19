@@ -113,6 +113,24 @@ export const api = {
     }
   },
 
+  // The last step of the cloud-sync consent dialog (plan D13). The route
+  // checks that `data_dir` and `provider` match its detection now, so a
+  // stale dialog cannot allow another folder; see
+  // backend/routers/write_consent.py. Same header rule as shutdownServer.
+  allowCloudSyncWrites: async (consent: { data_dir: string; provider: string }): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/write-consent/cloud-sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Claude-Explorer-Action': 'allow-cloud-sync-writes',
+      },
+      body: JSON.stringify(consent),
+    })
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.text())
+    }
+  },
+
   getConversation: async (
     uuid: string,
     leaf?: string,

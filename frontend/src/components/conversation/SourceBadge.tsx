@@ -20,7 +20,7 @@
  * Extracted 2026-05-30 per PLANS/2026.05.30-STRICT-CODE-QUALITY-REVIEW.md
  * P1.2 (rubric F — canonical layer & reuse).
  */
-import { Terminal, Sparkles, MessageSquare, type LucideIcon } from 'lucide-react'
+import { Terminal, Sparkles, MessageSquare, CodeXml, type LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { ConversationSource } from '@/lib/types'
 import { sourceDescriptor } from '@/lib/sources'
@@ -74,6 +74,15 @@ export const SOURCE_PRESETS: Record<ConversationSource, SourcePreset> = {
     headerClasses:
       'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
     rowIconClass: 'text-purple-500',
+    groupBadge: false,
+  },
+  CODEX: {
+    Icon: CodeXml,
+    label: 'Codex',
+    title: 'Codex',
+    headerClasses:
+      'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+    rowIconClass: 'text-orange-500',
     groupBadge: false,
   },
   CLAUDE_AI: DESKTOP_PRESET,

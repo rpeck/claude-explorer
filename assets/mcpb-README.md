@@ -1,7 +1,8 @@
 # Claude Explorer (Conversation Archive)
 
-Search and read your saved Claude Desktop and Claude Code conversations
-from inside Claude.
+Search and read your saved conversation history (Claude and Codex)
+from inside Claude: Claude Desktop, Claude Code, Cowork, and OpenAI Codex
+sessions.
 
 This extension exposes the local conversation archive at
 `~/.claude-explorer/conversations/` as 5 MCP tools that Claude can call
@@ -17,9 +18,14 @@ directly:
 
 ## Read-only
 
-The extension only reads existing conversation JSON. It never writes,
-deletes, or modifies anything in `~/.claude-explorer/conversations/`.
-Your archive is safe.
+The extension only reads existing conversations. It never deletes or
+changes anything in `~/.claude-explorer/conversations/`. Your archive is
+safe.
+
+Its one write adds your Codex sessions to the archive: before a tool
+call, it copies new rollouts from the Codex home (`CODEX_HOME`, else
+`~/.codex`) into `~/.claude-explorer/conversations/codex/`. It only reads
+the Codex home and never writes there.
 
 ## You still need the CLI to capture conversations
 

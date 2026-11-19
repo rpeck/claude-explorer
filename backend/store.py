@@ -49,8 +49,9 @@ logger = logging.getLogger(__name__)
 #   * Caching the Pydantic object would still pay model_dump on every
 #     hit — the dict shape is the actual perf target.
 #
-# Cache key: (uuid, mtime). When the underlying file's mtime changes,
-# the next lookup is a miss and rebuilds.
+# Cache key: (uuid, file path); the entry holds the mtime. Two sources (or
+# two stores) can hold the same uuid, so the path is in the key. When the
+# file's mtime changes, the next lookup is a miss and rebuilds.
 #
 # Mutability contract: the cached dict is SHARED across requests. Callers
 # MUST treat it as immutable. The conversation route returns it directly
@@ -68,7 +69,7 @@ logger = logging.getLogger(__name__)
 # For explicit cache purges, use ``invalidate_detail_dict_cache(uuid)``
 # or ``_DETAIL_DICT_CACHE.clear()``.
 _DETAIL_DICT_CACHE_MAX = 32
-_DETAIL_DICT_CACHE: OrderedDict[str, tuple[float, dict[str, Any]]] = OrderedDict()
+_DETAIL_DICT_CACHE: OrderedDict[tuple[str, str], tuple[float, dict[str, Any]]] = OrderedDict()
 _DETAIL_DICT_CACHE_LOCK = threading.RLock()
 
 
@@ -82,7 +83,8 @@ def invalidate_detail_dict_cache(uuid: str | None = None) -> None:
         if uuid is None:
             _DETAIL_DICT_CACHE.clear()
         else:
-            _DETAIL_DICT_CACHE.pop(uuid, None)
+            for key in [k for k in _DETAIL_DICT_CACHE if k[0] == uuid]:
+                del _DETAIL_DICT_CACHE[key]
 
 
 def _safe_int(raw: Any, *, default: int = 0, field: str = "?",
@@ -584,6 +586,11 @@ class ConversationStore:
             # D8: Cowork sidecar.isArchived. Defaults to False on
             # Desktop + CC (they don't surface an archived flag).
             is_archived=bool(data.get("is_archived") or False),
+            source_name=data.get("source_name"),
+            source_home=data.get("source_home"),
+            source_home_abs=data.get("source_home_abs"),
+            notices=data.get("notices") or [],
+            parent_uuid=data.get("parent_uuid"),
         )
 
     def _branch_flag(
@@ -1088,6 +1095,11 @@ class ConversationStore:
             is_archived=bool(data.get("is_archived") or False),
             error=data.get("error"),
             sandbox_path=data.get("sandbox_path"),
+            source_name=data.get("source_name"),
+            source_home=data.get("source_home"),
+            source_home_abs=data.get("source_home_abs"),
+            notices=data.get("notices") or [],
+            parent_uuid=data.get("parent_uuid"),
         )
 
     def get_conversation(self, uuid: str, leaf_override: str | None = None) -> ConversationDetail | None:
@@ -1118,7 +1130,7 @@ class ConversationStore:
         bypassing both Pydantic rebuild AND FastAPI's default encoder.
 
         Caching:
-          * Cache key: ``uuid`` only; entry value: ``(mtime, dict)``.
+          * Cache key: ``(uuid, file path)``; entry value: ``(mtime, dict)``.
             On hit when ``mtime`` matches the on-disk file, returns the
             same dict instance (`is`-identical).
           * ``leaf_override`` is NEVER cached — every call with a
@@ -1165,11 +1177,12 @@ class ConversationStore:
             detail = self._build_detail_from_data(data, file_path, None)
             return detail.model_dump(mode="json")
 
+        key = (uuid, str(file_path))
         with _DETAIL_DICT_CACHE_LOCK:
-            hit = _DETAIL_DICT_CACHE.get(uuid)
+            hit = _DETAIL_DICT_CACHE.get(key)
             if hit is not None and hit[0] == current_mtime:
                 # Cache HIT — promote to MRU.
-                _DETAIL_DICT_CACHE.move_to_end(uuid)
+                _DETAIL_DICT_CACHE.move_to_end(key)
                 return hit[1]
 
         # Cache MISS — build outside the lock so concurrent misses for
@@ -1183,15 +1196,15 @@ class ConversationStore:
         with _DETAIL_DICT_CACHE_LOCK:
             # Re-fetch in case another thread populated it; if so, return
             # THEIR instance (so other observers' `is` identity holds).
-            existing = _DETAIL_DICT_CACHE.get(uuid)
+            existing = _DETAIL_DICT_CACHE.get(key)
             if existing is not None and existing[0] == current_mtime:
-                _DETAIL_DICT_CACHE.move_to_end(uuid)
+                _DETAIL_DICT_CACHE.move_to_end(key)
                 return existing[1]
             # Pop-then-reinsert is the canonical MRU promotion pattern for
             # OrderedDict (reassignment alone does NOT reposition).
-            if uuid in _DETAIL_DICT_CACHE:
-                del _DETAIL_DICT_CACHE[uuid]
-            _DETAIL_DICT_CACHE[uuid] = (current_mtime, dumped)
+            if key in _DETAIL_DICT_CACHE:
+                del _DETAIL_DICT_CACHE[key]
+            _DETAIL_DICT_CACHE[key] = (current_mtime, dumped)
             # LRU evict.
             while len(_DETAIL_DICT_CACHE) > _DETAIL_DICT_CACHE_MAX:
                 _DETAIL_DICT_CACHE.popitem(last=False)

@@ -135,7 +135,8 @@ def test_bundle_pyproject_is_stripped(built_bundle: pathlib.Path) -> None:
     deps = data["project"]["dependencies"]
     dep_roots = {d.split(">=")[0].split("==")[0].split("<")[0].strip() for d in deps}
 
-    allowed = {"fastmcp", "pydantic", "orjson", "platformdirs", "portalocker"}
+    # ``zstandard`` is listed by hand (a lazy import, Python < 3.14 only).
+    allowed = {"fastmcp", "pydantic", "orjson", "platformdirs", "portalocker", "zstandard"}
     forbidden = {"fastapi", "uvicorn", "playwright", "mitmproxy", "curl_cffi", "weasyprint", "watchdog"}
 
     assert dep_roots == allowed, (

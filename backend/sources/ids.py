@@ -6,5 +6,5 @@ The members of ``SourceId`` must equal the registry keys
 
 from typing import Literal, TypeAlias
 
-SourceId: TypeAlias = Literal["CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"]
-SourceFilter: TypeAlias = Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK"]
+SourceId: TypeAlias = Literal["CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK", "CODEX"]
+SourceFilter: TypeAlias = Literal["all", "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK", "CODEX"]

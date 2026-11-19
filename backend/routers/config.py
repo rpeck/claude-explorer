@@ -8,8 +8,9 @@ from mcp_server import __version__
 
 from ..config import get_settings
 from ..deps import get_store
-from ..models import AppConfig, AppConfigStats
+from ..models import AppConfig, AppConfigStats, CloudSyncGate
 from ..store import ConversationStore
+from ..write_gate import cloud_sync_block
 
 router = APIRouter(tags=["config"])
 
@@ -59,11 +60,18 @@ def get_config() -> AppConfig:
     # picks up the new state when called fresh.
     get_settings.cache_clear()
     settings = get_settings()
+    # The banner reads this as it reads config_corrupt_reason (plan D13).
+    block = cloud_sync_block(settings)
     return AppConfig(
         data_dir=str(settings.data_dir),
         config_corrupt_reason=settings.config_corrupt_reason,
         version=__version__,
         home_dir=str(Path.home()),
+        cloud_sync_gate=(
+            CloudSyncGate(provider=block[0], folder=str(block[1]), data_dir=str(settings.data_dir))
+            if block is not None
+            else None
+        ),
     )
 
 

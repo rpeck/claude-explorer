@@ -1,7 +1,7 @@
 """The source registry: a descriptor and an adapter factory per source.
 
 The order is behavior: the store lists the sources, and asks them for a
-uuid, in registry order (CLAUDE_AI, CLAUDE_CODE, CLAUDE_COWORK).
+uuid, in registry order (CLAUDE_AI, CLAUDE_CODE, CLAUDE_COWORK, CODEX).
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeAlias
 
-from . import claude_ai, claude_code, cowork
+from . import claude_ai, claude_code, codex, cowork
 from .base import SourceAdapter, SourceDescriptor
 from .ids import SourceId
 
@@ -22,6 +22,7 @@ _BUILT_INS: tuple[tuple[SourceDescriptor, AdapterFactory], ...] = (
     (claude_ai.DESCRIPTOR, claude_ai.ClaudeAiAdapter),
     (claude_code.DESCRIPTOR, claude_code.ClaudeCodeAdapter),
     (cowork.DESCRIPTOR, cowork.CoworkAdapter),
+    (codex.DESCRIPTOR, codex.CodexAdapter),
 )
 _registry: dict[str, tuple[SourceDescriptor, AdapterFactory]] = {}
 

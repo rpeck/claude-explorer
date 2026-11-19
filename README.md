@@ -1,6 +1,6 @@
 # Claude Explorer
 
-A local tool to browse, full-text search, and export your entire Claude conversation history — Claude Desktop, Claude Code, and Claude Cowork in one unified, searchable place — and to query it programmatically from Claude itself via a built-in MCP server. It also rescues conversations from accounts whose login email you've lost access to.
+A local tool to browse, full-text search, and export your entire Claude conversation history — Claude Desktop, Claude Code, and Claude Cowork, plus your OpenAI Codex sessions, in one unified, searchable place — and to query it programmatically from Claude itself via a built-in MCP server. It also rescues conversations from accounts whose login email you've lost access to.
 
 > **Disclaimer**: This is an independent, community-built project. It is not affiliated with, endorsed by, sponsored by, or supported by Anthropic, PBC. "Claude" and "Claude Code" are trademarks of Anthropic, PBC. This project consumes Anthropic's products as a user would — via the same APIs and on-disk file formats the official clients use — but nothing here represents an Anthropic-sanctioned interface, and the formats this project depends on may change without notice.
 
@@ -20,7 +20,7 @@ The Medium series *Unlocking Your Claude History* explains why this project exis
 
 ## Features
 
-- **Browse conversations** from all three sources in one unified list: Claude Desktop (fetched), Claude Code (read live from local disk), and Claude Cowork (local sessions read live from disk; tasks that ran in Anthropic's cloud are fetched)
+- **Browse conversations** from all four sources in one unified list: Claude Desktop (fetched), Claude Code (read live from local disk), Claude Cowork (local sessions read live from disk; tasks that ran in Anthropic's cloud are fetched), and OpenAI Codex (copied from `~/.codex` into the archive; see [Codex sessions](#codex-sessions))
 - **Full-text search** across all messages with instant results — multi-word queries AND tokens (all words must appear in the same message, any order); wrap in `"double quotes"` to require an exact phrase. Both the title-search and full-text-search honor the sidebar's active scope (source dropdown, workspace, and any active filter), so what you can't see in the sidebar can't appear in search results either.
 - **Export** to Markdown or PDF
 - **Dark mode** with automatic system preference detection
@@ -314,6 +314,24 @@ Your downloaded conversations stay in the `.claude-explorer` folder in your home
 
 If you'd rather hack on the project than install it, see [From source (for contributors)](#from-source-for-contributors).
 
+## Codex sessions
+
+Claude Explorer shows your OpenAI Codex sessions under the **Codex** source. You can search them, export them, and ask the MCP tools about them, as for the other sources.
+
+- **Where it reads:** the Codex home. Explorer uses `CODEX_HOME` if it is set, then `codex_home` in `~/.claude-explorer/config.json`, then `~/.codex`. The watcher has no shell environment, so put a custom home in `config.json`.
+- **It keeps a copy.** The watcher, **Refresh**, `claude-explorer fetch`, and each MCP tool call copy every Codex rollout into `~/.claude-explorer/conversations/codex/`. If Codex loses a file, the session stays in Explorer.
+- **It never changes Codex files.** Explorer only reads the Codex home. It does not open a Codex file for writing, and it never starts Codex. If Codex is not installed, nothing happens.
+- **The session id is the Codex thread id.** The header of a Codex session shows the thread ID, the Codex name, and the Codex home, each with a copy button. Run `codex resume <thread id>` to continue the session in Codex.
+- **Preview limits:** this release does not rebuild a history after compaction, a rollback, or a fork with a history base. Such a session shows an "incomplete" notice above its messages.
+
+### Cloud-synced data folders
+
+Explorer does not write into a folder that iCloud Drive, Dropbox, OneDrive, or Google Drive syncs, until you allow it. Work transcripts must not reach a cloud service by accident.
+
+- **What you see:** a banner at the top of the app. It names the provider and opens a consent dialog.
+- **While you decide:** Explorer shows what is already on disk. It does not fetch, copy, or index. New Claude Code images wait in a local folder, and move into the archive after you allow the writes.
+- **The detection is best effort.** It knows the usual folders of each provider. If it cannot decide, it treats the folder as synced.
+
 ## Install in Claude Desktop (one-click MCP)
 
 If you only want to query your archive from Claude (no web UI), grab the
@@ -327,9 +345,10 @@ does not configure Claude Code. For Claude Code, run the one command in
 
 Two non-obvious things to know up front:
 
-- **The extension is read-only.** It only reads what's already in
-  `~/.claude-explorer/conversations/`. It never writes, deletes, or
-  modifies your archive.
+- **The extension is read-only for your conversations.** It reads
+  what's already in `~/.claude-explorer/conversations/`. Its only write
+  adds new Codex sessions to that archive copy (see
+  [Codex sessions](#codex-sessions)). It never deletes anything.
 - **The extension does not download your Claude Desktop conversations.**
   Install the app with the [Quick Start](#quick-start), start it, and
   click **Refresh** once. The extension then reads what the app
@@ -742,7 +761,7 @@ The project ships with a built-in **Model Context Protocol** server that lets Cl
 | `get_messages` | Full message content for specific positions or UUIDs, with optional tool calls/results |
 | `export_session` | Markdown export of a full or partial session |
 
-The server runs over **stdio** (no network port) and reads the same on-disk corpus the web UI does: fetched Claude Desktop JSON under `~/.claude-explorer/conversations/`, plus live Claude Code and Claude Cowork sessions.
+The server runs over **stdio** (no network port) and reads the same on-disk corpus the web UI does: fetched Claude Desktop JSON under `~/.claude-explorer/conversations/`, plus live Claude Code and Claude Cowork sessions, and the archive copy of your Codex sessions.
 
 ### Prerequisites
 
