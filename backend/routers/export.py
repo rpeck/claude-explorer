@@ -3,7 +3,9 @@
 import asyncio
 import io
 import logging
+import re
 from typing import Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
@@ -21,6 +23,16 @@ from ..store import ConversationStore
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["export"])
+
+
+def _content_disposition(filename: str) -> str:
+    """An ASCII ``filename`` plus an RFC 5987 ``filename*`` with the UTF-8 name.
+
+    HTTP headers are Latin-1, so a title with an em dash, an emoji, or CJK
+    text in a plain ``filename`` raised UnicodeEncodeError (HTTP 500).
+    """
+    ascii_name = re.sub(r"[^\x20-\x7e]", "_", filename)
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
 
 
 # WeasyPrint PDF renders take 2-10s for typical conversations and can
@@ -68,7 +80,7 @@ async def export_markdown(
     return Response(
         content=content.encode("utf-8"),
         media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -122,7 +134,7 @@ async def export_markdown_bundle(
     return Response(
         content=bundle,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -210,7 +222,7 @@ async def export_pdf(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
