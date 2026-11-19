@@ -163,13 +163,13 @@ def test__post_bookmark__os_replace_fails__no_tmp_leak(client_with_bookmarks, mo
     invariant to compare against (this can be the FIRST write), so byte-
     identity isn't tested here — the leak check is the recovery contract.
     """
-    import pathlib
+    import fetcher.atomic as atomic_mod
     client, path = client_with_bookmarks
 
-    def _boom(self, _target):
+    def _boom(_src, _dst):
         raise OSError("simulated kernel-level rename failure")
 
-    monkeypatch.setattr(pathlib.Path, "replace", _boom)
+    monkeypatch.setattr(atomic_mod.os, "replace", _boom)
 
     with pytest.raises(OSError, match="simulated kernel-level rename failure"):
         client.post("/api/bookmarks", json={
@@ -177,7 +177,7 @@ def test__post_bookmark__os_replace_fails__no_tmp_leak(client_with_bookmarks, mo
             "snippet": "s",
         })
 
-    leaked = list(path.parent.glob("bookmarks.json.tmp*"))
+    leaked = list(path.parent.glob(".bookmarks.json.*.tmp"))
     assert leaked == [], f"leaked tmp files after failed atomic write: {leaked}"
 
 

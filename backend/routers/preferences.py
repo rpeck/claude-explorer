@@ -22,7 +22,7 @@ import orjson
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from fetcher.atomic import atomic_replace
+from fetcher.atomic import atomic_write_bytes
 from fetcher.credentials import harden_path_permissions
 
 from ..config import get_settings
@@ -67,24 +67,12 @@ def _read_blob() -> dict[str, Any]:
 def _write_atomic(blob: dict[str, Any]) -> None:
     path = _resolve_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    try:
-        tmp.write_bytes(
-            orjson.dumps(blob, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
-        )
-        # Windows ignores mode bits, so route through the shared helper
-        # that also sets an NTFS ACL there.
-        harden_path_permissions(tmp)
-        atomic_replace(tmp, path)
-    except BaseException:
-        # If anything between write and replace raises, the .tmp file would
-        # otherwise leak in the user's data dir. Best-effort cleanup; we
-        # re-raise so the failure surfaces.
-        try:
-            tmp.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    atomic_write_bytes(
+        path, orjson.dumps(blob, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
+    )
+    # Windows ignores mode bits, so route through the shared helper that also
+    # sets an NTFS ACL there. On POSIX the temp file is already 0o600.
+    harden_path_permissions(path)
 
 
 class PreferencesEnvelope(BaseModel):
