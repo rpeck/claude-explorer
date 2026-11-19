@@ -130,11 +130,10 @@ exit code of the runner to verify it.
      time, and the run still "completed".
    - Before you report green, confirm that the pass count of the runner is at
      or above the known baseline. These are the only baseline numbers in the
-     guide; update them here when a suite grows. Measured on 2026-09-25
-     (pytest on 2026-10-13):
-     - Python pytest (`uv run pytest`): **1352 passed / 4 skipped**.
-     - vitest: **539 passed / 67 files**.
-     - Playwright: **441 tests / 113 files**.
+     guide; update them here when a suite grows. Measured on 2026-11-19:
+     - Python pytest (`uv run pytest`): **2904 passed / 7 skipped**.
+     - vitest: **884 passed / 95 files**.
+     - Playwright: **568 tests / 131 files**.
    - Before you report green, also grep the output for each of these strings:
      - `SyntaxError`
      - `Error:`
@@ -147,18 +146,18 @@ exit code of the runner to verify it.
      - A parse or collection error drops a whole file silently.
      - Thus, a disk file count larger than the collected count is the direct
        sign of this problem.
-   - Examples (numbers measured on 2026-09-25):
+   - Examples (numbers measured on 2026-11-19):
      - vitest: `find frontend/src \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l`
-       (= 67) must equal the total in parentheses in `Test Files N passed (N)`.
+       (= 95) must equal the total in parentheses in `Test Files N passed (N)`.
        If a file fails, the reporter shows `M failed | N passed (T)`, and `T`
        is still the total.
-     - Playwright: `find frontend/e2e -name '*.spec.ts' | wc -l` (= 113) must
+     - Playwright: `find frontend/e2e -name '*.spec.ts' | wc -l` (= 131) must
        equal the `M` in the `Total: N tests in M files` footer of
        `npx playwright test --list`. The `--list` option fails with an error
        on a file that does not parse.
      - pytest: compare `find backend fetcher mcp_server -name 'test_*.py' | wc -l`
-       (= 179) with the unique files from
-       `uv run pytest --collect-only -q -n 0` (= 178).
+       (= 232) with the unique files from
+       `uv run pytest --collect-only -q -n 0` (= 231).
      - On Windows, use these PowerShell forms. They give the same numbers:
        - vitest: `(Get-ChildItem frontend/src -Recurse -Include *.test.ts,*.test.tsx).Count`
        - Playwright: `(Get-ChildItem frontend/e2e -Recurse -Filter *.spec.ts).Count`

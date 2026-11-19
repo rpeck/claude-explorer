@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "thread_id": "019a7c40-0000-7000-8000-00000000d004",
+  "home_key": "fixture000000",
+  "source_name": "Scout: callers of parse",
+  "title": "Scout: callers of parse",
+  "cwd": "/home/fixture/proj-alpha",
+  "model": "gpt-5.5-codex",
+  "archived": false,
+  "history_mode": "paginated",
+  "thread_source": "subagent",
+  "parent_thread_id": "019a7c10-0000-7000-8000-00000000a001",
+  "imported_from": null,
+  "rollouts": [
+    {
+      "stem": "rollout-2026-11-10T09-05-00-019a7c40-0000-7000-8000-00000000d004",
+      "copied_bytes": 1677,
+      "session_meta_ts_ms": 1794301500000
+    }
+  ],
+  "current_stem": "rollout-2026-11-10T09-05-00-019a7c40-0000-7000-8000-00000000d004",
+  "current_ambiguous": false,
+  "updated_at_ms": 1794301560000
+}

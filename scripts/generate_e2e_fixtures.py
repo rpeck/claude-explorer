@@ -22,6 +22,13 @@ What it produces (idempotent — re-run anytime to refresh):
       • One Claude Code session, with safe content (no real cwd, no real
         username, no real git branch).
 
+  backend/tests/fixtures/desktop/codex/fixture000000/
+      • The Codex archive of the synthetic Codex home that
+        ``backend/tests/codex_fake.py`` builds. The real copier
+        (``CodexAdapter.archive_sync``) writes it; the script then renames
+        the home folder to the fixed key ``fixture000000`` and replaces the
+        temp paths and the sync times with fixed values.
+
   backend/tests/fixtures/README.md
       • Describes each fixture's intent + searchable tokens so future
         contributors don't have to reverse-engineer the fixtures.
@@ -38,13 +45,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import sys
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES_ROOT = REPO_ROOT / "backend" / "tests" / "fixtures"
 DESKTOP_ROOT = FIXTURES_ROOT / "desktop"
 CC_ROOT = FIXTURES_ROOT / "claude"
+
+# The Codex archive (plan §4.2) under the Desktop data_dir, at a fixed key.
+CODEX_FIXTURE_KEY = "fixture000000"
+CODEX_FIXTURE_HOME = "/home/fixture/.codex"
+CODEX_ROOT = DESKTOP_ROOT / "codex" / CODEX_FIXTURE_KEY
 
 # Fixed test org. The UUID is derived from a deterministic namespace so
 # the value is stable across re-runs and matches the by-org/<UUID>/ path.
@@ -304,6 +320,59 @@ def write_jsonl_atomic(path: Path, entries: list[dict]) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def build_codex_archive() -> int:
+    """Copy the fake Codex home into ``CODEX_ROOT`` with the real copier.
+
+    Returns the number of thread files.
+    """
+    sys.path.insert(0, str(REPO_ROOT))
+    import orjson
+
+    from backend.archive_sync import LOCK_FILE_NAME, SyncContext, home_key
+    from backend.sources.registry import get_adapter
+    from backend.store import ConversationStore
+    from backend.tests.codex_fake import build_codex_home
+
+    fixed_ms = int(BASE_TS.timestamp() * 1000)
+    with tempfile.TemporaryDirectory() as tmp:
+        home = build_codex_home(Path(tmp) / ".codex")
+        data_dir = Path(tmp) / "data"
+        ctx = SyncContext(settings=SimpleNamespace(codex_home=str(home)), reason="cli", lock_timeout_s=5)
+        report = get_adapter("CODEX", ConversationStore(data_dir=data_dir)).archive_sync(ctx)
+        if report is None or report.skipped_reason or not report.wrote_any:
+            raise SystemExit(f"the Codex copy wrote nothing: {report}")
+        archive = data_dir / "codex" / home_key(home)
+        (archive / LOCK_FILE_NAME).unlink(missing_ok=True)
+
+        # Fixed values for everything that names the temp home or the clock.
+        home_json = archive / "home.json"
+        data = orjson.loads(home_json.read_bytes())
+        data.update(home_path=CODEX_FIXTURE_HOME, first_seen_ms=fixed_ms)
+        home_json.write_bytes(orjson.dumps(data, option=orjson.OPT_INDENT_2) + b"\n")
+        for meta_path in sorted((archive / "rollouts").glob("*.meta.json")):
+            meta = json.loads(meta_path.read_bytes())
+            rel = Path(meta["source_path"]).relative_to(home).as_posix()
+            meta.update(
+                source_path=f"{CODEX_FIXTURE_HOME}/{rel}",
+                # The size of a .zst file depends on the zstd library version.
+                source_size=meta["copied_bytes"],
+                source_mtime_ns=fixed_ms * 1_000_000,
+                last_sync_ms=fixed_ms,
+            )
+            meta_path.write_bytes(json.dumps(meta, indent=2, ensure_ascii=False).encode("utf-8"))
+        threads = sorted((archive / "threads").glob("*.json"))
+        for thread_path in threads:
+            thread = orjson.loads(thread_path.read_bytes())
+            thread["home_key"] = CODEX_FIXTURE_KEY
+            thread_path.write_bytes(orjson.dumps(thread, option=orjson.OPT_INDENT_2) + b"\n")
+
+        if CODEX_ROOT.exists():
+            shutil.rmtree(CODEX_ROOT)
+        CODEX_ROOT.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(archive), CODEX_ROOT)
+    return len(threads)
+
+
 def write_readme() -> None:
     readme_path = FIXTURES_ROOT / "README.md"
     body = """# E2E test fixtures
@@ -318,6 +387,13 @@ and `CLAUDE_DIR` (Claude Code) environment variables, set by
 clone the repo and run `npm run test:e2e` without needing Raymond's
 actual conversation history on disk.
 
+The Codex archive (`desktop/codex/`) comes from the real copier, run on
+the synthetic Codex home of `backend/tests/codex_fake.py`. The script then
+renames the home folder to the fixed key `fixture000000`, writes
+`home_path` as `/home/fixture/.codex`, and replaces the temp paths and the
+sync times with fixed values. In e2e, `CODEX_HOME` points to a missing
+folder, so the copy never writes into these fixtures.
+
 ## Layout
 
 ```
@@ -328,6 +404,11 @@ backend/tests/fixtures/
 │           ├── <uuid-of-long-conversation>.json
 │           ├── <uuid-of-branched-conversation>.json
 │           └── <uuid-of-tool-conversation>.json
+│   └── codex/
+│       └── fixture000000/                          # fixed home key
+│           ├── home.json                           # home_path /home/fixture/.codex
+│           ├── rollouts/<stem>.jsonl               # + <stem>.meta.json
+│           └── threads/<thread_id>.json
 └── claude/
     └── projects/
         └── -fixture-project/                       # synthetic encoded cwd
@@ -342,6 +423,20 @@ backend/tests/fixtures/
 | `Phase 5 fixture: Branch tree` | Desktop (has_branches) | `NEEDLE_BRANCH` | conversations.spec.ts |
 | `Phase 5 fixture: Tool calls` | Desktop (tool_use + tool_result) | `NEEDLE_TOOL` | search.spec.ts (tool-block search) |
 | `Hi! NEEDLE_CC — fixture session ...` | Claude Code | `NEEDLE_CC` | conversations.spec.ts (CC source) |
+
+## Codex threads
+
+The thread ids and contents are the `THREAD_*` constants of
+`backend/tests/codex_fake.py`.
+
+| Thread | Title | Project | Kind |
+|---|---|---|---|
+| `019a7c10-…a001` | `Alpha parser refactor` (Codex name) | `/home/fixture/proj-alpha` | paginated, plain; images, a plan, an unknown item, damaged lines |
+| `019a0f20-…b002` | `Why does the build fail? Here is the error.` | `/home/fixture/proj-beta` | legacy, `.zst`; parallel tool calls, encrypted reasoning |
+| `0199e030-…c003` | `Gamma release notes` (Codex name) | `/home/fixture/proj-gamma` | archived |
+| `019a7c40-…d004` | `Scout: callers of parse` (Codex name) | `/home/fixture/proj-alpha` | subagent of `…a001`, `.zst` |
+| `019a7c50-…e005` | `Review the proposed command: rm -rf build/` | `/home/fixture/proj-alpha` | guardian review |
+| `019a8060-…f006` | `Continue the migration from the Claude Code session.` | `/home/fixture/proj-delta` | imported from Claude Code |
 
 ## Refreshing
 
@@ -371,11 +466,15 @@ def main() -> int:
     cc_path = CC_ROOT / "projects" / "-fixture-project" / f"{session_uuid}.jsonl"
     write_jsonl_atomic(cc_path, entries)
 
+    # Codex archive
+    codex_threads = build_codex_archive()
+
     # README
     write_readme()
 
     print(f"Wrote 3 Desktop conversations under {org_dir}")
     print(f"Wrote 1 CC session at {cc_path}")
+    print(f"Wrote {codex_threads} Codex threads under {CODEX_ROOT}")
     print(f"Wrote {FIXTURES_ROOT / 'README.md'}")
     return 0
 
