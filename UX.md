@@ -219,6 +219,33 @@ Unpin and search all →
 
 Clicking it MUST clear the pin and re-run the search across everything.
 
+### Empty results limited by a sidebar filter
+
+The sidebar filters limit the search too, and the control wins: with
+results, nothing changes. When the query returns zero matches, the empty
+state names each sidebar filter that limits the search (issue #80).
+Before 1.2.0 it named only the pin. A search under the source "Codex" for
+a word in a Claude Code session then looked like a broken search.
+
+- **The line:** `Search limited by <parts>.`, directly below "No matches
+  for ..." and above every button.
+  The parts are joined with " and ", like the Conversation List empty
+  state. Each part shows only when its filter is on:
+  1. `source "<label>"`: the source filter has a value other than all.
+     The label comes from the source registry, for example "Codex".
+  2. `workspace "<name>"`: a workspace is selected. A workspace with no
+     name shows `Workspace (<first 8 chars of the id>)`, like the sidebar.
+  3. `filter "<name>"`: the active named filter removes at least one
+     conversation. A filter that passes every conversation is not named.
+- **The buttons:** one per part, in the same order, after the pin button.
+  - "Search all agents" sets the source filter to all.
+  - "Search all workspaces" sets the workspace to all.
+  - "Clear active filter" clears the active named filter.
+- Each button changes the same state as the sidebar control. The sidebar
+  shows the change, and the search runs again.
+- The pin keeps its own text and button. The line does not repeat it.
+- With no filter on, the empty state shows only "No matches for ...".
+
 ### Live region
 
 An `aria-live="polite"` region announces "Match N of M" each time the

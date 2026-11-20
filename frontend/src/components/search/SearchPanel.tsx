@@ -6,6 +6,10 @@ import { useSearchPin } from '@/contexts/SearchPinContext'
 import { useNavigateToMatch } from '@/components/search/navigateToMatch'
 import { computeHighlightRanges } from '@/components/search/highlightRanges'
 import { useSettings } from '@/contexts/SettingsContext'
+import { useSourceFilter } from '@/contexts/SourceFilterContext'
+import { useFilters } from '@/contexts/FilterContext'
+import { useOrgs } from '@/hooks/useOrgs'
+import { sourceDescriptor } from '@/lib/sources'
 import { BookmarksPanel } from '@/components/bookmarks/BookmarksPanel'
 import {
   Select,
@@ -70,6 +74,7 @@ export function SearchPanel() {
     truncated,
     isLoading,
     isSearching,
+    namedFilterLimitsSearch,
     close,
     setQuery,
     setContextSize,
@@ -82,6 +87,8 @@ export function SearchPanel() {
   const navigateToMatch = useNavigateToMatch()
   const { rightPaneTab, setRightPaneTab } = useSettings()
   const { scope: pinScope, unpin } = useSearchPin()
+  const { sourceFilter, setSourceFilter, organizationId, setOrganizationId } = useSourceFilter()
+  const { filtersState, setActiveId } = useFilters()
   const location = useLocation()
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -229,6 +236,34 @@ export function SearchPanel() {
     query.length >= 2 && !isSearching && flatMatches.length === 0
   const showSkeleton = query.length >= 2 && isSearching && flatMatches.length === 0
   const showResults = query.length >= 2 && flatMatches.length > 0
+  // Issue #80: an empty result names each filter that limits the search,
+  // with a button that clears it in the shared state (UX.md §4).
+  const activeFilterName = filtersState.activeId
+    ? filtersState.nodes[filtersState.activeId]?.name
+    : undefined
+  const scopeLimits = [
+    sourceFilter !== 'all' && {
+      key: 'source',
+      part: <>source &ldquo;{sourceDescriptor(sourceFilter)?.label ?? sourceFilter}&rdquo;</>,
+      button: 'Search all agents',
+      testId: 'search-empty-clear-source',
+      clear: () => setSourceFilter('all'),
+    },
+    organizationId && {
+      key: 'workspace',
+      part: <>workspace &ldquo;<WorkspaceName orgId={organizationId} />&rdquo;</>,
+      button: 'Search all workspaces',
+      testId: 'search-empty-clear-workspace',
+      clear: () => setOrganizationId(null),
+    },
+    namedFilterLimitsSearch && {
+      key: 'filter',
+      part: <>filter &ldquo;{activeFilterName}&rdquo;</>,
+      button: 'Clear active filter',
+      testId: 'search-empty-clear-filter',
+      clear: () => setActiveId(null),
+    },
+  ].filter((l) => !!l)
   // Silence unused-var when isLoading falls out of any branch above.
   void isLoading
 
@@ -559,6 +594,18 @@ export function SearchPanel() {
                 </>
               )}
             </p>
+            {scopeLimits.length > 0 && (
+              <p data-testid="search-empty-filters">
+                Search limited by{' '}
+                {scopeLimits.map((l, i) => (
+                  <React.Fragment key={l.key}>
+                    {i > 0 && ' and '}
+                    {l.part}
+                  </React.Fragment>
+                ))}
+                .
+              </p>
+            )}
             {pinScope.kind !== 'none' && (
               <button
                 type="button"
@@ -572,6 +619,20 @@ export function SearchPanel() {
                 Unpin and search all →
               </button>
             )}
+            {scopeLimits.map((l) => (
+              <button
+                key={l.key}
+                type="button"
+                onClick={() => {
+                  l.clear()
+                  inputRef.current?.focus()
+                }}
+                className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                data-testid={l.testId}
+              >
+                {l.button}
+              </button>
+            ))}
           </div>
         )}
 
@@ -780,6 +841,14 @@ interface HighlightedSnippetProps {
  * text (true zero-highlight state — happens when query is empty AND the
  * backend reported no range).
  */
+// Its own component, so /api/orgs is fetched only while a workspace limits
+// the search.
+function WorkspaceName({ orgId }: { orgId: string }) {
+  const { orgs } = useOrgs()
+  const org = orgs.find((o) => o.org_id === orgId)
+  return <>{org?.name ?? `Workspace (${orgId.slice(0, 8)})`}</>
+}
+
 function HighlightedSnippet({
   text,
   query,

@@ -214,6 +214,9 @@ interface SearchPanelContextType {
    *  instead of "No matches" while the user waits for slow responses
    *  (manual finding 2026-05-03). */
   isSearching: boolean
+  /** True when the active named filter removes conversations from the
+   *  search scope. The empty result names it (issue #80). */
+  namedFilterLimitsSearch: boolean
   open: () => void
   close: () => void
   toggle: () => void
@@ -385,6 +388,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
     if (passing.length === conversationsList.length) return undefined
     return passing.map((c) => c.uuid)
   }, [conversationsList, filtersState])
+  const namedFilterLimitsSearch = passingUuids !== undefined
 
   // Pin scope passed to useSearch. Pinned conversation/project is the
   // explicit user signal and always wins over the sidebar Source filter.
@@ -804,6 +808,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
       truncated,
       isLoading,
       isSearching,
+      namedFilterLimitsSearch,
       open,
       close,
       toggle,
@@ -830,7 +835,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
     [
       isOpen, query, contextSize, sortField, sortOrder,
       activeMatchIndex, activeMatchSource, flatMatches, results, totalMatched,
-      returnedMatches, truncated, isLoading, isSearching,
+      returnedMatches, truncated, isLoading, isSearching, namedFilterLimitsSearch,
       open, close, toggle, setQuery, setContextSize, setSortField,
       setSortOrder, nextMatch, prevMatch, setActiveMatchIndex,
       focusRequestSeq, requestFocus,
