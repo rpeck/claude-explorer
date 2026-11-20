@@ -22,6 +22,7 @@ class RolloutRecord:
     timestamp: str | None
     type: str
     payload: dict[str, Any]
+    ordinal: int | None = None  # paginated history only; history_base cutoffs count it
 
 
 @dataclass
@@ -61,11 +62,13 @@ def _parse(stream: Any, result: RolloutRead) -> None:
             result.damaged_lines += 1
             continue
         stamp = obj.get("timestamp")
+        ordinal = obj.get("ordinal")
         result.records.append(
             RolloutRecord(
                 line_no=line_no,
                 timestamp=stamp if isinstance(stamp, str) else None,
                 type=obj["type"],
                 payload=obj.get("payload") or {},
+                ordinal=ordinal if isinstance(ordinal, int) and not isinstance(ordinal, bool) else None,
             )
         )
