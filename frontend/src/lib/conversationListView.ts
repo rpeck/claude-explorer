@@ -330,7 +330,7 @@ export function recentLabel(recentOnly: boolean, hours: number): string {
 
 /**
  * The list groups only where the "Group sessions by project" checkbox
- * shows: "All Conversations" and each source with projects. Under a
+ * shows: "All Agents" and each source with projects. Under a
  * source without projects, a hidden checkbox must not keep the list grouped.
  */
 export function groupingApplies(groupByProject: boolean, source: SourceFilter | undefined): boolean {
