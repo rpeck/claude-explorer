@@ -10,10 +10,6 @@
  *   - A label is in the row of its value, before the copy button, and not
  *     inside it: the copy button copies the value only.
  *   - A row without a value shows no label. The existing labels do not change.
- *
- * D1 is not in ConversationHeader.tsx yet: the tests of a new label are strict
- * expected failures (`it.fails`) until the tester's final commit. RUNXFAIL=1
- * runs them as plain tests.
  */
 import { createElement, type ComponentType } from 'react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
@@ -27,8 +23,6 @@ import {
   importModule,
   setCodexRegistry,
 } from '@/test/codex/codexHelpers'
-
-const xit = import.meta.env.RUNXFAIL === '1' ? it : it.fails
 
 const UUID = '0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0'
 const PROJECT = '/home/fixture/work/a-project'
@@ -109,17 +103,17 @@ beforeEach(() => {
 })
 
 describe('Details labels: Claude Code', () => {
-  xit('"Project:" is in front of the project path', async () => {
+  it('"Project:" is in front of the project path', async () => {
     await renderHeader(claudeCode())
     expectLabel('Project:', TITLES.project)
   })
 
-  xit('"Branch:" is in front of the git branch', async () => {
+  it('"Branch:" is in front of the git branch', async () => {
     await renderHeader(claudeCode())
     expectLabel('Branch:', TITLES.branch)
   })
 
-  xit('the git branch stays on the project row', async () => {
+  it('the git branch stays on the project row', async () => {
     await renderHeader(claudeCode())
     const project = expectLabel('Project:', TITLES.project)
     const branch = expectLabel('Branch:', TITLES.branch)
@@ -128,12 +122,12 @@ describe('Details labels: Claude Code', () => {
     expect(screen.getByTitle(TITLES.project).compareDocumentPosition(branch) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  xit('"Session ID:" is in front of the UUID', async () => {
+  it('"Session ID:" is in front of the UUID', async () => {
     await renderHeader(claudeCode())
     expectLabel('Session ID:', TITLES.uuid)
   })
 
-  xit('"File:" is in front of the file path', async () => {
+  it('"File:" is in front of the file path', async () => {
     await renderHeader(claudeCode())
     expectLabel('File:', TITLES.file)
   })
@@ -158,7 +152,7 @@ describe('Details labels: Claude Code', () => {
     await expectCopiesValueOnly(TITLES.file, FILE)
   })
 
-  xit('no git branch: no "Branch:" label, and "Project:" stays', async () => {
+  it('no git branch: no "Branch:" label, and "Project:" stays', async () => {
     await renderHeader(claudeCode({ git_branch: null }))
     expectLabel('Project:', TITLES.project)
     expect(screen.queryByText('Branch:')).toBeNull()
@@ -170,7 +164,7 @@ describe('Details labels: Claude Code', () => {
     expect(screen.queryByText('Branch:')).toBeNull()
   })
 
-  xit('no file path: no "File:" label, and "Session ID:" stays', async () => {
+  it('no file path: no "File:" label, and "Session ID:" stays', async () => {
     await renderHeader(claudeCode({ file_path: null }))
     expectLabel('Session ID:', TITLES.uuid)
     expect(screen.queryByText('File:')).toBeNull()
@@ -178,7 +172,7 @@ describe('Details labels: Claude Code', () => {
 })
 
 describe('Details labels: Claude Desktop', () => {
-  xit('"Session ID:" and "File:" label the UUID and the file path', async () => {
+  it('"Session ID:" and "File:" label the UUID and the file path', async () => {
     await renderHeader(detail({ source: 'CLAUDE_AI', uuid: UUID, file_path: DESKTOP_FILE }))
     expectLabel('Session ID:', TITLES.uuid)
     expectLabel('File:', TITLES.file)
@@ -195,7 +189,7 @@ describe('Details labels: Claude Desktop', () => {
     expect(screen.queryByText('Branch:')).toBeNull()
   })
 
-  xit('no file path: "Session ID:" only', async () => {
+  it('no file path: "Session ID:" only', async () => {
     await renderHeader(detail({ source: 'CLAUDE_AI', uuid: UUID, file_path: null }))
     expectLabel('Session ID:', TITLES.uuid)
     expect(screen.queryByText('File:')).toBeNull()
@@ -212,12 +206,12 @@ describe('Details labels: Cowork', () => {
       ...overrides,
     })
 
-  xit('"Session ID:" is in front of the session UUID', async () => {
+  it('"Session ID:" is in front of the session UUID', async () => {
     await renderHeader(cowork())
     expectLabel('Session ID:', TITLES.uuid)
   })
 
-  xit('"File:" is in front of the file path', async () => {
+  it('"File:" is in front of the file path', async () => {
     await renderHeader(cowork())
     expectLabel('File:', TITLES.file)
   })
@@ -230,12 +224,12 @@ describe('Details labels: Cowork', () => {
 })
 
 describe('Details labels: Codex', () => {
-  xit('"Project:" is in front of the project path', async () => {
+  it('"Project:" is in front of the project path', async () => {
     await renderHeader(codexDetail())
     expectLabel('Project:', TITLES.project)
   })
 
-  xit('"File:" is in front of the file path', async () => {
+  it('"File:" is in front of the file path', async () => {
     await renderHeader(codexDetail())
     expectLabel('File:', TITLES.file)
   })
