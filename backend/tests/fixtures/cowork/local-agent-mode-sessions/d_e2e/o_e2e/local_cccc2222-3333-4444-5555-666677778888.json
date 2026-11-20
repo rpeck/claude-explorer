@@ -1,0 +1,16 @@
+{
+  "sessionId": "local_cccc2222-3333-4444-5555-666677778888",
+  "processName": "e2e-sandbox",
+  "cliSessionId": "cli-cccc2222",
+  "cwd": "/sessions/e2e-sandbox",
+  "userSelectedFolders": [],
+  "createdAt": 1791400000000,
+  "lastActivityAt": 1791400065000,
+  "model": "claude-opus-5-5",
+  "isArchived": false,
+  "title": "E2E fixture: local Cowork session",
+  "vmProcessName": "e2e-sandbox",
+  "hostLoopMode": false,
+  "initialMessage": "Sort the NEEDLE_COWORKLOCAL notes by date.",
+  "slashCommands": []
+}

@@ -409,6 +409,8 @@ backend/tests/fixtures/
 │           ├── home.json                           # home_path /home/fixture/.codex
 │           ├── rollouts/<stem>.jsonl               # + <stem>.meta.json
 │           └── threads/<thread_id>.json
+│   └── cowork-remote/<org>/remote_<id>/audit.jsonl # remote Cowork task (hand-written, not generated)
+├── cowork/local-agent-mode-sessions/<dep>/<org>/local_<uuid>/audit.jsonl  # local Cowork (hand-written)
 └── claude/
     └── projects/
         └── -fixture-project/                       # synthetic encoded cwd
@@ -423,6 +425,8 @@ backend/tests/fixtures/
 | `Phase 5 fixture: Branch tree` | Desktop (has_branches) | `NEEDLE_BRANCH` | conversations.spec.ts |
 | `Phase 5 fixture: Tool calls` | Desktop (tool_use + tool_result) | `NEEDLE_TOOL` | search.spec.ts (tool-block search) |
 | `Hi! NEEDLE_CC — fixture session ...` | Claude Code | `NEEDLE_CC` | conversations.spec.ts (CC source) |
+| `E2E fixture: local Cowork session` | Cowork (local) | `NEEDLE_COWORKLOCAL` | search-all-sources.spec.ts |
+| `E2E fixture: remote Cowork task` | Cowork (remote) | `NEEDLE_COWORKREMOTE` | search-all-sources.spec.ts |
 
 ## Codex threads
 

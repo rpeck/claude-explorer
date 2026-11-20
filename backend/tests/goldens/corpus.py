@@ -86,7 +86,7 @@ def build_corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Corpus:
     claude_dir = root / "claude"
     app_dir = root / "desktop-app"
     # The goldens characterize the three sources from before Codex (N9 fixtures).
-    shutil.copytree(FIXTURES_DIR / "desktop", data_dir, ignore=shutil.ignore_patterns("codex"))
+    shutil.copytree(FIXTURES_DIR / "desktop", data_dir, ignore=shutil.ignore_patterns("codex", "cowork-remote"))
     shutil.copytree(FIXTURES_DIR / "claude", claude_dir)
     shutil.copytree(FIXTURES_DIR / "cowork", app_dir / "local-agent-mode-sessions")
     shutil.copytree(REMOTE_FIXTURE_DIR, data_dir / "cowork-remote")
