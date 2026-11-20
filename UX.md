@@ -640,13 +640,13 @@ buttons follow the same rules.
 | Value | Shows when | Where | Tooltip |
 |---|---|---|---|
 | Session name | The session has a name | Icon only, after the title, before the pin button | "Click to copy session name" |
-| Session UUID | Every source but Codex | **Details** | "Click to copy UUID" |
+| Session UUID | Every source but Codex | **Details**, after "Session ID:" | "Click to copy UUID" |
 | Thread ID | Codex sessions (the session UUID; `codex resume <id>` takes it) | **Details**, after "Thread ID:" | "Click to copy thread ID" |
 | Codex name | Codex sessions that Codex named; else the text "none" and no button | **Details**, after "Codex name:" | "Click to copy Codex name" |
 | Codex home | Codex sessions | **Details**, after "Codex home:" | "Click to copy Codex home" |
-| File path | The API gives one | **Details** | "Click to copy file path" |
-| Project path | Claude Code sessions | **Details**, after the folder icon | "Click to copy project path" |
-| Git branch | Claude Code sessions with a branch | **Details**, after the branch icon | "Click to copy git branch" |
+| File path | The API gives one | **Details**, after "File:" | "Click to copy file path" |
+| Project path | Claude Code sessions | **Details**, after the folder icon and "Project:" | "Click to copy project path" |
+| Git branch | Claude Code sessions with a branch | **Details**, after the branch icon and "Branch:" | "Click to copy git branch" |
 | Sandbox path | Cowork sessions | **Details**, after "Sandbox path:" | "Click to copy sandbox path" |
 
 Rules:
@@ -662,8 +662,10 @@ Rules:
   "Copy session name". The title itself stays plain, selectable text: a
   heading that copies on click would surprise the user.
 - The other buttons show the copy icon, then the value in a monospace
-  font. The folder icon, the branch icon, and the "Sandbox path:" label
-  stay in front of the value, because they say what the value is.
+  font. Every value in **Details** has a label in front of it, for
+  example "Project:", because the label says what the value is. The
+  folder icon and the branch icon stay in front of their labels.
+- A button copies the value only, never its label.
 - After a successful copy, the copy icon changes to a green check mark
   for 2 seconds. A second click restarts the 2 seconds.
 - If the clipboard write fails, an error toast says so, for example
