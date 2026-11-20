@@ -663,6 +663,65 @@ shows nothing.
 
 ---
 
+## 17. Commands, Claude Code's own rows, and the model of each reply
+
+You read a session to know what happened, and to judge each reply. The
+Conversation Pane shows what each command printed, which rows Claude
+Code wrote itself, and which model wrote each reply (issue #52).
+
+**The output of a slash command.**
+- The output shows under its command, in a monospace block labelled
+  "Claude Code". The program answered, not a model, so the label is not
+  "Claude".
+- The output is part of the command's marker (`command_output`), so the
+  list's message count does not change.
+- ANSI escape codes are removed; the text stays.
+- Output longer than 20 lines shows the first 20 lines and a **Show all**
+  button.
+- stderr output shows in the same block, marked as an error ("Claude Code
+  (error)").
+- Older Claude Code writes the command as user rows; newer Claude Code
+  writes `system` rows of subtype `local_command`. Both give the same
+  marker.
+- `/compact` keeps its own compact marker.
+- The Markdown, PDF, and bundle exports and "Copy as Markdown" show the
+  command and its output. An argless marker with no output (for example
+  `/clear`) stays out of the exports, as before.
+
+**Rows that Claude Code wrote.**
+- A `!` shell command and its output show as one block labelled "Shell",
+  in monospace, with no "You" label.
+- A task notification, a bash notification, a scheduled task, or a system
+  reminder shows as a muted, folded row labelled with its kind, for
+  example "Task notification". Click the label to open it. The XML tags
+  are removed.
+
+**The model of each reply.**
+- A reply is labelled with the source's assistant name and the model
+  name, for example "Claude Opus 5.5", "Claude Fable 5.1", or
+  "Codex gpt-5.6-codex".
+- A model id that is not a Claude id shows as it is.
+- A row that Claude Code made itself (model `<synthetic>`, for example an
+  API error) is labelled "Claude Code".
+- A reply with no model shows the assistant name alone.
+- Claude Code and Cowork record the model of each reply. When a session
+  switches models with `/model`, the replies before the switch name the
+  old model, and the replies after it name the new one.
+- Claude Desktop and Codex record one model for the conversation. Their
+  replies use it, and the label's tooltip says "From the conversation's
+  model setting. Claude Desktop does not record the model of each reply."
+  (or "Codex").
+- The header badge shows the model name; its tooltip is the raw model id.
+- The same name shows in the tree view, the exports, "Copy as Markdown",
+  and the MCP server's `get_messages`.
+
+Implementation: `backend/model_names.py` and its twin
+`frontend/src/lib/modelName.ts`; `CommandOutputBlock.tsx`,
+`ShellBlock.tsx`, and `NoticeRow.tsx` in
+`frontend/src/components/message/`.
+
+---
+
 ## Cross-cutting rules
 
 ### Toasts

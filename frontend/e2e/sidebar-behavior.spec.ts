@@ -196,8 +196,10 @@ test.describe('Sidebar — row metadata (B3)', () => {
 
     const desktopRow = page.locator('[role="button"]', { hasText: desktop.name })
     await expect(desktopRow).toBeVisible()
-    // Model badge.
-    await expect(desktopRow.getByText(desktop.model)).toBeVisible()
+    // Model badge (#52): the display name, with the raw id as its title.
+    const modelChip = desktopRow.getByTestId('list-row-model')
+    await expect(modelChip).toHaveText('Sonnet 4.6')
+    await expect(modelChip).toHaveAttribute('title', desktop.model)
     // Message count.
     await expect(desktopRow.getByText(`${desktop.message_count} msgs`)).toBeVisible()
     // Timestamp text — formatDate produces something non-empty; assert presence

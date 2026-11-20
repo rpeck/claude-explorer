@@ -22,6 +22,7 @@ from .claude_code_reader import (
     read_claude_code_conversation,  # noqa: F401  (re-export for tests)
 )
 from .config import get_settings
+from .model_names import CONVERSATION_MODEL_SOURCES
 from .models import (
     ContentBlock,
     ConversationDetail,
@@ -187,21 +188,46 @@ _CC_ONLY_PASSTHROUGH_FIELDS: tuple[str, ...] = (
     "is_prelude",
     "assistant_canned_response_consumed",
     "slash_command",
+    "model",
+    "model_from_conversation",
+    "command_output",
+    "command_output_is_error",
+    "shell_command",
+    "shell_output",
+    "notice_kind",
 )
 _CC_ONLY_DEFAULTS: dict[str, Any] = {
     "is_command_marker": False,
     "is_prelude": False,
     "assistant_canned_response_consumed": False,
     "slash_command": None,
+    "model": None,
+    "model_from_conversation": False,
+    "command_output": None,
+    "command_output_is_error": False,
+    "shell_command": None,
+    "shell_output": None,
+    "notice_kind": None,
 }
 
 
-def _parse_message(raw: dict[str, Any]) -> Message:
+def _conversation_model(data: dict[str, Any]) -> str | None:
+    """The model that every reply of ``data`` gets, for a source that records
+    one model for the conversation (issue #52, D5); else None."""
+    if (data.get("source") or "CLAUDE_AI") in CONVERSATION_MODEL_SOURCES:
+        return data.get("model") or None
+    return None
+
+
+def _parse_message(raw: dict[str, Any], conversation_model: str | None = None) -> Message:
     """Parse a raw message dict into a Message model."""
     content = raw.get("content", [])
     cc_kwargs = {
         k: raw.get(k, _CC_ONLY_DEFAULTS[k]) for k in _CC_ONLY_PASSTHROUGH_FIELDS
     }
+    if conversation_model and raw.get("sender") == "assistant":
+        cc_kwargs["model"] = conversation_model
+        cc_kwargs["model_from_conversation"] = True
     return Message(
         uuid=raw.get("uuid", ""),
         sender=raw.get("sender", "human"),
@@ -250,7 +276,9 @@ def has_branches(messages: list[dict[str, Any]]) -> bool:
     return any(count > 1 for count in child_count.values())
 
 
-def build_message_tree(messages: list[dict[str, Any]]) -> list[MessageNode]:
+def build_message_tree(
+    messages: list[dict[str, Any]], conversation_model: str | None = None
+) -> list[MessageNode]:
     """Build the full message tree from flat message list.
 
     Uses iterative BFS approach to handle conversations with thousands of messages
@@ -308,7 +336,7 @@ def build_message_tree(messages: list[dict[str, Any]]) -> list[MessageNode]:
 
         # Create node
         node = MessageNode(
-            message=_parse_message(msg_by_uuid[uuid]),
+            message=_parse_message(msg_by_uuid[uuid], conversation_model),
             children=[],
         )
         nodes[uuid] = node
@@ -1042,7 +1070,8 @@ class ConversationStore:
                 branch = chat_messages
             branches_flag = has_branches(chat_messages)
 
-        messages = [_parse_message(m) for m in branch]
+        conversation_model = _conversation_model(data)
+        messages = [_parse_message(m, conversation_model) for m in branch]
         human_count = sum(1 for m in chat_messages if m.get("sender") == "human")
 
         # Council coercion-audit (bug-class #1) MED finding: ``int(x)`` raises
@@ -1243,7 +1272,7 @@ class ConversationStore:
             )
 
         # Build full tree
-        root_messages = build_message_tree(chat_messages)
+        root_messages = build_message_tree(chat_messages, _conversation_model(data))
 
         # Get active path
         if leaf_uuid:

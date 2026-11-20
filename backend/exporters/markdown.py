@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
 
+from ..model_names import sender_label
 from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
 from ..sources.registry import get_descriptor
@@ -76,11 +78,19 @@ def _image_markdown(message: Message) -> str:
     return "\n".join(lines)
 
 
+def command_output_markdown(output: str, is_error: bool = False) -> str:
+    """The output of a slash command, as a fenced block under its command."""
+    # A fence longer than any backtick run in the output.
+    fence = "`" * max(3, max((len(r) for r in re.findall(r"`+", output)), default=0) + 1)
+    label = "Claude Code (error)" if is_error else "Claude Code"
+    return f"\n**{label}:**\n\n{fence}\n{output}\n{fence}\n"
+
+
 def message_to_markdown(
     message: Message, include_tools: bool = True, assistant_label: str = "Claude"
 ) -> str:
     """Convert a single message to Markdown."""
-    sender = "You" if message.sender == "human" else assistant_label
+    sender = sender_label(message, assistant_label)
     timestamp = format_timestamp(message.created_at)
 
     lines = [f"**{sender}:** *{timestamp}*", ""]
@@ -96,6 +106,9 @@ def message_to_markdown(
         # uncaptured tool call/artifact and the recipient should never
         # see the literal string, regardless of include_tools).
         lines.append(filter_tool_placeholders(message.text))
+
+    if message.command_output:
+        lines.append(command_output_markdown(message.command_output, message.command_output_is_error))
 
     # Image attachments (always rendered, regardless of include_tools).
     image_md = _image_markdown(message)

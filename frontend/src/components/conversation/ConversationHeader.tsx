@@ -42,6 +42,7 @@ import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { NoticeList } from '@/components/conversation/NoticeList'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
+import { modelDisplayName } from '@/lib/modelName'
 import { sourceHas } from '@/lib/sources'
 import type { ConversationDetail } from '@/lib/types'
 
@@ -89,7 +90,9 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
             lives in SourceBadge so a future source rename / recolor
             / addition is a single-file change. */}
         <SourceBadge source={conversation.source} variant="header" />
-        <Badge variant="secondary">{conversation.model}</Badge>
+        <Badge variant="secondary" data-testid="model-badge" title={conversation.model}>
+          {modelDisplayName(conversation.model)}
+        </Badge>
         <span>{formatFullDate(conversation.created_at)}</span>
         <span>{conversation.message_count} messages</span>
         {conversation.has_branches && (

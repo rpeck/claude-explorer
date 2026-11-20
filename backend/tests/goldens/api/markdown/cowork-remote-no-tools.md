@@ -12,7 +12,7 @@ Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.
 
 ---
 
-**Claude:** *2026-10-06 19:03*
+**Claude Opus 5.5:** *2026-10-06 19:03*
 
 Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.
 
@@ -24,7 +24,7 @@ Add a rollback step too.
 
 ---
 
-**Claude:** *2026-10-06 19:06*
+**Claude Opus 5.5:** *2026-10-06 19:06*
 
 Added a rollback step after the canary check.
 

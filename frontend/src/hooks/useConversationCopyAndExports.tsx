@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { errorToast } from '@/lib/errorToast'
 import { conversationToMarkdown, downloadBlob, sanitizeFilename } from '@/lib/utils'
+import { sourceDescriptor } from '@/lib/sources'
 import { api } from '@/lib/api'
 import { useUnmountSafeTimer } from '@/hooks/useUnmountSafeTimer'
 import type { ConversationDetail } from '@/lib/types'
@@ -86,6 +87,7 @@ export function useConversationCopyAndExports({
       conversation.name,
       conversation.messages,
       showToolCalls,
+      sourceDescriptor(conversation.source)?.assistant_label ?? 'Claude',
     )
     // LOW-1 (council follow-up): see MessageBubble.handleCopyMessage.
     // Flip the success affordance only on a resolved promise.

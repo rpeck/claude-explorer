@@ -15,6 +15,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -32,8 +34,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Run a grep for me. NEEDLE_TOOL",
         "truncated": false,
@@ -43,6 +50,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -93,8 +102,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Running grep.",
         "truncated": false,
@@ -104,6 +118,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -121,8 +137,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Thanks!",
         "truncated": false,
@@ -165,6 +186,8 @@
                 "message": {
                   "assistant_canned_response_consumed": false,
                   "attachments": [],
+                  "command_output": null,
+                  "command_output_is_error": false,
                   "content": [
                     {
                       "content": null,
@@ -182,8 +205,13 @@
                   "files_v2": [],
                   "is_command_marker": false,
                   "is_prelude": false,
+                  "model": null,
+                  "model_from_conversation": false,
+                  "notice_kind": null,
                   "parent_message_uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8",
                   "sender": "human",
+                  "shell_command": null,
+                  "shell_output": null,
                   "slash_command": null,
                   "text": "Thanks!",
                   "truncated": false,
@@ -195,6 +223,8 @@
             "message": {
               "assistant_canned_response_consumed": false,
               "attachments": [],
+              "command_output": null,
+              "command_output_is_error": false,
               "content": [
                 {
                   "content": null,
@@ -245,8 +275,13 @@
               "files_v2": [],
               "is_command_marker": false,
               "is_prelude": false,
+              "model": "claude-sonnet-4-6",
+              "model_from_conversation": true,
+              "notice_kind": null,
               "parent_message_uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625",
               "sender": "assistant",
+              "shell_command": null,
+              "shell_output": null,
               "slash_command": null,
               "text": "Running grep.",
               "truncated": false,
@@ -258,6 +293,8 @@
         "message": {
           "assistant_canned_response_consumed": false,
           "attachments": [],
+          "command_output": null,
+          "command_output_is_error": false,
           "content": [
             {
               "content": null,
@@ -275,8 +312,13 @@
           "files_v2": [],
           "is_command_marker": false,
           "is_prelude": false,
+          "model": null,
+          "model_from_conversation": false,
+          "notice_kind": null,
           "parent_message_uuid": null,
           "sender": "human",
+          "shell_command": null,
+          "shell_output": null,
           "slash_command": null,
           "text": "Run a grep for me. NEEDLE_TOOL",
           "truncated": false,

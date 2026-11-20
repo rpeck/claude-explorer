@@ -318,6 +318,8 @@ The function returns `list[dict]`. Each entry's shape depends on the verbosity f
   "position": <int>,
   "uuid": "<message-uuid>",
   "sender": "human" | "assistant",
+  "label": "<sender name>",
+  "model": "<model id>" | null,
   "timestamp": "<iso8601>",
   "text": "<text content with tool-placeholder strings filtered out>"
 }
@@ -330,6 +332,8 @@ The function returns `list[dict]`. Each entry's shape depends on the verbosity f
   "position": <int>,
   "uuid": "<message-uuid>",
   "sender": "human" | "assistant",
+  "label": "<sender name>",
+  "model": "<model id>" | null,
   "timestamp": "<iso8601>",
   "content": [
     {"type": "text", "text": "..."},
@@ -339,6 +343,15 @@ The function returns `list[dict]`. Each entry's shape depends on the verbosity f
   ]
 }
 ```
+
+Fields of both modes (issue #52):
+
+- `label`: the sender name that the viewer and the exports show.
+  - A reply: the source's assistant label plus the model name, for example `"Claude Opus 5.5"` or `"Codex gpt-5.6-codex"`.
+  - A row that Claude Code made itself (model `<synthetic>`): `"Claude Code"`. A reply with no model: the assistant label alone.
+  - A user message: `"You"`. A `!` command: `"Shell"`. A notice that Claude Code wrote: its kind, for example `"Task notification"`.
+- `model`: the raw model id of a reply, or `null`. Claude Desktop and Codex record one model for the conversation, so their replies carry that model.
+- `command_output`: only on the marker of a local slash command that printed output, for example the text of `/model`, without tags or ANSI codes.
 
 Content-block filtering (`_filter_content_blocks`):
 

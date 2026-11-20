@@ -12,7 +12,7 @@ Hi! NEEDLE_CC — fixture session for Phase 5 tests.
 
 ---
 
-**Claude:** *2026-04-01 10:01*
+**Claude Sonnet 4.6:** *2026-04-01 10:01*
 
 Hello! Ready to help with the fixture project.
 
@@ -24,7 +24,7 @@ What's 2+2?
 
 ---
 
-**Claude:** *2026-04-01 10:03*
+**Claude Sonnet 4.6:** *2026-04-01 10:03*
 
 Four.
 

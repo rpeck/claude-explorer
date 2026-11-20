@@ -99,8 +99,9 @@ describe('ConversationList', () => {
     });
 
     // Check for model badges
-    expect(screen.getAllByText('claude-sonnet-4-6').length).toBeGreaterThan(0);
-    expect(screen.getByText('claude-3-opus-20240229')).toBeInTheDocument();
+    expect(screen.getAllByText('Sonnet 4.6').length).toBeGreaterThan(0);
+    // #52: the row shows the model's display name; the raw id is its title.
+    expect(screen.getByText('Opus 3')).toHaveAttribute('title', 'claude-3-opus-20240229');
 
     // Check for message counts
     expect(screen.getByText('10 msgs')).toBeInTheDocument();

@@ -26,15 +26,19 @@ from contextlib import closing
 def _make_broken_v14_db(path) -> None:
     """Construct the exact corrupted state observed on the user's machine:
 
-    - schema_version row = 14
+    - schema_version row = the current SCHEMA_VERSION (14 when the bug was seen)
     - messages table = v14 (column set is unchanged from v13)
     - conversations table = v13 (NO is_compaction_titled column)
     - indexed_files = v12 (conv_uuid present)
     """
+    from backend.search_index import SCHEMA_VERSION
+
     conn = sqlite3.connect(str(path))
-    conn.executescript("""
+    # Stamped with the current version: the self-repair trusts the stamp only
+    # when the conversations projection also has its columns.
+    conn.executescript(f"""
         CREATE TABLE schema_version (version INTEGER NOT NULL);
-        INSERT INTO schema_version (version) VALUES (14);
+        INSERT INTO schema_version (version) VALUES ({SCHEMA_VERSION});
 
         CREATE VIRTUAL TABLE messages USING fts5(
             conv_uuid UNINDEXED, message_uuid UNINDEXED, sender UNINDEXED,

@@ -207,8 +207,11 @@ def _is_excludable_marker(message: Message) -> bool:
     these markers behind the SessionPreludeAffordance / SlashCommandBadge
     chrome; markdown/PDF exports must do the same so the recipient sees
     the same content the user saw.
+
+    Issue #52 (option A): a marker that holds the command's output is not
+    chrome. It exports as the command plus its "Claude Code" output block.
     """
-    return message.is_command_marker
+    return message.is_command_marker and not message.command_output
 
 
 def _is_compact_summary_message(
