@@ -204,6 +204,22 @@ def _sync_fields(*, notices: bool = False) -> dict[str, Any]:
     return out
 
 
+def _source_filter(source: str | None) -> SourceFilter:
+    """The ``source`` argument as a filter. Raises ``ToolError`` for an unknown value.
+
+    A silent "all" for a typo gave the caller every source with no sign of
+    the mistake (issue #73). The web API refuses it too (HTTP 422).
+    """
+    value = (source or "").strip().lower()
+    if value in ("", "all"):
+        return "all"
+    ids = [d.id for d in get_descriptors()]
+    for source_id in ids:
+        if value == source_id.lower():
+            return source_id  # type: ignore[return-value]
+    raise ToolError(f'Unknown source "{source}". Use one of: {", ".join(["all", *ids])}.')
+
+
 def _source_fields(conv: ConversationSummary) -> dict[str, Any]:
     """The Codex name and home (``~/...``), and the notices when not empty.
 
@@ -551,7 +567,9 @@ def list_sessions(
         query: Full-text search across session names and message content.
                Omit to list all sessions.
         source: Filter by source: "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK",
-                or "CODEX".
+                or "CODEX", in any case. "all" or no value means every
+                source. Any other value is an error that lists the
+                valid values.
         project: Filter by project name (substring match, case-insensitive).
         organization_id: Workspace UUID — restrict to conversations whose
                          organization_id matches exactly. Mirrors the
@@ -571,14 +589,11 @@ def list_sessions(
     subset (source, project, organization_id) — see
     PLANS/2026.05.14-search-scope-propagation-spec.md.
     """
+    src = _source_filter(source)
     _sync_archive()
     store = _get_store()
     limit = min(max(1, limit), 100)
     offset = max(0, offset)
-
-    src: SourceFilter = "all"
-    if source in {d.id for d in get_descriptors()}:
-        src = source  # type: ignore[assignment]
 
     if query:
         # Deep search across message content. organization_id is pushed
@@ -665,14 +680,13 @@ def list_projects(
 
     Args:
         source: Filter by source: "CLAUDE_AI", "CLAUDE_CODE", "CLAUDE_COWORK",
-                or "CODEX".
+                or "CODEX", in any case. "all" or no value means every
+                source. Any other value is an error that lists the
+                valid values.
     """
+    src = _source_filter(source)
     _sync_archive()
     store = _get_store()
-
-    src: SourceFilter = "all"
-    if source in {d.id for d in get_descriptors()}:
-        src = source  # type: ignore[assignment]
 
     convs = store.list_conversations(source=src)
 

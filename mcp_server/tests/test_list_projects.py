@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+from fastmcp.exceptions import ToolError
+
 from mcp_server.server import list_projects
 
 
@@ -59,7 +62,8 @@ def test_source_filter_claude_code_only_cc(mcp_data):
     assert result == [{"project": "widgets", "session_count": 1}]
 
 
-def test_invalid_source_falls_back_to_all(mcp_data):
+def test_invalid_source_is_refused(mcp_data):
+    # An unknown source used to widen to all sources (#73); now it is an error.
     mcp_data.add_cc_session("cc-1", cwd="/repo/widgets")
-    result = _call(source="BOGUS")
-    assert result == [{"project": "widgets", "session_count": 1}]
+    with pytest.raises(ToolError, match='Unknown source "BOGUS"'):
+        _call(source="BOGUS")
