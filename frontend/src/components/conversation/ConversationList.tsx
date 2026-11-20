@@ -914,7 +914,7 @@ function ConversationListItem({
           <SourceBadge source={conversation.source} variant="row" />
           {conversation.model && (
             // #52: one model name everywhere; the raw id is the tooltip.
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0" title={conversation.model}>
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0" title={conversation.model} data-testid="list-row-model">
               {modelDisplayName(conversation.model)}
             </Badge>
           )}
