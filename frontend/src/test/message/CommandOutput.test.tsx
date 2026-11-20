@@ -14,10 +14,6 @@
  *   - A shell message (`shell_command`) is one block labelled "Shell".
  *   - A notice (`notice_kind`) is a folded row labelled with its kind.
  *   - "Copy message as Markdown" uses the reply label.
- *
- * B52 is not implemented yet, so each new-behavior test is an expected
- * failure. `B52_RUN_XFAIL=1` runs them as plain tests. Remove the switch
- * when B52 passes.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, within } from '../utils'
@@ -26,8 +22,6 @@ import { TreeView } from '../../components/branch/TreeView'
 import { mockConversationTree } from '../mocks/data'
 import { serveApp } from '../sources/fakeRegistry'
 import type { ConversationSource, ConversationTree, Message, MessageNode } from '../../lib/types'
-
-const xfail: typeof it = import.meta.env.B52_RUN_XFAIL ? it : (it.fails as typeof it)
 
 // The bubble's providers ask for the preferences and the bookmarks.
 beforeEach(() => serveApp({}))
@@ -87,53 +81,53 @@ const CODEX_TOOLTIP = "From the conversation's model setting. Codex does not rec
 // ---------------------------------------------------------------------------
 
 describe('the reply label names the model', () => {
-  xfail('a reply with model claude-opus-5-5 is labelled "Claude Opus 5.5"', () => {
+  it('a reply with model claude-opus-5-5 is labelled "Claude Opus 5.5"', () => {
     bubble(msg({ model: 'claude-opus-5-5' }))
     expect(sender()).toHaveTextContent(/^Claude Opus 5\.5$/)
   })
 
-  xfail('a reply with model claude-fable-5-1 is labelled "Claude Fable 5.1"', () => {
+  it('a reply with model claude-fable-5-1 is labelled "Claude Fable 5.1"', () => {
     bubble(msg({ model: 'claude-fable-5-1' }))
     expect(sender()).toHaveTextContent(/^Claude Fable 5\.1$/)
   })
 
-  xfail('a <synthetic> reply is labelled "Claude Code"', () => {
+  it('a <synthetic> reply is labelled "Claude Code"', () => {
     bubble(msg({ model: '<synthetic>' }))
     expect(sender()).toHaveTextContent(/^Claude Code$/)
   })
 
-  xfail('a reply without a model is labelled with the assistant label alone', () => {
+  it('a reply without a model is labelled with the assistant label alone', () => {
     bubble(msg({}))
     expect(sender()).toHaveTextContent(/^Claude$/)
   })
 
-  xfail('a Codex reply is labelled "Codex" plus the model id', () => {
+  it('a Codex reply is labelled "Codex" plus the model id', () => {
     bubble(msg({ model: 'gpt-5.6-codex', model_from_conversation: true }), 'CODEX')
     expect(sender()).toHaveTextContent(/^Codex gpt-5\.6-codex$/)
   })
 
-  xfail('a human message is still labelled "You"', () => {
+  it('a human message is still labelled "You"', () => {
     bubble(msg({ sender: 'human', text: 'Hi.', content: [{ type: 'text', text: 'Hi.' }] }))
     expect(sender()).toHaveTextContent(/^You$/)
   })
 
-  xfail('a Desktop reply with the conversation model has the D5 tooltip', () => {
+  it('a Desktop reply with the conversation model has the D5 tooltip', () => {
     bubble(msg({ model: 'claude-sonnet-4-6', model_from_conversation: true }), 'CLAUDE_AI')
     expect(sender()).toHaveTextContent(/^Claude Sonnet 4\.6$/)
     expect(sender()).toHaveAttribute('title', DESKTOP_TOOLTIP)
   })
 
-  xfail('a Codex reply with the conversation model has the D5 tooltip with "Codex"', () => {
+  it('a Codex reply with the conversation model has the D5 tooltip with "Codex"', () => {
     bubble(msg({ model: 'gpt-5.6-codex', model_from_conversation: true }), 'CODEX')
     expect(sender()).toHaveAttribute('title', CODEX_TOOLTIP)
   })
 
-  xfail('a Claude Code reply, whose model comes from its row, has no D5 tooltip', () => {
+  it('a Claude Code reply, whose model comes from its row, has no D5 tooltip', () => {
     bubble(msg({ model: 'claude-opus-5-5', model_from_conversation: false }))
     expect(sender().getAttribute('title') ?? '').not.toContain("conversation's model setting")
   })
 
-  xfail('the branch tree labels a reply with its model', () => {
+  it('the branch tree labels a reply with its model', () => {
     const withModel = (node: MessageNode): MessageNode => ({
       ...node,
       message: node.message.sender === 'assistant' ? ({ ...node.message, model: 'claude-opus-5-5' } as Message) : node.message,
@@ -150,7 +144,7 @@ describe('"Copy message as Markdown" uses the reply label', () => {
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
   })
 
-  xfail('the copied Markdown says "Claude Opus 5.5"', async () => {
+  it('the copied Markdown says "Claude Opus 5.5"', async () => {
     bubble(msg({ model: 'claude-opus-5-5' }))
     await act(async () => {
       fireEvent.click(screen.getByTitle('Copy message as Markdown'))
@@ -160,7 +154,7 @@ describe('"Copy message as Markdown" uses the reply label', () => {
     expect(copied).toContain('**Claude Opus 5.5:**')
   })
 
-  xfail('the copied Markdown of a Codex reply says "Codex gpt-5.6-codex"', async () => {
+  it('the copied Markdown of a Codex reply says "Codex gpt-5.6-codex"', async () => {
     bubble(msg({ model: 'gpt-5.6-codex', model_from_conversation: true }), 'CODEX')
     await act(async () => {
       fireEvent.click(screen.getByTitle('Copy message as Markdown'))
@@ -178,7 +172,7 @@ describe('"Copy message as Markdown" uses the reply label', () => {
 const lines = (n: number) => Array.from({ length: n }, (_, i) => `output line ${i + 1}`).join('\n')
 
 describe('command output shows under its command', () => {
-  xfail('the output is in a monospace block labelled "Claude Code", under the command badge', () => {
+  it('the output is in a monospace block labelled "Claude Code", under the command badge', () => {
     bubble(marker({ command_output: 'Set model to Fable 5.1 (claude-fable-5-1)' }))
     const block = screen.getByTestId('command-output')
     expect(within(block).getByText('Claude Code')).toBeInTheDocument()
@@ -188,14 +182,13 @@ describe('command output shows under its command', () => {
     expect(badge.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  // A guard: it passes before B52 too.
   it('a marker without output has no output block', () => {
     bubble(marker({ command_output: null }))
     expect(screen.getByTestId('slash-command-badge')).toBeInTheDocument()
     expect(screen.queryByTestId('command-output')).toBeNull()
   })
 
-  xfail('output over 20 lines is folded, and "Show all" opens it', () => {
+  it('output over 20 lines is folded, and "Show all" opens it', () => {
     bubble(marker({ command_output: lines(30) }))
     const block = screen.getByTestId('command-output')
     expect(within(block).getByText(/output line 20/)).toBeVisible()
@@ -204,19 +197,19 @@ describe('command output shows under its command', () => {
     expect(within(block).getByText(/output line 30/)).toBeVisible()
   })
 
-  xfail('output of exactly 20 lines shows in full, with no "Show all"', () => {
+  it('output of exactly 20 lines shows in full, with no "Show all"', () => {
     bubble(marker({ command_output: lines(20) }))
     const block = screen.getByTestId('command-output')
     expect(within(block).getByText(/output line 20/)).toBeVisible()
     expect(within(block).queryByRole('button', { name: 'Show all' })).toBeNull()
   })
 
-  xfail('stderr output is marked as an error', () => {
+  it('stderr output is marked as an error', () => {
     bubble(marker({ slash_command: '/login', text: 'Session: /login', command_output: 'Login failed', command_output_is_error: true }))
     expect(screen.getByTestId('command-output')).toHaveAttribute('data-error', 'true')
   })
 
-  xfail('stdout output is not marked as an error', () => {
+  it('stdout output is not marked as an error', () => {
     bubble(marker({ command_output: 'Done.', command_output_is_error: false }))
     expect(screen.getByTestId('command-output')).not.toHaveAttribute('data-error', 'true')
   })
@@ -237,7 +230,7 @@ describe('a shell command is one block labelled "Shell"', () => {
       shell_output: 'file_a.txt\nfile_b.txt',
     })
 
-  xfail('the block holds the label, the command, and the output in monospace', () => {
+  it('the block holds the label, the command, and the output in monospace', () => {
     bubble(shell())
     const block = screen.getByTestId('shell-block')
     expect(within(block).getByText('Shell')).toBeInTheDocument()
@@ -245,7 +238,7 @@ describe('a shell command is one block labelled "Shell"', () => {
     expect(isMonospace(within(block).getByText(/file_b\.txt/))).toBe(true)
   })
 
-  xfail('a shell block is not labelled "You"', () => {
+  it('a shell block is not labelled "You"', () => {
     bubble(shell())
     expect(screen.getByTestId('shell-block')).toBeInTheDocument()
     expect(screen.queryByText('You')).toBeNull()
@@ -261,7 +254,7 @@ const NOTICES: Array<[string, string]> = [
 
 describe('a notice is a folded row labelled with its kind', () => {
   for (const [kind, label] of NOTICES) {
-    xfail(`${kind}: the row says "${label}", hides its body until a click, and is not "You"`, () => {
+    it(`${kind}: the row says "${label}", hides its body until a click, and is not "You"`, () => {
       const body = `Background job finished ${kind} body`
       bubble(msg({ uuid: `n-${kind}`, sender: 'human', text: body, content: [{ type: 'text', text: body }], notice_kind: kind }))
       const row = screen.getByTestId('notice-row')

@@ -15,10 +15,6 @@ import type { Message } from '../src/lib/types'
  * backend/tests/fixtures/claude changes the goldens and the registry tests,
  * which copy that whole folder. The console gate of TESTING.md §5.15 runs
  * for every test (`./fixtures`).
- *
- * B52 is not implemented yet, so the tests are expected failures.
- * `B52_RUN_XFAIL=1` runs them as plain tests. Remove the switch when B52
- * passes.
  */
 
 const UUID = 'b52f0000-50ba-41c0-8495-0e8749b20552'
@@ -100,8 +96,6 @@ async function openSession(page: Page) {
 }
 
 test.describe('B52: the model of each reply, and command output', () => {
-  test.fail(!process.env.B52_RUN_XFAIL, 'B52 not implemented yet')
-
   test.beforeEach(async ({ mockBackend }) => {
     await mockBackend({ conversations: [summary], details: { [UUID]: makeDetail(summary, messages) } })
   })

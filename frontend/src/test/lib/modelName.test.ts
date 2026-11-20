@@ -2,24 +2,9 @@
  * B52 (issue #52), part C: `modelDisplayName` and `replyLabel` in
  * `frontend/src/lib/modelName.ts`. The same rules as the Python
  * `backend/model_names.py`, so that one model has one name everywhere.
- *
- * B52 is not implemented yet, so each test is an expected failure.
- * `B52_RUN_XFAIL=1` runs them as plain tests (like pytest --runxfail).
- * Remove the switch when B52 passes.
  */
 import { describe, expect, it } from 'vitest'
-
-const xfail: typeof it = import.meta.env.B52_RUN_XFAIL ? it : (it.fails as typeof it)
-
-interface ModelName {
-  modelDisplayName: (id: string | null | undefined) => string
-  replyLabel: (assistantLabel: string, model: string | null | undefined) => string
-}
-
-async function load(): Promise<ModelName> {
-  const path = '@/lib/modelName'
-  return (await import(/* @vite-ignore */ path)) as ModelName
-}
+import { modelDisplayName, replyLabel } from '@/lib/modelName'
 
 const NAMES: Array<[string, string]> = [
   ['claude-opus-5-5', 'Opus 5.5'],
@@ -45,8 +30,7 @@ const NAMES: Array<[string, string]> = [
 
 describe('modelDisplayName', () => {
   for (const [id, name] of NAMES) {
-    xfail(`${id} gives "${name}"`, async () => {
-      const { modelDisplayName } = await load()
+    it(`${id} gives "${name}"`, () => {
       expect(modelDisplayName(id)).toBe(name)
     })
   }
@@ -65,8 +49,7 @@ const LABELS: Array<[string, string | null | undefined, string]> = [
 
 describe('replyLabel', () => {
   for (const [assistantLabel, model, label] of LABELS) {
-    xfail(`(${assistantLabel}, ${String(model)}) gives "${label}"`, async () => {
-      const { replyLabel } = await load()
+    it(`(${assistantLabel}, ${String(model)}) gives "${label}"`, () => {
       expect(replyLabel(assistantLabel, model)).toBe(label)
     })
   }

@@ -31,8 +31,6 @@ import pytest
 from backend.tests import codex_fake as fake
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="B52 not implemented yet")
-
 SESSION = "b52b0000-0000-4000-8000-000000000002"
 DESKTOP = "b52c0000-0000-4000-8000-000000000003"
 COWORK = "b52d0000-0000-4000-8000-000000000004"
