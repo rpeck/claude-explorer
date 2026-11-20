@@ -11,8 +11,8 @@ longer returned was lost:
   that the API returns now;
 * a crash during a Desktop write left a truncated file.
 
-The fix merges and never replaces. Tests marked ``_NOT_YET`` fail on the old
-code; the unmarked tests pin behavior that the merge must not break.
+The fix merges and never replaces. Some tests here also pass on the old code:
+they pin behavior that the merge must not break.
 """
 
 from __future__ import annotations
@@ -31,8 +31,6 @@ from fetcher.tests.ccr_fake import (
     iso,
     user_event,
 )
-
-_NOT_YET = pytest.mark.xfail(strict=True, reason="B51 not implemented yet")
 
 ORG = "11111111-1111-4111-8111-111111111111"
 CONV = "c0ffee00-0000-4000-8000-000000000051"
@@ -120,7 +118,6 @@ M6 = _msg("m6", 6, "third answer: use a second NAS", "assistant", "m5")
 # ------------------------------------------------------------ Desktop merge
 
 
-@_NOT_YET
 def test_a_message_only_in_the_local_copy_is_kept(tmp_path: Path) -> None:
     _save(tmp_path, _conv([M1, M2, M3, M4], updated=4))
 
@@ -129,7 +126,6 @@ def test_a_message_only_in_the_local_copy_is_kept(tmp_path: Path) -> None:
     assert set(_uuids(tmp_path)) == {"m1", "m2", "m3", "m4", "m5", "m6"}
 
 
-@_NOT_YET
 def test_a_kept_local_message_keeps_its_fields_unchanged(tmp_path: Path) -> None:
     local_m1 = {**M1, "a_field_the_server_dropped": {"kept": True}}
     _save(tmp_path, _conv([local_m1, M2, M3, M4], updated=4))
@@ -165,7 +161,6 @@ def test_conversation_fields_come_from_the_server(tmp_path: Path) -> None:
     assert data["current_leaf_message_uuid"] == "m6"
 
 
-@_NOT_YET
 def test_merged_messages_are_ordered_by_created_at(tmp_path: Path) -> None:
     # m2 is only in the local copy, and its created_at is between the server's.
     _save(tmp_path, _conv([M1, M2, M3], updated=3))
@@ -216,7 +211,6 @@ def _count_equal(out: Path, message: dict) -> int:
     return sum(1 for m in _on_disk(out)["chat_messages"] if m == message)
 
 
-@_NOT_YET
 @pytest.mark.parametrize("how", ["missing", "null"])
 def test_a_local_message_without_a_uuid_is_kept(tmp_path: Path, how: str) -> None:
     no_uuid = _without_uuid(how)
@@ -251,7 +245,6 @@ def test_a_merge_adds_no_file_and_deletes_no_file(tmp_path: Path) -> None:
     assert _files(tmp_path) == before
 
 
-@_NOT_YET
 def test_a_failed_serialization_leaves_the_old_file_intact(tmp_path: Path) -> None:
     _save(tmp_path, _conv([M1, M2], updated=2))
     old_bytes = _path(tmp_path).read_bytes()
@@ -266,7 +259,6 @@ def test_a_failed_serialization_leaves_the_old_file_intact(tmp_path: Path) -> No
     assert _files(tmp_path) == before
 
 
-@_NOT_YET
 def test_a_failed_replace_leaves_the_old_file_intact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -311,7 +303,6 @@ def test_a_corrupt_local_file_does_not_stop_the_refetch(tmp_path: Path, content:
     assert _uuids(tmp_path) == ["m3", "m4"]
 
 
-@_NOT_YET
 @pytest.mark.parametrize("content", UNREADABLE)
 def test_a_corrupt_local_file_is_kept_in_a_side_file(tmp_path: Path, content: bytes) -> None:
     _write_unreadable(tmp_path, content)
@@ -321,7 +312,6 @@ def test_a_corrupt_local_file_is_kept_in_a_side_file(tmp_path: Path, content: by
     assert _side(tmp_path, 1).read_bytes() == content
 
 
-@_NOT_YET
 def test_a_side_file_takes_the_next_free_number(tmp_path: Path) -> None:
     _write_unreadable(tmp_path, b"{first")
     _side(tmp_path, 1).parent.mkdir(parents=True, exist_ok=True)
@@ -333,7 +323,6 @@ def test_a_side_file_takes_the_next_free_number(tmp_path: Path) -> None:
     assert _side(tmp_path, 2).read_bytes() == b"{first"
 
 
-@_NOT_YET
 def test_a_refetch_of_a_valid_file_adds_no_side_file(tmp_path: Path) -> None:
     _write_unreadable(tmp_path, b"{broken")
     _save(tmp_path, _conv([M3, M4], updated=4))
@@ -345,7 +334,6 @@ def test_a_refetch_of_a_valid_file_adds_no_side_file(tmp_path: Path) -> None:
     assert _files(tmp_path) == after_first
 
 
-@_NOT_YET
 def test_a_corrupt_local_file_logs_one_warning_without_its_content(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -370,7 +358,6 @@ def _serve(monkeypatch: pytest.MonkeyPatch, conv: dict) -> None:
     monkeypatch.setattr(ClaudeFetcher, "fetch_conversation", lambda self, uuid: copy.deepcopy(conv))
 
 
-@_NOT_YET
 def test_incremental_run_keeps_messages_the_server_no_longer_returns(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -383,7 +370,6 @@ def test_incremental_run_keeps_messages_the_server_no_longer_returns(
     assert _uuids(tmp_path) == ["m1", "m2", "m3", "m4", "m5", "m6"]
 
 
-@_NOT_YET
 def test_full_refresh_run_all_orgs_keeps_messages_the_server_no_longer_returns(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -442,7 +428,6 @@ def remote_task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeSession:
     return session
 
 
-@_NOT_YET
 def test_remote_full_refresh_keeps_events_the_server_no_longer_returns(
     tmp_path: Path, remote_task: FakeSession
 ) -> None:
@@ -461,7 +446,6 @@ def test_remote_full_refresh_server_event_wins_for_a_sequence_number_in_both(
     assert _text(lines[0]) == "beta answer, edited on the server"
 
 
-@_NOT_YET
 def test_remote_full_refresh_keeps_local_lines_unchanged(
     tmp_path: Path, remote_task: FakeSession
 ) -> None:
@@ -474,7 +458,6 @@ def test_remote_full_refresh_keeps_local_lines_unchanged(
     assert after.get(2) == before[2]
 
 
-@_NOT_YET
 def test_remote_full_refresh_orders_lines_by_sequence_number_without_duplicates(
     tmp_path: Path, remote_task: FakeSession
 ) -> None:

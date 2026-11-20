@@ -24,8 +24,6 @@ from fetcher.tests.ccr_fake import (
     user_event,
 )
 
-pytestmark = pytest.mark.xfail(strict=True, reason="B51 not implemented yet")
-
 ORG = "11111111-1111-4111-8111-111111111111"
 CONV = "c0ffee00-0000-4000-8000-000000000052"
 SID = "cse_01KeepArchiveReaders"
