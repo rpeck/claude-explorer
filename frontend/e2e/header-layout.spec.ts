@@ -87,10 +87,13 @@ test.describe('Header layout — actions must not occlude metadata (Issue #3)', 
       // model badge, full date, message count, "View branches".
       // Scope to <header> so the sidebar's mini-card doesn't shadow.
       const codeBadge = header.getByText('Code', { exact: true })
-      const modelBadge = header.getByText('claude-opus-4-5-20251101')
+      // #52 (D6): the badge shows the display name; the raw id is its title.
+      const modelBadge = header.getByTestId('model-badge')
       const messageCount = header.getByText(/1 messages?/)
       await expect(codeBadge).toBeVisible()
       await expect(modelBadge).toBeVisible()
+      await expect(modelBadge).toHaveText('Opus 4.5')
+      await expect(modelBadge).toHaveAttribute('title', 'claude-opus-4-5-20251101')
 
       // Pick a stable representative control from the right cluster.
       // 2026-05-25: Tools control converted from Button to
