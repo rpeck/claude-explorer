@@ -30,6 +30,8 @@ ENCRYPTED_REASONING = "Encrypted reasoning (not readable)"
 # Fixed, so a message id never changes between processes or versions.
 _NAMESPACE = uuid_mod.uuid5(uuid_mod.NAMESPACE_URL, "https://github.com/rpeck/claude-explorer/codex")
 
+_RECORD_TYPE_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
+
 # Record types that never hold a visible turn (``RolloutItem`` in Codex 0.170).
 _KNOWN_RECORD_TYPES = {
     "session_meta", "dynamic_tools_updated", "turn_context", "response_item", "event_msg",
@@ -155,7 +157,8 @@ def _incomplete_reasons(records: list[RolloutRecord], current_ambiguous: bool) -
         elif _is_rollback(kind):
             add("rollback")
         elif r.type not in _KNOWN_RECORD_TYPES:
-            add(f"unknown record type: {r.type}")
+            # A raw type can hold anything; only a plain name reaches the notice.
+            add(f"unknown record type: {r.type}" if _RECORD_TYPE_RE.fullmatch(r.type) else "unknown record type")
         if r.type == "history_base" or r.payload.get("history_base") is not None:
             add("history_base")
     return reasons

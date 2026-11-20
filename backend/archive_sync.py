@@ -56,6 +56,10 @@ _LOCK_POLL_S = 0.05
 _CHUNK = 1 << 20
 # New decoded bytes stay in memory up to this size, then go to a temp file.
 _SPOOL_MAX = 8 << 20
+# A decode over either cap is a decode error. Real rollouts are far smaller,
+# and the caps bound the memory and disk that one bad file can use.
+MAX_DECODED_BYTES = 1 << 30
+MAX_LINE_BYTES = 64 << 20
 
 
 @dataclass
@@ -231,19 +235,38 @@ def _complete_lines(decode: Callable[[Path], Iterable[bytes]], path: Path) -> It
     """Yield the decoded bytes up to each last newline (step 2.3).
 
     The source tool can still write to a last line that has no newline, so
-    that line is dropped. Memory stays bounded by the longest line.
+    that line is dropped. Memory stays bounded by the longest line. A decode
+    over ``MAX_DECODED_BYTES`` or a line over ``MAX_LINE_BYTES`` is a decode error.
     """
     rest = bytearray()
+    total = 0
     try:
         for chunk in decode(path):
+            total += len(chunk)
+            if total > MAX_DECODED_BYTES:
+                raise _DecodeError(f"the decoded file is over {MAX_DECODED_BYTES} bytes")
+            if len(rest) + len(chunk) > MAX_LINE_BYTES and _has_long_line(rest, chunk):
+                raise _DecodeError(f"a line is over {MAX_LINE_BYTES} bytes")
             cut = chunk.rfind(b"\n") + 1
             if not cut:
                 rest += chunk
                 continue
             yield bytes(rest) + chunk[:cut]
             rest = bytearray(chunk[cut:])
+    except _DecodeError:
+        raise
     except Exception as exc:  # any decoder failure is a decode error
         raise _DecodeError(exc) from exc
+
+
+def _has_long_line(rest: bytes | bytearray, chunk: bytes) -> bool:
+    """True when a line of ``rest + chunk`` (``rest`` has no newline) is over the cap."""
+    start = -len(rest)  # the line start, in the positions of ``chunk``
+    while (end := chunk.find(b"\n", max(start, 0))) != -1:
+        if end + 1 - start > MAX_LINE_BYTES:
+            return True
+        start = end + 1
+    return len(chunk) - start > MAX_LINE_BYTES
 
 
 def _same_content(spool: IO[bytes], path: Path) -> bool:
@@ -397,6 +420,8 @@ def sync_stream(
 
 __all__ = [
     "LOCK_FILE_NAME",
+    "MAX_DECODED_BYTES",
+    "MAX_LINE_BYTES",
     "META_VERSION",
     "ArchiveLock",
     "SyncContext",

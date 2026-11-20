@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sys
 import threading
 import time
 from collections.abc import Iterator
@@ -119,13 +120,20 @@ def _write_if_changed(path: Path, data: dict[str, Any]) -> bool:
 
 
 def _display_home(path: str) -> str:
-    """``~/...`` for a path under the user's home folder (D14), else the path."""
-    home, real = os.path.realpath(Path.home()), os.path.realpath(path)
-    if real == home:
-        return "~"
-    if real.startswith(home.rstrip(os.sep) + os.sep):
-        return "~/" + real[len(home.rstrip(os.sep)) + 1:].replace(os.sep, "/")
-    return path
+    """``~/...`` for a path under the user's home folder (D14), else ``…/<last name>``.
+
+    Never an absolute path: it can hold the user name, and MCP returns this text.
+    """
+    home, real = Path(os.path.realpath(Path.home())).parts, Path(os.path.realpath(path))
+    parts = real.parts
+    # The default file systems of macOS and Windows ignore case.
+    if sys.platform in ("darwin", "win32"):
+        same = [p.casefold() for p in parts[: len(home)]] == [p.casefold() for p in home]
+    else:
+        same = parts[: len(home)] == home
+    if same:
+        return "/".join(("~", *parts[len(home):]))
+    return "…/" + real.name
 
 
 def _iso(ms: object) -> str | None:
