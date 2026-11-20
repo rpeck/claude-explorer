@@ -10,13 +10,15 @@ or version that matches a strict pattern.
 
 from __future__ import annotations
 
+import contextlib
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import orjson
 
-from backend.archive_sync import _newest_revision, home_key
+from backend.archive_sync import _complete_lines, _newest_revision, home_key
 from backend.codex.home import STEM_RE, THREAD_ID_RE, RolloutFile, find_rollouts
 from backend.codex.identity import thread_metadata
 from backend.codex.imports import read_imports
@@ -24,8 +26,7 @@ from backend.codex.name_index import read_session_index
 from backend.codex.projection import _KNOWN_RECORD_TYPES, project_rollout
 from backend.codex.rollout import RolloutRead, read_rollout
 from backend.codex.state_db import read_threads
-from backend.codex.zstd import open_decompressed
-from backend.sources.codex import ARCHIVE_DIR, ROLLOUTS_DIR, THREADS_DIR
+from backend.sources.codex import ARCHIVE_DIR, ROLLOUTS_DIR, THREADS_DIR, _decode
 
 REPORT_VERSION = 1
 
@@ -82,13 +83,17 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def _decoded(path: Path) -> bytes:
-    # shortcut: holds one decoded rollout in memory (tens of MB at most in
-    # the §3 corpus); stream the compare if a work corpus has far larger files.
-    if path.suffix != ".zst":
-        return path.read_bytes()
-    with open_decompressed(path) as stream:
-        return stream.read()
+def _decoded(path: Path, size: list[int]) -> Iterator[bytes]:
+    """The decoded bytes up to the last newline, as a stream, with the copier's caps.
+
+    Adds every decoded byte, the last line too, to ``size[0]``.
+    """
+    def counted(p: Path) -> Iterator[bytes]:
+        for chunk in _decode(p):
+            size[0] += len(chunk)
+            yield chunk
+
+    return _complete_lines(counted, path)
 
 
 def _empty_report(home_found: bool) -> dict[str, Any]:
@@ -132,14 +137,15 @@ def build_report(home: Path, data_dir: Path) -> dict[str, Any]:
         counts["archived"] += r.archived
         try:
             report["sizes"]["stored_bytes"] += r.path.stat().st_size
-            data = _decoded(r.path)
+            size = [0]
+            outcome = _archive_outcome(rollouts_dir, r.stem, _decoded(r.path, size))
             read = read_rollout(r.path)
         except Exception:  # noqa: BLE001 - zstd and OS errors; a bad file is a count, not a stop
             report["archive"]["decode_errors"] += 1
             continue
-        report["sizes"]["decoded_bytes"] += len(data)
+        report["sizes"]["decoded_bytes"] += size[0]
+        report["archive"][outcome] += 1
         _count_records(report, read)
-        _count_archive(report["archive"], rollouts_dir, r.stem, data)
         by_thread.setdefault(r.thread_id, {})[r.stem] = (r, read)
 
     warnings = report["warnings"]
@@ -181,29 +187,42 @@ def _count_records(report: dict[str, Any], read: RolloutRead) -> None:
                 _add(report["unknown_item_types"], item_kind)
 
 
-def _count_archive(counts: dict[str, Any], rollouts_dir: Path, stem: str, data: bytes) -> None:
-    """What the copier would do with this rollout now (§4.2 steps 2.3-2.6)."""
-    source = data[: data.rfind(b"\n") + 1]  # a last line without a newline is not copied
-    try:
-        copy = (rollouts_dir / f"{stem}.jsonl").read_bytes()
-    except FileNotFoundError:
-        counts["would_copy"] += 1
-        return
-    except OSError:
-        counts["decode_errors"] += 1
-        return
-    if copy.startswith(source):
-        counts["unchanged"] += 1
-    elif source.startswith(copy):
-        counts["would_append"] += 1
-    else:
-        # The copier's rule: a source equal to the newest revision is unchanged.
-        _n, newest = _newest_revision(rollouts_dir, stem)
+def _archive_outcome(rollouts_dir: Path, stem: str, source: Iterator[bytes]) -> str:
+    """What the copier would do with this rollout now (§4.2 steps 2.3-2.6).
+
+    ``source`` streams the bytes that the copier copies. It compares them
+    with the copy and the newest revision as they come, so no file is held in memory.
+    """
+    _n, newest = _newest_revision(rollouts_dir, stem)
+    with contextlib.ExitStack() as stack:
+        copy = None
         try:
-            same = newest is not None and newest.read_bytes() == source
+            copy = stack.enter_context(open(rollouts_dir / f"{stem}.jsonl", "rb"))
+            state = "match"
+        except FileNotFoundError:
+            state = "would_copy"
         except OSError:
-            same = False
-        counts["unchanged" if same else "diverged"] += 1
+            state = "decode_errors"
+        rev = None
+        if newest is not None:
+            with contextlib.suppress(OSError):
+                rev = stack.enter_context(open(newest, "rb"))
+        rev_same = rev is not None
+        for piece in source:  # read to the end also when the outcome is known: the caps and the size
+            if state == "match" and copy is not None:
+                old = copy.read(len(piece))
+                if old != piece:
+                    state = "would_append" if len(old) < len(piece) and piece.startswith(old) else "diverged"
+            if rev_same and rev is not None and rev.read(len(piece)) != piece:
+                rev_same = False
+        if rev_same and rev is not None and rev.read(1):
+            rev_same = False
+    if state == "match":
+        return "unchanged"  # the copy starts with the source
+    if state == "diverged":
+        # The copier's rule: a source equal to the newest revision is unchanged.
+        return "unchanged" if rev_same else "diverged"
+    return state
 
 
 def _count_session(

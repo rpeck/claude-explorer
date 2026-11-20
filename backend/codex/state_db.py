@@ -203,9 +203,14 @@ def _attempt(home: Path, folder: Path, t0: _Key, deadline: float) -> dict[str, d
 
 
 def _query(copy: Path, deadline: float) -> dict[str, dict[str, Any]]:
-    """Rule 9: ``query_only``, ``quick_check``, the §3 columns, one transaction."""
-    conn = sqlite3.connect(str(copy), isolation_level=None)
+    """Rule 9: ``query_only``, ``quick_check``, the §3 columns, one transaction.
+
+    The copy opens read-only, and ``trusted_schema=OFF`` comes first, so a
+    view or a trigger in a crafted file cannot call an unsafe SQL function.
+    """
+    conn = sqlite3.connect(f"{copy.as_uri()}?mode=ro", uri=True, isolation_level=None)
     try:
+        conn.execute("PRAGMA trusted_schema=OFF")
         conn.set_progress_handler(lambda: time.monotonic() > deadline, 1000)
         conn.execute("PRAGMA query_only=1")
         conn.execute("BEGIN")

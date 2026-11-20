@@ -72,7 +72,7 @@ from fetcher.paths import (
 from fetcher.paths import (
     DEFAULT_DATA_DIR as DEFAULT_OUTPUT_DIR,  # legacy local alias
 )
-from fetcher.remote_sessions import RemoteCoworkFetcher
+from fetcher.remote_sessions import RemoteCoworkFetcher, is_safe_id
 
 # Public API surface. This module is a facade — it re-exports the
 # http_retry vocabulary (so callers don't have to know about that split)
@@ -803,6 +803,11 @@ class ClaudeFetcher:
         retroactively re-tagged to the current scope).
         """
         uuid = conversation.get("uuid", "unknown")
+        org_uuid = self.current_org["uuid"]
+        # Both ids name files: a "../" in a server reply must not reach a path.
+        if not (is_safe_id(uuid) and is_safe_id(org_uuid)):
+            logger.warning("Skipped a conversation with an unsafe id: uuid=%r org=%r", uuid, org_uuid)
+            return
 
         # Download files and update conversation with local paths
         conversation = self.download_conversation_files(conversation, uuid)
@@ -814,7 +819,7 @@ class ClaudeFetcher:
         if "organization_name" not in conversation or conversation["organization_name"] is None:
             conversation["organization_name"] = self.current_org.get("name")
 
-        org_dir = self.output_dir / "by-org" / self.current_org["uuid"]
+        org_dir = self.output_dir / "by-org" / org_uuid
         org_dir.mkdir(parents=True, exist_ok=True)
         path = org_dir / f"{uuid}.json"
         conversation = _merge_conversation(_read_local_conversation(path), conversation)
