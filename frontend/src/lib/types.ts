@@ -285,6 +285,8 @@ export interface ConversationDetail extends ConversationSummary {
   // (e.g. /sessions/<vm>). Detail view renders as plain text labeled
   // "Sandbox path". Null for non-Cowork sources.
   sandbox_path?: string | null
+  // Codex: the forks and subagents of this thread, oldest first.
+  child_uuids?: string[]
 }
 
 export interface MessageNode {

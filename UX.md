@@ -661,6 +661,29 @@ order of the API. A Codex session can have notices such as
 the viewer may not show the whole history. A session with no notices
 shows nothing.
 
+**Codex history.** A Codex fork or subagent continues another thread.
+To follow the work across threads, the **Details** of a Codex session
+link it to its parent and to its children
+(`CodexHistoryLinks.tsx`):
+
+- **"Parent:"** shows when the session has a `parent_uuid`: the fork
+  parent, else the subagent parent. It holds one link.
+- **"Forks and subagents:"** shows when the session has `child_uuids`:
+  one link per child, oldest first.
+- A link shows the title of that session, or its id when the title is
+  empty. A click opens that session in the Conversation Pane.
+- The titles come from one list of every Codex session, archived ones
+  included. The list does not obey the Conversation List filters, so a
+  filter never removes a link.
+- A parent that is not in the archive shows its id as text, with no
+  link.
+- Other sources show neither row.
+
+When Explorer can rebuild the history of a compaction, a rollback, or a
+history base, the session shows no "incomplete:" notice for it. A
+history base that is not in the archive keeps the notice
+"incomplete: history_base missing".
+
 ---
 
 ## 17. Commands, Claude Code's own rows, and the model of each reply

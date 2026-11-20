@@ -341,11 +341,13 @@ def test_project_path_is_the_session_meta_cwd(tmp_path: Path) -> None:
     assert _project(_write(tmp_path, lines))["project_path"] == CWD
 
 
-def test_compact_markers_are_empty_in_slice_1(tmp_path: Path) -> None:
+def test_compacted_record_gives_one_compact_marker(tmp_path: Path) -> None:
+    # Slice 2 (N10) rebuilds compaction; test_codex_history.py has its rules.
     lines = _paginated(
         rollout_line(_s(5), "compacted", {"message": "Summary of the earlier turns."})
     )
-    assert _project(_write(tmp_path, lines))["compact_markers"] == []
+    (marker,) = _project(_write(tmp_path, lines))["compact_markers"]
+    assert marker["summary_text"] == "Summary of the earlier turns."
 
 
 def test_current_leaf_is_the_last_message(codex_home: Path) -> None:
@@ -773,6 +775,11 @@ def _assert_incomplete(conv: dict[str, Any]) -> None:
     assert reasons and all(isinstance(r, str) and r for r in reasons)
 
 
+def _assert_complete(conv: dict[str, Any]) -> None:
+    assert conv["incomplete"] is False
+    assert conv["incomplete_reasons"] == []
+
+
 def test_clean_session_is_not_incomplete(codex_home: Path) -> None:
     for tid in (THREAD_PAGINATED, THREAD_LEGACY):
         conv = _project(_rollout_of(codex_home, tid))
@@ -780,33 +787,33 @@ def test_clean_session_is_not_incomplete(codex_home: Path) -> None:
         assert conv["incomplete_reasons"] == []
 
 
-def test_compacted_record_sets_incomplete(tmp_path: Path) -> None:
+def test_compacted_record_does_not_set_incomplete(tmp_path: Path) -> None:
     # RolloutItem::Compacted, CompactedItem: codex-rs/history/src/lib.rs at f2d3086.
     record = rollout_line(
         _s(5),
         "compacted",
         {"message": "Summary of the earlier turns.", "replacement_history": []},
     )
-    _assert_incomplete(_project(_write(tmp_path / "p", _paginated(record))))
-    _assert_incomplete(_project(_write(tmp_path / "l", _legacy(record))))
+    _assert_complete(_project(_write(tmp_path / "p", _paginated(record))))
+    _assert_complete(_project(_write(tmp_path / "l", _legacy(record))))
 
 
-def test_context_compaction_item_sets_incomplete(tmp_path: Path) -> None:
+def test_context_compaction_item_does_not_set_incomplete(tmp_path: Path) -> None:
     item = {"type": "ContextCompaction", "id": "item-compact"}
-    _assert_incomplete(
+    _assert_complete(
         _project(
             _write(tmp_path, _paginated(item_completed(_s(5), TID, "turn-1", item)))
         )
     )
 
 
-def test_rollback_sets_incomplete(tmp_path: Path) -> None:
+def test_rollback_does_not_set_incomplete(tmp_path: Path) -> None:
     # EventMsg::ThreadRolledBack: codex-rs/protocol/src/protocol.rs at f2d3086.
     record = rollout_line(
         _s(5), "event_msg", {"type": "thread_rolled_back", "num_turns": 1}
     )
-    _assert_incomplete(_project(_write(tmp_path / "p", _paginated(record))))
-    _assert_incomplete(_project(_write(tmp_path / "l", _legacy(record))))
+    _assert_complete(_project(_write(tmp_path / "p", _paginated(record))))
+    _assert_complete(_project(_write(tmp_path / "l", _legacy(record))))
 
 
 def _with_history_base(lines: list[dict[str, Any] | str]) -> list[dict[str, Any] | str]:

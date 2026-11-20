@@ -1,6 +1,6 @@
-"""Project Codex rollout records into Explorer's conversation dict (slice 1).
+"""Project Codex rollout records into Explorer's conversation dict.
 
-Plan §4.4 (N4 part) and §4.5. Codex keeps one of two history modes:
+Plan §4.4 and §4.5. Codex keeps one of two history modes:
 
 * **paginated:** ``event_msg`` / ``item_completed`` records carry the
   visible items. A later snapshot of an item replaces the earlier one.
@@ -8,9 +8,12 @@ Plan §4.4 (N4 part) and §4.5. Codex keeps one of two history modes:
 * **legacy:** ``response_item`` records are the history. A tool call
   matches its output by ``call_id``.
 
-Records that change the history (compaction, rollback, ``history_base``)
-are not rebuilt here. They mark the session ``incomplete`` instead; slice 2
-(N10) rebuilds them.
+Slice 2 (N10) rebuilds the records that change the history: a compaction
+becomes a compact marker, a rollback hides its turns, and a
+``history_base`` prefix comes from ``history.resolve_lineage``. The rules
+follow ``ThreadHistoryBuilder`` in
+``codex-rs/app-server-protocol/src/protocol/thread_history.rs`` at
+``f2d3086``.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from urllib.parse import unquote
 
 import orjson
 
+from .history import LoadBase, parent_uuid, resolve_lineage
 from .rollout import RolloutRecord
 
 ENCRYPTED_REASONING = "Encrypted reasoning (not readable)"
@@ -32,12 +36,14 @@ _NAMESPACE = uuid_mod.uuid5(uuid_mod.NAMESPACE_URL, "https://github.com/rpeck/cl
 
 _RECORD_TYPE_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
 
-# Record types that never hold a visible turn (``RolloutItem`` in Codex 0.170).
+# The RolloutItem kinds (codex-rs/history/src/rollout_payload.rs at f2d3086).
 _KNOWN_RECORD_TYPES = {
     "session_meta", "dynamic_tools_updated", "turn_context", "response_item", "event_msg",
     "inter_agent_communication", "inter_agent_communication_metadata", "world_state",
     "token_usage_record", "security_risk_score", "retained_context", "realtime_item", "compacted",
 }
+
+COMPACTED_LABEL = "Context compacted"
 
 # Text that Codex injects into a user message as context (legacy history).
 _INJECTED_PREFIXES = (
@@ -80,15 +86,22 @@ def project_rollout(
     history_mode: str | None = None,
     current_ambiguous: bool = False,
     damaged_lines: int = 0,
+    load_base: LoadBase | None = None,
 ) -> dict[str, Any]:
-    """Build the conversation dict. ``history_mode`` is the ``state_5`` value, if any."""
-    records = list(records)
-    meta = next((r.payload for r in records if r.type == "session_meta"), {})
+    """Build the conversation dict. ``history_mode`` is the ``state_5`` value, if any.
+
+    ``load_base`` returns the records of a ``history_base`` rollout by its
+    rollout id. Without it, a session with a prefix is incomplete.
+    """
+    own = list(records)
+    meta = next((r.payload for r in own if r.type == "session_meta"), {})
     thread_id = thread_id or meta.get("id") or ""
+    lineage = resolve_lineage(meta, own, load_base)
+    records = lineage.records
 
     paginated = history_mode == "paginated" or any(_is_item_completed(r) for r in records)
     warnings = ["damaged line skipped"] * damaged_lines
-    reasons = _incomplete_reasons(records, current_ambiguous)
+    reasons = _incomplete_reasons(records, current_ambiguous) + lineage.reasons
 
     # turn id -> model, from turn_context; the session model is the last turn's.
     turn_models: dict[str, str] = {}
@@ -112,7 +125,7 @@ def project_rollout(
     return {
         "uuid": thread_id,
         "chat_messages": messages,
-        "compact_markers": [],
+        "compact_markers": _compact_markers(messages),
         "current_leaf_message_uuid": messages[-1]["uuid"] if messages else "",
         "model": session_model,
         "project_path": meta.get("cwd") or "",
@@ -122,6 +135,7 @@ def project_rollout(
         "incomplete": bool(reasons),
         "incomplete_reasons": reasons,
         "warnings": warnings,
+        "parent_uuid": parent_uuid(meta, thread_id),
     }
 
 
@@ -131,44 +145,96 @@ def project_rollout(
 
 
 def _incomplete_reasons(records: list[RolloutRecord], current_ambiguous: bool) -> list[str]:
-    """The reasons why slice 1 cannot rebuild this history, in first-seen order.
+    """The reasons why this history cannot be rebuilt, in first-seen order.
 
-    It checks the records, never ``thread_source``: a fork or subagent with
-    no ``history_base`` is complete, only its parent link is missing.
+    Compaction, rollback, and ``history_base`` are rebuilt (N10). The
+    lineage adds its own reasons when a prefix is missing.
     """
-    reasons: list[str] = []
-
-    def add(reason: str) -> None:
+    reasons = ["current_ambiguous"] if current_ambiguous else []
+    for r in records:
+        if r.type in _KNOWN_RECORD_TYPES:
+            continue
+        # A raw type can hold anything; only a plain name reaches the notice.
+        reason = f"unknown record type: {r.type}" if _RECORD_TYPE_RE.fullmatch(r.type) else "unknown record type"
         if reason not in reasons:
             reasons.append(reason)
-
-    if current_ambiguous:
-        add("current_ambiguous")
-    for r in records:
-        kind = r.payload.get("type") if r.type in ("event_msg", "response_item") else r.type
-        kind = kind if isinstance(kind, str) else ""
-        item = r.payload.get("item") if _is_item_completed(r) else None
-        if (
-            r.type == "compacted"
-            or kind in ("context_compacted", "compacted")
-            or (isinstance(item, dict) and item.get("type") == "ContextCompaction")
-        ):
-            add("compacted")
-        elif _is_rollback(kind):
-            add("rollback")
-        elif r.type not in _KNOWN_RECORD_TYPES:
-            # A raw type can hold anything; only a plain name reaches the notice.
-            add(f"unknown record type: {r.type}" if _RECORD_TYPE_RE.fullmatch(r.type) else "unknown record type")
-        if r.type == "history_base" or r.payload.get("history_base") is not None:
-            add("history_base")
     return reasons
 
 
-def _is_rollback(kind: str) -> bool:
-    # shortcut: the slice 1 fake has no rollback record, so this matches by name;
-    # pin the exact Codex type names when N10 adds them to the fake.
-    k = kind.lower()
-    return any(word in k for word in ("rollback", "rolled_back", "revert", "undo"))
+def _rollback_turns(r: RolloutRecord) -> int | None:
+    """``num_turns`` of an ``EventMsg::ThreadRolledBack`` record, else None."""
+    if r.type != "event_msg" or r.payload.get("type") != "thread_rolled_back":
+        return None
+    n = r.payload.get("num_turns")
+    return n if isinstance(n, int) and not isinstance(n, bool) and n > 0 else 0
+
+
+def _drop_last_turns(turns: list[Any], n: int) -> set[Any]:
+    """The last ``n`` turns; more than the count is all of them."""
+    return set(turns[-n:]) if n > 0 else set()
+
+
+class _Compactions:
+    """Pairs the records that Codex writes for one compaction.
+
+    A ``compacted`` record (it holds the summary) and a ``ContextCompaction``
+    item (paginated) or ``context_compacted`` event (legacy) in the same
+    turn are one compaction, so they give one marker row.
+    """
+
+    def __init__(self) -> None:
+        self._rows: dict[Any, list[dict[str, Any]]] = {}  # turn -> rows, in order
+
+    def add(self, turn: Any, half: str, summary: str | None, r: RolloutRecord) -> dict[str, Any] | None:
+        """The new row, or None when ``half`` completes an earlier row of the turn."""
+        for row in self._rows.get(turn, []):
+            if half not in row["halves"]:
+                row["halves"].add(half)
+                if half == "record":  # the compacted record holds the summary and the time
+                    row["summary"], row["record"] = summary or "", r
+                return None
+        row = {"halves": {half}, "summary": summary or "", "record": r}
+        self._rows.setdefault(turn, []).append(row)
+        return row
+
+    def drop(self, turns: set[Any]) -> None:
+        for turn in turns:
+            self._rows.pop(turn, None)
+
+
+def _compaction_summary(r: RolloutRecord) -> str:
+    message = r.payload.get("message")
+    return message if isinstance(message, str) else ""
+
+
+def _compaction_message(msg_uuid: str, row: dict[str, Any], model: str) -> dict[str, Any]:
+    # The replacement history is model context, never a turn: only the summary shows.
+    r = row["record"]
+    msg = _message(msg_uuid, "assistant", [_text(row["summary"] or COMPACTED_LABEL)], r.timestamp, r.timestamp, model)
+    msg["_compaction"] = row
+    return msg
+
+
+def _compact_markers(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One marker per compaction row; the viewer swaps the row for the marker."""
+    markers = []
+    for msg in messages:
+        row = msg.pop("_compaction", None)
+        if row is None:
+            continue
+        # A later half of the compaction can bring the summary and the time.
+        msg["content"] = [_text(row["summary"] or COMPACTED_LABEL)]
+        msg["text"] = msg["content"][0]["text"]
+        msg["created_at"] = msg["updated_at"] = row["record"].timestamp or ""
+        markers.append({
+            "message_uuid": msg["uuid"],
+            "summary_text": row["summary"],
+            "timestamp": msg["created_at"],
+            # shortcut: no Codex record says who started a compaction; "auto" until one does.
+            "kind": "auto",
+            "user_prompt": None,
+        })
+    return markers
 
 
 # ---------------------------------------------------------------------------
@@ -186,35 +252,57 @@ def _paginated_messages(
     turn_models: dict[str, str],
     warnings: list[str],
 ) -> list[dict[str, Any]]:
-    # (turn id, item id) -> [first record, latest record]; a dict keeps first-seen order.
-    # An inter-agent message has no snapshots: its key is its line number.
-    items: dict[tuple[str, str] | int, list[RolloutRecord]] = {}
-    turns: dict[int, str | None] = {}  # line number -> the turn of an inter-agent message
-    turn: str | None = None
+    # (turn id, item id) -> [first record, latest record], or a compaction row;
+    # (turn id, line number) -> an inter-agent message, which has no snapshots.
+    # A dict keeps first-seen order.
+    items: dict[tuple[str, str | int], Any] = {}
+    compactions = _Compactions()
+    compaction_items: set[tuple[str, str]] = set()
+    turn = ""  # the turn of the latest record that names one
     for r in records:
-        if r.type == "turn_context":
-            turn = r.payload.get("turn_id") or turn
+        if r.type in ("turn_context", "event_msg") and isinstance(r.payload.get("turn_id"), str):
+            turn = r.payload["turn_id"] or turn
+        rollback = _rollback_turns(r)
+        if rollback is not None:
+            dropped = _drop_last_turns(list(dict.fromkeys(key[0] for key in items)), rollback)
+            items = {key: v for key, v in items.items() if key[0] not in dropped}
+            compactions.drop(dropped)
+            continue
+        if r.type == "compacted":
+            row = compactions.add(turn, "record", _compaction_summary(r), r)
+            if row is not None:
+                items[(turn, f"compacted-{r.line_no}")] = row
+            continue
         if r.type == "inter_agent_communication":
-            items[r.line_no] = [r, r]
-            turns[r.line_no] = r.payload.get("turn_id") or turn
+            own_turn = r.payload.get("turn_id")
+            items[(own_turn if isinstance(own_turn, str) and own_turn else turn, r.line_no)] = r
+            continue
         if not _is_item_completed(r) or not isinstance(r.payload.get("item"), dict):
             continue
         turn_id = str(r.payload.get("turn_id") or "")
         item_id = str(r.payload["item"].get("id") or f"line-{r.line_no}")
+        if r.payload["item"].get("type") == "ContextCompaction":
+            if (turn_id, item_id) not in compaction_items:  # a later snapshot changes nothing
+                compaction_items.add((turn_id, item_id))
+                row = compactions.add(turn_id, "item", None, r)
+                if row is not None:
+                    items[(turn_id, item_id)] = row
+            continue
         slot = items.setdefault((turn_id, item_id), [r, r])
         slot[1] = r
 
     messages = []
-    for key, (first, latest) in items.items():
-        if isinstance(key, int):
-            turn = turns[key]
-            messages.append(_agent_message(first, thread_id, turn, turn_models.get(turn or "", "")))
+    for (turn_id, item_id), entry in items.items():
+        if isinstance(entry, RolloutRecord):
+            messages.append(_agent_message(entry, thread_id, turn_id, turn_models.get(turn_id, "")))
             continue
-        turn_id, item_id = key
+        msg_uuid = message_uuid(thread_id, turn_id=turn_id, item_id=str(item_id))
+        if isinstance(entry, dict):
+            messages.append(_compaction_message(msg_uuid, entry, turn_models.get(turn_id, "")))
+            continue
+        first, latest = entry
         item = latest.payload["item"]
         item_type = item.get("type")
-        if item_type == "ContextCompaction":
-            continue  # marks the session incomplete; N10 adds a CompactMarker
         sender = "human" if item_type == "UserMessage" else "assistant"
         if item_type == "UserMessage":
             blocks = _user_content(item.get("content"))
@@ -232,8 +320,7 @@ def _paginated_messages(
             continue
         messages.append(
             _message(
-                message_uuid(thread_id, turn_id=turn_id, item_id=item_id),
-                sender, blocks, first.timestamp, latest.timestamp,
+                msg_uuid, sender, blocks, first.timestamp, latest.timestamp,
                 turn_models.get(turn_id, ""),
             )
         )
@@ -387,15 +474,34 @@ def _legacy_messages(
 ) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     calls: dict[str, dict[str, Any]] = {}  # call_id -> the message that holds the call
+    turn_of: dict[str, int] = {}  # message uuid -> turn; each human message starts a turn
+    turn = 0
+    compactions = _Compactions()
     model = ""
-    turn: str | None = None
+    turn_id: str | None = None  # the turn_context turn; ``turn`` counts the human messages
     for r in records:
         if r.type == "turn_context":
             model = r.payload.get("model") or model
-            turn = r.payload.get("turn_id") or turn
+            turn_id = r.payload.get("turn_id") or turn_id
             continue
         if r.type == "inter_agent_communication":
-            messages.append(_agent_message(r, thread_id, r.payload.get("turn_id") or turn, model))
+            msg = _agent_message(r, thread_id, r.payload.get("turn_id") or turn_id, model)
+            turn_of[msg["uuid"]] = turn
+            messages.append(msg)
+            continue
+        rollback = _rollback_turns(r)
+        if rollback is not None:
+            dropped = _drop_last_turns(list(dict.fromkeys(turn_of[m["uuid"]] for m in messages)), rollback)
+            messages = [m for m in messages if turn_of[m["uuid"]] not in dropped]
+            compactions.drop(dropped)
+            continue
+        is_event = r.type == "event_msg" and r.payload.get("type") == "context_compacted"
+        if r.type == "compacted" or is_event:
+            row = compactions.add(turn, "event" if is_event else "record", None if is_event else _compaction_summary(r), r)
+            if row is not None:
+                msg = _compaction_message(message_uuid(thread_id, line_no=r.line_no), row, model)
+                turn_of[msg["uuid"]] = turn
+                messages.append(msg)
             continue
         if r.type != "response_item":
             continue
@@ -434,6 +540,8 @@ def _legacy_messages(
         if not blocks:
             continue
         msg = _message(message_uuid(thread_id, line_no=r.line_no), sender, blocks, r.timestamp, r.timestamp, model)
+        turn += sender == "human"
+        turn_of[msg["uuid"]] = turn
         messages.append(msg)
         if kind in _LEGACY_CALLS and p.get("call_id"):
             calls[p["call_id"]] = msg

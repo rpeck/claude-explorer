@@ -42,7 +42,7 @@ from backend.codex.identity import newest_copy, thread_metadata
 from backend.codex.imports import read_imports
 from backend.codex.name_index import read_session_index
 from backend.codex.projection import project_rollout
-from backend.codex.rollout import read_rollout
+from backend.codex.rollout import RolloutRecord, read_rollout
 from backend.codex.state_db import read_threads
 from backend.codex.zstd import open_decompressed
 from fetcher.atomic import atomic_write_bytes
@@ -69,7 +69,7 @@ DESCRIPTOR = SourceDescriptor(
 )
 
 #: The search index reindexes the Codex rows when this changes (§4.4).
-CODEX_PROJECTION_VERSION = 2
+CODEX_PROJECTION_VERSION = 3
 
 ARCHIVE_DIR = "codex"
 HOME_FILE = "home.json"
@@ -286,7 +286,8 @@ def _sync_thread(
 # Thread file -> ((mtime_ns, size), value). A thread file changes whenever
 # its rollout copy grows (``copied_bytes``), so its stat keys every cache.
 _thread_cache: dict[Path, tuple[tuple[int, int], dict[str, Any] | None]] = {}
-_row_cache: dict[Path, tuple[tuple[int, int], dict[str, Any] | None]] = {}
+# Thread file -> (key, row, uses_base); see CodexAdapter._row.
+_row_cache: dict[Path, tuple[tuple[Any, ...], dict[str, Any] | None, bool]] = {}
 _cache_lock = threading.Lock()
 
 
@@ -331,6 +332,25 @@ def _load_thread_file(path: Path) -> dict[str, Any] | None:
     if data.get("thread_id") != path.stem:
         return None
     return data
+
+
+def _base_records(home_dir: Path, thread_id: str) -> list[RolloutRecord] | None:
+    """The records of a history base: the current rollout of that thread in the same home."""
+    if not THREAD_ID_RE.fullmatch(thread_id):
+        return None
+    thread = _cached(_thread_cache, home_dir / THREADS_DIR / f"{thread_id}.json", _load_thread_file)
+    stem = thread.get("current_stem") if thread else None
+    if not isinstance(stem, str) or not STEM_RE.fullmatch(stem):
+        return None
+    try:
+        return read_rollout(home_dir / ROLLOUTS_DIR / f"{stem}.jsonl").records
+    except OSError:
+        return None
+
+
+def _other(value: Any, thread_id: str) -> str | None:
+    """``value`` when it names another thread; a thread is never its own parent."""
+    return value if isinstance(value, str) and value and value != thread_id else None
 
 
 def _notices(thread: dict[str, Any], conv: dict[str, Any]) -> list[str]:
@@ -380,13 +400,37 @@ class CodexAdapter:
 
     # The readers ------------------------------------------------------------
 
-    def _thread_files(self) -> list[Path]:
+    def _home_dirs(self) -> list[Path]:
         try:
-            homes = sorted(p for p in self._root.iterdir() if _HOME_DIR_RE.fullmatch(p.name) and p.is_dir())
+            return sorted(p for p in self._root.iterdir() if _HOME_DIR_RE.fullmatch(p.name) and p.is_dir())
         except OSError:
             return []
+
+    def _threads_token(self) -> str:
+        """Changes when any thread file of any home is written, added, or removed.
+
+        The copier writes a thread file with a temp file and a rename, so the
+        mtime of its ``threads/`` folder changes with every write.
+        """
+        parts = []
+        for home_dir in self._home_dirs():
+            try:
+                parts.append(f"{home_dir.name}={(home_dir / THREADS_DIR).stat().st_mtime_ns}")
+            except OSError:
+                continue
+        return ",".join(parts)
+
+    def cache_token(self, path: Path) -> str:
+        """The key of the store's detail cache for this thread file.
+
+        A detail also depends on other thread files: its history bases and
+        its children (``child_uuids``). Raises ``OSError`` like ``stat``.
+        """
+        return f"{path.stat().st_mtime_ns};{self._threads_token()}"
+
+    def _thread_files(self) -> list[Path]:
         out = []
-        for home_dir in homes:
+        for home_dir in self._home_dirs():
             try:
                 names = sorted(os.listdir(home_dir / THREADS_DIR))
             except OSError:
@@ -426,27 +470,38 @@ class CodexAdapter:
 
     def load(self, path: Path) -> dict[str, Any] | None:
         """The conversation dict of one thread file; ``None`` without a turn (D2)."""
+        return self._load(path)[0]
+
+    def _load(self, path: Path) -> tuple[dict[str, Any] | None, bool]:
+        """The conversation dict, and whether it asked for a history base."""
         thread = _cached(_thread_cache, path, _load_thread_file)
         if thread is None:
-            return None
+            return None, False
         stem = thread.get("current_stem")
         if not isinstance(stem, str) or not STEM_RE.fullmatch(stem):
-            return None
+            return None, False
         home_dir = path.parent.parent
         try:
             read = read_rollout(home_dir / ROLLOUTS_DIR / f"{stem}.jsonl")
         except OSError:
-            return None
+            return None, False
         thread_id = thread["thread_id"]
+        bases: list[str] = []
+
+        def load_base(base_id: str) -> list[RolloutRecord] | None:
+            bases.append(base_id)
+            return _base_records(home_dir, base_id)
+
         conv = project_rollout(
             read.records,
             thread_id=thread_id,
             history_mode=thread.get("history_mode"),
             current_ambiguous=bool(thread.get("current_ambiguous")),
             damaged_lines=read.damaged_lines,
+            load_base=load_base,
         )
         if not conv["chat_messages"]:
-            return None
+            return None, bool(bases)
         home_path = self._home_path(home_dir)
         conv.update(
             uuid=thread_id,
@@ -461,27 +516,45 @@ class CodexAdapter:
             source_home=_display_home(home_path) if home_path else None,
             source_home_abs=home_path,
             notices=_notices(thread, conv),
-            parent_uuid=thread.get("parent_thread_id"),
+            # The fork or subagent parent of session_meta, else the state_5 one.
+            parent_uuid=conv.get("parent_uuid") or _other(thread.get("parent_thread_id"), thread_id),
         )
-        return conv
+        return conv, bool(bases)
 
-    def _row(self, path: Path) -> dict[str, Any] | None:
-        conv = self.load(path)
-        if conv is None:
+    def child_uuids(self, uuid: str) -> list[str]:
+        """The forks and subagents of a thread: oldest first, then by uuid."""
+        rows = [r for r in self.list_rows(full_content=False, include_phantom=False)
+                if r.get("parent_uuid") == uuid and r.get("uuid") != uuid]
+        rows.sort(key=lambda r: (str(r.get("created_at") or ""), r["uuid"]))
+        return [r["uuid"] for r in rows]
+
+    def _row(self, path: Path, threads_token: str) -> dict[str, Any] | None:
+        """The cached list row. A row with a history base also keys on the other thread files."""
+        key = _stat_key(path)
+        if key is None:
             return None
-        messages = conv.pop("chat_messages")
-        conv.pop("compact_markers", None)
-        conv["message_count"] = len(messages)
-        conv["human_message_count"] = sum(1 for m in messages if m.get("sender") == "human")
+        with _cache_lock:
+            hit = _row_cache.get(path)
+        if hit is not None and hit[0] == (key, threads_token if hit[2] else None):
+            return hit[1]
+        conv, uses_base = self._load(path)
+        if conv is not None:
+            messages = conv.pop("chat_messages")
+            conv.pop("compact_markers", None)
+            conv["message_count"] = len(messages)
+            conv["human_message_count"] = sum(1 for m in messages if m.get("sender") == "human")
+        with _cache_lock:
+            _row_cache[path] = ((key, threads_token if uses_base else None), conv, uses_base)
         return conv
 
     def list_rows(self, *, full_content: bool, include_phantom: bool) -> list[dict[str, Any]]:
         out = []
+        threads_token = "" if full_content else self._threads_token()
         for path in self.discover():
             if full_content:
                 row = self.load(path)
             else:
-                row = _cached(_row_cache, path, self._row)
+                row = self._row(path, threads_token)
                 row = dict(row) if row is not None else None  # callers must not change the cache
             if row is not None:
                 out.append(row)
@@ -493,7 +566,11 @@ class CodexAdapter:
         paths = [p for p in self._thread_files() if p.stem == uuid]
         best = self._newest(paths) if paths else None
         data = self.load(best) if best is not None else None
-        return (data, best) if data is not None else None
+        if data is None:
+            return None
+        # Only here, not in load(): every list row would scan the list again.
+        data["child_uuids"] = self.child_uuids(uuid)
+        return data, best
 
     def load_for_index(self, path: Path) -> dict[str, Any] | None:
         return self.load(path)

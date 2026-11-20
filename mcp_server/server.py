@@ -42,7 +42,11 @@ from backend.models import (
 )
 from backend.search import search_conversations
 from backend.sources.ids import SourceFilter
-from backend.sources.registry import get_descriptor, get_descriptors
+from backend.sources.registry import (
+    get_adapter_or_none,
+    get_descriptor,
+    get_descriptors,
+)
 from backend.store import ConversationStore
 from backend.write_gate import cloud_sync_block, run_archive_syncs, sync_busy
 from mcp_server import __version__
@@ -232,6 +236,14 @@ def _source_fields(conv: ConversationSummary) -> dict[str, Any]:
     if conv.notices:
         out["notices"] = list(conv.notices)
     return out
+
+
+def _history_links(store: ConversationStore, conv: ConversationSummary) -> dict[str, Any]:
+    """The parent and the forks and subagents, for a source that links them (Codex)."""
+    adapter = get_adapter_or_none(conv.source, store)
+    if not hasattr(adapter, "child_uuids"):
+        return {}
+    return {"parent_uuid": conv.parent_uuid, "child_uuids": adapter.child_uuids(conv.uuid)}
 
 
 def reset_archive_sync_for_tests() -> None:
@@ -757,6 +769,7 @@ def get_session_outline(
         "next_position": next_position,
         "messages": summaries[start:end],
         **_source_fields(conversation),
+        **_history_links(store, conversation),
         **_sync_fields(),
     }
 

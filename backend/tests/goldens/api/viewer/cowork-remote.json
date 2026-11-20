@@ -1,5 +1,6 @@
 {
   "detail": {
+    "child_uuids": [],
     "compact_markers": [],
     "created_at": "2026-10-06T19:00:00Z",
     "current_leaf_message_uuid": "a-6",

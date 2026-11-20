@@ -19,7 +19,9 @@
  *       * Claude Cowork: sandbox_path copy button, after its
  *         "Sandbox path:" label
  *       * UUID copy button (every source but Codex)
- *       * Codex: "Thread ID", "Codex name" (or "none"), and "Codex home"
+ *       * Codex: "Thread ID", "Codex name" (or "none"), and "Codex home",
+ *         then the "Parent:" and "Forks and subagents:" links
+ *         (CodexHistoryLinks)
  *       * file_path copy button (when present)
  *
  * Every copy button is a CopyValueButton, which owns its own "copied"
@@ -40,6 +42,7 @@ import { ListFilterButton } from '@/components/conversation/ListFilterButton'
 import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { NoticeList } from '@/components/conversation/NoticeList'
+import { CodexHistoryLinks } from '@/components/conversation/CodexHistoryLinks'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
 import { modelDisplayName } from '@/lib/modelName'
@@ -198,6 +201,7 @@ function CodexDetails({ conversation }: { conversation: ConversationDetail }) {
           </CopyValueButton>
         </div>
       )}
+      <CodexHistoryLinks conversation={conversation} />
     </>
   )
 }
