@@ -140,7 +140,7 @@ test.describe('Sidebar list filters: grouping', () => {
     })
     await withNetRetry(page, () => page.goto('/'))
     await expectRows(page, ROWS12, [])
-    // Positive control: under "All Conversations" the list groups.
+    // Positive control: under "All Agents" the list groups.
     await expect(groupCheckbox(page)).toBeChecked()
     await expect(folderHeader(page, 'proj')).toBeVisible()
 

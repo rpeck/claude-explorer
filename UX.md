@@ -930,7 +930,7 @@ In addition to the scope-pin dim (Section 5), the list dims rows for:
 - **Phantom sessions** (empty Claude Code sessions): hidden by default,
   toggled by the "Empty" checkbox in the sidebar header.
 - **Group-by-project** mode: only available when the source filter is
-  "All Conversations", "Claude Code", or "Codex". See "Conversation List
+  "All Agents", "Claude Code", or "Codex". See "Conversation List
   filters".
 
 ### Conversation List filters
@@ -1019,7 +1019,7 @@ last 1 day."). It gives a button for each filter that it can clear:
 **Group sessions by project** (the folder-tree checkbox):
 
 - The list groups only when the checkbox is shown and checked. It is
-  shown for the sources "All Conversations", "Claude Code", and "Codex"
+  shown for the sources "All Agents", "Claude Code", and "Codex"
   (each source whose registry flag `has_projects` is true).
 - Folders hold only the filtered rows. A folder with no visible row is
   not shown, and its count is its number of visible rows.
