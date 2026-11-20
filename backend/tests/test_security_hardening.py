@@ -40,8 +40,6 @@ import pytest
 from backend.tests import codex_fake as fake
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="L7 not implemented yet")
-
 ELLIPSIS = "…"
 CASE_INSENSITIVE = sys.platform in ("darwin", "win32")
 
