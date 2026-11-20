@@ -2,10 +2,6 @@
  * B52 (issue #52), "one name everywhere": the model chip of a Conversation
  * List row (`data-testid="list-row-model"`) shows `modelDisplayName(model)`,
  * with the raw id as its title. A row without a model has no chip.
- *
- * B52 is not implemented yet, so each test is an expected failure.
- * `B52_RUN_XFAIL=1` runs them as plain tests. Remove the switch when B52
- * passes.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { http, HttpResponse } from 'msw'
@@ -14,8 +10,6 @@ import { ConversationList } from '../../components/conversation/ConversationList
 import { server } from '../mocks/server'
 import { mockConversations } from '../mocks/data'
 import { serveApp } from '../sources/fakeRegistry'
-
-const xfail: typeof it = import.meta.env.B52_RUN_XFAIL ? it : (it.fails as typeof it)
 
 // The list's providers ask for the preferences and the bookmarks.
 beforeEach(() => serveApp({}))
@@ -37,19 +31,19 @@ async function row(title: string): Promise<HTMLElement> {
 }
 
 describe('the model chip of a list row', () => {
-  xfail('claude-opus-5-5 shows "Opus 5.5", with the raw id as its title', async () => {
+  it('claude-opus-5-5 shows "Opus 5.5", with the raw id as its title', async () => {
     const chip = within(await row('Row with an Opus model')).getByTestId('list-row-model')
     expect(chip).toHaveTextContent(/^Opus 5\.5$/)
     expect(chip).toHaveAttribute('title', 'claude-opus-5-5')
   })
 
-  xfail('gpt-5.6-codex shows the id as it is', async () => {
+  it('gpt-5.6-codex shows the id as it is', async () => {
     const chip = within(await row('Row with a Codex model')).getByTestId('list-row-model')
     expect(chip).toHaveTextContent(/^gpt-5\.6-codex$/)
     expect(chip).toHaveAttribute('title', 'gpt-5.6-codex')
   })
 
-  xfail('a row without a model has no chip', async () => {
+  it('a row without a model has no chip', async () => {
     const el = await row('Row without a model')
     // The other rows prove that the chip exists; this row has none.
     expect(screen.getAllByTestId('list-row-model')).toHaveLength(2)
