@@ -65,6 +65,9 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
     first_user = None
     first_real_user = None  # First user message that's not a system "Caveat" message
     first_assistant = None
+    # A slash command in the newer system-row form is a turn too (#52), but
+    # the counts stay those of the older reader.
+    first_command = None
     first_timestamp = None
     # The latest timestamp of any row: the session's last activity.
     last_timestamp = None
@@ -113,6 +116,12 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
                             assistant_message_ids.add(msg_id)
                         if not first_assistant:
                             first_assistant = entry
+                    elif (
+                        entry_type == "system"
+                        and entry.get("subtype") == "local_command"
+                        and not first_command
+                    ):
+                        first_command = entry
 
                 except orjson.JSONDecodeError:
                     pass
@@ -122,7 +131,7 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
     # Hide only a session with no turns (AGENTS.md, guiding principle 1). A
     # session whose only turn is an assistant message still shows: before
     # 2026-11-14 the list hid it, but search found it.
-    first_turn = first_user or first_assistant
+    first_turn = first_user or first_assistant or first_command
     if not first_turn:
         return None
 

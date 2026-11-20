@@ -15,6 +15,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from ..model_names import sender_label
 from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
 from ..sources.registry import get_descriptor
@@ -32,6 +33,7 @@ from ._shared import (
     render_compact_summary_markdown,
     sanitize_filename,
 )
+from .markdown import command_output_markdown
 
 
 def _image_marker_path_is_safe(path: Path, image_cache_root: Path) -> bool:
@@ -160,7 +162,7 @@ def _bundle_message_to_markdown(
     """Render one message for the bundle, swapping CC image refs for
     bundle-relative paths and inserting inline-image refs at their
     block position."""
-    sender = "You" if message.sender == "human" else assistant_label
+    sender = sender_label(message, assistant_label)
     timestamp = format_timestamp(message.created_at)
     lines: list[str] = [f"**{sender}:** *{timestamp}*", ""]
 
@@ -193,6 +195,9 @@ def _bundle_message_to_markdown(
             return f"_(image not bundled: {match.group(1).strip()})_"
 
         lines.append(CC_IMAGE_MARKER_RE.sub(_swap, text))
+
+    if message.command_output:
+        lines.append(command_output_markdown(message.command_output, message.command_output_is_error))
 
     # Desktop preview-asset image attachments: not bundled (they
     # require an authenticated proxy fetch from claude.ai). Emit a

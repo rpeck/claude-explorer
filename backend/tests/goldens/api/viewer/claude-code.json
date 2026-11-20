@@ -15,6 +15,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -32,8 +34,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
         "truncated": false,
@@ -43,6 +50,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -60,8 +69,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "4b8feb03-4b8a-494d-49fd-05a0fc6afbcd",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Hello! Ready to help with the fixture project.",
         "truncated": false,
@@ -71,6 +85,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -88,8 +104,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "4fee76a6-6b48-4ad6-f08a-668fad6c100d",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "What's 2+2?",
         "truncated": false,
@@ -99,6 +120,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -116,8 +139,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "8a4750e3-65d9-dad3-d43d-9d0705b5d3e1",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Four.",
         "truncated": false,

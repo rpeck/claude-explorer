@@ -12,7 +12,7 @@ Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.
 
 ---
 
-**Claude:** *2026-05-25 10:00*
+**Claude Opus 4.7:** *2026-05-25 10:00*
 
 Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.
 
@@ -24,7 +24,7 @@ Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.
 
 ---
 
-**Claude:** *2026-05-25 10:01*
+**Claude Opus 4.7:** *2026-05-25 10:01*
 
 Reply with thinking block preserved.
 

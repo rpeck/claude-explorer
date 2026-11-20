@@ -19,6 +19,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
+from ..model_names import sender_label
 from ..models import ContentBlock, ConversationDetail, Message
 from ..search_text import _is_compact_trigger_message
 from ..sources.registry import get_descriptor
@@ -393,7 +394,9 @@ def conversation_to_html(
         if not message_has_visible_content(message, include_tools):
             continue
 
-        sender = "You" if message.sender == "human" else getattr(get_descriptor(conversation.source), "assistant_label", "Claude")
+        sender = escape_html(sender_label(
+            message, getattr(get_descriptor(conversation.source), "assistant_label", "Claude")
+        ))
         timestamp = format_timestamp(message.created_at)
 
         # Get message content
@@ -412,6 +415,12 @@ def conversation_to_html(
         # surface stays in sync with viewer + Markdown ("one truth, three
         # surfaces").
         images_html = _image_html(message)
+        if message.command_output:
+            label = "Claude Code (error)" if message.command_output_is_error else "Claude Code"
+            content_html += (
+                f'<div class="command-output"><strong>{label}:</strong>'
+                f"<pre>{escape_html(message.command_output)}</pre></div>"
+            )
 
         html += f"""
     <div class="message {message.sender}">

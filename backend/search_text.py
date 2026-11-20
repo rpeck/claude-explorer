@@ -195,7 +195,9 @@ def _extract_searchable_text(
     title-sweep, not from marker-row body matches.
     """
     if message.get("is_command_marker") is True:
-        return ""
+        # Issue #52: the marker's chrome stays out, but what the command
+        # printed (for example the model that /model set) is searchable.
+        return message.get("command_output") or ""
 
     # /compact trigger row exclusion (2026-05-23). See
     # :func:`_is_compact_trigger_message` for the full rationale. Mirrors
@@ -264,6 +266,8 @@ def _extract_searchable_text(
     slash_command = message.get("slash_command")
     if slash_command:
         parts.append(slash_command)
+    if message.get("command_output"):
+        parts.append(message["command_output"])
 
     for block in message.get("content") or []:
         if not isinstance(block, dict):

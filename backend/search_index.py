@@ -280,7 +280,11 @@ logger = logging.getLogger(__name__)
 #     a single UPDATE over ~hundreds of rows. Total work: ~ms on any
 #     plausible corpus. No reindex pain — the v13 messages table is
 #     left intact. Mirrors the v11→v12 fast-migration pattern.
-SCHEMA_VERSION = 14
+#   * v15 (2026-11-19, issue #52): no schema change. The output of a local
+#     slash command (``command_output`` on its marker) is now searchable
+#     text, and shell and notice rows lose their tags. A full rebuild
+#     indexes the text again.
+SCHEMA_VERSION = 15
 
 
 # ``messages`` is the FTS5 virtual table. UNINDEXED columns store metadata
@@ -982,77 +986,8 @@ class SearchIndex:
                     self._schema_ok = True
                 return
 
-            # v13 → v14 fast migration (2026-05-26): add
-            # ``is_compaction_titled`` column to the ``conversations``
-            # projection table and backfill it from the title text.
-            # The column lives on a regular SQLite table (NOT the FTS5
-            # virtual table), so ALTER TABLE ADD COLUMN is constant-
-            # time and the backfill is a single UPDATE over ~hundreds
-            # of rows — total ~ms. CRITICAL: without this fast path
-            # the v13→v14 transition would fall through to the full
-            # DROP+rebuild branch below and the user would pay another
-            # ~5-15 min reindex on the same day they paid for v12→v13.
-            #
-            # Gating condition: v13 stamped + messages cols match the
-            # current code (the v13 FTS5 schema is unchanged in v14).
-            # Both checks must pass — if messages cols drifted the safer
-            # move is the full rebuild below.
-            if (
-                on_disk_version == 13
-                and SCHEMA_VERSION == 14
-                and existing_cols == self._EXPECTED_MESSAGES_COLS
-            ):
-                logger.info(
-                    "search_index: fast-migrating v13 → v14 "
-                    "(adding is_compaction_titled to conversations + "
-                    "backfilling from title text)"
-                )
-                self._schema_ok = False
-                try:
-                    # Step 1: idempotent column add. ALTER TABLE ADD
-                    # COLUMN is constant-time in SQLite. Gate on
-                    # PRAGMA table_info to survive partial prior
-                    # migrations (column added but schema_version not
-                    # stamped) — same idempotency pattern v11→v12 uses
-                    # for the indexed_files.conv_uuid column.
-                    existing_conv_cols = {
-                        r[1] for r in cur.execute(
-                            "PRAGMA table_info(conversations)"
-                        ).fetchall()
-                    }
-                    if "is_compaction_titled" not in existing_conv_cols:
-                        # NOT NULL DEFAULT 0 is safe: every existing row
-                        # gets 0 (visible) until the backfill UPDATE
-                        # flips compaction-titled rows to 1.
-                        cur.execute(
-                            "ALTER TABLE conversations "
-                            "ADD COLUMN is_compaction_titled "
-                            "INTEGER NOT NULL DEFAULT 0"
-                        )
-
-                    # Step 2: backfill in pure SQL. ``ltrim(title)``
-                    # mirrors the Python ``.lstrip()`` whitespace
-                    # tolerance in :func:`is_compaction_prefix_text`.
-                    # The ``? || '%'`` parameter pattern is the safe
-                    # way to bind a LIKE-prefix in SQLite (parameter
-                    # binding doesn't substitute inside the LIKE
-                    # literal directly).
-                    cur.execute(
-                        "UPDATE conversations "
-                        "SET is_compaction_titled = 1 "
-                        "WHERE ltrim(title) LIKE ? || '%'",
-                        (COMPACTION_TITLE_PREFIX,),
-                    )
-
-                    cur.execute("DELETE FROM schema_version")
-                    cur.execute(
-                        "INSERT INTO schema_version (version) VALUES (?)",
-                        (SCHEMA_VERSION,),
-                    )
-                    self._write_conn.commit()
-                finally:
-                    self._schema_ok = True
-                return
+            # The v13 → v14 fast migration (2026-05-26) ran only while
+            # SCHEMA_VERSION was 14. v15 needs a full rebuild, so it is gone.
 
             logger.info(
                 "search_index: rebuilding (version on-disk=%s code=%s; messages cols match=%s)",

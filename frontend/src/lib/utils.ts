@@ -3,6 +3,7 @@ import { twMerge } from 'tailwind-merge'
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
 import type { Message, ContentBlock } from './types'
 import { dedupeImageFiles, imageAltText, previewSrc } from './imageFiles'
+import { senderLabel } from './modelName'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -206,8 +207,20 @@ function contentBlockToMarkdown(block: ContentBlock, showToolCalls: boolean): st
   }
 }
 
-export function messageToMarkdown(message: Message, showToolCalls: boolean): string {
-  const sender = message.sender === 'human' ? 'You' : 'Claude'
+/** The output of a slash command, as a fenced block (twin of the backend's
+ *  `command_output_markdown`). */
+function commandOutputMarkdown(output: string, isError: boolean): string {
+  const longest = Math.max(0, ...(output.match(/`+/g) ?? []).map((r) => r.length))
+  const fence = '`'.repeat(Math.max(3, longest + 1))
+  return `\n\n**${isError ? 'Claude Code (error)' : 'Claude Code'}:**\n\n${fence}\n${output}\n${fence}`
+}
+
+export function messageToMarkdown(
+  message: Message,
+  showToolCalls: boolean,
+  assistantLabel = 'Claude',
+): string {
+  const sender = senderLabel(message, assistantLabel)
   let content = ''
 
   if (message.content && message.content.length > 0) {
@@ -244,7 +257,11 @@ export function messageToMarkdown(message: Message, showToolCalls: boolean): str
       .join('\n\n')
   }
 
-  return `**${sender}:**\n\n${content.trim()}${imagesMd}`
+  const outputMd = message.command_output
+    ? commandOutputMarkdown(message.command_output, message.command_output_is_error ?? false)
+    : ''
+
+  return `**${sender}:**\n\n${content.trim()}${outputMd}${imagesMd}`
 }
 
 /**
@@ -276,19 +293,21 @@ export function messageToMarkdown(message: Message, showToolCalls: boolean): str
  * in `backend/export.py` MUST be mirrored here.
  */
 export function isExcludableMarker(message: Message): boolean {
-  return message.is_command_marker === true
+  // Issue #52 (option A): a marker that holds its command's output is not chrome.
+  return message.is_command_marker === true && !message.command_output
 }
 
 export function conversationToMarkdown(
   title: string,
   messages: Message[],
-  showToolCalls: boolean
+  showToolCalls: boolean,
+  assistantLabel = 'Claude',
 ): string {
   const header = `# ${title}\n\n`
   const body = messages
     .filter((msg) => !isExcludableMarker(msg))
     .filter((msg) => messageHasVisibleContent(msg, showToolCalls))
-    .map((msg) => messageToMarkdown(msg, showToolCalls))
+    .map((msg) => messageToMarkdown(msg, showToolCalls, assistantLabel))
     .join('\n\n---\n\n')
   return header + body
 }

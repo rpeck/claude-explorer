@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.search_index import SearchIndex
+from backend.search_index import SCHEMA_VERSION, SearchIndex
 
 _OTHER_CONVS = 30
 
@@ -176,7 +176,7 @@ def test_an_index_from_before_the_fix_opens_with_every_row_reachable(
     assert _rows_of(reopened, "legacy") == []
     assert len(_rows_of(reopened, "target")) == 5
     version = reopened._write_conn.execute("SELECT version FROM schema_version").fetchone()
-    assert version == (14,)
+    assert version == (SCHEMA_VERSION,)
     reopened.close()
 
 

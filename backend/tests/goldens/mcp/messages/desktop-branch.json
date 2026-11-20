@@ -1,6 +1,8 @@
 {
   "all_default": [
     {
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "text": "Tell me about branching. NEEDLE_BRANCH",
@@ -8,6 +10,8 @@
       "uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3"
     },
     {
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "text": "Branches happen when you regenerate from an earlier message.",
@@ -15,6 +19,8 @@
       "uuid": "5b869d32-c789-4f70-7619-fafbd7b3b3db"
     },
     {
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "text": "What does the tree visualization look like?",
@@ -22,6 +28,8 @@
       "uuid": "d2c6abd7-3321-777f-c114-4843ac2f2b2b"
     },
     {
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 3,
       "sender": "assistant",
       "text": "A read-only tree where you can click any leaf to switch branches.",
@@ -37,6 +45,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "timestamp": "2026-04-01T10:00:00+00:00",
@@ -49,6 +59,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "timestamp": "2026-04-01T10:01:00+00:00",
@@ -61,6 +73,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "timestamp": "2026-04-01T10:02:00+00:00",
@@ -73,6 +87,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 3,
       "sender": "assistant",
       "timestamp": "2026-04-01T10:03:00+00:00",
@@ -87,6 +103,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "timestamp": "2026-04-01T10:00:00+00:00",
@@ -99,6 +117,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "timestamp": "2026-04-01T10:01:00+00:00",
@@ -111,6 +131,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "timestamp": "2026-04-01T10:02:00+00:00",
@@ -123,6 +145,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 3,
       "sender": "assistant",
       "timestamp": "2026-04-01T10:03:00+00:00",
@@ -131,6 +155,8 @@
   ],
   "positions_0_1": [
     {
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "text": "Tell me about branching. NEEDLE_BRANCH",
@@ -138,6 +164,8 @@
       "uuid": "725445c1-b1a2-aa9d-0251-746ddb3b59f3"
     },
     {
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "text": "Branches happen when you regenerate from an earlier message.",
