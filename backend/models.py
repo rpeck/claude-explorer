@@ -284,6 +284,8 @@ class ConversationDetail(ConversationSummary):
     # CC-parity, but the Cowork detail view prefers the labeled
     # sandbox_path render).
     sandbox_path: str | None = None
+    #: Codex: the forks and subagents of this thread, oldest first. Detail only.
+    child_uuids: list[str] = Field(default_factory=list)
 
 
 class MessageNode(BaseModel):
