@@ -15,6 +15,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -32,8 +34,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Hello from the cowork session. The magic token is COWORK_FIXTURE_HELLO_XYZ.",
         "truncated": false,
@@ -43,6 +50,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -60,8 +69,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-opus-4-7",
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Hi! I see your COWORK_FIXTURE_HELLO_XYZ token.",
         "truncated": false,
@@ -71,6 +85,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -88,8 +104,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Second user turn — also has COWORK_FIXTURE_HELLO_XYZ embedded.",
         "truncated": false,
@@ -99,6 +120,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -126,8 +149,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-opus-4-7",
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Reply with thinking block preserved.",
         "truncated": false,

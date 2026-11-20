@@ -12,7 +12,7 @@ Tell me about branching. NEEDLE_BRANCH
 
 ---
 
-**Claude:** *2026-04-01 10:01*
+**Claude Sonnet 4.6:** *2026-04-01 10:01*
 
 Branches happen when you regenerate from an earlier message.
 
@@ -24,7 +24,7 @@ What does the tree visualization look like?
 
 ---
 
-**Claude:** *2026-04-01 10:03*
+**Claude Sonnet 4.6:** *2026-04-01 10:03*
 
 A read-only tree where you can click any leaf to switch branches.
 

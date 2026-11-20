@@ -15,6 +15,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -32,8 +34,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
         "truncated": false,
@@ -43,6 +50,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -60,8 +69,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-opus-5-5",
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
         "truncated": false,
@@ -71,6 +85,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -88,8 +104,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Add a rollback step too.",
         "truncated": false,
@@ -99,6 +120,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -116,8 +139,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-opus-5-5",
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Added a rollback step after the canary check.",
         "truncated": false,

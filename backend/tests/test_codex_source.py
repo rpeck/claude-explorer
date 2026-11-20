@@ -941,7 +941,7 @@ def _html_senders(html: str) -> list[str]:
 def test_a_codex_markdown_export_labels_assistant_messages_codex(cx: CodexEnv, api: TestClient) -> None:
     cx.sync()
     md = api.get(f"/api/conversations/{fake.THREAD_PAGINATED}/export/markdown").text
-    assert "**Codex:**" in md
+    assert "**Codex gpt-5.6-codex:**" in md  # #52: the label names the model
     assert "**You:**" in md
     assert "**Claude:**" not in md
 
@@ -951,7 +951,7 @@ def test_a_codex_bundle_export_labels_assistant_messages_codex(cx: CodexEnv, api
     r = api.get(f"/api/conversations/{fake.THREAD_PAGINATED}/export/markdown-bundle")
     assert r.status_code == 200, r.text[:500]
     md = _bundle_markdown(r.content)
-    assert "**Codex:**" in md
+    assert "**Codex gpt-5.6-codex:**" in md  # #52: the label names the model
     assert "**You:**" in md
     assert "**Claude:**" not in md
 
@@ -961,7 +961,7 @@ def test_the_codex_pdf_html_labels_assistant_messages_codex(cx: CodexEnv) -> Non
 
     cx.sync()
     senders = set(_html_senders(conversation_to_html(cx.store().get_conversation(fake.THREAD_PAGINATED))))
-    assert senders == {"You", "Codex"}
+    assert senders == {"You", "Codex gpt-5.6-codex"}  # #52: the label names the model
 
 
 def _claude_detail(source: str) -> Any:

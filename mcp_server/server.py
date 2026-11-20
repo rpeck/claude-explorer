@@ -33,6 +33,7 @@ from backend.export import (
     conversation_to_markdown,
     filter_tool_placeholders,
 )
+from backend.model_names import sender_label
 from backend.models import (
     ContentBlock,
     ConversationDetail,
@@ -494,14 +495,20 @@ def _message_to_dict(
     position: int,
     include_tool_calls: bool = False,
     include_tool_results: bool = False,
+    assistant_label: str = "Claude",
 ) -> dict[str, Any]:
     """Convert a Message to a dict with the requested verbosity."""
     d: dict[str, Any] = {
         "position": position,
         "uuid": msg.uuid,
         "sender": msg.sender,
+        # Issue #52: the same sender name as the viewer and the exports.
+        "label": sender_label(msg, assistant_label),
+        "model": msg.model,
         "timestamp": _format_dt(msg.created_at),
     }
+    if msg.command_output:
+        d["command_output"] = msg.command_output
 
     if not include_tool_calls and not include_tool_results:
         # Text-only mode
@@ -775,6 +782,7 @@ def get_messages(
 
     messages = conversation.messages
     results: list[dict[str, Any]] = []
+    assistant_label = getattr(get_descriptor(conversation.source), "assistant_label", "Claude")
 
     if positions is not None:
         for pos in positions:
@@ -782,7 +790,7 @@ def get_messages(
                 results.append(
                     _message_to_dict(
                         messages[pos], pos,
-                        include_tool_calls, include_tool_results,
+                        include_tool_calls, include_tool_results, assistant_label,
                     )
                 )
     elif message_uuids is not None:
@@ -792,7 +800,7 @@ def get_messages(
                 results.append(
                     _message_to_dict(
                         msg, pos,
-                        include_tool_calls, include_tool_results,
+                        include_tool_calls, include_tool_results, assistant_label,
                     )
                 )
     else:
@@ -801,7 +809,7 @@ def get_messages(
             results.append(
                 _message_to_dict(
                     msg, pos,
-                    include_tool_calls, include_tool_results,
+                    include_tool_calls, include_tool_results, assistant_label,
                 )
             )
 

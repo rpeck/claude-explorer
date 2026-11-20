@@ -35,6 +35,14 @@ _EXPECTED_CC_ONLY_FIELDS = {
     "is_prelude",
     "assistant_canned_response_consumed",
     "slash_command",
+    # #52: the model of each reply, command output, shell rows, and notices.
+    "model",
+    "model_from_conversation",
+    "command_output",
+    "command_output_is_error",
+    "shell_command",
+    "shell_output",
+    "notice_kind",
 }
 
 # Desktop-compatible fields: explicitly named in _parse_message OUTSIDE

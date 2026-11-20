@@ -132,6 +132,37 @@ _LOCAL_CMD_ARGS_RE = re.compile(
 )
 
 
+_LOCAL_CMD_OUTPUT_TAGS = {"stdout": "local-command-stdout", "stderr": "local-command-stderr"}
+# CSI sequences (colors, bold) and OSC sequences (links, titles). D2: drop
+# the codes, keep the text.
+_ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove terminal escape codes from command output."""
+    return _ANSI_RE.sub("", text)
+
+
+def _unwrap(text: str, tag: str) -> str:
+    """Remove every ``<tag>`` and ``</tag>`` from ``text`` and trim it."""
+    return text.replace(f"<{tag}>", "").replace(f"</{tag}>", "").strip()
+
+
+def _local_command_system_row_as_user(entry: dict) -> dict:
+    """Newer Claude Code writes a slash command and its output as
+    ``type: "system"``, ``subtype: "local_command"`` rows. Give them the
+    older user-row form, so both forms give the same messages (#52)."""
+    if entry.get("type") != "system" or entry.get("subtype") != "local_command":
+        return entry
+    content = entry.get("content")
+    if not isinstance(content, str):
+        return entry
+    row = dict(entry)
+    row["type"] = "user"
+    row["message"] = {"role": "user", "content": content}
+    return row
+
+
 def _local_command_kind(text: str) -> str | None:
     """Classify a message-text string as local-command boilerplate.
 
@@ -249,6 +280,9 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
         # string is the real user-supplied args body.
         command_args: str | None = None
         is_compact_run = False
+        seen_command = False
+        # (kind, text) of each stdout / stderr row: the command output (D1).
+        outputs: list[tuple[str, str]] = []
         j = i
         while j < n:
             cand = messages[j]
@@ -258,7 +292,15 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
             ckind = _local_command_kind(ctext)
             if ckind is None:
                 break
+            # One run holds one command: a second command, or a caveat after
+            # output, starts the next run, so no output shows under the
+            # wrong command.
+            if (ckind == "command" and seen_command) or (ckind == "caveat" and outputs):
+                break
+            if ckind in _LOCAL_CMD_OUTPUT_TAGS:
+                outputs.append((ckind, ctext))
             if ckind == "command":
+                seen_command = True
                 cname, cargs = _extract_local_command_name_and_args(ctext)
                 if cname == "/compact":
                     # Leave the /compact triplet alone — it's tracked by
@@ -311,6 +353,14 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
             text_payload = f"Session: {command_name}"
         else:
             text_payload = "Session: Local command"
+        output_parts = [
+            strip_ansi(_unwrap(otext, _LOCAL_CMD_OUTPUT_TAGS[okind])).strip()
+            for okind, otext in outputs
+        ]
+        command_output = "\n".join(p for p in output_parts if p) or None
+        command_output_is_error = any(
+            okind == "stderr" and part for (okind, _), part in zip(outputs, output_parts, strict=True)
+        )
         marker = {
             "uuid": first.get("uuid", ""),
             "sender": "human",
@@ -338,6 +388,9 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
             # `if (message.slash_command)` guard correctly skips the badge
             # in that case.
             "slash_command": command_name,
+            # #52: what the command printed, without tags or ANSI codes.
+            "command_output": command_output,
+            "command_output_is_error": command_output_is_error,
             # `_argless_marker` is a PRIVATE, leading-underscore flag
             # consumed only by `_flag_leading_prelude_markers` below. It
             # is NOT declared on the Pydantic `Message` model, so it gets
@@ -351,6 +404,93 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
         i = run_end + 1
 
     return result
+
+
+# Shell commands and injected notices (#52, part B). Claude Code writes them
+# as user rows, so they showed as raw XML in a "You" bubble.
+_NOTICE_TAGS = ("task-notification", "bash-notification", "scheduled-task", "system-reminder")
+_SHELL_OUTPUT_TAGS = ("bash-stdout", "bash-stderr")
+
+
+_TAG_RE = re.compile(r"</?[A-Za-z][\w-]*>")
+
+
+def _notice_kind(text: str) -> str | None:
+    """The tag of a row that starts with an injected notice, else None. A
+    prompt that only mentions the tag stays a user message."""
+    stripped = text.lstrip()
+    for tag in _NOTICE_TAGS:
+        if stripped.startswith(f"<{tag}>"):
+            return tag
+    return None
+
+
+def _shell_output(text: str) -> str:
+    """The stdout and stderr text of a ``<bash-stdout>`` row, without tags."""
+    parts = []
+    for tag in _SHELL_OUTPUT_TAGS:
+        m = re.search(f"<{tag}>(.*?)</{tag}>", text, re.DOTALL)
+        parts.append(strip_ansi(m.group(1)).strip() if m else "")
+    return "\n".join(p for p in parts if p)
+
+
+def _with_text(msg: dict, text: str, **fields) -> dict:
+    out = dict(msg)
+    out.update(text=text, content=[{"type": "text", "text": text}], **fields)
+    return out
+
+
+def _classify_shell_and_notice_rows(messages: list[dict]) -> list[dict]:
+    """Turn a ``!`` command and its output into one shell message, and an
+    injected notice into a notice message. Pure: the input is not changed."""
+    out: list[dict] = []
+    i = 0
+    n = len(messages)
+    while i < n:
+        msg = messages[i]
+        text = msg.get("text", "")
+        if msg.get("sender") != "human" or not isinstance(text, str):
+            out.append(msg)
+            i += 1
+            continue
+        kind = _notice_kind(text)
+        if kind:
+            # The body of a task notification is more tags (<task-id>, <status>).
+            out.append(_with_text(msg, _TAG_RE.sub("", text).strip(), notice_kind=kind))
+            i += 1
+            continue
+        stripped = text.lstrip()
+        command: str | None = None
+        output_text: str | None = None
+        if stripped.startswith("<bash-input>"):
+            command = _unwrap(stripped, "bash-input")
+            nxt = messages[i + 1] if i + 1 < n else None
+            if (
+                nxt is not None
+                and nxt.get("sender") == "human"
+                and str(nxt.get("text", "")).lstrip().startswith(("<bash-stdout>", "<bash-stderr>"))
+            ):
+                output_text = nxt["text"]
+                i += 1
+        elif stripped.startswith(("<bash-stdout>", "<bash-stderr>")):
+            output_text = stripped
+        else:
+            out.append(msg)
+            i += 1
+            continue
+        output = _shell_output(output_text) if output_text is not None else ""
+        body = "\n".join(p for p in (command, output) if p)
+        out.append(
+            _with_text(
+                msg,
+                body,
+                shell_command=command,
+                shell_output=output or None,
+                updated_at=messages[i].get("updated_at", msg.get("updated_at")),
+            )
+        )
+        i += 1
+    return out
 
 
 # Canned-response fold + leading-prelude flag (V1 polish, 2026-05-12, council

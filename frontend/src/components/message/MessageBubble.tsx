@@ -3,6 +3,9 @@ import { User, Bot, ChevronsUpDown, Copy, Check, Star } from 'lucide-react'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { MessageAttachments } from './MessageAttachments'
 import { SlashCommandBadge } from './SlashCommandBadge'
+import { CommandOutputBlock } from './CommandOutputBlock'
+import { ShellBlock } from './ShellBlock'
+import { NoticeRow } from './NoticeRow'
 import { Button } from '@/components/ui/button'
 import { useConversationLightbox } from '@/contexts/ConversationLightboxContext'
 import { useBookmarks } from '@/contexts/BookmarkContext'
@@ -11,6 +14,7 @@ import { cn, formatMessageTimestamp, messageToMarkdown, messageHasVisibleContent
 import { dedupeImageFiles } from '@/lib/imageFiles'
 import { errorToast } from '@/lib/errorToast'
 import { sourceDescriptor } from '@/lib/sources'
+import { conversationModelTooltip, replyLabel } from '@/lib/modelName'
 import type { ConversationSource, Message } from '@/lib/types'
 import { collectCcImages } from './blocks/imageCollection'
 import { ContentBlockList } from './blocks/ContentBlockRenderer'
@@ -104,7 +108,11 @@ function MessageBubbleImpl({
   }
 
   const handleCopyMessage = async () => {
-    const markdown = messageToMarkdown(message, showToolCalls)
+    const markdown = messageToMarkdown(
+      message,
+      showToolCalls,
+      sourceDescriptor(conversationSource)?.assistant_label ?? 'Claude',
+    )
     // LOW-1 (council follow-up): clipboard.writeText() can reject when
     // the document has lost focus, the browser denies permission, or the
     // origin isn't secure. Without this guard the rejection bubbles up
@@ -196,6 +204,29 @@ function MessageBubbleImpl({
     return null
   }
 
+  // Issue #52: rows that Claude Code wrote are not "You" bubbles.
+  if (message.notice_kind) {
+    return (
+      <div data-message-uuid={message.uuid} tabIndex={-1} className="focus:outline-none">
+        <NoticeRow kind={message.notice_kind} text={message.text} />
+      </div>
+    )
+  }
+  if (message.shell_command || message.shell_output) {
+    return (
+      <div data-message-uuid={message.uuid} tabIndex={-1} className="focus:outline-none">
+        <ShellBlock command={message.shell_command} output={message.shell_output} />
+      </div>
+    )
+  }
+
+  const descriptor = sourceDescriptor(conversationSource)
+  const senderLabel = isHuman ? 'You' : replyLabel(descriptor?.assistant_label ?? 'Claude', message.model)
+  const senderTitle =
+    !isHuman && message.model_from_conversation
+      ? conversationModelTooltip(descriptor?.label ?? 'This source')
+      : undefined
+
   return (
     <div
       data-message-uuid={message.uuid}
@@ -278,8 +309,8 @@ function MessageBubbleImpl({
 
         {/* Header */}
         <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="font-medium">
-            {isHuman ? 'You' : (sourceDescriptor(conversationSource)?.assistant_label ?? 'Claude')}
+          <span data-testid="message-sender" className="font-medium" title={senderTitle}>
+            {senderLabel}
           </span>
           <span>{formatMessageTimestamp(message.created_at)}</span>
           {message.truncated && (
@@ -319,6 +350,10 @@ function MessageBubbleImpl({
             />
           )}
         </div>
+
+        {message.command_output && (
+          <CommandOutputBlock output={message.command_output} isError={message.command_output_is_error} />
+        )}
 
         {/* Image attachments — always rendered (never gated by tool toggle). */}
         {hasImages && <MessageAttachments message={message} bubbleUuid={message.uuid} />}

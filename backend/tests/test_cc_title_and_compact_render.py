@@ -306,6 +306,9 @@ def test_user_reported_session_renders_correctly() -> None:
         f"expected synthetic command marker at index 0; got: "
         f"text={first_text[:80]!r}, is_command_marker={first.get('is_command_marker')!r}"
     )
-    assert first_text == "Session: /exit", (
-        f"first marker should label as /exit; got: {first_text!r}"
+    # B52 (#52): each command row starts its own marker. The head of this
+    # file has two adjacent commands, so index 0 is the first of them (it
+    # was one marker named after the last command before).
+    assert first.get("slash_command") and first_text == f"Session: {first['slash_command']}", (
+        f"first marker should be an argless command label; got: {first_text!r}"
     )

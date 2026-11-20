@@ -12,7 +12,7 @@ Run a grep for me. NEEDLE_TOOL
 
 ---
 
-**Claude:** *2026-04-01 10:01*
+**Claude Sonnet 4.6:** *2026-04-01 10:01*
 
 Running grep.
 **Tool: bash**

@@ -110,6 +110,12 @@ def _merge_entries_to_message(entries: list[dict]) -> dict | None:
     text = "\n".join(text_parts)
 
     timestamp = first_entry.get("timestamp", datetime.now(UTC).isoformat())
+    # Issue #52: the model of a reply, from the first chunk that has one.
+    model = None
+    if entry_type == "assistant":
+        model = next(
+            (m for e in entries if (m := (e.get("message") or {}).get("model"))), None
+        )
 
     # Use first entry's uuid as the message uuid (for parent chain)
     # Use first entry's parentUuid to link to previous message
@@ -124,6 +130,7 @@ def _merge_entries_to_message(entries: list[dict]) -> dict | None:
         "parent_message_uuid": first_entry.get("parentUuid"),
         "attachments": [],
         "files": [],
+        "model": model,
     }
 
 

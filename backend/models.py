@@ -91,6 +91,24 @@ class Message(BaseModel):
     # preservation change that puts the user's real prompt text into
     # `Message.text` when the command carried `<command-args>`.
     slash_command: str | None = None
+    # Issue #52. `model`: the model of an assistant reply. Claude Code and
+    # Cowork read it from the row ("<synthetic>" for a row that Claude Code
+    # made itself); Desktop and Codex record one model for the conversation,
+    # so the store fills it from there and sets `model_from_conversation`.
+    model: str | None = None
+    model_from_conversation: bool = False
+    # The output of a local slash command, on the command's marker, without
+    # tags or ANSI codes. `command_output_is_error`: it came from stderr.
+    command_output: str | None = None
+    command_output_is_error: bool = False
+    # A `!` shell command and its output (stdout and stderr), as one message.
+    shell_command: str | None = None
+    shell_output: str | None = None
+    # A notice that Claude Code wrote into the session, not the user.
+    notice_kind: (
+        Literal["task-notification", "bash-notification", "scheduled-task", "system-reminder"]
+        | None
+    ) = None
 
 
 class SubagentSummary(BaseModel):

@@ -7,6 +7,7 @@ import { useSearchPanel } from '@/contexts/SearchPanelContext'
 import { useFetchPipeline } from '@/contexts/FetchPipelineContext'
 import { queryKeys } from '@/lib/queryClient'
 import { messageToMarkdown } from '@/lib/utils'
+import { sourceDescriptor } from '@/lib/sources'
 import { errorToast } from '@/lib/errorToast'
 import type { ConversationDetail } from '@/lib/types'
 
@@ -129,7 +130,11 @@ export function useKeyboardShortcuts() {
             const message = conversation?.messages.find((m) => m.uuid === messageId)
             if (message) {
               e.preventDefault()
-              const markdown = messageToMarkdown(message, showToolCalls)
+              const markdown = messageToMarkdown(
+                message,
+                showToolCalls,
+                sourceDescriptor(conversation?.source)?.assistant_label ?? 'Claude',
+              )
               // LOW-1 (council follow-up): the surrounding handler is a
               // synchronous keydown listener (useEffect-mounted at the
               // window level), so we can't `await`. Without a `.catch()`
