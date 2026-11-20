@@ -15,14 +15,15 @@
  *     count, and "View branches" button when has_branches.
  *   - NoticeList: the conversation's `notices`, above the messages
  *   - <details> collapsible (open by default) with:
- *       * Claude Code: project_path + git_branch copy buttons
+ *       * Claude Code: project_path + git_branch copy buttons, after
+ *         their "Project:" and "Branch:" labels
  *       * Claude Cowork: sandbox_path copy button, after its
  *         "Sandbox path:" label
- *       * UUID copy button (every source but Codex)
+ *       * UUID copy button, after "Session ID:" (every source but Codex)
  *       * Codex: "Thread ID", "Codex name" (or "none"), and "Codex home",
  *         then the "Parent:" and "Forks and subagents:" links
  *         (CodexHistoryLinks)
- *       * file_path copy button (when present)
+ *       * file_path copy button, after "File:" (when present)
  *
  * Every copy button is a CopyValueButton, which owns its own "copied"
  * state and copies the exact API value (UX.md, "Conversation header:
@@ -119,14 +120,16 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
         </summary>
         <div className="space-y-0.5">
           {sourceHas(conversation.source, 'has_projects') && conversation.project_path && (
-            <div className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+            <div className={DETAIL_ROW}>
               <FolderCode className="h-3 w-3" />
+              <span className="text-zinc-500">Project:</span>
               <CopyValueButton value={conversation.project_path} label="project path">
                 <span>{conversation.project_path}</span>
               </CopyValueButton>
               {conversation.git_branch && (
                 <>
                   <GitBranch className="ml-2 h-3 w-3" />
+                  <span className="text-zinc-500">Branch:</span>
                   <CopyValueButton value={conversation.git_branch} label="git branch">
                     <span>{conversation.git_branch}</span>
                   </CopyValueButton>
@@ -153,14 +156,20 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
           {conversation.source === 'CODEX' ? (
             <CodexDetails conversation={conversation} />
           ) : (
-            <CopyValueButton value={conversation.uuid} label="UUID">
-              <span>{conversation.uuid}</span>
-            </CopyValueButton>
+            <div className={DETAIL_ROW}>
+              <span className="text-zinc-500">Session ID:</span>
+              <CopyValueButton value={conversation.uuid} label="UUID">
+                <span>{conversation.uuid}</span>
+              </CopyValueButton>
+            </div>
           )}
           {conversation.file_path && (
-            <CopyValueButton value={conversation.file_path} label="file path">
-              <span className="truncate max-w-lg">{conversation.file_path}</span>
-            </CopyValueButton>
+            <div className={DETAIL_ROW}>
+              <span className="text-zinc-500">File:</span>
+              <CopyValueButton value={conversation.file_path} label="file path">
+                <span className="truncate max-w-lg">{conversation.file_path}</span>
+              </CopyValueButton>
+            </div>
           )}
         </div>
       </details>
