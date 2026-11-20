@@ -34,8 +34,6 @@ from fastapi.testclient import TestClient
 from backend.tests import codex_fake as fake
 from backend.tests._platform_home import patch_home
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N11 not implemented yet")
-
 T0 = datetime(2026, 11, 16, 9, 0, 0, tzinfo=UTC)
 CWD = "/home/fixture/proj-sigma"
 MODEL = "gpt-5.5-codex"

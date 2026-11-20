@@ -13,8 +13,8 @@
  *     fetches the detail of a linked conversation.
  *   - Other sources show neither row.
  *
- * N11 is not in the code yet, so every test is a strict expected failure
- * (`it.fails`). RUNXFAIL=1 runs them as plain tests (pytest's --runxfail).
+ * A check that something is absent first waits for a link that needs the
+ * list, so it cannot pass while the list call is still open.
  */
 import { createElement, type ComponentType } from 'react'
 import { render, screen, waitFor, within } from '@testing-library/react'
@@ -30,8 +30,6 @@ import {
   importModule,
   setCodexRegistry,
 } from '@/test/codex/codexHelpers'
-
-const xit = import.meta.env.RUNXFAIL === '1' ? it : it.fails
 
 const PARENT = '019a1b2c-3d4e-7f60-8a9b-0c1d2e3f4a01'
 const CHILD_A = '019a1b2c-3d4e-7f60-8a9b-0c1d2e3f4a0a'
@@ -127,68 +125,70 @@ beforeEach(() => {
 })
 
 describe('Codex parent row', () => {
-  xit('shows a "Parent:" row when parent_uuid is set', async () => {
+  it('shows a "Parent:" row when parent_uuid is set', async () => {
     serveList()
     await renderHeader(codexDetail({ parent_uuid: PARENT, child_uuids: [] }))
     const parentRow = await screen.findByTestId('codex-parent-row')
     expect(parentRow).toHaveTextContent('Parent:')
   })
 
-  xit('a parent in the archive is one link named by its title', async () => {
+  it('a parent in the archive is one link named by its title', async () => {
     serveList()
     await renderHeader(codexDetail({ parent_uuid: PARENT, child_uuids: [] }))
     const parentRow = await screen.findByTestId('codex-parent-row')
     await waitFor(() => expect(linkNames(parentRow)).toEqual(['Plan the parser work']))
   })
 
-  xit('the parent link opens /conversations/<parent_uuid>', async () => {
+  it('the parent link opens /conversations/<parent_uuid>', async () => {
     serveList()
     await renderHeader(codexDetail({ parent_uuid: PARENT, child_uuids: [] }))
     const parentRow = await screen.findByTestId('codex-parent-row')
     await waitFor(() => expect(hrefs(parentRow)).toEqual([`/conversations/${PARENT}`]))
   })
 
-  xit('a parent with an empty title is named by its uuid', async () => {
+  it('a parent with an empty title is named by its uuid', async () => {
     serveList()
     await renderHeader(codexDetail({ parent_uuid: UNNAMED, child_uuids: [] }))
     const parentRow = await screen.findByTestId('codex-parent-row')
     await waitFor(() => expect(linkNames(parentRow)).toEqual([UNNAMED]))
   })
 
-  xit('a parent that is not in the archive shows its id as text, with no link', async () => {
-    const seen = serveList()
-    await renderHeader(codexDetail({ parent_uuid: MISSING, child_uuids: [] }))
-    const parentRow = await screen.findByTestId('codex-parent-row')
-    await waitFor(() => expect(seen.lists.length).toBeGreaterThan(0))
-    await waitFor(() => expect(parentRow).toHaveTextContent(MISSING))
+  it('a parent that is not in the archive shows its id as text, with no link', async () => {
+    serveList()
+    await renderHeader(codexDetail({ parent_uuid: MISSING, child_uuids: [CHILD_A] }))
+    // The child link needs the list, so the list is loaded before the parent is checked.
+    const childRow = await screen.findByTestId('codex-children-row')
+    await waitFor(() => expect(linkNames(childRow)).toEqual(['Scout: callers of parse']))
+    const parentRow = screen.getByTestId('codex-parent-row')
+    expect(parentRow).toHaveTextContent(MISSING)
     expect(within(parentRow).queryAllByRole('link')).toEqual([])
   })
 
-  xit('has no Parent row when parent_uuid is null', async () => {
-    const seen = serveList()
+  it('has no Parent row when parent_uuid is null', async () => {
+    serveList()
     await renderHeader(codexDetail({ parent_uuid: null, child_uuids: [CHILD_A] }))
-    await screen.findByTestId('codex-children-row')
-    await waitFor(() => expect(seen.lists.length).toBeGreaterThan(0))
+    const childRow = await screen.findByTestId('codex-children-row')
+    await waitFor(() => expect(linkNames(childRow)).toEqual(['Scout: callers of parse']))
     expect(screen.queryByTestId('codex-parent-row')).toBeNull()
   })
 })
 
 describe('Codex forks and subagents row', () => {
-  xit('shows a "Forks and subagents:" row when child_uuids is not empty', async () => {
+  it('shows a "Forks and subagents:" row when child_uuids is not empty', async () => {
     serveList()
     await renderHeader(codexDetail({ child_uuids: [CHILD_A] }))
     const childRow = await screen.findByTestId('codex-children-row')
     expect(childRow).toHaveTextContent('Forks and subagents:')
   })
 
-  xit('has one link per child, in child_uuids order, named by its title', async () => {
+  it('has one link per child, in child_uuids order, named by its title', async () => {
     serveList()
     await renderHeader(codexDetail({ child_uuids: [CHILD_B, CHILD_A] }))
     const childRow = await screen.findByTestId('codex-children-row')
     await waitFor(() => expect(linkNames(childRow)).toEqual(['Fork: try a new lexer', 'Scout: callers of parse']))
   })
 
-  xit('each child link opens /conversations/<child_uuid>', async () => {
+  it('each child link opens /conversations/<child_uuid>', async () => {
     serveList()
     await renderHeader(codexDetail({ child_uuids: [CHILD_A, CHILD_B] }))
     const childRow = await screen.findByTestId('codex-children-row')
@@ -197,17 +197,17 @@ describe('Codex forks and subagents row', () => {
     )
   })
 
-  xit('has no Forks and subagents row when child_uuids is empty', async () => {
-    const seen = serveList()
+  it('has no Forks and subagents row when child_uuids is empty', async () => {
+    serveList()
     await renderHeader(codexDetail({ parent_uuid: PARENT, child_uuids: [] }))
-    await screen.findByTestId('codex-parent-row')
-    await waitFor(() => expect(seen.lists.length).toBeGreaterThan(0))
+    const parentRow = await screen.findByTestId('codex-parent-row')
+    await waitFor(() => expect(linkNames(parentRow)).toEqual(['Plan the parser work']))
     expect(screen.queryByTestId('codex-children-row')).toBeNull()
   })
 })
 
 describe('Where the link titles come from', () => {
-  xit('the titles come from a list call with source=CODEX and show_archived=true', async () => {
+  it('the titles come from a list call with source=CODEX and show_archived=true', async () => {
     const seen = serveList()
     await renderHeader(codexDetail({ parent_uuid: PARENT, child_uuids: [CHILD_A] }))
     await screen.findByTestId('codex-children-row')
@@ -218,7 +218,7 @@ describe('Where the link titles come from', () => {
     )
   })
 
-  xit('the header fetches no detail of a linked conversation', async () => {
+  it('the header fetches no detail of a linked conversation', async () => {
     const seen = serveList()
     await renderHeader(codexDetail({ parent_uuid: MISSING, child_uuids: [CHILD_A, CHILD_B] }))
     const childRow = await screen.findByTestId('codex-children-row')
@@ -228,7 +228,7 @@ describe('Where the link titles come from', () => {
 })
 
 describe('Other sources', () => {
-  xit('a Claude Code session shows no Parent row and no Forks and subagents row', async () => {
+  it('a Claude Code session shows no Parent row and no Forks and subagents row', async () => {
     serveList()
     const links = { parent_uuid: PARENT, child_uuids: [CHILD_A] }
     // The Codex header beside it proves that the rows render in this harness.
@@ -236,7 +236,8 @@ describe('Other sources', () => {
       { ...codexDetail(links), uuid: THREAD_ID },
       detail({ ...links, uuid: 'cc-uuid-1', source: 'CLAUDE_CODE', project_path: '/p' }),
     )
-    await within(screen.getByTestId('header-CODEX')).findByTestId('codex-parent-row')
+    const codexParent = await within(screen.getByTestId('header-CODEX')).findByTestId('codex-parent-row')
+    await waitFor(() => expect(linkNames(codexParent)).toEqual(['Plan the parser work']))
     const cc = screen.getByTestId('header-CLAUDE_CODE')
     expect(within(cc).queryByTestId('codex-parent-row')).toBeNull()
     expect(within(cc).queryByTestId('codex-children-row')).toBeNull()

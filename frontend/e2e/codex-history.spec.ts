@@ -20,14 +20,15 @@ import type { ConversationDetail, ConversationSummary } from '../src/lib/types'
  * of TESTING.md §5.15 runs for every test: a detail fetch of a missing parent
  * (a 404) fails it.
  *
- * N11 is not in the code yet: every test is a strict expected failure until
- * the tester's final commit. RUNXFAIL=1 runs them as plain tests.
+ * A check that something is absent first waits for a link that needs the
+ * list, so it cannot pass while the list call is still open.
  */
 
 const PARENT = '019ac000-0000-7000-8000-0000000012a0'
 const SUBAGENT = '019ac000-0000-7000-8000-0000000012c1'
 const FORK = '019ac000-0000-7000-8000-0000000012c2'
 const ORPHAN = '019ac000-0000-7000-8000-0000000012d0'
+const ORPHAN_CHILD = '019ac000-0000-7000-8000-0000000012d1'
 const MISSING = '019ac000-0000-7000-8000-0000000012ff'
 const CC = '00000000-0000-4000-8000-0000000cd001'
 
@@ -36,6 +37,7 @@ const TITLES: Record<string, string> = {
   [SUBAGENT]: 'History: Scout subagent',
   [FORK]: 'History: a fork that tries a new lexer',
   [ORPHAN]: 'History: a fork of a lost thread',
+  [ORPHAN_CHILD]: 'History: a subagent of the lost fork',
   [CC]: 'History: a Claude Code session',
 }
 
@@ -58,16 +60,12 @@ function summary(uuid: string, overrides: Partial<ConversationSummary> = {}): Co
 }
 
 function detailOf(s: ConversationSummary, parent: string | null, children: string[]): ConversationDetail {
-  const d = makeDetail(s, [
-    makeMessage({
-      uuid: `${s.uuid}-m1`,
-      sender: 'human',
-      text: `Question in ${s.name}`,
-      content: [{ type: 'text', text: `Question in ${s.name}` }],
-    }),
-  ])
-  // child_uuids is new in N11; Object.assign keeps this file type-safe before types.ts has it.
-  return Object.assign(d, { parent_uuid: parent, child_uuids: children })
+  const question = `Question in ${s.name}`
+  return makeDetail(
+    s,
+    [makeMessage({ uuid: `${s.uuid}-m1`, sender: 'human', text: question, content: [{ type: 'text', text: question }] })],
+    { parent_uuid: parent, child_uuids: children },
+  )
 }
 
 const rows = {
@@ -75,6 +73,7 @@ const rows = {
   subagent: summary(SUBAGENT),
   fork: summary(FORK, { is_archived: true }),
   orphan: summary(ORPHAN),
+  orphanChild: summary(ORPHAN_CHILD),
   cc: summary(CC, {
     source: 'CLAUDE_CODE',
     model: 'claude-sonnet-4-6',
@@ -88,12 +87,13 @@ const details: Record<string, ConversationDetail> = {
   [PARENT]: detailOf(rows.parent, null, [SUBAGENT, FORK]),
   [SUBAGENT]: detailOf(rows.subagent, PARENT, []),
   [FORK]: detailOf(rows.fork, PARENT, []),
-  [ORPHAN]: detailOf(rows.orphan, MISSING, []),
+  [ORPHAN]: detailOf(rows.orphan, MISSING, [ORPHAN_CHILD]),
+  [ORPHAN_CHILD]: detailOf(rows.orphanChild, ORPHAN, []),
   // A Claude Code session never shows the rows, even with these values.
   [CC]: detailOf(rows.cc, PARENT, [SUBAGENT]),
 }
 
-const conversations = [rows.parent, rows.subagent, rows.fork, rows.orphan, rows.cc]
+const conversations = [rows.parent, rows.subagent, rows.fork, rows.orphan, rows.orphanChild, rows.cc]
 
 async function openConversation(page: Page, uuid: string): Promise<Locator> {
   await withNetRetry(page, () => page.goto(`/conversations/${uuid}`))
@@ -103,8 +103,6 @@ async function openConversation(page: Page, uuid: string): Promise<Locator> {
 }
 
 test.describe('Codex history links in the header (N11)', () => {
-  test.fail(process.env.RUNXFAIL !== '1', 'N11 not implemented yet')
-
   test('a subagent shows a Parent link that opens the parent', async ({ page, mockBackend }) => {
     await mockBackend({ conversations, details })
     const header = await openConversation(page, SUBAGENT)
@@ -142,6 +140,8 @@ test.describe('Codex history links in the header (N11)', () => {
   test('a parent that is not in the archive shows its id as text, with no link', async ({ page, mockBackend }) => {
     await mockBackend({ conversations, details })
     const header = await openConversation(page, ORPHAN)
+    // The child link needs the list, so the list is loaded before the parent is checked.
+    await expect(header.getByTestId('codex-children-row').getByRole('link')).toHaveText([TITLES[ORPHAN_CHILD]])
 
     const parentRow = header.getByTestId('codex-parent-row')
     await expect(parentRow).toContainText('Parent:')
@@ -153,7 +153,7 @@ test.describe('Codex history links in the header (N11)', () => {
     await mockBackend({ conversations, details })
     // The rows render for a Codex session first, so their absence below is the rule.
     const codexHeader = await openConversation(page, SUBAGENT)
-    await expect(codexHeader.getByTestId('codex-parent-row')).toBeVisible()
+    await expect(codexHeader.getByTestId('codex-parent-row').getByRole('link', { name: TITLES[PARENT] })).toBeVisible()
 
     const header = await openConversation(page, CC)
     await expect(header.getByTestId('codex-parent-row')).toHaveCount(0)
