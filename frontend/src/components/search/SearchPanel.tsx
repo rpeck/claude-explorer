@@ -594,6 +594,18 @@ export function SearchPanel() {
                 </>
               )}
             </p>
+            {scopeLimits.length > 0 && (
+              <p data-testid="search-empty-filters">
+                Search limited by{' '}
+                {scopeLimits.map((l, i) => (
+                  <React.Fragment key={l.key}>
+                    {i > 0 && ' and '}
+                    {l.part}
+                  </React.Fragment>
+                ))}
+                .
+              </p>
+            )}
             {pinScope.kind !== 'none' && (
               <button
                 type="button"
@@ -607,34 +619,20 @@ export function SearchPanel() {
                 Unpin and search all →
               </button>
             )}
-            {scopeLimits.length > 0 && (
-              <>
-                <p data-testid="search-empty-filters">
-                  Search limited by{' '}
-                  {scopeLimits.map((l, i) => (
-                    <React.Fragment key={l.key}>
-                      {i > 0 && ' and '}
-                      {l.part}
-                    </React.Fragment>
-                  ))}
-                  .
-                </p>
-                {scopeLimits.map((l) => (
-                  <button
-                    key={l.key}
-                    type="button"
-                    onClick={() => {
-                      l.clear()
-                      inputRef.current?.focus()
-                    }}
-                    className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    data-testid={l.testId}
-                  >
-                    {l.button}
-                  </button>
-                ))}
-              </>
-            )}
+            {scopeLimits.map((l) => (
+              <button
+                key={l.key}
+                type="button"
+                onClick={() => {
+                  l.clear()
+                  inputRef.current?.focus()
+                }}
+                className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                data-testid={l.testId}
+              >
+                {l.button}
+              </button>
+            ))}
           </div>
         )}
 

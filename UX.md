@@ -227,7 +227,8 @@ state names each sidebar filter that limits the search (issue #80).
 Before 1.2.0 it named only the pin. A search under the source "Codex" for
 a word in a Claude Code session then looked like a broken search.
 
-- **The line:** `Search limited by <parts>.`, below "No matches for ...".
+- **The line:** `Search limited by <parts>.`, directly below "No matches
+  for ..." and above every button.
   The parts are joined with " and ", like the Conversation List empty
   state. Each part shows only when its filter is on:
   1. `source "<label>"`: the source filter has a value other than all.
