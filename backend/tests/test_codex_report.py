@@ -335,9 +335,10 @@ def test_the_incomplete_share_is_counted_by_reason(corpus: SimpleNamespace) -> N
     extra_rollout(corpus, t1, simple_lines(t1, T0, cf.rollout_line(T0, "compacted", {"message": "", "replacement_history": []})))
     extra_rollout(corpus, t2, simple_lines(t2, T0, cf.rollout_line(T0, "hologram_record", {})))
     inc = build(corpus)["incomplete"]
-    assert (inc["sessions"], inc["incomplete"]) == (8, 2)
-    assert inc["share"] == pytest.approx(0.25, abs=0.001)
-    assert nonzero(inc["by_reason"]) == {"compacted": 1, "unknown_record_type": 1}
+    # Slice 2 (N10) rebuilds a compaction, so only the unknown record type still counts.
+    assert (inc["sessions"], inc["incomplete"]) == (8, 1)
+    assert inc["share"] == pytest.approx(0.125, abs=0.001)
+    assert nonzero(inc["by_reason"]) == {"unknown_record_type": 1}
 
 
 def test_a_thread_with_two_rollouts_and_no_state_row_counts_once_as_current_ambiguous(corpus: SimpleNamespace) -> None:
@@ -626,7 +627,8 @@ def test_the_marker_home_exercises_every_part_of_the_report(marker_env: SimpleNa
     assert report["warnings"]["damaged_line"] >= 1
     assert report["warnings"]["orphan_tool_output"] == 1
     assert report["warnings"]["unsupported_item"] >= 1
-    assert report["incomplete"]["by_reason"]["compacted"] == 1
+    # Slice 2 (N10): a compaction no longer counts as incomplete; the home still has one.
+    assert report["record_types"].get("compacted", 0) >= 1
 
 
 def test_the_json_report_has_no_text_path_title_or_id(marker_env: SimpleNamespace) -> None:

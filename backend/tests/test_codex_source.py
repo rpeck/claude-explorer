@@ -683,11 +683,12 @@ def test_the_warnings_count_is_a_notice(cx: CodexEnv) -> None:
     assert any(str(len(warnings)) in n and "warning" in n for n in notices), notices
 
 
-def test_a_compacted_session_has_an_incomplete_notice(cx: CodexEnv) -> None:
+def test_a_compacted_session_has_no_incomplete_notice(cx: CodexEnv) -> None:
+    # Slice 2 (N10) rebuilds a compaction, so it no longer marks the session incomplete.
     _add_extra_threads(cx.codex)
     cx.sync()
     notices = cx.rows()[THREAD_COMPACTED].notices
-    assert any(n.startswith("incomplete: ") for n in notices), notices
+    assert not any(n.startswith("incomplete: ") for n in notices), notices
 
 
 def test_two_rollouts_without_a_state_row_give_the_ambiguous_and_older_rollout_notices(cx: CodexEnv) -> None:

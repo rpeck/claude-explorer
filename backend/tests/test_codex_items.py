@@ -999,7 +999,8 @@ def test_the_report_counts_an_unknown_extension_kind_as_other(
 # ---------------------------------------------------------------------------
 
 
-def test_codex_projection_version_is_2() -> None:
+def test_codex_projection_version_is_3() -> None:
+    # 2 for N12's items; 3 for N10's history (compaction, rollback, history_base).
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 2
+    assert codex.CODEX_PROJECTION_VERSION == 3
