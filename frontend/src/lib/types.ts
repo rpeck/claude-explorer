@@ -242,7 +242,22 @@ export interface Message {
   // this is truthy. Render guard MUST be `if (message.slash_command)`
   // so empty-string / null / undefined are all skipped.
   slash_command?: string | null
+  // Issue #52. The model of an assistant reply ("<synthetic>" for a row
+  // that Claude Code made). For Desktop and Codex the backend fills it
+  // from the conversation and sets `model_from_conversation`.
+  model?: string | null
+  model_from_conversation?: boolean
+  // The output of a local slash command, on its marker; stderr sets the flag.
+  command_output?: string | null
+  command_output_is_error?: boolean
+  // A `!` shell command and its output.
+  shell_command?: string | null
+  shell_output?: string | null
+  // A notice that Claude Code wrote into the session.
+  notice_kind?: NoticeKind | null
 }
+
+export type NoticeKind = 'task-notification' | 'bash-notification' | 'scheduled-task' | 'system-reminder'
 
 export interface CompactMarker {
   message_uuid: string

@@ -1,6 +1,8 @@
 {
   "all_default": [
     {
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "text": "Run a grep for me. NEEDLE_TOOL",
@@ -8,6 +10,8 @@
       "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
     },
     {
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "text": "Running grep.",
@@ -15,6 +19,8 @@
       "uuid": "febd1617-7ef9-0b58-9b79-01cbed08ffb8"
     },
     {
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "text": "Thanks!",
@@ -30,6 +36,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "timestamp": "2026-04-01T10:00:00+00:00",
@@ -49,6 +57,8 @@
           "type": "tool_use"
         }
       ],
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "timestamp": "2026-04-01T10:01:00+00:00",
@@ -61,6 +71,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "timestamp": "2026-04-01T10:02:00+00:00",
@@ -75,6 +87,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "timestamp": "2026-04-01T10:00:00+00:00",
@@ -103,6 +117,8 @@
           "type": "tool_result"
         }
       ],
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "timestamp": "2026-04-01T10:01:00+00:00",
@@ -115,6 +131,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "timestamp": "2026-04-01T10:02:00+00:00",
@@ -123,6 +141,8 @@
   ],
   "positions_0_1": [
     {
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "text": "Run a grep for me. NEEDLE_TOOL",
@@ -130,6 +150,8 @@
       "uuid": "f05028f8-3996-ebe8-d4b6-496c8b976625"
     },
     {
+      "label": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
       "position": 1,
       "sender": "assistant",
       "text": "Running grep.",

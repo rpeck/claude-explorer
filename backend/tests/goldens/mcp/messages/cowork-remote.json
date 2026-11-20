@@ -1,6 +1,8 @@
 {
   "all_default": [
     {
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
@@ -8,6 +10,8 @@
       "uuid": "u-2"
     },
     {
+      "label": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
       "position": 1,
       "sender": "assistant",
       "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",
@@ -15,6 +19,8 @@
       "uuid": "a-3"
     },
     {
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "text": "Add a rollback step too.",
@@ -22,6 +28,8 @@
       "uuid": "u-5"
     },
     {
+      "label": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
       "position": 3,
       "sender": "assistant",
       "text": "Added a rollback step after the canary check.",
@@ -37,6 +45,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "timestamp": "2026-10-06T19:02:00+00:00",
@@ -49,6 +59,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
       "position": 1,
       "sender": "assistant",
       "timestamp": "2026-10-06T19:03:00+00:00",
@@ -61,6 +73,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "timestamp": "2026-10-06T19:05:00+00:00",
@@ -73,6 +87,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
       "position": 3,
       "sender": "assistant",
       "timestamp": "2026-10-06T19:06:00+00:00",
@@ -87,6 +103,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "timestamp": "2026-10-06T19:02:00+00:00",
@@ -99,6 +117,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
       "position": 1,
       "sender": "assistant",
       "timestamp": "2026-10-06T19:03:00+00:00",
@@ -111,6 +131,8 @@
           "type": "text"
         }
       ],
+      "label": "You",
+      "model": null,
       "position": 2,
       "sender": "human",
       "timestamp": "2026-10-06T19:05:00+00:00",
@@ -123,6 +145,8 @@
           "type": "text"
         }
       ],
+      "label": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
       "position": 3,
       "sender": "assistant",
       "timestamp": "2026-10-06T19:06:00+00:00",
@@ -131,6 +155,8 @@
   ],
   "positions_0_1": [
     {
+      "label": "You",
+      "model": null,
       "position": 0,
       "sender": "human",
       "text": "Plan the REMOTE_FIXTURE_TOKEN rollout for the widget service.",
@@ -138,6 +164,8 @@
       "uuid": "u-2"
     },
     {
+      "label": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
       "position": 1,
       "sender": "assistant",
       "text": "Here is a plan for the REMOTE_FIXTURE_TOKEN rollout.",

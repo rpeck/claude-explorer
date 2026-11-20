@@ -15,6 +15,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -32,8 +34,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": null,
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Hi! Let's talk about TLS.",
         "truncated": false,
@@ -43,6 +50,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -60,8 +69,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #2 for the long-conversation fixture.",
         "truncated": false,
@@ -71,6 +85,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -88,8 +104,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #3 for the long-conversation fixture.",
         "truncated": false,
@@ -99,6 +120,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -116,8 +139,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #4 for the long-conversation fixture.",
         "truncated": false,
@@ -127,6 +155,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -144,8 +174,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
         "truncated": false,
@@ -155,6 +190,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -172,8 +209,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #6 for the long-conversation fixture.",
         "truncated": false,
@@ -183,6 +225,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -200,8 +244,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #7 for the long-conversation fixture.",
         "truncated": false,
@@ -211,6 +260,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -228,8 +279,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "9562a307-1beb-5462-ece4-34f59a16788c",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #8 for the long-conversation fixture.",
         "truncated": false,
@@ -239,6 +295,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -256,8 +314,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #9 for the long-conversation fixture.",
         "truncated": false,
@@ -267,6 +330,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -284,8 +349,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #10 for the long-conversation fixture.",
         "truncated": false,
@@ -295,6 +365,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -312,8 +384,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #11 for the long-conversation fixture.",
         "truncated": false,
@@ -323,6 +400,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -340,8 +419,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #12 for the long-conversation fixture.",
         "truncated": false,
@@ -351,6 +435,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -368,8 +454,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #13 for the long-conversation fixture.",
         "truncated": false,
@@ -379,6 +470,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -396,8 +489,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #14 for the long-conversation fixture.",
         "truncated": false,
@@ -407,6 +505,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -424,8 +524,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "637ac55b-9dc6-8192-af6a-69867b348077",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #15 for the long-conversation fixture.",
         "truncated": false,
@@ -435,6 +540,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -452,8 +559,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #16 for the long-conversation fixture.",
         "truncated": false,
@@ -463,6 +575,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -480,8 +594,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "89569547-6e14-ff3e-3a98-d06073a7064b",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #17 for the long-conversation fixture.",
         "truncated": false,
@@ -491,6 +610,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -508,8 +629,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #18 for the long-conversation fixture.",
         "truncated": false,
@@ -519,6 +645,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -536,8 +664,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #19 for the long-conversation fixture.",
         "truncated": false,
@@ -547,6 +680,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -564,8 +699,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #20 for the long-conversation fixture.",
         "truncated": false,
@@ -575,6 +715,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -592,8 +734,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #21 for the long-conversation fixture.",
         "truncated": false,
@@ -603,6 +750,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -620,8 +769,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "815788d8-7001-9307-6a33-effbdb26241e",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #22 for the long-conversation fixture.",
         "truncated": false,
@@ -631,6 +785,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -648,8 +804,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #23 for the long-conversation fixture.",
         "truncated": false,
@@ -659,6 +820,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -676,8 +839,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #24 for the long-conversation fixture.",
         "truncated": false,
@@ -687,6 +855,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -704,8 +874,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #25 for the long-conversation fixture.",
         "truncated": false,
@@ -715,6 +890,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -732,8 +909,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #26 for the long-conversation fixture.",
         "truncated": false,
@@ -743,6 +925,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -760,8 +944,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #27 for the long-conversation fixture.",
         "truncated": false,
@@ -771,6 +960,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -788,8 +979,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #28 for the long-conversation fixture.",
         "truncated": false,
@@ -799,6 +995,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -816,8 +1014,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
         "parent_message_uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8",
         "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #29 for the long-conversation fixture.",
         "truncated": false,
@@ -827,6 +1030,8 @@
       {
         "assistant_canned_response_consumed": false,
         "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
         "content": [
           {
             "content": null,
@@ -844,8 +1049,13 @@
         "files_v2": [],
         "is_command_marker": false,
         "is_prelude": false,
+        "model": "claude-sonnet-4-6",
+        "model_from_conversation": true,
+        "notice_kind": null,
         "parent_message_uuid": "f428cc00-c20e-7da8-df58-13befa51c620",
         "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
         "slash_command": null,
         "text": "Filler message #30 for the long-conversation fixture.",
         "truncated": false,
@@ -969,6 +1179,8 @@
                                                                                                                             "message": {
                                                                                                                               "assistant_canned_response_consumed": false,
                                                                                                                               "attachments": [],
+                                                                                                                              "command_output": null,
+                                                                                                                              "command_output_is_error": false,
                                                                                                                               "content": [
                                                                                                                                 {
                                                                                                                                   "content": null,
@@ -986,8 +1198,13 @@
                                                                                                                               "files_v2": [],
                                                                                                                               "is_command_marker": false,
                                                                                                                               "is_prelude": false,
+                                                                                                                              "model": "claude-sonnet-4-6",
+                                                                                                                              "model_from_conversation": true,
+                                                                                                                              "notice_kind": null,
                                                                                                                               "parent_message_uuid": "f428cc00-c20e-7da8-df58-13befa51c620",
                                                                                                                               "sender": "assistant",
+                                                                                                                              "shell_command": null,
+                                                                                                                              "shell_output": null,
                                                                                                                               "slash_command": null,
                                                                                                                               "text": "Filler message #30 for the long-conversation fixture.",
                                                                                                                               "truncated": false,
@@ -999,6 +1216,8 @@
                                                                                                                         "message": {
                                                                                                                           "assistant_canned_response_consumed": false,
                                                                                                                           "attachments": [],
+                                                                                                                          "command_output": null,
+                                                                                                                          "command_output_is_error": false,
                                                                                                                           "content": [
                                                                                                                             {
                                                                                                                               "content": null,
@@ -1016,8 +1235,13 @@
                                                                                                                           "files_v2": [],
                                                                                                                           "is_command_marker": false,
                                                                                                                           "is_prelude": false,
+                                                                                                                          "model": null,
+                                                                                                                          "model_from_conversation": false,
+                                                                                                                          "notice_kind": null,
                                                                                                                           "parent_message_uuid": "dbacb2d3-6788-e202-e651-5747144cb6c8",
                                                                                                                           "sender": "human",
+                                                                                                                          "shell_command": null,
+                                                                                                                          "shell_output": null,
                                                                                                                           "slash_command": null,
                                                                                                                           "text": "Filler message #29 for the long-conversation fixture.",
                                                                                                                           "truncated": false,
@@ -1029,6 +1253,8 @@
                                                                                                                     "message": {
                                                                                                                       "assistant_canned_response_consumed": false,
                                                                                                                       "attachments": [],
+                                                                                                                      "command_output": null,
+                                                                                                                      "command_output_is_error": false,
                                                                                                                       "content": [
                                                                                                                         {
                                                                                                                           "content": null,
@@ -1046,8 +1272,13 @@
                                                                                                                       "files_v2": [],
                                                                                                                       "is_command_marker": false,
                                                                                                                       "is_prelude": false,
+                                                                                                                      "model": "claude-sonnet-4-6",
+                                                                                                                      "model_from_conversation": true,
+                                                                                                                      "notice_kind": null,
                                                                                                                       "parent_message_uuid": "9eed67df-ebad-7578-6df9-d5c694f4e237",
                                                                                                                       "sender": "assistant",
+                                                                                                                      "shell_command": null,
+                                                                                                                      "shell_output": null,
                                                                                                                       "slash_command": null,
                                                                                                                       "text": "Filler message #28 for the long-conversation fixture.",
                                                                                                                       "truncated": false,
@@ -1059,6 +1290,8 @@
                                                                                                                 "message": {
                                                                                                                   "assistant_canned_response_consumed": false,
                                                                                                                   "attachments": [],
+                                                                                                                  "command_output": null,
+                                                                                                                  "command_output_is_error": false,
                                                                                                                   "content": [
                                                                                                                     {
                                                                                                                       "content": null,
@@ -1076,8 +1309,13 @@
                                                                                                                   "files_v2": [],
                                                                                                                   "is_command_marker": false,
                                                                                                                   "is_prelude": false,
+                                                                                                                  "model": null,
+                                                                                                                  "model_from_conversation": false,
+                                                                                                                  "notice_kind": null,
                                                                                                                   "parent_message_uuid": "8cd93a7c-2910-ce96-667f-52622a7fdc32",
                                                                                                                   "sender": "human",
+                                                                                                                  "shell_command": null,
+                                                                                                                  "shell_output": null,
                                                                                                                   "slash_command": null,
                                                                                                                   "text": "Filler message #27 for the long-conversation fixture.",
                                                                                                                   "truncated": false,
@@ -1089,6 +1327,8 @@
                                                                                                             "message": {
                                                                                                               "assistant_canned_response_consumed": false,
                                                                                                               "attachments": [],
+                                                                                                              "command_output": null,
+                                                                                                              "command_output_is_error": false,
                                                                                                               "content": [
                                                                                                                 {
                                                                                                                   "content": null,
@@ -1106,8 +1346,13 @@
                                                                                                               "files_v2": [],
                                                                                                               "is_command_marker": false,
                                                                                                               "is_prelude": false,
+                                                                                                              "model": "claude-sonnet-4-6",
+                                                                                                              "model_from_conversation": true,
+                                                                                                              "notice_kind": null,
                                                                                                               "parent_message_uuid": "d65343be-32e0-ce7d-8c61-e2ae91c9a39e",
                                                                                                               "sender": "assistant",
+                                                                                                              "shell_command": null,
+                                                                                                              "shell_output": null,
                                                                                                               "slash_command": null,
                                                                                                               "text": "Filler message #26 for the long-conversation fixture.",
                                                                                                               "truncated": false,
@@ -1119,6 +1364,8 @@
                                                                                                         "message": {
                                                                                                           "assistant_canned_response_consumed": false,
                                                                                                           "attachments": [],
+                                                                                                          "command_output": null,
+                                                                                                          "command_output_is_error": false,
                                                                                                           "content": [
                                                                                                             {
                                                                                                               "content": null,
@@ -1136,8 +1383,13 @@
                                                                                                           "files_v2": [],
                                                                                                           "is_command_marker": false,
                                                                                                           "is_prelude": false,
+                                                                                                          "model": null,
+                                                                                                          "model_from_conversation": false,
+                                                                                                          "notice_kind": null,
                                                                                                           "parent_message_uuid": "3628b82e-8066-6da7-d1cc-b969466a96a0",
                                                                                                           "sender": "human",
+                                                                                                          "shell_command": null,
+                                                                                                          "shell_output": null,
                                                                                                           "slash_command": null,
                                                                                                           "text": "Filler message #25 for the long-conversation fixture.",
                                                                                                           "truncated": false,
@@ -1149,6 +1401,8 @@
                                                                                                     "message": {
                                                                                                       "assistant_canned_response_consumed": false,
                                                                                                       "attachments": [],
+                                                                                                      "command_output": null,
+                                                                                                      "command_output_is_error": false,
                                                                                                       "content": [
                                                                                                         {
                                                                                                           "content": null,
@@ -1166,8 +1420,13 @@
                                                                                                       "files_v2": [],
                                                                                                       "is_command_marker": false,
                                                                                                       "is_prelude": false,
+                                                                                                      "model": "claude-sonnet-4-6",
+                                                                                                      "model_from_conversation": true,
+                                                                                                      "notice_kind": null,
                                                                                                       "parent_message_uuid": "97a45ef2-bcf5-3a9e-bec1-478276283456",
                                                                                                       "sender": "assistant",
+                                                                                                      "shell_command": null,
+                                                                                                      "shell_output": null,
                                                                                                       "slash_command": null,
                                                                                                       "text": "Filler message #24 for the long-conversation fixture.",
                                                                                                       "truncated": false,
@@ -1179,6 +1438,8 @@
                                                                                                 "message": {
                                                                                                   "assistant_canned_response_consumed": false,
                                                                                                   "attachments": [],
+                                                                                                  "command_output": null,
+                                                                                                  "command_output_is_error": false,
                                                                                                   "content": [
                                                                                                     {
                                                                                                       "content": null,
@@ -1196,8 +1457,13 @@
                                                                                                   "files_v2": [],
                                                                                                   "is_command_marker": false,
                                                                                                   "is_prelude": false,
+                                                                                                  "model": null,
+                                                                                                  "model_from_conversation": false,
+                                                                                                  "notice_kind": null,
                                                                                                   "parent_message_uuid": "489849c2-4fea-6ce4-9dee-3858c0df7d24",
                                                                                                   "sender": "human",
+                                                                                                  "shell_command": null,
+                                                                                                  "shell_output": null,
                                                                                                   "slash_command": null,
                                                                                                   "text": "Filler message #23 for the long-conversation fixture.",
                                                                                                   "truncated": false,
@@ -1209,6 +1475,8 @@
                                                                                             "message": {
                                                                                               "assistant_canned_response_consumed": false,
                                                                                               "attachments": [],
+                                                                                              "command_output": null,
+                                                                                              "command_output_is_error": false,
                                                                                               "content": [
                                                                                                 {
                                                                                                   "content": null,
@@ -1226,8 +1494,13 @@
                                                                                               "files_v2": [],
                                                                                               "is_command_marker": false,
                                                                                               "is_prelude": false,
+                                                                                              "model": "claude-sonnet-4-6",
+                                                                                              "model_from_conversation": true,
+                                                                                              "notice_kind": null,
                                                                                               "parent_message_uuid": "815788d8-7001-9307-6a33-effbdb26241e",
                                                                                               "sender": "assistant",
+                                                                                              "shell_command": null,
+                                                                                              "shell_output": null,
                                                                                               "slash_command": null,
                                                                                               "text": "Filler message #22 for the long-conversation fixture.",
                                                                                               "truncated": false,
@@ -1239,6 +1512,8 @@
                                                                                         "message": {
                                                                                           "assistant_canned_response_consumed": false,
                                                                                           "attachments": [],
+                                                                                          "command_output": null,
+                                                                                          "command_output_is_error": false,
                                                                                           "content": [
                                                                                             {
                                                                                               "content": null,
@@ -1256,8 +1531,13 @@
                                                                                           "files_v2": [],
                                                                                           "is_command_marker": false,
                                                                                           "is_prelude": false,
+                                                                                          "model": null,
+                                                                                          "model_from_conversation": false,
+                                                                                          "notice_kind": null,
                                                                                           "parent_message_uuid": "77b6c638-97f7-a9ca-6f82-7a41884c5f6a",
                                                                                           "sender": "human",
+                                                                                          "shell_command": null,
+                                                                                          "shell_output": null,
                                                                                           "slash_command": null,
                                                                                           "text": "Filler message #21 for the long-conversation fixture.",
                                                                                           "truncated": false,
@@ -1269,6 +1549,8 @@
                                                                                     "message": {
                                                                                       "assistant_canned_response_consumed": false,
                                                                                       "attachments": [],
+                                                                                      "command_output": null,
+                                                                                      "command_output_is_error": false,
                                                                                       "content": [
                                                                                         {
                                                                                           "content": null,
@@ -1286,8 +1568,13 @@
                                                                                       "files_v2": [],
                                                                                       "is_command_marker": false,
                                                                                       "is_prelude": false,
+                                                                                      "model": "claude-sonnet-4-6",
+                                                                                      "model_from_conversation": true,
+                                                                                      "notice_kind": null,
                                                                                       "parent_message_uuid": "5b024584-87df-dbe9-8d80-df0481fc6fc1",
                                                                                       "sender": "assistant",
+                                                                                      "shell_command": null,
+                                                                                      "shell_output": null,
                                                                                       "slash_command": null,
                                                                                       "text": "Filler message #20 for the long-conversation fixture.",
                                                                                       "truncated": false,
@@ -1299,6 +1586,8 @@
                                                                                 "message": {
                                                                                   "assistant_canned_response_consumed": false,
                                                                                   "attachments": [],
+                                                                                  "command_output": null,
+                                                                                  "command_output_is_error": false,
                                                                                   "content": [
                                                                                     {
                                                                                       "content": null,
@@ -1316,8 +1605,13 @@
                                                                                   "files_v2": [],
                                                                                   "is_command_marker": false,
                                                                                   "is_prelude": false,
+                                                                                  "model": null,
+                                                                                  "model_from_conversation": false,
+                                                                                  "notice_kind": null,
                                                                                   "parent_message_uuid": "2ba316db-8028-30d0-4965-e4c3241ce4d0",
                                                                                   "sender": "human",
+                                                                                  "shell_command": null,
+                                                                                  "shell_output": null,
                                                                                   "slash_command": null,
                                                                                   "text": "Filler message #19 for the long-conversation fixture.",
                                                                                   "truncated": false,
@@ -1329,6 +1623,8 @@
                                                                             "message": {
                                                                               "assistant_canned_response_consumed": false,
                                                                               "attachments": [],
+                                                                              "command_output": null,
+                                                                              "command_output_is_error": false,
                                                                               "content": [
                                                                                 {
                                                                                   "content": null,
@@ -1346,8 +1642,13 @@
                                                                               "files_v2": [],
                                                                               "is_command_marker": false,
                                                                               "is_prelude": false,
+                                                                              "model": "claude-sonnet-4-6",
+                                                                              "model_from_conversation": true,
+                                                                              "notice_kind": null,
                                                                               "parent_message_uuid": "6c9dae85-cded-f39f-18fd-e5e4b6ac8b43",
                                                                               "sender": "assistant",
+                                                                              "shell_command": null,
+                                                                              "shell_output": null,
                                                                               "slash_command": null,
                                                                               "text": "Filler message #18 for the long-conversation fixture.",
                                                                               "truncated": false,
@@ -1359,6 +1660,8 @@
                                                                         "message": {
                                                                           "assistant_canned_response_consumed": false,
                                                                           "attachments": [],
+                                                                          "command_output": null,
+                                                                          "command_output_is_error": false,
                                                                           "content": [
                                                                             {
                                                                               "content": null,
@@ -1376,8 +1679,13 @@
                                                                           "files_v2": [],
                                                                           "is_command_marker": false,
                                                                           "is_prelude": false,
+                                                                          "model": null,
+                                                                          "model_from_conversation": false,
+                                                                          "notice_kind": null,
                                                                           "parent_message_uuid": "89569547-6e14-ff3e-3a98-d06073a7064b",
                                                                           "sender": "human",
+                                                                          "shell_command": null,
+                                                                          "shell_output": null,
                                                                           "slash_command": null,
                                                                           "text": "Filler message #17 for the long-conversation fixture.",
                                                                           "truncated": false,
@@ -1389,6 +1697,8 @@
                                                                     "message": {
                                                                       "assistant_canned_response_consumed": false,
                                                                       "attachments": [],
+                                                                      "command_output": null,
+                                                                      "command_output_is_error": false,
                                                                       "content": [
                                                                         {
                                                                           "content": null,
@@ -1406,8 +1716,13 @@
                                                                       "files_v2": [],
                                                                       "is_command_marker": false,
                                                                       "is_prelude": false,
+                                                                      "model": "claude-sonnet-4-6",
+                                                                      "model_from_conversation": true,
+                                                                      "notice_kind": null,
                                                                       "parent_message_uuid": "dcbbab7e-6f87-c3de-c6d0-7d29fc4f9382",
                                                                       "sender": "assistant",
+                                                                      "shell_command": null,
+                                                                      "shell_output": null,
                                                                       "slash_command": null,
                                                                       "text": "Filler message #16 for the long-conversation fixture.",
                                                                       "truncated": false,
@@ -1419,6 +1734,8 @@
                                                                 "message": {
                                                                   "assistant_canned_response_consumed": false,
                                                                   "attachments": [],
+                                                                  "command_output": null,
+                                                                  "command_output_is_error": false,
                                                                   "content": [
                                                                     {
                                                                       "content": null,
@@ -1436,8 +1753,13 @@
                                                                   "files_v2": [],
                                                                   "is_command_marker": false,
                                                                   "is_prelude": false,
+                                                                  "model": null,
+                                                                  "model_from_conversation": false,
+                                                                  "notice_kind": null,
                                                                   "parent_message_uuid": "637ac55b-9dc6-8192-af6a-69867b348077",
                                                                   "sender": "human",
+                                                                  "shell_command": null,
+                                                                  "shell_output": null,
                                                                   "slash_command": null,
                                                                   "text": "Filler message #15 for the long-conversation fixture.",
                                                                   "truncated": false,
@@ -1449,6 +1771,8 @@
                                                             "message": {
                                                               "assistant_canned_response_consumed": false,
                                                               "attachments": [],
+                                                              "command_output": null,
+                                                              "command_output_is_error": false,
                                                               "content": [
                                                                 {
                                                                   "content": null,
@@ -1466,8 +1790,13 @@
                                                               "files_v2": [],
                                                               "is_command_marker": false,
                                                               "is_prelude": false,
+                                                              "model": "claude-sonnet-4-6",
+                                                              "model_from_conversation": true,
+                                                              "notice_kind": null,
                                                               "parent_message_uuid": "f0b7b37a-7d46-67dd-f274-06495b55de2e",
                                                               "sender": "assistant",
+                                                              "shell_command": null,
+                                                              "shell_output": null,
                                                               "slash_command": null,
                                                               "text": "Filler message #14 for the long-conversation fixture.",
                                                               "truncated": false,
@@ -1479,6 +1808,8 @@
                                                         "message": {
                                                           "assistant_canned_response_consumed": false,
                                                           "attachments": [],
+                                                          "command_output": null,
+                                                          "command_output_is_error": false,
                                                           "content": [
                                                             {
                                                               "content": null,
@@ -1496,8 +1827,13 @@
                                                           "files_v2": [],
                                                           "is_command_marker": false,
                                                           "is_prelude": false,
+                                                          "model": null,
+                                                          "model_from_conversation": false,
+                                                          "notice_kind": null,
                                                           "parent_message_uuid": "8b6e9753-ca14-6b60-0356-f813ecd49adf",
                                                           "sender": "human",
+                                                          "shell_command": null,
+                                                          "shell_output": null,
                                                           "slash_command": null,
                                                           "text": "Filler message #13 for the long-conversation fixture.",
                                                           "truncated": false,
@@ -1509,6 +1845,8 @@
                                                     "message": {
                                                       "assistant_canned_response_consumed": false,
                                                       "attachments": [],
+                                                      "command_output": null,
+                                                      "command_output_is_error": false,
                                                       "content": [
                                                         {
                                                           "content": null,
@@ -1526,8 +1864,13 @@
                                                       "files_v2": [],
                                                       "is_command_marker": false,
                                                       "is_prelude": false,
+                                                      "model": "claude-sonnet-4-6",
+                                                      "model_from_conversation": true,
+                                                      "notice_kind": null,
                                                       "parent_message_uuid": "c3770a3f-f0e5-84e2-8dd4-c76328595b28",
                                                       "sender": "assistant",
+                                                      "shell_command": null,
+                                                      "shell_output": null,
                                                       "slash_command": null,
                                                       "text": "Filler message #12 for the long-conversation fixture.",
                                                       "truncated": false,
@@ -1539,6 +1882,8 @@
                                                 "message": {
                                                   "assistant_canned_response_consumed": false,
                                                   "attachments": [],
+                                                  "command_output": null,
+                                                  "command_output_is_error": false,
                                                   "content": [
                                                     {
                                                       "content": null,
@@ -1556,8 +1901,13 @@
                                                   "files_v2": [],
                                                   "is_command_marker": false,
                                                   "is_prelude": false,
+                                                  "model": null,
+                                                  "model_from_conversation": false,
+                                                  "notice_kind": null,
                                                   "parent_message_uuid": "2206aecd-6b8c-d1a2-7e02-5aebe8415998",
                                                   "sender": "human",
+                                                  "shell_command": null,
+                                                  "shell_output": null,
                                                   "slash_command": null,
                                                   "text": "Filler message #11 for the long-conversation fixture.",
                                                   "truncated": false,
@@ -1569,6 +1919,8 @@
                                             "message": {
                                               "assistant_canned_response_consumed": false,
                                               "attachments": [],
+                                              "command_output": null,
+                                              "command_output_is_error": false,
                                               "content": [
                                                 {
                                                   "content": null,
@@ -1586,8 +1938,13 @@
                                               "files_v2": [],
                                               "is_command_marker": false,
                                               "is_prelude": false,
+                                              "model": "claude-sonnet-4-6",
+                                              "model_from_conversation": true,
+                                              "notice_kind": null,
                                               "parent_message_uuid": "863a3dec-c482-60fc-0dfc-8df3d718b92b",
                                               "sender": "assistant",
+                                              "shell_command": null,
+                                              "shell_output": null,
                                               "slash_command": null,
                                               "text": "Filler message #10 for the long-conversation fixture.",
                                               "truncated": false,
@@ -1599,6 +1956,8 @@
                                         "message": {
                                           "assistant_canned_response_consumed": false,
                                           "attachments": [],
+                                          "command_output": null,
+                                          "command_output_is_error": false,
                                           "content": [
                                             {
                                               "content": null,
@@ -1616,8 +1975,13 @@
                                           "files_v2": [],
                                           "is_command_marker": false,
                                           "is_prelude": false,
+                                          "model": null,
+                                          "model_from_conversation": false,
+                                          "notice_kind": null,
                                           "parent_message_uuid": "fd5968ce-ede7-2cab-09d1-db8285b5fe86",
                                           "sender": "human",
+                                          "shell_command": null,
+                                          "shell_output": null,
                                           "slash_command": null,
                                           "text": "Filler message #9 for the long-conversation fixture.",
                                           "truncated": false,
@@ -1629,6 +1993,8 @@
                                     "message": {
                                       "assistant_canned_response_consumed": false,
                                       "attachments": [],
+                                      "command_output": null,
+                                      "command_output_is_error": false,
                                       "content": [
                                         {
                                           "content": null,
@@ -1646,8 +2012,13 @@
                                       "files_v2": [],
                                       "is_command_marker": false,
                                       "is_prelude": false,
+                                      "model": "claude-sonnet-4-6",
+                                      "model_from_conversation": true,
+                                      "notice_kind": null,
                                       "parent_message_uuid": "9562a307-1beb-5462-ece4-34f59a16788c",
                                       "sender": "assistant",
+                                      "shell_command": null,
+                                      "shell_output": null,
                                       "slash_command": null,
                                       "text": "Filler message #8 for the long-conversation fixture.",
                                       "truncated": false,
@@ -1659,6 +2030,8 @@
                                 "message": {
                                   "assistant_canned_response_consumed": false,
                                   "attachments": [],
+                                  "command_output": null,
+                                  "command_output_is_error": false,
                                   "content": [
                                     {
                                       "content": null,
@@ -1676,8 +2049,13 @@
                                   "files_v2": [],
                                   "is_command_marker": false,
                                   "is_prelude": false,
+                                  "model": null,
+                                  "model_from_conversation": false,
+                                  "notice_kind": null,
                                   "parent_message_uuid": "97a1573b-2c69-e86a-c02c-203a09b75a88",
                                   "sender": "human",
+                                  "shell_command": null,
+                                  "shell_output": null,
                                   "slash_command": null,
                                   "text": "Filler message #7 for the long-conversation fixture.",
                                   "truncated": false,
@@ -1689,6 +2067,8 @@
                             "message": {
                               "assistant_canned_response_consumed": false,
                               "attachments": [],
+                              "command_output": null,
+                              "command_output_is_error": false,
                               "content": [
                                 {
                                   "content": null,
@@ -1706,8 +2086,13 @@
                               "files_v2": [],
                               "is_command_marker": false,
                               "is_prelude": false,
+                              "model": "claude-sonnet-4-6",
+                              "model_from_conversation": true,
+                              "notice_kind": null,
                               "parent_message_uuid": "f7c8d26f-69bb-2cb3-e8db-87e7b2c3f8cf",
                               "sender": "assistant",
+                              "shell_command": null,
+                              "shell_output": null,
                               "slash_command": null,
                               "text": "Filler message #6 for the long-conversation fixture.",
                               "truncated": false,
@@ -1719,6 +2104,8 @@
                         "message": {
                           "assistant_canned_response_consumed": false,
                           "attachments": [],
+                          "command_output": null,
+                          "command_output_is_error": false,
                           "content": [
                             {
                               "content": null,
@@ -1736,8 +2123,13 @@
                           "files_v2": [],
                           "is_command_marker": false,
                           "is_prelude": false,
+                          "model": null,
+                          "model_from_conversation": false,
+                          "notice_kind": null,
                           "parent_message_uuid": "2abd51b5-c502-a3e6-c3c2-2e4353f2db23",
                           "sender": "human",
+                          "shell_command": null,
+                          "shell_output": null,
                           "slash_command": null,
                           "text": "Quick question about TLS handshakes. NEEDLE_HANDSHAKE - I want this token to be uniquely findable so the search test can assert against it without false positives.",
                           "truncated": false,
@@ -1749,6 +2141,8 @@
                     "message": {
                       "assistant_canned_response_consumed": false,
                       "attachments": [],
+                      "command_output": null,
+                      "command_output_is_error": false,
                       "content": [
                         {
                           "content": null,
@@ -1766,8 +2160,13 @@
                       "files_v2": [],
                       "is_command_marker": false,
                       "is_prelude": false,
+                      "model": "claude-sonnet-4-6",
+                      "model_from_conversation": true,
+                      "notice_kind": null,
                       "parent_message_uuid": "fa51312a-7092-0f1f-f773-e5773811ed05",
                       "sender": "assistant",
+                      "shell_command": null,
+                      "shell_output": null,
                       "slash_command": null,
                       "text": "Filler message #4 for the long-conversation fixture.",
                       "truncated": false,
@@ -1779,6 +2178,8 @@
                 "message": {
                   "assistant_canned_response_consumed": false,
                   "attachments": [],
+                  "command_output": null,
+                  "command_output_is_error": false,
                   "content": [
                     {
                       "content": null,
@@ -1796,8 +2197,13 @@
                   "files_v2": [],
                   "is_command_marker": false,
                   "is_prelude": false,
+                  "model": null,
+                  "model_from_conversation": false,
+                  "notice_kind": null,
                   "parent_message_uuid": "babe59c4-2ecd-914a-b3bf-435edbf9d5fa",
                   "sender": "human",
+                  "shell_command": null,
+                  "shell_output": null,
                   "slash_command": null,
                   "text": "Filler message #3 for the long-conversation fixture.",
                   "truncated": false,
@@ -1809,6 +2215,8 @@
             "message": {
               "assistant_canned_response_consumed": false,
               "attachments": [],
+              "command_output": null,
+              "command_output_is_error": false,
               "content": [
                 {
                   "content": null,
@@ -1826,8 +2234,13 @@
               "files_v2": [],
               "is_command_marker": false,
               "is_prelude": false,
+              "model": "claude-sonnet-4-6",
+              "model_from_conversation": true,
+              "notice_kind": null,
               "parent_message_uuid": "d2640df7-c9b5-db2f-994a-7abc63d27173",
               "sender": "assistant",
+              "shell_command": null,
+              "shell_output": null,
               "slash_command": null,
               "text": "Filler message #2 for the long-conversation fixture.",
               "truncated": false,
@@ -1839,6 +2252,8 @@
         "message": {
           "assistant_canned_response_consumed": false,
           "attachments": [],
+          "command_output": null,
+          "command_output_is_error": false,
           "content": [
             {
               "content": null,
@@ -1856,8 +2271,13 @@
           "files_v2": [],
           "is_command_marker": false,
           "is_prelude": false,
+          "model": null,
+          "model_from_conversation": false,
+          "notice_kind": null,
           "parent_message_uuid": null,
           "sender": "human",
+          "shell_command": null,
+          "shell_output": null,
           "slash_command": null,
           "text": "Hi! Let's talk about TLS.",
           "truncated": false,

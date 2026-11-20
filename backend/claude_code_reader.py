@@ -70,6 +70,7 @@ from .cc_message_transforms import (  # noqa: F401
     _LOCAL_CMD_ARGS_RE,
     _LOCAL_CMD_NAME_RE,
     _TITLE_FIELD_BY_TYPE,
+    _classify_shell_and_notice_rows,
     _collapse_local_command_triplets,
     _convert_entry_to_message,
     _extract_conversation_metadata,
@@ -83,6 +84,7 @@ from .cc_message_transforms import (  # noqa: F401
     _is_canned_no_response_assistant,
     _is_system_message,
     _local_command_kind,
+    _local_command_system_row_as_user,
     _merge_entries_to_message,
     _title_from_entry,
 )
@@ -207,7 +209,7 @@ def read_claude_code_conversation(jsonl_path: Path) -> dict[str, Any] | None:
     Handles Claude Code's streaming format where multiple entries represent
     chunks of the same message. Groups entries by message ID and merges them.
     """
-    entries = parse_jsonl_file(jsonl_path)
+    entries = [_local_command_system_row_as_user(e) for e in parse_jsonl_file(jsonl_path)]
     if not entries:
         return None
 
@@ -267,6 +269,7 @@ def read_claude_code_conversation(jsonl_path: Path) -> dict[str, Any] | None:
     # chunks. See `_collapse_local_command_triplets` docstring for the
     # full contract + bidirectional guarantees.
     messages = _collapse_local_command_triplets(messages)
+    messages = _classify_shell_and_notice_rows(messages)
     # V1 polish (2026-05-12, council round 2): absorb CC's canned
     # `"No response requested."` assistant reply into the preceding marker,
     # then flag the leading run of markers as `is_prelude` so the frontend

@@ -1,6 +1,7 @@
 import { User, Bot, ChevronRight } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { sourceDescriptor } from '@/lib/sources'
+import { replyLabel } from '@/lib/modelName'
 import type { MessageNode, ConversationTree, ConversationSource } from '@/lib/types'
 
 interface TreeViewProps {
@@ -86,7 +87,7 @@ function TreeNode({
           <div>. */}
       <button
         type="button"
-        aria-label={`${node.message.sender === 'human' ? 'You' : assistantLabel}: ${previewText}`}
+        aria-label={`${node.message.sender === 'human' ? 'You' : replyLabel(assistantLabel, node.message.model)}: ${previewText}`}
         className={cn(
           'group flex w-full cursor-pointer items-start gap-2 rounded-lg p-2 text-left transition-colors',
           isActive
@@ -123,7 +124,7 @@ function TreeNode({
                   : 'text-zinc-600 dark:text-zinc-400'
               )}
             >
-              {node.message.sender === 'human' ? 'You' : assistantLabel}
+              {node.message.sender === 'human' ? 'You' : replyLabel(assistantLabel, node.message.model)}
             </span>
             <span className="text-xs text-zinc-400">
               {formatDate(node.message.created_at)}
