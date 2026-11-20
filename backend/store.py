@@ -1129,6 +1129,7 @@ class ConversationStore:
             source_home_abs=data.get("source_home_abs"),
             notices=data.get("notices") or [],
             parent_uuid=data.get("parent_uuid"),
+            child_uuids=data.get("child_uuids") or [],
         )
 
     def get_conversation(self, uuid: str, leaf_override: str | None = None) -> ConversationDetail | None:
@@ -1200,7 +1201,10 @@ class ConversationStore:
             return detail.model_dump(mode="json")
 
         try:
-            current_mtime = file_path.stat().st_mtime
+            # A source whose detail reads other files (Codex) gives its own key.
+            adapter = get_adapter_or_none(data.get("source") or "CLAUDE_AI", self)
+            token = getattr(adapter, "cache_token", None)
+            current_mtime = token(file_path) if token else file_path.stat().st_mtime
         except OSError:
             # Race: file vanished. Build once, don't cache.
             detail = self._build_detail_from_data(data, file_path, None)
