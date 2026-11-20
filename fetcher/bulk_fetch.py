@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 # Default paths — canonically defined in fetcher.paths and re-exported here
 # so old imports + test patches at fetcher.bulk_fetch.DEFAULT_* keep working.
 # See backend/tests/conftest.py for the multi-site patch fixture.
-from fetcher.atomic import atomic_replace
+from fetcher.atomic import atomic_replace, atomic_write_bytes
 from fetcher.paths import (
     DEFAULT_CREDENTIALS_PATH,
     DEFAULT_FILES_DIR,
@@ -175,6 +175,64 @@ def _parse_utc(value: str) -> datetime:
     """Parse an ISO 8601 timestamp; one without a zone is taken as UTC."""
     dt = datetime.fromisoformat(value)
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def _read_local_conversation(path: Path) -> dict | None:
+    """The archived copy at ``path``, or ``None`` when there is none to merge.
+
+    A copy that is not a JSON object cannot be merged, so its bytes go to
+    ``<name>.unreadable-<n>`` first: the server copy must not destroy them.
+    """
+    try:
+        data = path.read_bytes()
+    except FileNotFoundError:
+        return None
+    try:
+        local = json.loads(data)
+    except ValueError:
+        local = None
+    if isinstance(local, dict):
+        return local
+    n = 1
+    while True:
+        try:
+            with open(path.with_name(f"{path.name}.unreadable-{n}"), "xb") as fh:
+                fh.write(data)
+            break
+        except FileExistsError:
+            n += 1
+    logger.warning("%s is not a JSON object; kept it as %s.unreadable-%d", path, path.name, n)
+    return None
+
+
+def _merge_conversation(local: dict | None, server: dict) -> dict:
+    """The union of the archived and the server copies (issue #51).
+
+    The server wins for each field and each message (by ``uuid``) that it
+    returns. A field or a message that only the archive has stays as it is,
+    so a re-fetch never loses content that the server stopped returning.
+    """
+    if local is None:
+        return server
+    merged = {**local, **server}
+    server_msgs = server.get("chat_messages") or []
+    server_uuids = {m.get("uuid") for m in server_msgs if isinstance(m, dict)}
+    kept = [
+        m for m in local.get("chat_messages") or []
+        if isinstance(m, dict)
+        # A message without a uuid matches only an equal server message.
+        and (m["uuid"] not in server_uuids if m.get("uuid") else m not in server_msgs)
+    ]
+
+    def created(m: dict) -> tuple[bool, datetime]:
+        try:
+            return False, _parse_utc(m["created_at"])
+        except (KeyError, TypeError, ValueError):
+            return True, datetime.min.replace(tzinfo=UTC)  # no time: after the rest
+
+    # A stable sort: equal times keep the server order, then the archive order.
+    merged["chat_messages"] = sorted([*server_msgs, *kept], key=created)
+    return merged
 
 
 class TransientHTTPError(Exception):
@@ -759,8 +817,8 @@ class ClaudeFetcher:
         org_dir = self.output_dir / "by-org" / self.current_org["uuid"]
         org_dir.mkdir(parents=True, exist_ok=True)
         path = org_dir / f"{uuid}.json"
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(conversation, f, indent=2)
+        conversation = _merge_conversation(_read_local_conversation(path), conversation)
+        atomic_write_bytes(path, json.dumps(conversation, indent=2).encode("utf-8"))
 
         self._log(f"Saved {path}")
 
