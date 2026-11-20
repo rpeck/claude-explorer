@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 from backend.archive_sync import SyncContext, SyncReason, SyncReport
 from backend.cloud_sync import detect_cloud_sync
 from backend.config import Settings, get_settings
+from backend.sources.codex import _display_home
 from backend.sources.registry import get_adapters
 
 if TYPE_CHECKING:
@@ -78,6 +79,18 @@ def cloud_sync_message(block: tuple[str, Path]) -> str:
     )
 
 
+def cloud_sync_notice(block: tuple[str, Path]) -> str:
+    """:func:`cloud_sync_message` with no absolute path, for MCP: the path can
+    hold the user name, and MCP text reaches a model (D14)."""
+    provider, folder = block
+    shown = _display_home(str(folder))
+    where = shown if shown.startswith("~") else "its data folder"
+    return (
+        f"Claude Explorer does not write to {where}, because {provider} syncs it "
+        "to the cloud. To allow writes there, confirm in the cloud-sync consent dialog."
+    )
+
+
 def run_archive_syncs(
     store: ConversationStore, reason: SyncReason, lock_timeout_s: float
 ) -> list[SyncReport]:
@@ -99,9 +112,9 @@ def run_archive_syncs(
         return [SyncReport(skipped_reason="corrupt_config")]
     block = cloud_sync_block(settings)
     if block is not None:
-        message = cloud_sync_message(block)
-        log.warning("archive copy (%s) skipped: %s", reason, message)
-        return [SyncReport(skipped_reason="cloud_sync_gate", warnings=[message])]
+        log.warning("archive copy (%s) skipped: %s", reason, cloud_sync_message(block))
+        # Only MCP reads the warnings, so they get the text with no absolute path.
+        return [SyncReport(skipped_reason="cloud_sync_gate", warnings=[cloud_sync_notice(block)])]
 
     ctx = SyncContext(settings=settings, reason=reason, lock_timeout_s=lock_timeout_s)
     reports: list[SyncReport] = []
@@ -125,6 +138,7 @@ def sync_busy(reports: list[SyncReport]) -> bool:
 __all__ = [
     "cloud_sync_block",
     "cloud_sync_message",
+    "cloud_sync_notice",
     "cloud_synced_target",
     "run_archive_syncs",
     "same_path",

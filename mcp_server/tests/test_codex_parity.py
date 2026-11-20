@@ -227,7 +227,9 @@ def parity(
         home_json.write_text(json.dumps(data, indent=2) + "\n")
         display = "~/.codex"
     else:
-        home_abs = display = FIXTURE_HOME_PATH
+        # A home outside ~ shows only its last folder name (L7: no absolute path to a model).
+        home_abs = FIXTURE_HOME_PATH
+        display = "…/.codex"
     missing = tmp_path / "no-codex-here"
     monkeypatch.setenv("CODEX_HOME", str(missing))
     config.get_settings.cache_clear()
@@ -393,9 +395,9 @@ def test_no_mcp_output_holds_the_absolute_codex_home(parity: Parity) -> None:
     text = json.dumps(outputs, default=str)
 
     assert "source_home_abs" not in text
-    if parity.home_display.startswith("~"):
-        assert parity.home_abs not in text
-        assert os.path.realpath(parity.home_abs) not in text
+    # L7: MCP never returns the absolute home, inside or outside ~.
+    assert parity.home_abs not in text
+    assert os.path.realpath(parity.home_abs) not in text
 
 
 def test_the_readers_write_nothing_into_the_archive_and_create_no_codex_home(parity: Parity, api: Any) -> None:

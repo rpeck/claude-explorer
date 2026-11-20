@@ -601,7 +601,10 @@ def test_copy_runs_query_only_and_quick_check_and_no_other_pragma_or_write(home:
     ]
     assert query_only, f"no PRAGMA query_only=1 in {stmts!r}"
     assert any(re.match(r"pragma\s+(main\.)?quick_check\b", s) for s in pragmas), stmts
-    others = [s for s in pragmas if not re.match(r"pragma\s+(main\.)?(query_only|quick_check)\b", s)]
+    # L7 (security review): trusted_schema=OFF is also allowed, and comes first.
+    others = [
+        s for s in pragmas if not re.match(r"pragma\s+(main\.)?(query_only|quick_check|trusted_schema)\b", s)
+    ]
     assert others == [], f"rule 9 allows no other PRAGMA: {others!r}"
     writes = [s for s in stmts if s.split()[0] in _WRITE_VERBS]
     assert writes == [], f"rule 9 allows no SQL that writes: {writes!r}"
