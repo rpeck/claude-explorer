@@ -295,7 +295,7 @@ export function Sidebar({ className }: SidebarProps) {
             <SelectContent>
               <SelectItem value="all">
                 <span className="flex items-center gap-2">
-                  All Conversations
+                  All Agents
                 </span>
               </SelectItem>
               {SOURCES.map((s) => (
