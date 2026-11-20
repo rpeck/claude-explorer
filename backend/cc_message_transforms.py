@@ -251,6 +251,9 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
         return messages
 
     result: list[dict] = []
+    # The index right after a /compact trigger row. Output there belongs to
+    # the compact marker, so it never becomes command_output (#52).
+    after_compact = -1
     i = 0
     n = len(messages)
     while i < n:
@@ -297,7 +300,7 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
             # wrong command.
             if (ckind == "command" and seen_command) or (ckind == "caveat" and outputs):
                 break
-            if ckind in _LOCAL_CMD_OUTPUT_TAGS:
+            if ckind in _LOCAL_CMD_OUTPUT_TAGS and not (run_start == after_compact and not seen_command):
                 outputs.append((ckind, ctext))
             if ckind == "command":
                 seen_command = True
@@ -329,6 +332,7 @@ def _collapse_local_command_triplets(messages: list[dict]) -> list[dict]:
             for k in range(run_start, j + 1):
                 result.append(messages[k])
             i = j + 1
+            after_compact = i
             continue
 
         first = messages[run_start]
