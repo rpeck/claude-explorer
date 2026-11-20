@@ -50,6 +50,8 @@ const TITLES = {
 const VISIBLE_TITLES = [TITLES.paginated, TITLES.legacy, TITLES.subagent, TITLES.guardian, TITLES.imported]
 const DESKTOP_TITLE = 'Phase 5 fixture: TLS handshakes (long)'
 const FIXTURE_HOME = '/home/fixture/.codex'
+// L7: a Codex home outside ~ shows only its last folder name; the copy button keeps the full path.
+const FIXTURE_HOME_DISPLAY = '…/.codex'
 
 interface ApiBlock {
   type: string
@@ -229,7 +231,7 @@ test.describe('Codex source end to end (N9, AC2)', () => {
     await expect(header.getByText('Codex name:')).toBeVisible()
     await expect(header.getByTitle('Click to copy Codex name')).toContainText(TITLES.paginated)
     await expect(header.getByText('Codex home:')).toBeVisible()
-    await expect(header.getByTitle('Click to copy Codex home')).toContainText(FIXTURE_HOME)
+    await expect(header.getByTitle('Click to copy Codex home')).toContainText(FIXTURE_HOME_DISPLAY)
     // A Codex session shows the thread ID, not the generic UUID row.
     await expect(header.getByTitle('Click to copy UUID')).toHaveCount(0)
   })
@@ -307,7 +309,7 @@ test.describe('Codex source end to end (N9, AC2)', () => {
 
     expect(md).toContain(`**Thread ID:** ${PAGINATED}`)
     expect(md).toContain(`**Codex name:** ${TITLES.paginated}`)
-    expect(md).toContain(`**Codex home:** ${FIXTURE_HOME}`)
+    expect(md).toContain(`**Codex home:** ${FIXTURE_HOME_DISPLAY}`)
     expect(md).toContain('The parser lives in src/parser.py.')
   })
 
