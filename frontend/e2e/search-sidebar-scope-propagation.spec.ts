@@ -236,9 +236,9 @@ test.describe('Search scope propagation — full-text search honors sidebar scop
     //   [0] active-filter-select (testid set)
     //   [1] source filter (no testid; placeholder "Filter by source")
     //   [2] workspace-select (testid set, only when >=2 orgs)
-    // The source select's first SelectItem is "All Conversations" (uppercase
-    // 'C'); active-filter's first SelectItem is "All conversations" (lowercase
-    // 'c'). We pick the source one by index since it's structurally fixed.
+    // The source select's first SelectItem is "All Agents";
+    // active-filter's first SelectItem is "All conversations".
+    // We pick the source one by index since it's structurally fixed.
     const sourceTrigger = page.locator('aside button[role="combobox"]').nth(1)
     await sourceTrigger.click()
     // Disambiguate: source dropdown's "Claude Code" option has a green
@@ -549,9 +549,9 @@ test.describe('Search scope propagation — full-text search honors sidebar scop
     //   [0] active-filter-select (testid set)
     //   [1] source filter (no testid; placeholder "Filter by source")
     //   [2] workspace-select (testid set, only when >=2 orgs)
-    // The source select's first SelectItem is "All Conversations" (uppercase
-    // 'C'); active-filter's first SelectItem is "All conversations" (lowercase
-    // 'c'). We pick the source one by index since it's structurally fixed.
+    // The source select's first SelectItem is "All Agents";
+    // active-filter's first SelectItem is "All conversations".
+    // We pick the source one by index since it's structurally fixed.
     const sourceTrigger = page.locator('aside button[role="combobox"]').nth(1)
     await sourceTrigger.click()
     // Disambiguate: source dropdown's "Claude Code" option has a green

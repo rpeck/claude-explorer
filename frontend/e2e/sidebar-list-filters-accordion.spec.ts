@@ -273,7 +273,7 @@ test.describe('Sidebar list filters: the "Filters and Sorting" section', () => {
     // 6. A workspace is selected.
     await pickOption(page, 'workspace-select', /Team Space/)
     await step('a workspace')
-    // 7. The source is not "All Conversations" (Cowork keeps "Archived" shown).
+    // 7. The source is not "All Agents" (Cowork keeps "Archived" shown).
     await pickOption(page, 'source-filter-select', 'Claude Cowork')
     await step('a source')
 
@@ -287,7 +287,7 @@ test.describe('Sidebar list filters: the "Filters and Sorting" section', () => {
     await expect(activeCount(page)).toHaveText(/^\s*7 active\s*$/)
 
     // Back to a source that shows the grouping checkbox, then group.
-    await pickOption(page, 'source-filter-select', 'All Conversations')
+    await pickOption(page, 'source-filter-select', 'All Agents')
     await expect(activeCount(page)).toHaveText(/^\s*6 active\s*$/)
     await sidebar(page).getByRole('checkbox', { name: /Group sessions by project/i }).click()
     await expect(sidebar(page).getByRole('checkbox', { name: /Group sessions by project/i })).toBeChecked()

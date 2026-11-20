@@ -2,7 +2,7 @@
  * N2 (PLANS/2026.11.18-codex-source.md §4.1, "Rules that N2 changes"):
  * the Sidebar reads the registry.
  *
- *   - The source filter items: "All Conversations", then one item per
+ *   - The source filter items: "All Agents", then one item per
  *     registry source, in registry order, with the descriptor `label`
  *     and the SOURCE_PRESETS icon and color.
  *   - The group-by-project toggle: under "all", or a source with
@@ -48,7 +48,7 @@ async function renderSidebar(sourceFilter: string, list: Descriptor[] | null) {
 
 /** The label that the source select must show for `sourceFilter`. */
 function labelOf(sourceFilter: string, list: readonly Descriptor[] = REAL): string | undefined {
-  return sourceFilter === 'all' ? 'All Conversations' : list.find((d) => d.id === sourceFilter)?.label
+  return sourceFilter === 'all' ? 'All Agents' : list.find((d) => d.id === sourceFilter)?.label
 }
 
 async function openSourceItems(trigger: HTMLElement) {
@@ -57,10 +57,10 @@ async function openSourceItems(trigger: HTMLElement) {
 }
 
 describe('Sidebar source filter items', () => {
-  it('real registry: "All Conversations", then each label in registry order', async () => {
+  it('real registry: "All Agents", then each label in registry order', async () => {
     const trigger = await renderSidebar('all', null)
     const items = await openSourceItems(trigger)
-    expect(items.map((o) => o.textContent)).toEqual(['All Conversations', ...REAL.map((d) => d.label)])
+    expect(items.map((o) => o.textContent)).toEqual(['All Agents', ...REAL.map((d) => d.label)])
   })
 
   it('real registry: each item has the icon and color of its SourceBadge preset', async () => {
@@ -87,7 +87,7 @@ describe('Sidebar source filter items', () => {
     const trigger = await renderSidebar('all', withFake())
     const items = await openSourceItems(trigger)
     expect(items.map((o) => o.textContent)).toEqual([
-      'All Conversations',
+      'All Agents',
       ...REAL.map((d) => d.label),
       FAKE.label,
     ])

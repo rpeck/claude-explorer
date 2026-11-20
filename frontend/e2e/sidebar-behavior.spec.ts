@@ -127,7 +127,7 @@ test.describe('Sidebar — source filter (B1)', () => {
     await expect(page.getByText(cc.name)).toBeVisible()
 
     // Switch to Claude Desktop only.
-    await page.getByRole('combobox').filter({ hasText: /All Conversations|Claude Desktop|Claude Code/ }).first().click()
+    await page.getByRole('combobox').filter({ hasText: /All Agents|Claude Desktop|Claude Code/ }).first().click()
     await page.getByRole('option', { name: 'Claude Desktop' }).click()
     await expect(page.getByText(desktop.name)).toBeVisible()
     await expect(page.getByText(cc.name)).toHaveCount(0)
@@ -154,7 +154,7 @@ test.describe('Sidebar — project grouping is collapsible (B2)', () => {
     // Switch source to Claude Code so the "Group by project" toggle appears.
     // CF1: the active-filter picker is now the first combobox in the sidebar,
     // so we filter by the source-filter's text content.
-    await page.getByRole('combobox').filter({ hasText: /All Conversations|Claude Desktop|Claude Code/ }).first().click()
+    await page.getByRole('combobox').filter({ hasText: /All Agents|Claude Desktop|Claude Code/ }).first().click()
     await page.getByRole('option', { name: 'Claude Code' }).click()
 
     // Tick the "Group by project" checkbox by clicking its label (the
