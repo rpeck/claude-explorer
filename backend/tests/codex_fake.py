@@ -237,6 +237,25 @@ def function_call_output(call_id: str, output: Any) -> dict[str, Any]:
     return {"type": "function_call_output", "call_id": call_id, "output": output}
 
 
+def custom_tool_call(call_id: str, name: str, tool_input: str) -> dict[str, Any]:
+    """A freeform tool call (``ResponseItem::CustomToolCall``): ``input`` is plain text."""
+    return {"type": "custom_tool_call", "status": "completed", "call_id": call_id, "name": name, "input": tool_input}
+
+
+def custom_tool_call_output(call_id: str, text: str) -> dict[str, Any]:
+    # The work-Mac shape probe (#84): the text is in ``payload.output[].text``.
+    return {"type": "custom_tool_call_output", "call_id": call_id, "output": [{"type": "input_text", "text": text}]}
+
+
+def local_shell_call(call_id: str, command: list[str]) -> dict[str, Any]:
+    return {
+        "type": "local_shell_call",
+        "call_id": call_id,
+        "status": "completed",
+        "action": {"type": "exec", "command": command, "timeout_ms": None, "working_directory": None, "env": None, "user": None},
+    }
+
+
 def world_state(when: datetime) -> dict[str, Any]:
     return rollout_line(when, "world_state", {"full": True, "state": {"open_files": []}})
 
@@ -539,6 +558,88 @@ def _simple_paginated_lines(
         item_completed(s(2), tid, turn, user_message_item(f"item-{tid[-4:]}-user", user)),
         item_completed(s(3), tid, turn, agent_message_item(f"item-{tid[-4:]}-reply", reply)),
     ]
+
+
+#: Paginated history with tool calls that have no ``item_completed`` item
+#: (issue #84). Not in ``ALL_THREADS`` or ``build_codex_home``: other suites
+#: count the default sessions. ``write_orphan_tool_calls`` writes it.
+THREAD_ORPHAN_CALLS = "019aa100-0000-7000-8000-0000000000c1"
+ORPHAN_TURN = "turn-o1"
+ORPHAN_MODEL = "gpt-5.5-codex"
+ORPHAN_STARTED = _at("2026-11-19T11:00:00")
+
+#: The call ids, in rollout order. An orphan call has no item with its id.
+ORPHAN_PATCH = "call_o1_patch_failed"  # custom_tool_call apply_patch that failed before emitter.begin
+ORPHAN_EXEC = "call_o1_exec"  # custom_tool_call: the outer code-mode exec tool
+NESTED_EXEC_ITEM = "exec-6b1f3c2e-8d4a-4f5b-9c7e-2a1b3c4d5e6f"  # its nested CommandExecution item
+MATCHED_SHELL = "call_o1_shell_ok"  # function_call with a CommandExecution item of the same id
+MATCHED_PATCH = "call_o1_patch_ok"  # custom_tool_call with a FileChange item of the same id
+ORPHAN_UNKNOWN = "call_o1_unknown"  # function_call to a tool that does not exist
+ORPHAN_LONE_OUTPUT = "call_o1_lost"  # a custom_tool_call_output with no call
+ORPHAN_NO_OUTPUT = "call_o1_ls"  # local_shell_call with no output
+
+#: One word per place; no other text in the rollout holds it.
+ORPHAN_WORDS = {
+    "patch_input": "quokkainput",
+    "patch_output": "wombatoutput",
+    "exec_input": "ocelotscript",
+    "exec_output": "ocelotresult",
+    "nested_output": "lynxnested",
+    "matched_shell_output": "lemurshell",
+    "matched_patch_output": "lemurpatch",
+    "unknown_input": "gnuargs",
+    "unknown_output": "ibexunsupported",
+    "lone_output": "yakorphan",
+    "no_output_input": "tapirshell",
+    "message": "heronreply",
+}
+
+
+def orphan_tool_calls_lines(t0: datetime = ORPHAN_STARTED) -> list[dict[str, Any] | str]:
+    """One paginated turn. Codex writes ``response_item`` tool records for every
+    call, but an ``item_completed`` item only for some (``rollout/src/policy.rs``,
+    ``core/src/tools/handlers/apply_patch.rs``, ``core/src/tools/code_mode/``)."""
+    tid, turn, cwd, w = THREAD_ORPHAN_CALLS, ORPHAN_TURN, "/home/fixture/proj-omega", ORPHAN_WORDS
+    s = lambda n: t0 + timedelta(seconds=n)
+    patch = f"*** Begin Patch\n*** Update File: src/lexer.py\n@@\n-{w['patch_input']} = 1\n+TOKENS = []\n*** End Patch\n"
+    return [
+        session_meta(t0, tid, cwd=cwd, history_mode="paginated"),
+        turn_context(s(1), turn, cwd=cwd, model=ORPHAN_MODEL),
+        item_completed(s(2), tid, turn, user_message_item("item-o1-user", "Fix the lexer tokens.")),
+        response_item(s(2), message("user", input_text("Fix the lexer tokens."))),
+        # A freeform apply_patch that fails verification: no FileChange item.
+        response_item(s(3), custom_tool_call(ORPHAN_PATCH, "apply_patch", patch)),
+        response_item(s(4), custom_tool_call_output(
+            ORPHAN_PATCH, f"apply_patch verification failed: Failed to find expected lines in src/lexer.py:\n{w['patch_output']}")),
+        # The outer code-mode exec has no item; the shell call inside it has its own.
+        response_item(s(5), custom_tool_call(ORPHAN_EXEC, "exec", f"// {w['exec_input']}\nawait tools.shell({{command: ['cat', 'notes.txt']}});")),
+        item_completed(s(6), tid, turn, command_item(NESTED_EXEC_ITEM, ["cat", "notes.txt"], cwd=cwd, output=f"{w['nested_output']}\n")),
+        response_item(s(7), custom_tool_call_output(ORPHAN_EXEC, f"Script done: {w['exec_output']}")),
+        # Matched calls: the item has the call's id, so the item alone shows.
+        response_item(s(8), function_call(MATCHED_SHELL, "exec_command", {"cmd": "ls src"})),
+        item_completed(s(9), tid, turn, command_item(MATCHED_SHELL, ["bash", "-lc", "ls src"], cwd=cwd, output=f"{w['matched_shell_output']}.py\n")),
+        response_item(s(9), function_call_output(MATCHED_SHELL, f"{w['matched_shell_output']}.py\n")),
+        response_item(s(10), custom_tool_call(MATCHED_PATCH, "apply_patch", "*** Begin Patch\n*** Add File: src/tokens.py\n+TOKENS = []\n*** End Patch\n")),
+        item_completed(s(11), tid, turn, {
+            "type": "FileChange", "id": MATCHED_PATCH, "status": "completed",
+            "changes": {f"{cwd}/src/tokens.py": {"type": "add", "content": "TOKENS = []\n"}},
+            "stdout": f"Success. Updated the following files:\nA src/tokens.py {w['matched_patch_output']}\n", "stderr": "",
+        }),
+        response_item(s(11), custom_tool_call_output(MATCHED_PATCH, f"Success. Updated the following files:\nA src/tokens.py {w['matched_patch_output']}\n")),
+        # An unknown tool: Codex answers "unsupported call" and makes no item.
+        response_item(s(12), function_call(ORPHAN_UNKNOWN, "frobnicate", {"level": w["unknown_input"]})),
+        response_item(s(13), function_call_output(ORPHAN_UNKNOWN, f"unsupported call: frobnicate ({w['unknown_output']})")),
+        # An output whose call is not in the rollout, and a call with no output.
+        response_item(s(14), custom_tool_call_output(ORPHAN_LONE_OUTPUT, f"Lost output: {w['lone_output']}")),
+        response_item(s(15), local_shell_call(ORPHAN_NO_OUTPUT, ["echo", w["no_output_input"]])),
+        item_completed(s(16), tid, turn, agent_message_item("item-o1-reply", f"The lexer is fixed ({w['message']}).")),
+        response_item(s(16), message("assistant", output_text(f"The lexer is fixed ({w['message']})."))),
+    ]
+
+
+def write_orphan_tool_calls(home: Path) -> Path:
+    """Write the ``THREAD_ORPHAN_CALLS`` rollout into ``home`` and return its path."""
+    return write_rollout(rollout_path(home, ORPHAN_STARTED, THREAD_ORPHAN_CALLS), orphan_tool_calls_lines())
 
 
 def build_codex_home(home: Path) -> Path:
