@@ -237,10 +237,12 @@ a word in a Claude Code session then looked like a broken search.
      name shows `Workspace (<first 8 chars of the id>)`, like the sidebar.
   3. `filter "<name>"`: the active named filter removes at least one
      conversation. A filter that passes every conversation is not named.
+  4. `hidden tool calls`: Show Tools is off.
 - **The buttons:** one per part, in the same order, after the pin button.
   - "Search all agents" sets the source filter to all.
   - "Search all workspaces" sets the workspace to all.
   - "Clear active filter" clears the active named filter.
+  - "Search tool calls too" turns Show Tools on.
 - Each button changes the same state as the sidebar control. The sidebar
   shows the change, and the search runs again.
 - The pin keeps its own text and button. The line does not repeat it.
@@ -257,23 +259,23 @@ region is visually `sr-only` but reachable to screen readers.
 Every search hit is navigable, from the user or from Claude. Claude Code
 stores tool results as user rows, so a "You" hit can be a tool result.
 
-- **The search always includes tool content**, whatever Show Tools says.
-  From 2026-05-11 to 2026-10-21, Show Tools off also left tool content
-  out of the search (`include_tool_calls=false`), because such hits
-  could not be navigated.
-
-- **Show Tools off (the default):** the active hit's bubble shows ONLY the
-  tool blocks that hold the match, expanded, with the match highlighted.
-  The other tool blocks stay hidden, and the **Show Tools** setting does
-  not change. When the search is cleared, the revealed blocks hide again.
-- **Show Tools on:** the tool blocks that hold the match expand. The
-  others stay as they are.
-- A tool-only message stays in the Conversation Pane while it holds the
-  active hit, so the click can scroll to it.
-- If no tool block holds the query text (the server's search stems
-  words, so "running" can match "run"), the bubble shows all its tool
-  blocks, so it is not empty.
-- Code: `frontend/src/components/search/toolReveal.ts`.
+- **Show Tools controls the search.** With Show Tools off (the default),
+  the search looks only at the text of user and assistant messages and at
+  titles. A word that is only in a tool call or a tool result is not a hit.
+- With Show Tools on, the search also looks inside tool calls and tool
+  results.
+- Turning Show Tools on or off runs the search again.
+- Thinking blocks are never searched.
+- With Show Tools off, no hit reveals a tool block. With Show Tools on, the
+  tool blocks that hold the match expand, and the others stay as they are.
+- History: from 2026-10-21 to 2026-11-20, the search always included tool
+  content, and Show Tools off revealed only the matching block (issue #84
+  reversed this).
+- With Show Tools on, if no tool block holds the query text (the server's
+  search stems words, so "running" can match "run"), all the tool blocks
+  of the bubble expand.
+- Code: `frontend/src/contexts/SearchPanelContext.tsx`,
+  `frontend/src/components/search/toolReveal.ts`.
 
 ### The user's click or scroll wins over a search jump
 

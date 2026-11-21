@@ -571,9 +571,11 @@ def list_sessions(
     organization_id: str | None = None,
     limit: int = 20,
     offset: int = 0,
+    include_tool_calls: bool = False,
 ) -> dict[str, Any]:
     """Search and list saved Claude conversation sessions.
     Only call when the user explicitly asks to search or browse past sessions.
+    match_count: the number of matching messages; 0 when only the name matches.
 
     Args:
         query: Full-text search across session names and message content.
@@ -591,6 +593,15 @@ def list_sessions(
                          tagged with that workspace.
         limit: Max results to return (default 20, max 100).
         offset: Skip this many results for pagination.
+        include_tool_calls: Also search tool calls and tool output: shell
+               commands and their output, file reads and edits, MCP tool
+               calls and their results, and web searches. Default false:
+               the search matches only session names and the text of user
+               and assistant messages. Set it to true when the words may be
+               only in a command's output, a file, or a tool result (for
+               example an error message, a file path, or a function name),
+               or when a search with false finds nothing. Thinking and
+               reasoning are never searched. Ignored when query is omitted.
 
     Note (spec §3, 2026-05-14): there is intentionally NO ``active_filter``
     or ``conversation_uuids`` parameter. The sidebar's active-filter
@@ -621,6 +632,7 @@ def list_sessions(
             query,
             source=src,
             organization_id=organization_id,
+            include_tool_calls=include_tool_calls,
             limit=MCP_SEARCH_LIMIT,
         )
         # Build a lookup map once (not per result). Pass organization_id
@@ -645,7 +657,10 @@ def list_sessions(
                     "model": s.model,
                     "created_at": _format_dt(s.created_at),
                     "updated_at": _format_dt(s.updated_at),
-                    "match_count": len(sr.matching_messages),
+                    # Issue #84: the title entry is not a message match.
+                    "match_count": sum(
+                        1 for m in sr.matching_messages if m.message_uuid != "title"
+                    ),
                     **_source_fields(s),
                 }
                 sessions.append(entry)

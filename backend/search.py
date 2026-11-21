@@ -458,8 +458,15 @@ def _wrap_envelope_no_truncation(results: list[SearchResult]) -> SearchResponse:
     Message count semantics: sums per-conversation matching_messages so
     the envelope's counts agree with how the FTS5 fast path's envelope
     is built (which counts message-level FTS5 hits, NOT conversations).
+    Issue #84: a title match is not a message match, so the ``"title"``
+    pseudo-message is left out of both counts, as on the FTS5 path.
     """
-    msg_count = sum(len(r.matching_messages) for r in results)
+    msg_count = sum(
+        1
+        for r in results
+        for m in r.matching_messages
+        if m.message_uuid != "title"
+    )
     return SearchResponse(
         results=results,
         total_messages_matched=msg_count,

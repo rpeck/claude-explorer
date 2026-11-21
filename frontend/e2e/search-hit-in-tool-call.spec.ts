@@ -10,9 +10,14 @@ import { test, expect, Route, withNetRetry, installLocalPrefsMock } from './fixt
  * 4,101 of about 6,000 hits were in such messages. Claude Code stores
  * tool results as user rows, so both senders were affected.
  *
- * Contract: a click on such a hit shows ONLY the tool block that holds
- * the match, expanded, with the match highlighted. The "Show tool calls"
- * setting does not change, and the other tool blocks stay hidden.
+ * Contract from 2026-10-21: a click on such a hit shows ONLY the tool
+ * block that holds the match, expanded, with the match highlighted.
+ *
+ * Issue #84 (2026-11-20): the search looks inside tool content only while
+ * Show Tools is on, so with Show Tools off such a hit no longer exists
+ * (search-tool-scope.spec.ts). These tests turn Show Tools on first: the
+ * tool block that holds the match expands, and the others stay collapsed.
+ * The search mock honors `include_tool_calls=false`.
  */
 
 const CONV = '00000000-0000-0000-0000-00000000c0de'
@@ -121,8 +126,10 @@ async function mockBackend(page: import('@playwright/test').Page) {
   )
   await installLocalPrefsMock(page)
   await page.route('**/api/search**', async (route: Route) => {
-    const q = (new URL(route.request().url()).searchParams.get('q') ?? '').toLowerCase()
-    const hit = HITS[q]
+    const params = new URL(route.request().url()).searchParams
+    const q = (params.get('q') ?? '').toLowerCase()
+    // Every hit here is in tool content, like the real backend's filter.
+    const hit = params.get('include_tool_calls') === 'false' ? undefined : HITS[q]
     const results = hit
       ? [
           {
@@ -159,6 +166,8 @@ async function mockBackend(page: import('@playwright/test').Page) {
 async function searchAndClick(page: import('@playwright/test').Page, needle: string) {
   await withNetRetry(page, () => page.goto(`/conversations/${CONV}`))
   await expect(page.locator('[data-message-uuid="m6"]')).toBeVisible()
+  await page.getByTestId('header-show-tools-checkbox').check()
+  await expect(page.getByText('Tool: Read')).toBeVisible()
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+f' : 'Control+f')
   const input = page.getByPlaceholder('Search messages...')
   await expect(input).toBeVisible()
@@ -187,8 +196,8 @@ test.describe('A search hit inside a tool call is navigable (2026-10-21)', () =>
     const bubble = page.locator('[data-message-uuid="m3"]')
     await expect(bubble).toBeVisible({ timeout: 5000 })
     await expect(bubble.locator('mark', { hasText: RESULT_NEEDLE })).toBeVisible()
-    // Only this block: the tool call in m2 stays hidden.
-    await expect(page.getByText('Tool: Bash')).toHaveCount(0)
+    // Only this block expands: the tool call in m2 stays collapsed.
+    await expect(page.getByText(`pytest -q --${MIXED_NEEDLE}`)).toHaveCount(0)
   })
 
   test('a hit in a tool call (an assistant row) shows that call, highlighted', async ({ page }) => {
@@ -200,28 +209,20 @@ test.describe('A search hit inside a tool call is navigable (2026-10-21)', () =>
     await expect(bubble.locator('mark', { hasText: CALL_NEEDLE })).toBeVisible()
   })
 
-  test('only the tool call that holds the match is shown', async ({ page }) => {
+  test('only the tool call that holds the match expands', async ({ page }) => {
     await searchAndClick(page, PICK_NEEDLE)
 
     const bubble = page.locator('[data-message-uuid="m5"]')
     await expect(bubble).toBeVisible({ timeout: 5000 })
     await expect(bubble.getByText('Tool: Edit')).toBeVisible()
     await expect(bubble.locator('mark', { hasText: PICK_NEEDLE })).toBeVisible()
-    await expect(bubble.getByText('Tool: Read')).toHaveCount(0)
-  })
-
-  test('the Show tool calls setting does not change, and clearing the search hides the block again', async ({ page }) => {
-    const input = await searchAndClick(page, RESULT_NEEDLE)
-    await expect(page.locator('[data-message-uuid="m3"]')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByTestId('header-show-tools-checkbox')).not.toBeChecked()
-
-    await input.fill('')
-    await expect(page.locator('[data-message-uuid="m3"]')).toHaveCount(0)
+    await expect(bubble.getByText('src/zoo.py')).toHaveCount(0) // the Read call stays collapsed
   })
 
   test('a hit in the tool call of a message that also has text shows that call', async ({ page }) => {
-    // m2 always renders ("I will run them."), but its tool call was hidden,
-    // so the click scrolled to the message and the match stayed invisible.
+    // m2 always renders ("I will run them."), but its tool call was
+    // collapsed, so the click scrolled to the message and the match stayed
+    // invisible.
     await searchAndClick(page, MIXED_NEEDLE)
 
     const bubble = page.locator('[data-message-uuid="m2"]')
