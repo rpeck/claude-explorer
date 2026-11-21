@@ -755,7 +755,7 @@ The project ships with a built-in **Model Context Protocol** server that lets Cl
 
 | Tool | Purpose |
 |------|---------|
-| `list_sessions` | Full-text search / list conversation sessions, optionally filtered by source or project |
+| `list_sessions` | Full-text search / list conversation sessions, optionally filtered by source or project. `include_tool_calls` (default false) also searches tool calls and tool output. Set it when the words may be only in command output, a file, or a tool result. |
 | `list_projects` | List distinct projects with session counts |
 | `get_session_outline` | Lightweight per-message summaries (cached in SQLite) for a specific session, in pages of up to 500 |
 | `get_messages` | Full message content for specific positions or UUIDs, with optional tool calls/results |

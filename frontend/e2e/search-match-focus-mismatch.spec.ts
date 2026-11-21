@@ -261,14 +261,14 @@ test.describe('Search — include_tool_calls filter (architectural fix 2026-05-1
   })
 
   // ─────────────────────────────────────────────────────────────────────
-  // Test B — since 2026-10-21. With Tools hidden (the default), the search
-  // still finds the tool-only message, and the conversation pane shows
-  // ONLY that tool call, so sidebar and pane agree. Until 2026-10-21 the
-  // page sent include_tool_calls=false and the hit never appeared; the
-  // user asked for every hit to be navigable, with only the matching tool
-  // call revealed (UX.md §4).
+  // Test B — issue #84 (2026-11-20). With Tools hidden (the default), a
+  // search that ONLY matches a tool-only message yields no hit for it.
+  // Flipping Tools ON runs the search again and the hit appears
+  // (bidirectional inversion). From 2026-10-21 to 2026-11-20 the search
+  // always included tool content; the user asked for the Show Tools rule
+  // back (UX.md §4).
   // ─────────────────────────────────────────────────────────────────────
-  test('Test B: showToolCalls=OFF → the tool-only match appears and reveals only that tool call', async ({
+  test('Test B: showToolCalls=OFF → tool-only match is filtered out server-side; toggling ON restores it', async ({
     page,
     mockBackend,
   }) => {
@@ -285,32 +285,32 @@ test.describe('Search — include_tool_calls filter (architectural fix 2026-05-1
     const searchInput = page.locator('input[placeholder="Search messages..."]')
     await searchInput.fill('needle')
 
-    // Both hits appear, the tool-only one too.
+    // Only tm-0 appears (1 match, not 2): the request sent
+    // include_tool_calls=false, and the mock returned the filtered payload.
+    await expect(page.locator('text=/of\\s+1\\s+match/')).toBeVisible({
+      timeout: 10000,
+    })
+    const cardsText = async () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll('button[data-result-card]'))
+          .map((el) => (el as HTMLElement).innerText)
+          .join('\n'),
+      )
+    expect(await cardsText()).not.toContain('echo needle in tool call')
+    expect(await cardsText()).toContain('plain text')
+    // No hit reveals the tool call while Tools is hidden.
+    await expect(page.locator('[data-message-uuid="tm-tool"]')).toBeHidden()
+    const filteredCall = seen.find((c) => c.q.includes('needle') && c.includeToolCalls === 'false')
+    expect(filteredCall, 'expected at least one /api/search call with include_tool_calls=false').toBeTruthy()
+
+    // Inversion: flipping Tools ON runs the search again with
+    // include_tool_calls=true, and the tool-only snippet appears.
+    await page.getByTestId('header-show-tools-checkbox').check()
     await expect(page.locator('text=/of\\s+2\\s+matches/')).toBeVisible({
       timeout: 10000,
     })
-
-    // The newest hit (tm-tool) auto-promotes: the pane shows that tool
-    // call, and sidebar and pane agree.
-    await expect
-      .poll(
-        async () => ({
-          sidebar: await getActiveSidebarMatchText(page),
-          ringed: await getRingedMessageUuid(page),
-        }),
-        { timeout: 5000, message: 'Test B: sidebar-active card and pane focus must agree' },
-      )
-      .toEqual({
-        sidebar: expect.stringContaining('echo needle in tool call'),
-        ringed: 'tm-tool',
-      })
-    const toolBubble = page.locator('[data-message-uuid="tm-tool"]')
-    await expect(toolBubble.getByText('Tool: Bash')).toBeVisible()
-    await expect(toolBubble.locator('mark', { hasText: 'needle' })).toBeVisible()
-    // The Tools setting itself did not change.
-    await expect(page.getByTestId('header-show-tools-checkbox')).not.toBeChecked()
-
-    // No request left the tool content out.
-    expect(seen.filter((c) => c.q.includes('needle')).map((c) => c.includeToolCalls)).not.toContain('false')
+    expect(await cardsText()).toContain('echo needle in tool call')
+    const unfilteredCall = seen.find((c) => c.q.includes('needle') && c.includeToolCalls === 'true')
+    expect(unfilteredCall, 'flipping Tools ON should re-fire /api/search with include_tool_calls=true').toBeTruthy()
   })
 })

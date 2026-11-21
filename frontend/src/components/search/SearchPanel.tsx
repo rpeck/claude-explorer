@@ -85,7 +85,7 @@ export function SearchPanel() {
   } = useSearchPanel()
 
   const navigateToMatch = useNavigateToMatch()
-  const { rightPaneTab, setRightPaneTab } = useSettings()
+  const { rightPaneTab, setRightPaneTab, showToolCalls, setShowToolCalls } = useSettings()
   const { scope: pinScope, unpin } = useSearchPin()
   const { sourceFilter, setSourceFilter, organizationId, setOrganizationId } = useSourceFilter()
   const { filtersState, setActiveId } = useFilters()
@@ -262,6 +262,14 @@ export function SearchPanel() {
       button: 'Clear active filter',
       testId: 'search-empty-clear-filter',
       clear: () => setActiveId(null),
+    },
+    // Issue #84: with Show Tools off, the search leaves tool content out.
+    !showToolCalls && {
+      key: 'tools',
+      part: <>hidden tool calls</>,
+      button: 'Search tool calls too',
+      testId: 'search-empty-show-tools',
+      clear: () => setShowToolCalls(true),
     },
   ].filter((l) => !!l)
   // Silence unused-var when isLoading falls out of any branch above.
