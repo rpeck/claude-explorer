@@ -713,6 +713,11 @@ history base, the session shows no "incomplete:" notice for it. A
 history base that is not in the archive keeps the notice
 "incomplete: history_base missing".
 
+A Codex tool call that has no item (for example a failed `apply_patch`
+or the outer code-mode `exec`) shows as a tool call with its output, at
+its place in the turn. Show Tools hides and shows it like any other tool
+call. Before 1.2.0 the viewer and search left out such a call.
+
 ---
 
 ## 17. Commands, Claude Code's own rows, and the model of each reply

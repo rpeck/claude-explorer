@@ -4,7 +4,10 @@ Plan §4.4 and §4.5. Codex keeps one of two history modes:
 
 * **paginated:** ``event_msg`` / ``item_completed`` records carry the
   visible items. A later snapshot of an item replaces the earlier one.
-  ``response_item`` records are the model context, so they are skipped.
+  ``response_item`` records are the model context, so they are skipped,
+  except a tool call whose ``call_id`` is the id of no item (a failed
+  freeform ``apply_patch``, the outer code-mode ``exec``, an unknown tool):
+  it shows with its output, as in legacy history.
 * **legacy:** ``response_item`` records are the history. A tool call
   matches its output by ``call_id``.
 
@@ -246,16 +249,31 @@ def _is_item_completed(r: RolloutRecord) -> bool:
     return r.type == "event_msg" and r.payload.get("type") == "item_completed"
 
 
+class _ResponseCall:
+    """A paginated ``response_item`` tool call that no item shows, and its output."""
+
+    def __init__(self) -> None:
+        self.call: RolloutRecord | None = None
+        self.output: RolloutRecord | None = None
+
+
 def _paginated_messages(
     records: list[RolloutRecord],
     thread_id: str,
     turn_models: dict[str, str],
     warnings: list[str],
 ) -> list[dict[str, Any]]:
-    # (turn id, item id) -> [first record, latest record], or a compaction row;
+    # (turn id, item id) -> [first record, latest record], or a compaction row,
+    # or a _ResponseCall (keyed by its call id);
     # (turn id, line number) -> an inter-agent message, which has no snapshots.
     # A dict keeps first-seen order.
     items: dict[tuple[str, str | int], Any] = {}
+    # When an item exists, its id is the call id (codex-rs core/src/tools/events.rs).
+    item_ids = {
+        str(r.payload["item"].get("id")) for r in records
+        if _is_item_completed(r) and isinstance(r.payload.get("item"), dict)
+    }
+    response_calls: dict[str, _ResponseCall] = {}  # call id -> its entry
     compactions = _Compactions()
     compaction_items: set[tuple[str, str]] = set()
     turn = ""  # the turn of the latest record that names one
@@ -276,6 +294,19 @@ def _paginated_messages(
         if r.type == "inter_agent_communication":
             own_turn = r.payload.get("turn_id")
             items[(own_turn if isinstance(own_turn, str) and own_turn else turn, r.line_no)] = r
+            continue
+        if r.type == "response_item" and r.payload.get("type") in _LEGACY_CALLS | _LEGACY_OUTPUTS:
+            call_id = r.payload.get("call_id")
+            if isinstance(call_id, str) and call_id in item_ids:
+                continue  # the item shows this call
+            key = call_id if isinstance(call_id, str) and call_id else f"line-{r.line_no}"
+            entry = response_calls.get(key)
+            if entry is None:
+                entry = response_calls[key] = items[(turn, key)] = _ResponseCall()
+            if r.payload["type"] in _LEGACY_CALLS:
+                entry.call = entry.call or r
+            else:
+                entry.output = entry.output or r
             continue
         if not _is_item_completed(r) or not isinstance(r.payload.get("item"), dict):
             continue
@@ -299,6 +330,9 @@ def _paginated_messages(
         msg_uuid = message_uuid(thread_id, turn_id=turn_id, item_id=str(item_id))
         if isinstance(entry, dict):
             messages.append(_compaction_message(msg_uuid, entry, turn_models.get(turn_id, "")))
+            continue
+        if isinstance(entry, _ResponseCall):
+            messages.append(_response_call_message(msg_uuid, entry, turn_models.get(turn_id, ""), warnings))
             continue
         first, latest = entry
         item = latest.payload["item"]
@@ -325,6 +359,22 @@ def _paginated_messages(
             )
         )
     return messages
+
+
+def _response_call_message(
+    msg_uuid: str, entry: _ResponseCall, model: str, warnings: list[str]
+) -> dict[str, Any]:
+    blocks = [_legacy_call(entry.call.payload)] if entry.call else []
+    if entry.output is not None:
+        call_id = entry.output.payload.get("call_id")
+        if entry.call is None:
+            warnings.append(f"tool output without a call: {call_id}")
+        blocks.append({"type": "tool_result", "tool_use_id": call_id,
+                       "content": [_text(_output_text(entry.output.payload.get("output")))]})
+    first = entry.call or entry.output
+    latest = entry.output or entry.call
+    assert first is not None and latest is not None
+    return _message(msg_uuid, "assistant", blocks, first.timestamp, latest.timestamp, model)
 
 
 def _user_content(content: Any) -> list[dict[str, Any]]:
