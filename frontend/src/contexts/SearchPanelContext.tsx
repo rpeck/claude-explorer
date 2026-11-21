@@ -267,20 +267,16 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
   const { sourceFilter, organizationId } = useSourceFilter()
   const { scope: pinScope } = useSearchPin()
   const { bookmarks } = useBookmarks()
-  // History: from 2026-05-11 to 2026-10-21 the "Show tool calls" pref
-  // also scoped the search, so the sidebar showed only hits that the
-  // pane could render. See `includeToolCalls` below for why it stopped.
+  // Issue #84 (2026-11-20): the search looks inside tool calls and tool
+  // output only while Show Tools is on, as the user asked (UX.md §4).
+  // From 2026-10-21 it always included them. When the toggle flips,
+  // useSearch's queryKey changes and the search runs again.
   //
   // 2026-05-26: same plumbing for the "Show Compactions" toggle. The
   // mapping `includeCompactions = !hideCompactMarkers` flips the
   // semantic ("hide=true means don't include").
-  const { hideCompactMarkers } = useSettings()
-  // 2026-10-21: search ALWAYS includes tool content. Until then, hidden
-  // tool calls meant include_tool_calls=false, because a hit in a hidden
-  // tool block could not be navigated. Now the active hit's bubble shows
-  // the tool block that holds the match (components/search/toolReveal.ts),
-  // so every hit is navigable, as the user asked (UX.md §4).
-  const includeToolCalls = true
+  const { showToolCalls, hideCompactMarkers } = useSettings()
+  const includeToolCalls = showToolCalls
   const includeCompactions = !hideCompactMarkers
   // 2026-05-14 sidebar-scope propagation: the active-filter graph lives
   // in FilterContext, the sidebar applies it client-side via
@@ -587,7 +583,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
   // Reset activeMatchIndex (back to -1, "no active match") whenever
   // any input that invalidates the result set changes. The expanded
   // dep list — `query`, `sortField`, `sortOrder`, `contextSize`,
-  // `scope`, `includeCompactions` — exactly mirrors
+  // `scope`, `includeToolCalls`, `includeCompactions` — exactly mirrors
   // useSearch's queryKey inputs, so we re-arm the auto-promote effect
   // on the same edges that trigger a real backend re-fetch.
   //
@@ -607,7 +603,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // react-doctor-disable-next-line react-doctor/no-chain-state-updates -- Phase 2: triggering edge is async (queryKey change + scope flips originating in OTHER providers), not a single user event. Moving this reset into the originating event handlers would miss non-local edges (pin, filter, workspace switch). Council verified the postmortem-pinned semantics hold; restructure would risk re-introducing the search-typing-lag.
     setActiveMatchIndexState(-1) // eslint-disable-line react-hooks/set-state-in-effect -- TODO React 19 migration: hoist activeMatchIndex alongside flatMatches as derived state. Today this resets a single int once per query-equivalent change — bounded cascade.
-  }, [query, sortField, sortOrder, contextSize, scope, includeCompactions])
+  }, [query, sortField, sortOrder, contextSize, scope, includeToolCalls, includeCompactions])
 
   // V1 polish: auto-focus the first match when results land for a fresh
   // query. Without this, the user types "needle", sees results in the

@@ -433,7 +433,7 @@
       "project_name": "synthetic-sandbox"
     }
   ],
-  "returned_messages": 42,
-  "total_messages_matched": 42,
+  "returned_messages": 36,
+  "total_messages_matched": 36,
   "truncated": false
 }

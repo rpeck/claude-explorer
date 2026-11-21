@@ -23,18 +23,22 @@
  *       "Clear active filter" (`search-empty-clear-filter`) → no active filter.
  *     A click changes the shared state (the Sidebar shows it) and the search
  *     runs again without that limit.
+ *
+ * Issue #84 adds a 4th part, `hidden tool calls`, while Show Tools is off.
+ * These cases run with Show Tools on, so they test only the #80 parts;
+ * SearchToolScope.test.tsx tests the tools part.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { http, HttpResponse } from 'msw'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 import { server } from '@/test/mocks/server'
 import { SearchPanel } from '@/components/search/SearchPanel'
 import { SearchPanelProvider } from '@/contexts/SearchPanelContext'
-import { SettingsProvider } from '@/contexts/SettingsContext'
+import { SettingsProvider, useSettings } from '@/contexts/SettingsContext'
 import { SourceFilterProvider, useSourceFilter } from '@/contexts/SourceFilterContext'
 import { FilterProvider, useFilters } from '@/contexts/FilterContext'
 import { BookmarkProvider } from '@/contexts/BookmarkContext'
@@ -185,10 +189,13 @@ function installHandlers({ prefs = {}, hitWhen = unlimited }: Setup) {
   return { calls, listCalls }
 }
 
-/** Shows the shared state that the Sidebar controls hold. */
+/** Shows the shared state that the Sidebar controls hold. Turns Show Tools
+ *  on before the search runs, so the #84 tools part stays out of the line. */
 function Probe() {
   const { sourceFilter, organizationId } = useSourceFilter()
   const { filtersState } = useFilters()
+  const { setShowToolCalls } = useSettings()
+  useEffect(() => setShowToolCalls(true), [setShowToolCalls])
   return (
     <div>
       <span data-testid="probe-source">{sourceFilter}</span>

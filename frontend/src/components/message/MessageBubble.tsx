@@ -129,10 +129,11 @@ function MessageBubbleImpl({
 
   // 2026-10-21: a search hit inside a tool block. Only the active-match
   // bubble gets a searchQuery, so only that bubble reveals and expands
-  // the tool blocks that hold the match (see toolReveal.ts).
+  // the tool blocks that hold the match (see toolReveal.ts). Issue #84:
+  // with Show Tools off the search skips tool content, so reveal none.
   const revealedToolBlocks = useMemo(
-    () => revealedToolBlockIndexes(message, searchQuery),
-    [message, searchQuery],
+    () => (showToolCalls ? revealedToolBlockIndexes(message, searchQuery) : []),
+    [message, searchQuery, showToolCalls],
   )
   const hasVisibleContent =
     messageHasVisibleContent(message, showToolCalls) || revealedToolBlocks.length > 0
