@@ -7,8 +7,6 @@
  * * One link per agent to `/conversations/<session>/agents/<agent>`; the
  *   link text is the description, else the agent id.
  * * No row when the list is empty or missing.
- *
- * `pending` (`it.fails`): the feature is not built yet.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
@@ -20,9 +18,6 @@ import { ConversationHeader } from '../../components/conversation/ConversationHe
 import { SearchPinProvider } from '../../contexts/SearchPinContext'
 import { SettingsProvider } from '../../contexts/SettingsContext'
 import type { ConversationDetail } from '../../lib/types'
-
-// Expected to fail until #96 is built. VITE_RUNXFAIL=1 runs them as plain tests (like pytest --runxfail).
-const pending = import.meta.env.VITE_RUNXFAIL ? it : it.fails
 
 vi.mock('@/lib/errorToast', () => ({ errorToast: vi.fn() }))
 
@@ -78,7 +73,7 @@ const FOUND = [
 ]
 
 describe('ConversationHeader — Subagents row (#96)', () => {
-  pending('shows a "Subagents:" row with one link per agent', () => {
+  it('shows a "Subagents:" row with one link per agent', () => {
     renderHeader(makeSession(FOUND))
     const row = screen.getByTestId('details-subagents')
     expect(row.textContent).toContain('Subagents:')
@@ -89,14 +84,14 @@ describe('ConversationHeader — Subagents row (#96)', () => {
     ])
   })
 
-  pending('names each link by its description, else by the agent id', () => {
+  it('names each link by its description, else by the agent id', () => {
     renderHeader(makeSession(FOUND))
     const row = screen.getByTestId('details-subagents')
     expect(within(row).getByRole('link', { name: 'Synthetic search agent' })).toBeInTheDocument()
     expect(within(row).getByRole('link', { name: '5a1e9ac' })).toBeInTheDocument()
   })
 
-  pending('shows the row only when the list is not empty', () => {
+  it('shows the row only when the list is not empty', () => {
     const { unmount } = renderHeader(makeSession(FOUND))
     expect(screen.getByTestId('details-subagents')).toBeInTheDocument()
     unmount()

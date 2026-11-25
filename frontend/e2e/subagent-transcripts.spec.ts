@@ -18,8 +18,6 @@ import { test, expect, installLocalPrefsMock, withNetRetry, waitForScrollQuiet, 
  *     output), zqshared (session reply and agent reply), zqlegacyagent
  *     (legacy agent reply), zqsessiontext (session prompt).
  *
- * Every test is `test.fail()` until #96 is built (tester step 1). RUNXFAIL=1
- * runs them as plain tests (like pytest --runxfail).
  * The console gate of TESTING.md §5.15 runs for every test (`./fixtures`).
  */
 
@@ -66,11 +64,10 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('the agent page shows the agent transcript and a breadcrumb back to the session', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto(agentUrl(SESSION, AGENT)))
     await expect(page.locator(`[data-message-uuid="${AGENT_REPLY}"]`)).toContainText(W.text)
-    // The session's own messages are not on the agent page.
-    await expect(page.getByText(W.session)).toHaveCount(0)
+    // The session's own messages are not on the agent page (its title is in the list).
+    await expect(page.locator('[data-message-uuid]').filter({ hasText: W.session })).toHaveCount(0)
 
     const nav = breadcrumb(page)
     await expect(nav).toContainText(AGENT_DESCRIPTION)
@@ -80,14 +77,12 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('the breadcrumb of an agent without a description shows its id', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto(agentUrl(SESSION, LEGACY_AGENT)))
     await expect(page.getByText(W.legacy)).toBeVisible()
     await expect(breadcrumb(page)).toContainText(LEGACY_AGENT)
   })
 
   test('the session Details list each agent, and a link opens it', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto(`/conversations/${SESSION}`))
     const row = page.getByTestId('details-subagents')
     await expect(row).toContainText('Subagents:')
@@ -98,7 +93,6 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('the real subagent opens with its description, and Show Code Mode shows its run', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto(agentUrl(REAL_SESSION, REAL_AGENT)))
     await expect(breadcrumb(page)).toContainText(REAL_DESCRIPTION)
     await expect(page.getByTestId('code-run')).toHaveCount(0)
@@ -108,7 +102,6 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('a search hit inside an agent shows the description, and a click opens the agent at the message', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto('/'))
     const input = await openSearch(page)
     await input.fill(W.text)
@@ -126,7 +119,6 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('Show Tools applies to an agent hit', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto(`/conversations/${SESSION}`))
     const input = await openSearch(page)
     await input.fill(W.tool)
@@ -137,7 +129,6 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('Show Code Mode applies to an agent hit in the real recording', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto(agentUrl(REAL_SESSION, REAL_AGENT)))
     await expect(breadcrumb(page)).toBeVisible()
     const input = await openSearch(page)
@@ -149,7 +140,6 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('Cmd+G moves between a session hit and an agent hit', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto('/'))
     const input = await openSearch(page)
     await input.fill(W.shared)
@@ -166,7 +156,6 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('Copy as Markdown on the agent page copies the agent transcript', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     await withNetRetry(page, () => page.goto(agentUrl(SESSION, AGENT)))
     await expect(page.getByText(W.text)).toBeVisible()
     await page.getByRole('button', { name: 'Copy as Markdown' }).click()
@@ -176,7 +165,6 @@ test.describe('Subagent transcripts (#96)', () => {
   })
 
   test('the PDF export on the agent page names the agent', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#96 is not built yet')
     const urls: string[] = []
     await page.route('**/export/pdf**', (route: Route) => {
       urls.push(route.request().url())

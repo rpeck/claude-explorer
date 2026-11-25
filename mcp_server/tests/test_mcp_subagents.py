@@ -38,8 +38,6 @@ from backend.tests.test_subagent_discovery import (
     use_tree,
 )
 
-pytestmark = pytest.mark.xfail(strict=True, reason="#96 subagent transcripts not implemented yet")
-
 SPEC = Path(__file__).resolve().parents[1] / "SPEC.md"
 
 

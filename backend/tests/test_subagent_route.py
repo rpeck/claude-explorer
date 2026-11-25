@@ -45,8 +45,6 @@ from backend.tests.test_subagent_discovery import (
     use_tree,
 )
 
-pytestmark = pytest.mark.xfail(strict=True, reason="#96 subagent transcripts not implemented yet")
-
 #: The first user message of the real parent session; never in the agent payload.
 REAL_PARENT_FIRST = "d99f0627-dd79-4418-a2bb-f450ac2edc10"
 

@@ -444,7 +444,7 @@
     "subagents": [],
     "subagents_found": [
       {
-        "agent_description": null,
+        "agent_description": "List src directory",
         "agent_id": "a47f122549f03fce6"
       }
     ],

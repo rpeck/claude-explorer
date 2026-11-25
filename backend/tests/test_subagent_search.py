@@ -42,8 +42,6 @@ from backend.tests.test_subagent_discovery import (
     use_tree,
 )
 
-pytestmark = pytest.mark.xfail(strict=True, reason="#96 subagent search not implemented yet")
-
 PATHS = ("fts-snippet", "fts-full", "linear")
 #: (include_tool_calls, include_code_mode, include_compactions)
 COMBOS = [(t, c, k) for t in (False, True) for c in (False, True) for k in (False, True)]

@@ -28,8 +28,6 @@ import pytest
 
 from backend.tests import cc_code_mode_fake as fake
 
-pytestmark = pytest.mark.xfail(strict=True, reason="#96 subagent transcripts not implemented yet")
-
 CC_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "cc_code_mode"
 
 # The real recording (Claude Code 2.1.331).
@@ -76,7 +74,7 @@ WORDS = {
 }
 
 #: Message uuids in the current-layout agent, by the word they hold.
-CUR_MESSAGE = {"text": "sa-t1", "tool": "sa-j1", "code": "sa-r2", "compact": "sa-c1"}
+CUR_MESSAGE = {"text": "sa-t1", "tool": "sa-j1", "code": "sa-a2", "compact": "sa-c1"}
 LEGACY_MESSAGE = "sl-t1"
 
 _TOOL_CALL = "toolu_01SATOOL0000000000000001"

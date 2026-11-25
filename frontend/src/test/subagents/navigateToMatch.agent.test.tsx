@@ -7,8 +7,6 @@
  * The same-page fast path runs only on that agent's page: the session page
  * and another agent's page navigate. A session hit on an agent page goes
  * back to the session.
- *
- * `pending` (`it.fails`): the feature is not built yet.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
@@ -18,9 +16,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { KeyboardNavigationProvider, useKeyboardNavigation } from '@/contexts/KeyboardNavigationContext'
 import { useNavigateToMatch } from '@/components/search/navigateToMatch'
 import type { SearchMatch } from '@/contexts/SearchPanelContext'
-
-// Expected to fail until #96 is built. VITE_RUNXFAIL=1 runs them as plain tests (like pytest --runxfail).
-const pending = import.meta.env.VITE_RUNXFAIL ? it : it.fails
 
 const SESSION = '5a6e0000-0000-4000-8000-000000000096'
 const AGENT = 'a5a0000000000096c'
@@ -39,9 +34,9 @@ function makeMatch(agentId: string | null, messageUuid = MSG): SearchMatch {
     createdAt: '2026-11-24T10:00:00Z',
     conversationUpdatedAt: '2026-11-24T10:00:00Z',
     conversationCreatedAt: '2026-11-24T10:00:00Z',
-    // The new fields; the cast keeps tsc green until SearchMatch has them.
-    ...({ agentId, agentDescription: agentId ? 'Synthetic search agent' : null } as object),
-  } as SearchMatch
+    agentId,
+    agentDescription: agentId ? 'Synthetic search agent' : null,
+  }
 }
 
 function makeWrapper(startPath: string, messages: { uuid: string; sender: 'human' | 'assistant' }[]) {
@@ -111,33 +106,33 @@ describe('useNavigateToMatch — agent hits (#96)', () => {
     return seen
   }
 
-  pending('from another page, an agent hit opens the agent page with ?highlight=', () => {
+  it('from another page, an agent hit opens the agent page with ?highlight=', () => {
     const seen = run('/conversations/00000000-0000-4000-8000-000000000000', makeMatch(AGENT), false)
     expect(seen.current.pathname).toBe(`/conversations/${SESSION}/agents/${AGENT}`)
     expect(seen.current.search).toBe(`?highlight=${MSG}`)
   })
 
-  pending('on the session page, an agent hit navigates even when a bubble with that uuid is mounted', () => {
+  it('on the session page, an agent hit navigates even when a bubble with that uuid is mounted', () => {
     const seen = run(`/conversations/${SESSION}`, makeMatch(AGENT), true)
     expect(seen.current.pathname).toBe(`/conversations/${SESSION}/agents/${AGENT}`)
     expect(seen.current.search).toBe(`?highlight=${MSG}`)
     expect(scrollSpy).not.toHaveBeenCalled()
   })
 
-  pending("on another agent's page, an agent hit navigates to its own agent", () => {
+  it("on another agent's page, an agent hit navigates to its own agent", () => {
     const seen = run(`/conversations/${SESSION}/agents/${OTHER_AGENT}`, makeMatch(AGENT), true)
     expect(seen.current.pathname).toBe(`/conversations/${SESSION}/agents/${AGENT}`)
     expect(scrollSpy).not.toHaveBeenCalled()
   })
 
-  pending("on that agent's page with the bubble mounted, the fast path scrolls in place", () => {
+  it("on that agent's page with the bubble mounted, the fast path scrolls in place", () => {
     const seen = run(`/conversations/${SESSION}/agents/${AGENT}`, makeMatch(AGENT), true)
     expect(scrollSpy).toHaveBeenCalledTimes(1)
     expect(seen.current.pathname).toBe(`/conversations/${SESSION}/agents/${AGENT}`)
     expect(seen.current.search).toBe('')
   })
 
-  it('on an agent page, a session hit goes back to the session page (a guard; passes today)', () => {
+  it('on an agent page, a session hit goes back to the session page', () => {
     const seen = run(`/conversations/${SESSION}/agents/${AGENT}`, makeMatch(null), true)
     expect(seen.current.pathname).toBe(`/conversations/${SESSION}`)
     expect(seen.current.search).toBe(`?highlight=${MSG}`)

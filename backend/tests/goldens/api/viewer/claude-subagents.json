@@ -1,5 +1,7 @@
 {
   "detail": {
+    "agent_description": null,
+    "agent_id": null,
     "child_uuids": [],
     "compact_markers": [],
     "created_at": "2026-04-01T20:01:00Z",
@@ -99,6 +101,16 @@
     "source_home_abs": null,
     "source_name": null,
     "subagents": [],
+    "subagents_found": [
+      {
+        "agent_description": null,
+        "agent_id": "5a1e9ac"
+      },
+      {
+        "agent_description": "Synthetic search agent",
+        "agent_id": "a5a0000000000096c"
+      }
+    ],
     "summary": "",
     "updated_at": "2026-04-01T20:02:00Z",
     "uuid": "5a6e0000-0000-4000-8000-000000000096"

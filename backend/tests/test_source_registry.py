@@ -78,7 +78,12 @@ CORPUS_UUIDS = {
 # Issue #96: each subagent transcript is its own indexed source, under the
 # key ``search_index.index_key(session, agent)``.
 CORPUS_AGENT_KEYS = {
-    "CLAUDE_CODE": {"2339aab4-744c-4556-95b8-5ee5552c1b85::agent::a47f122549f03fce6"},
+    "CLAUDE_CODE": {
+        "2339aab4-744c-4556-95b8-5ee5552c1b85::agent::a47f122549f03fce6",
+        # The synthetic session: a current-layout agent and a legacy agent.
+        "5a6e0000-0000-4000-8000-000000000096::agent::a5a0000000000096c",
+        "5a6e0000-0000-4000-8000-000000000096::agent::5a1e9ac",
+    },
 }
 
 DESCRIPTOR_FIELDS = {
