@@ -59,6 +59,11 @@ export function useBookmarkHotkey({
         source: conversation.source === 'CLAUDE_AI' ? 'claude_desktop' : 'claude_code',
         note: '',
         snippet: (msg.text || '').slice(0, 140),
+        // Issue #96: on an agent page, the bookmark names the agent. A
+        // session's bookmark keeps the body it had before.
+        ...(conversation.agent_id
+          ? { agent_id: conversation.agent_id, agent_description: conversation.agent_description ?? null }
+          : {}),
       })
     }
     window.addEventListener('keydown', handler)

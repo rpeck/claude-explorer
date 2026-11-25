@@ -619,8 +619,15 @@ Bookmarks are persisted **server-side** at `~/.claude-explorer/bookmarks.json`.
 - `PATCH /api/bookmarks/{id}` — update note.
 - `DELETE /api/bookmarks/{id}` — remove.
 
-Each bookmark stores `{conversation_uuid, message_uuid, note,
-created_at}`.
+Each bookmark stores `{conversation_id, message_uuid, source, note,
+snippet, created_at}`, and for a message of a subagent transcript also
+`agent_id` and `agent_description` (issue #96; the description is a
+snapshot, like the snippet).
+
+- A set `agent_id` must match `^[A-Za-z0-9_-]{1,64}$`, else 422. The route
+  does not look the agent up: a bookmark can outlive its file.
+- Identity is `(conversation_id, agent_id, message_uuid)`. A bookmark from
+  before #96 has no `agent_id` and is a bookmark on the session.
 
 ### UI
 
@@ -632,6 +639,13 @@ created_at}`.
   the search UI. Selection is persisted via `rightPaneTab` in settings.
 - Bookmarked messages get a small star badge inline so the user can spot
   them while scrolling the conversation.
+- **On an agent page** (§19), the star and the `b` key bookmark the message
+  with the agent. The same message uuid on the session and on an agent are
+  two bookmarks.
+- In the Bookmarks tab, a bookmark on an agent shows the agent's
+  description, else "Agent <id>". A click opens the agent page at the
+  message (`/conversations/<session>/agents/<agent>?m=<message>`). The
+  Markdown export names the agent the same way and links to the agent page.
 
 ---
 
@@ -894,8 +908,9 @@ and searches these transcripts like a session.
   `get_session_outline`, `get_messages`, and `export_session` take it.
 - **What #46 adds later:** the Agent call block in the parent session, links
   from each call to its agent, nested agents, workflow agents, agents whose
-  transcript is gone, and the Activity panel. Bookmarks on an agent page
-  still name only the session.
+  transcript is gone, and the Activity panel.
+- **Bookmarks:** a bookmark made on an agent page holds the agent id and
+  opens the agent page (§15).
 - Code: `backend/cc_subagents.py`, the route in
   `backend/routers/conversations.py`,
   `frontend/src/components/conversation/SubagentLinks.tsx`.

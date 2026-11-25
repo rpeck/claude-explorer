@@ -498,6 +498,10 @@ export interface Bookmark {
   created_at: string
   note: string
   snippet: string
+  // Issue #96: a message of this agent transcript of the session. The
+  // identity is (conversation_id, agent_id, message_uuid).
+  agent_id?: string | null
+  agent_description?: string | null
 }
 
 // Config types

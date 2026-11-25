@@ -5,7 +5,7 @@ import type { Bookmark } from '@/lib/types'
 interface BookmarkContextType {
   bookmarks: Bookmark[]
   isLoaded: boolean
-  isBookmarked: (conversationId: string, messageUuid: string) => boolean
+  isBookmarked: (conversationId: string, messageUuid: string, agentId?: string | null) => boolean
   getBookmarksForConversation: (conversationId: string) => Bookmark[]
   toggleBookmark: (input: Omit<Bookmark, 'id' | 'created_at'>) => Promise<void>
   updateBookmarkNote: (id: string, note: string) => Promise<void>
@@ -14,6 +14,13 @@ interface BookmarkContextType {
 }
 
 const BookmarkContext = createContext<BookmarkContextType | null>(null)
+
+// Issue #96: a bookmark is (conversation, agent or none, message); a missing
+// agent_id and null are the same.
+const sameTarget = (b: Bookmark, conversationId: string, agentId: string | null | undefined, messageUuid: string) =>
+  b.conversation_id === conversationId &&
+  (b.agent_id ?? null) === (agentId ?? null) &&
+  b.message_uuid === messageUuid
 
 export function BookmarkProvider({ children }: { children: ReactNode }) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
@@ -36,8 +43,8 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   }, [reload])
 
   const isBookmarked = useCallback(
-    (conversationId: string, messageUuid: string) =>
-      bookmarks.some((b) => b.conversation_id === conversationId && b.message_uuid === messageUuid),
+    (conversationId: string, messageUuid: string, agentId?: string | null) =>
+      bookmarks.some((b) => sameTarget(b, conversationId, agentId, messageUuid)),
     [bookmarks]
   )
 
@@ -47,8 +54,8 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   )
 
   const toggleBookmark = useCallback(async (input: Omit<Bookmark, 'id' | 'created_at'>) => {
-    const existing = bookmarks.find(
-      (b) => b.conversation_id === input.conversation_id && b.message_uuid === input.message_uuid
+    const existing = bookmarks.find((b) =>
+      sameTarget(b, input.conversation_id, input.agent_id, input.message_uuid)
     )
     if (existing) {
       await api.deleteBookmark(existing.id)
