@@ -1,0 +1,102 @@
+{
+  "all_default": [
+    {
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "text": "Start the agents (zqsessiontext).",
+      "timestamp": "2026-04-01T20:01:00+00:00",
+      "uuid": "0096-u1"
+    },
+    {
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "text": "The agents ran (zqshared).",
+      "timestamp": "2026-04-01T20:02:00+00:00",
+      "uuid": "0096-t1"
+    }
+  ],
+  "all_tool_calls": [
+    {
+      "content": [
+        {
+          "text": "Start the agents (zqsessiontext).",
+          "type": "text"
+        }
+      ],
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-04-01T20:01:00+00:00",
+      "uuid": "0096-u1"
+    },
+    {
+      "content": [
+        {
+          "text": "The agents ran (zqshared).",
+          "type": "text"
+        }
+      ],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T20:02:00+00:00",
+      "uuid": "0096-t1"
+    }
+  ],
+  "all_tool_results": [
+    {
+      "content": [
+        {
+          "text": "Start the agents (zqsessiontext).",
+          "type": "text"
+        }
+      ],
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-04-01T20:01:00+00:00",
+      "uuid": "0096-u1"
+    },
+    {
+      "content": [
+        {
+          "text": "The agents ran (zqshared).",
+          "type": "text"
+        }
+      ],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-04-01T20:02:00+00:00",
+      "uuid": "0096-t1"
+    }
+  ],
+  "positions_0_1": [
+    {
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "text": "Start the agents (zqsessiontext).",
+      "timestamp": "2026-04-01T20:01:00+00:00",
+      "uuid": "0096-u1"
+    },
+    {
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "text": "The agents ran (zqshared).",
+      "timestamp": "2026-04-01T20:02:00+00:00",
+      "uuid": "0096-t1"
+    }
+  ]
+}

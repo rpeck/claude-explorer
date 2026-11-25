@@ -1,0 +1,111 @@
+{
+  "detail": {
+    "child_uuids": [],
+    "compact_markers": [],
+    "created_at": "2026-04-01T20:01:00Z",
+    "current_leaf_message_uuid": "0096-t1",
+    "error": null,
+    "file_path": "<TMP>/claude/projects/-home-fixture-proj-sa/5a6e0000-0000-4000-8000-000000000096.jsonl",
+    "git_branch": "",
+    "has_branches": false,
+    "human_message_count": 1,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 2,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Start the agents (zqsessiontext).",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T20:01:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
+        "slash_command": null,
+        "text": "Start the agents (zqsessiontext).",
+        "truncated": false,
+        "updated_at": "2026-04-01T20:01:00Z",
+        "uuid": "0096-u1"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "The agents ran (zqshared).",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-04-01T20:02:00Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "model": "claude-sonnet-5-5",
+        "model_from_conversation": false,
+        "notice_kind": null,
+        "parent_message_uuid": "0096-u1",
+        "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
+        "slash_command": null,
+        "text": "The agents ran (zqshared).",
+        "truncated": false,
+        "updated_at": "2026-04-01T20:02:00Z",
+        "uuid": "0096-t1"
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Start the agents (zqsessiontext).",
+    "notices": [],
+    "organization_id": null,
+    "organization_name": null,
+    "parent_uuid": null,
+    "prelude_hidden_count": 0,
+    "project_name": "proj-sa",
+    "project_path": "/home/fixture/proj-sa",
+    "sandbox_path": null,
+    "source": "CLAUDE_CODE",
+    "source_home": null,
+    "source_home_abs": null,
+    "source_name": null,
+    "subagents": [],
+    "summary": "",
+    "updated_at": "2026-04-01T20:02:00Z",
+    "uuid": "5a6e0000-0000-4000-8000-000000000096"
+  },
+  "tree": {
+    "active_path": [],
+    "root_messages": [],
+    "uuid": "5a6e0000-0000-4000-8000-000000000096"
+  }
+}

@@ -35,6 +35,17 @@
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
       {
+        "created_at": "2026-04-01T20:01:00+00:00",
+        "human_message_count": 1,
+        "message_count": 2,
+        "model": "claude-sonnet-5-5",
+        "name": "Start the agents (zqsessiontext).",
+        "project": "proj-sa",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T20:02:00+00:00",
+        "uuid": "5a6e0000-0000-4000-8000-000000000096"
+      },
+      {
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 15,
         "message_count": 30,
@@ -90,7 +101,7 @@
         "uuid": "aaaa1111-2222-3333-4444-555566667777"
       }
     ],
-    "total": 8
+    "total": 9
   },
   "page_2_of_size_2": {
     "sessions": [
@@ -106,18 +117,18 @@
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
       {
-        "created_at": "2026-04-01T10:00:00+00:00",
-        "human_message_count": 15,
-        "message_count": 30,
-        "model": "claude-sonnet-4-6",
-        "name": "Phase 5 fixture: TLS handshakes (long)",
-        "project": null,
-        "source": "CLAUDE_AI",
-        "updated_at": "2026-04-01T10:30:00+00:00",
-        "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
+        "created_at": "2026-04-01T20:01:00+00:00",
+        "human_message_count": 1,
+        "message_count": 2,
+        "model": "claude-sonnet-5-5",
+        "name": "Start the agents (zqsessiontext).",
+        "project": "proj-sa",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T20:02:00+00:00",
+        "uuid": "5a6e0000-0000-4000-8000-000000000096"
       }
     ],
-    "total": 8
+    "total": 9
   },
   "project_fixture": {
     "sessions": [
@@ -488,6 +499,17 @@
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
       {
+        "created_at": "2026-04-01T20:01:00+00:00",
+        "human_message_count": 1,
+        "message_count": 2,
+        "model": "claude-sonnet-5-5",
+        "name": "Start the agents (zqsessiontext).",
+        "project": "proj-sa",
+        "source": "CLAUDE_CODE",
+        "updated_at": "2026-04-01T20:02:00+00:00",
+        "uuid": "5a6e0000-0000-4000-8000-000000000096"
+      },
+      {
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "message_count": 4,
@@ -499,7 +521,7 @@
         "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
       }
     ],
-    "total": 3
+    "total": 4
   },
   "source_CLAUDE_COWORK": {
     "sessions": [
