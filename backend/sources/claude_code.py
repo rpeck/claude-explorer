@@ -34,7 +34,10 @@ class ClaudeCodeAdapter:
         return [WatchRoot(self._store.claude_dir / "projects", ("*.jsonl",), create=True)]
 
     def discover(self) -> list[Path]:
-        return self._store._discover_claude_code()
+        # Issue #96: each agent transcript is its own indexed source.
+        from backend.cc_subagents import iter_agent_files
+
+        return [*self._store._discover_claude_code(), *iter_agent_files(self._store.claude_dir)]
 
     def list_rows(self, *, full_content: bool, include_phantom: bool) -> list[dict[str, Any]]:
         return self._store._get_claude_code_conversations(
@@ -45,6 +48,15 @@ class ClaudeCodeAdapter:
         return self._store._find_claude_code(uuid)
 
     def load_for_index(self, path: Path) -> dict[str, Any] | None:
+        from backend.cc_subagents import (
+            is_agent_file,
+            owner_of,
+            read_agent_conversation,
+        )
+
+        if is_agent_file(path):
+            owner = owner_of(path)
+            return read_agent_conversation(*owner, cached=False) if owner else None
         return self._store._load_claude_code_for_index(path)
 
     def archive_sync(self, ctx: SyncContext) -> SyncReport | None:

@@ -126,6 +126,10 @@ def test_conversations_projection_table_exists(fresh_index):
         # canonical COMPACTION_TITLE_PREFIX. See SCHEMA_VERSION docstring
         # in backend/search_index.py.
         "is_compaction_titled",
+        # v17 (issue #96): the locator of an agent transcript source.
+        "session_uuid",
+        "agent_id",
+        "agent_description",
     }, f"conversations projection has unexpected columns: {cols}"
 
 

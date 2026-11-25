@@ -304,6 +304,13 @@ class ConversationSummary(BaseModel):
             self.project_name = path.split("/")[-1] if "/" in path else path
 
 
+class SubagentFound(BaseModel):
+    """One agent transcript of a session (issue #96)."""
+
+    agent_id: str
+    agent_description: str | None = None
+
+
 class CompactMarker(BaseModel):
     """A /compact event extracted from a Claude Code conversation."""
 
@@ -342,6 +349,12 @@ class ConversationDetail(ConversationSummary):
     sandbox_path: str | None = None
     #: Codex: the forks and subagents of this thread, oldest first. Detail only.
     child_uuids: list[str] = Field(default_factory=list)
+    #: Issue #96: the agent transcripts of a Claude Code session. Session detail only.
+    subagents_found: list[SubagentFound] = Field(default_factory=list)
+    #: Issue #96: set on an agent transcript; ``uuid`` is then the session's (plan §4.5).
+    agent_id: str | None = None
+    #: The ``description`` of the agent's meta file, when it has one.
+    agent_description: str | None = None
 
 
 class MessageNode(BaseModel):
@@ -416,6 +429,10 @@ class SearchResult(BaseModel):
     conversation_created_at: datetime
     project_name: str | None = None
     matching_messages: list[MessageSnippet] = Field(default_factory=list)
+    #: Issue #96: a hit inside an agent transcript of the session
+    #: ``conversation_uuid``. The locator is (conversation_uuid, agent_id, message_uuid).
+    agent_id: str | None = None
+    agent_description: str | None = None
 
 
 class SearchResponse(BaseModel):

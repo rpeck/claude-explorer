@@ -138,6 +138,8 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
       "created_at": "<iso8601>",
       "updated_at": "<iso8601>",
       "match_count": <int>,  // ONLY present when `query` was provided
+      "agent_id": "<id>" | null,            // ONLY with `query`: set on a hit inside a subagent transcript
+      "agent_description": "<text>" | null, // ONLY with `query`: that agent's description, if any
       "source_name": "<Codex session name>" | null,  // Codex only
       "source_home": "~/<Codex home>",               // Codex only; never the absolute path
       "notices": ["<text>"]  // ONLY present when not empty, e.g. "incomplete: compacted"
@@ -153,6 +155,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 **Behavior:**
 
 - With `query`: dispatches to `backend.search.search_conversations(store, query, source=src)`. Each `SearchResult.conversation_uuid` is joined against the full conversation list to produce the row; the `match_count` field is added (length of `matching_messages`). Search dispatches internally to FTS5 (fast path) or linear scan (fallback) — see `backend/search.py:265`.
+- Subagent transcripts (issue #96): a hit inside an agent transcript of a Claude Code session is its own entry. `uuid` is the session uuid, `agent_id` and `agent_description` name the agent, `match_count` counts the agent's matching messages, and the other fields are the session's. A session's own entry has `agent_id: null`. Pass the `agent_id` on to `get_session_outline`, `get_messages`, or `export_session`.
 - Without `query`: lists all conversations from the store via `list_conversations(source=...)`. No `match_count` field is added.
 - `project` filter applies *after* the query/list step, in Python, on `entry["project"]`. Case-insensitive substring.
 - `total` is the size of the filtered list *before* `[offset : offset + limit]` slicing. Pagination consumers should use `total` to detect end-of-list.
@@ -217,6 +220,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 | `conversation_id` | `str` | (required) | Session UUID (matches `ConversationSummary.uuid`). See §6.6 for why it is not `session_id`. |
 | `start_position` | `int` | `0` | First position of the page. A negative value counts as `0`. |
 | `limit` | `int` | `100` (`OUTLINE_PAGE_DEFAULT`) | Max entries in the page. Clamped to `[1, 500]` (`OUTLINE_PAGE_MAX`). |
+| `agent_id` | `str \| None` | `None` | Give the outline of this subagent transcript of the session (issue #96). The outline cache keys it as `<conversation_id>::agent::<agent_id>`. |
 
 **Why pages:** on 2026-11-09 a Cowork client refused the whole outline of a 579-message session: 126,470 characters, over its size limit for one tool result. One entry is about 350 characters of JSON, so the default page of 100 is about 35,000 characters. `mcp_server/tests/test_outline_pages.py` holds a page of the default size to 40,000 characters.
 
@@ -226,6 +230,8 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 {
   "conversation_id": "<uuid>",
   "session_id": "<uuid>",     // same value; kept for existing readers
+  "agent_id": "<id>" | null,  // the subagent transcript, when `agent_id` was given
+  "agent_description": "<text>" | null,
   "name": "<title>",
   "model": "<model-or-empty>",
   "source": "CLAUDE_AI" | "CLAUDE_CODE" | "CLAUDE_COWORK" | "CODEX",
@@ -276,6 +282,7 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 **Errors:**
 
 - `ValueError("Session '<id>' not found.")` if `store.get_conversation(conversation_id)` returns `None`.
+- With `agent_id`: `ValueError("Invalid agent_id '<id>'.")` when it does not match `^[A-Za-z0-9_-]{1,64}$`, and `ValueError("Subagent '<id>' of session '<uuid>' not found.")` when the session's discovery does not list it. `get_messages` and `export_session` raise the same errors.
 
 ---
 
@@ -300,6 +307,7 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 | `include_tool_calls` | `bool` | `False` | Include tool call names and (truncated) inputs. |
 | `include_tool_results` | `bool` | `False` | Include full tool results. Implies `include_tool_calls=True`. |
 | `include_code_mode` | `bool` | `False` | Give each Code Mode run in full in `code_runs`. Default: a stub per run (`id`, `name`, `status`, `line_count`, `call_count`), with no script, call, or output text. |
+| `agent_id` | `str \| None` | `None` | Read this subagent transcript of the session instead (issue #96). |
 
 A message that holds a Code Mode run (issue #90) has a `code_runs` list in both modes. With `include_code_mode=True` each entry is the whole `CodeRun`: `code`, `status`, `result`, `stdout`, `stderr`, `error`, `refused`, `returned_from` (the calls whose output went back to the model), and `inner_calls` (each with `name`, `input`, `result`, `is_error`, `refused`, `code_run_parent`, `link_source`, and `inputs_from`, the earlier calls whose output is in its input). `get_session_outline` gives `code_run_count` per entry; it is counted from the messages, not kept in the outline cache.
 
@@ -388,6 +396,7 @@ Content-block filtering (`_filter_content_blocks`):
 | `end_position` | `int \| None` | `None` | 0-indexed end position (inclusive). Omit for end. |
 | `include_tools` | `bool` | `True` | Include tool calls and results in output (note: opposite default from `get_messages`). |
 | `include_code_mode` | `bool` | `False` | Include Code Mode runs: each script in a `javascript` block, its numbered calls, and what it returned. |
+| `agent_id` | `str \| None` | `None` | Export this subagent transcript of the session instead (issue #96). |
 
 **Return shape:**
 

@@ -158,6 +158,7 @@ export function useConversationCopyAndExports({
         controller.signal,
         includeCompactInExports,
         showCodeMode,
+        conversation.agent_id,
       )
       clearInterval(interval)
       if (!response.ok) {
@@ -177,7 +178,8 @@ export function useConversationCopyAndExports({
       }
       const blob = await response.blob()
       toast.dismiss(toastId)
-      downloadBlob(blob, `${sanitizeFilename(conversation.name)}.pdf`)
+      const agentSuffix = conversation.agent_id ? `-${conversation.agent_id}` : ''
+      downloadBlob(blob, `${sanitizeFilename(conversation.name)}${agentSuffix}.pdf`)
     } catch (err) {
       clearInterval(interval)
       toast.dismiss(toastId)

@@ -6,7 +6,7 @@
 * A Code Mode call with no link is an ordinary tool call: it follows
   ``include_tool_calls`` only.
 * Every path agrees: FTS snippet, FTS full, linear.
-* The index has a ``body_code`` column, ``SCHEMA_VERSION`` 16.
+* The index has a ``body_code`` column, ``SCHEMA_VERSION`` 17 (#96 bumped it again).
 
 All data is synthetic (``cc_code_mode_fake``).
 """
@@ -140,7 +140,7 @@ def test_the_search_api_takes_include_code_mode(corpus: Any) -> None:
 def test_the_index_has_a_body_code_column_at_schema_16(corpus: Any) -> None:
     from backend import search_index as si
 
-    assert si.SCHEMA_VERSION == 16
+    assert si.SCHEMA_VERSION == 17
     cols = {r[1] for r in si._search_index._get_read_conn().execute("PRAGMA table_info(messages)")}
     assert "body_code" in cols
 

@@ -45,9 +45,10 @@ export function focusSearchInput(): void {
 export function useKeyboardShortcuts() {
   const navigate = useNavigate()
   const location = useLocation()
-  const currentUuid = useMemo(() => {
-    const match = location.pathname.match(/\/conversations\/(.+)/)
-    return match?.[1]
+  // Issue #96: an agent page is /conversations/<session>/agents/<agent>.
+  const [currentUuid, currentAgentId] = useMemo(() => {
+    const match = location.pathname.match(/\/conversations\/([^/]+)(?:\/agents\/([^/]+))?/)
+    return [match?.[1], match?.[2] ? decodeURIComponent(match[2]) : null]
   }, [location.pathname])
   const { keyboardMode, showToolCalls, rightPaneTab, setRightPaneTab } = useSettings()
   const queryClient = useQueryClient()
@@ -125,7 +126,9 @@ export function useKeyboardShortcuts() {
           const messageId = getSelectedMessageId()
           if (messageId && currentUuid) {
             const conversation = queryClient.getQueryData<ConversationDetail>(
-              queryKeys.conversations.detail(currentUuid)
+              currentAgentId
+                ? queryKeys.conversations.agent(currentUuid, currentAgentId)
+                : queryKeys.conversations.detail(currentUuid)
             )
             const message = conversation?.messages.find((m) => m.uuid === messageId)
             if (message) {
@@ -485,7 +488,7 @@ export function useKeyboardShortcuts() {
         }
       }
     },
-    [keyboardMode, focusArea, navSource, currentUuid, queryClient, navigate, showToolCalls,
+    [keyboardMode, focusArea, navSource, currentUuid, currentAgentId, queryClient, navigate, showToolCalls,
      setFocusArea, setNavSource, setIsHelpOpen, setSelectedMessageIndex,
      selectNext, selectPrevious, selectFirst, selectLast, getSelectedId,
      selectNextMessage, selectPreviousMessage, selectFirstMessage, selectLastMessage,

@@ -855,6 +855,51 @@ each call with its input and output, and what went back to the model.
   (`_CodeMode`), `frontend/src/components/message/blocks/CodeRunBlock.tsx`,
   `frontend/src/components/diagram/SequenceDiagram.tsx`.
 
+## 19. Subagent transcripts (issue #96)
+
+A Claude Code session can start subagents. Each agent writes its own
+transcript, and the answer you need is often in one of them. Explorer opens
+and searches these transcripts like a session.
+
+- **Which transcripts:** for one session, the agent files in
+  `<project>/<session>/subagents/agent-<id>.jsonl` and the older
+  `<project>/agent-<id>.jsonl` whose first `sessionId` is the session.
+  - Compaction runs (`acompact-*`) and side questions (`aside_question-*`)
+    are Claude Code's own runs, so they are left out.
+  - A file whose real path is outside the session's project folder is left
+    out (a symlink that points elsewhere).
+- **The agent page:** `/conversations/<session>/agents/<agent>` shows the
+  transcript in the Conversation Pane.
+  - Above the title, a breadcrumb: "Session › <the agent's description, or
+    its id>". "Session" opens the session.
+  - The title is the description from the agent's `.meta.json`, else
+    "Agent <id>". The Details add an "Agent ID:" row.
+  - Show Tools, Show Code Mode, Show Compactions, Copy as Markdown, the
+    Markdown export, the bundle, and the PDF work as for a session. The
+    export file name holds the agent id.
+- **Ways in:**
+  - The session's Details have a "Subagents:" row, with one link per agent
+    (only when the session has one).
+  - A search hit inside an agent.
+  - The URL.
+  - The Conversation List does not change: it shows sessions only.
+- **Search:** each agent transcript is its own result, under its session's
+  name, with the agent's description (or id) on the card. A click or Cmd+G
+  opens the agent page at the message.
+  - The scope pin, the bookmarks scope, the active filter, the project, and
+    the source apply to an agent through its session.
+  - Show Tools, Show Code Mode, and Show Compactions apply as for a session.
+  - An agent's description gives no title hit.
+- **MCP:** a `list_sessions` hit inside an agent carries `agent_id`;
+  `get_session_outline`, `get_messages`, and `export_session` take it.
+- **What #46 adds later:** the Agent call block in the parent session, links
+  from each call to its agent, nested agents, workflow agents, agents whose
+  transcript is gone, and the Activity panel. Bookmarks on an agent page
+  still name only the session.
+- Code: `backend/cc_subagents.py`, the route in
+  `backend/routers/conversations.py`,
+  `frontend/src/components/conversation/SubagentLinks.tsx`.
+
 ---
 
 ## Cross-cutting rules

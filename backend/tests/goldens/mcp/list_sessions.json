@@ -149,6 +149,8 @@
   "query_COWORK_FIXTURE_HELLO_XYZ": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2025-05-25T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 3,
@@ -166,6 +168,8 @@
   "query_NEEDLE_BRANCH": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 1,
@@ -183,6 +187,8 @@
   "query_NEEDLE_CC": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 1,
@@ -200,6 +206,8 @@
   "query_NEEDLE_HANDSHAKE": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 15,
         "match_count": 1,
@@ -217,6 +225,8 @@
   "query_NEEDLE_TOOL": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 1,
@@ -234,6 +244,8 @@
   "query_REMOTE_FIXTURE_TOKEN": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-10-06T19:00:00+00:00",
         "human_message_count": 2,
         "match_count": 2,
@@ -251,6 +263,8 @@
   "query_fixture": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-11-25T02:35:18.164000+00:00",
         "human_message_count": 10,
         "match_count": 1,
@@ -263,6 +277,8 @@
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-10-06T19:00:00+00:00",
         "human_message_count": 2,
         "match_count": 2,
@@ -275,6 +291,8 @@
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 15,
         "match_count": 28,
@@ -287,6 +305,8 @@
         "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 0,
@@ -299,6 +319,8 @@
         "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 0,
@@ -311,6 +333,8 @@
         "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 2,
@@ -323,6 +347,8 @@
         "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2025-05-25T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 3,
@@ -340,6 +366,8 @@
   "query_fixture_CLAUDE_AI": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 15,
         "match_count": 28,
@@ -352,6 +380,8 @@
         "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 0,
@@ -364,6 +394,8 @@
         "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 0,
@@ -381,6 +413,8 @@
   "query_fixture_CLAUDE_CODE": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-11-25T02:35:18.164000+00:00",
         "human_message_count": 10,
         "match_count": 1,
@@ -393,6 +427,8 @@
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-04-01T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 2,
@@ -410,6 +446,8 @@
   "query_fixture_CLAUDE_COWORK": {
     "sessions": [
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2026-10-06T19:00:00+00:00",
         "human_message_count": 2,
         "match_count": 2,
@@ -422,6 +460,8 @@
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
       {
+        "agent_description": null,
+        "agent_id": null,
         "created_at": "2025-05-25T10:00:00+00:00",
         "human_message_count": 2,
         "match_count": 3,
