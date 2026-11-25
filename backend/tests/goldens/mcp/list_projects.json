@@ -2,6 +2,10 @@
   "CLAUDE_AI": [],
   "CLAUDE_CODE": [
     {
+      "project": "cm-sample",
+      "session_count": 2
+    },
+    {
       "project": "project",
       "session_count": 1
     }
@@ -17,6 +21,10 @@
     }
   ],
   "all": [
+    {
+      "project": "cm-sample",
+      "session_count": 2
+    },
     {
       "project": "remote-fixture-project",
       "session_count": 1

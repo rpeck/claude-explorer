@@ -1,0 +1,248 @@
+{
+  "all_default": [
+    {
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "text": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call every 5 seconds for up to 120 seconds. Then pass the fetched text to the Bash command \"wc -w\" on stdin (use a heredoc), and return only the word count number. Do not return or print the page text.",
+      "timestamp": "2026-11-25T07:12:16.837000+00:00",
+      "uuid": "df6e511f-93c8-4556-be91-cac59599f778"
+    },
+    {
+      "code_runs": [
+        {
+          "call_count": 2,
+          "id": "toolu_019A96AwHdz9cHDbajNFJHCb",
+          "line_count": 23,
+          "name": "REPL",
+          "status": "completed"
+        }
+      ],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "text": "",
+      "timestamp": "2026-11-25T07:12:19.886000+00:00",
+      "uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0"
+    },
+    {
+      "label": "Claude Code",
+      "model": "<synthetic>",
+      "position": 2,
+      "sender": "assistant",
+      "text": "",
+      "timestamp": "2026-11-25T07:12:23.688000+00:00",
+      "uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa"
+    },
+    {
+      "label": "You",
+      "model": null,
+      "position": 3,
+      "sender": "human",
+      "text": "",
+      "timestamp": "2026-11-25T07:12:23.688000+00:00",
+      "uuid": "e4e03209-7c97-4ddb-8b28-1a193f337e9c"
+    },
+    {
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 4,
+      "sender": "assistant",
+      "text": "31",
+      "timestamp": "2026-11-25T07:12:24.350000+00:00",
+      "uuid": "526adb31-bcb1-4be1-a615-378395a47f3d"
+    }
+  ],
+  "all_tool_calls": [
+    {
+      "content": [
+        {
+          "text": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call every 5 seconds for up to 120 seconds. Then pass the fetched text to the Bash command \"wc -w\" on stdin (use a heredoc), and return only the word count number. Do not return or print the page text.",
+          "type": "text"
+        }
+      ],
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-11-25T07:12:16.837000+00:00",
+      "uuid": "df6e511f-93c8-4556-be91-cac59599f778"
+    },
+    {
+      "code_runs": [
+        {
+          "call_count": 2,
+          "id": "toolu_019A96AwHdz9cHDbajNFJHCb",
+          "line_count": 23,
+          "name": "REPL",
+          "status": "completed"
+        }
+      ],
+      "content": [],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-11-25T07:12:19.886000+00:00",
+      "uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0"
+    },
+    {
+      "content": [
+        {
+          "id": "repl_59c780c4-0d8f-4353-9a02-df00ee8ed950",
+          "input": {
+            "query": "fetch url"
+          },
+          "name": "searchTools",
+          "type": "tool_use"
+        }
+      ],
+      "label": "Claude Code",
+      "model": "<synthetic>",
+      "position": 2,
+      "sender": "assistant",
+      "timestamp": "2026-11-25T07:12:23.688000+00:00",
+      "uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa"
+    },
+    {
+      "content": [],
+      "label": "You",
+      "model": null,
+      "position": 3,
+      "sender": "human",
+      "timestamp": "2026-11-25T07:12:23.688000+00:00",
+      "uuid": "e4e03209-7c97-4ddb-8b28-1a193f337e9c"
+    },
+    {
+      "content": [
+        {
+          "text": "31",
+          "type": "text"
+        }
+      ],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 4,
+      "sender": "assistant",
+      "timestamp": "2026-11-25T07:12:24.350000+00:00",
+      "uuid": "526adb31-bcb1-4be1-a615-378395a47f3d"
+    }
+  ],
+  "all_tool_results": [
+    {
+      "content": [
+        {
+          "text": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call every 5 seconds for up to 120 seconds. Then pass the fetched text to the Bash command \"wc -w\" on stdin (use a heredoc), and return only the word count number. Do not return or print the page text.",
+          "type": "text"
+        }
+      ],
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "timestamp": "2026-11-25T07:12:16.837000+00:00",
+      "uuid": "df6e511f-93c8-4556-be91-cac59599f778"
+    },
+    {
+      "code_runs": [
+        {
+          "call_count": 2,
+          "id": "toolu_019A96AwHdz9cHDbajNFJHCb",
+          "line_count": 23,
+          "name": "REPL",
+          "status": "completed"
+        }
+      ],
+      "content": [],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "timestamp": "2026-11-25T07:12:19.886000+00:00",
+      "uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0"
+    },
+    {
+      "content": [
+        {
+          "id": "repl_59c780c4-0d8f-4353-9a02-df00ee8ed950",
+          "input": {
+            "query": "fetch url"
+          },
+          "name": "searchTools",
+          "type": "tool_use"
+        }
+      ],
+      "label": "Claude Code",
+      "model": "<synthetic>",
+      "position": 2,
+      "sender": "assistant",
+      "timestamp": "2026-11-25T07:12:23.688000+00:00",
+      "uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa"
+    },
+    {
+      "content": [
+        {
+          "content": [
+            {
+              "text": "[{\"name\": \"mcp__fetch__fetch\", \"about\": \"Fetches a URL from the internet and optionally extracts its contents as markdown. Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.\", \"input\": \"{\\n  /** URL to fetch (format uri) */\\n  url: string\\n  /** Maximum number of characters to return. (integer, min 1, max 999999, default 5000) */\\n  max_length?: number\\n  /** On return output starting at this character index, useful if a previous fetch was truncated and more context is required. (integer, min 0, default 0) */\\n  start_index?: number\\n  /** Get the actual HTML content of the requested page, without simplification. (default false) */\\n  raw?: boolean\\n  /** How long to wait, in milliseconds, to connect to the server and for each read of its response before giving up. Raise it for a slow server or a large download; lower it to fail fast. (integer, min 100, max 600000, default 30000) */\\n  timeout_ms?: number\\n}\"}]",
+              "type": "text"
+            }
+          ],
+          "tool_use_id": "repl_59c780c4-0d8f-4353-9a02-df00ee8ed950",
+          "type": "tool_result"
+        }
+      ],
+      "label": "You",
+      "model": null,
+      "position": 3,
+      "sender": "human",
+      "timestamp": "2026-11-25T07:12:23.688000+00:00",
+      "uuid": "e4e03209-7c97-4ddb-8b28-1a193f337e9c"
+    },
+    {
+      "content": [
+        {
+          "text": "31",
+          "type": "text"
+        }
+      ],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 4,
+      "sender": "assistant",
+      "timestamp": "2026-11-25T07:12:24.350000+00:00",
+      "uuid": "526adb31-bcb1-4be1-a615-378395a47f3d"
+    }
+  ],
+  "positions_0_1": [
+    {
+      "label": "You",
+      "model": null,
+      "position": 0,
+      "sender": "human",
+      "text": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call every 5 seconds for up to 120 seconds. Then pass the fetched text to the Bash command \"wc -w\" on stdin (use a heredoc), and return only the word count number. Do not return or print the page text.",
+      "timestamp": "2026-11-25T07:12:16.837000+00:00",
+      "uuid": "df6e511f-93c8-4556-be91-cac59599f778"
+    },
+    {
+      "code_runs": [
+        {
+          "call_count": 2,
+          "id": "toolu_019A96AwHdz9cHDbajNFJHCb",
+          "line_count": 23,
+          "name": "REPL",
+          "status": "completed"
+        }
+      ],
+      "label": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "position": 1,
+      "sender": "assistant",
+      "text": "",
+      "timestamp": "2026-11-25T07:12:19.886000+00:00",
+      "uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0"
+    }
+  ]
+}

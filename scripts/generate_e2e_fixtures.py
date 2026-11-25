@@ -320,6 +320,40 @@ def write_jsonl_atomic(path: Path, entries: list[dict]) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+# Issue #90: real Code Mode recordings (scrubbed; see the READMEs in
+# fixtures/cc_code_mode and fixtures/codex_code_mode), so the Playwright suite
+# runs the real backend on real shapes.
+CC_CODE_MODE_PROJECT = "-home-fixture-cm-sample"
+CC_CODE_MODE_SESSIONS = (
+    ("mcp-to-cli-pipe.jsonl", "b007d327-80c4-46ea-b737-53d84b30c624"),
+    ("failed-refused-subagent.jsonl", "2339aab4-744c-4556-95b8-5ee5552c1b85"),
+)
+# The subagent of the second session, in the current layout.
+CC_CODE_MODE_SUBAGENT = ("subagent-run.jsonl", "2339aab4-744c-4556-95b8-5ee5552c1b85", "a47f122549f03fce6")
+CODEX_CODE_MODE_ROLLOUTS = (
+    ("cli-to-cli-pipe.jsonl", "01a2118c-b04a-7160-825d-2010987d5c34"),
+    ("failed-wait-notify-two-cells-terminate.jsonl", "01a2118a-13d2-77e2-b458-a98bffa8713c"),
+)
+
+
+def copy_cc_code_mode_sessions() -> int:
+    """Copy the Claude Code Code Mode recordings into the fixture tree."""
+    project = CC_ROOT / "projects" / CC_CODE_MODE_PROJECT
+    for name, session in CC_CODE_MODE_SESSIONS:
+        write_bytes_atomic(project / f"{session}.jsonl", (FIXTURES_ROOT / "cc_code_mode" / name).read_bytes())
+    name, session, agent = CC_CODE_MODE_SUBAGENT
+    write_bytes_atomic(project / session / "subagents" / f"agent-{agent}.jsonl",
+                       (FIXTURES_ROOT / "cc_code_mode" / name).read_bytes())
+    return len(CC_CODE_MODE_SESSIONS)
+
+
+def write_bytes_atomic(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(path)
+
+
 def build_codex_archive() -> int:
     """Copy the fake Codex home into ``CODEX_ROOT`` with the real copier.
 
@@ -336,6 +370,11 @@ def build_codex_archive() -> int:
     fixed_ms = int(BASE_TS.timestamp() * 1000)
     with tempfile.TemporaryDirectory() as tmp:
         home = build_codex_home(Path(tmp) / ".codex")
+        # Issue #90: the scrubbed real code mode rollouts, as Codex stores them.
+        for name, thread_id in CODEX_CODE_MODE_ROLLOUTS:
+            dest = home / "sessions" / "2026" / "11" / "24" / f"rollout-2026-11-24T00-00-00-{thread_id}.jsonl"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(FIXTURES_ROOT / "codex_code_mode" / name, dest)
         data_dir = Path(tmp) / "data"
         ctx = SyncContext(settings=SimpleNamespace(codex_home=str(home)), reason="cli", lock_timeout_s=5)
         report = get_adapter("CODEX", ConversationStore(data_dir=data_dir)).archive_sync(ctx)
@@ -393,6 +432,14 @@ renames the home folder to the fixed key `fixture000000`, writes
 `home_path` as `/home/fixture/.codex`, and replaces the temp paths and the
 sync times with fixed values. In e2e, `CODEX_HOME` points to a missing
 folder, so the copy never writes into these fixtures.
+
+Code Mode (issue #90): the script also copies scrubbed recordings of real
+sessions (synthetic prompts on synthetic files) into the tree, so the
+Playwright suite runs the real backend on real shapes. Two Claude Code
+sessions (and one subagent) go under `claude/projects/-home-fixture-cm-sample/`
+from `cc_code_mode/`; two Codex rollouts from `codex_code_mode/` go into the
+fake Codex home before the copy. `backend/tests/test_fixture_privacy.py`
+checks every fixture for real data.
 
 ## Layout
 
@@ -470,6 +517,9 @@ def main() -> int:
     cc_path = CC_ROOT / "projects" / "-fixture-project" / f"{session_uuid}.jsonl"
     write_jsonl_atomic(cc_path, entries)
 
+    # Claude Code Code Mode recordings (issue #90)
+    cm_sessions = copy_cc_code_mode_sessions()
+
     # Codex archive
     codex_threads = build_codex_archive()
 
@@ -478,6 +528,7 @@ def main() -> int:
 
     print(f"Wrote 3 Desktop conversations under {org_dir}")
     print(f"Wrote 1 CC session at {cc_path}")
+    print(f"Copied {cm_sessions} CC Code Mode recordings under {CC_ROOT / 'projects' / CC_CODE_MODE_PROJECT}")
     print(f"Wrote {codex_threads} Codex threads under {CODEX_ROOT}")
     print(f"Wrote {FIXTURES_ROOT / 'README.md'}")
     return 0

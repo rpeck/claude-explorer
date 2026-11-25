@@ -1,0 +1,274 @@
+{
+  "detail": {
+    "child_uuids": [],
+    "compact_markers": [],
+    "created_at": "2026-11-25T07:12:16.837000Z",
+    "current_leaf_message_uuid": "526adb31-bcb1-4be1-a615-378395a47f3d",
+    "error": null,
+    "file_path": "<TMP>/claude/projects/-home-fixture-cm-sample/b007d327-80c4-46ea-b737-53d84b30c624.jsonl",
+    "git_branch": "HEAD",
+    "has_branches": false,
+    "human_message_count": 2,
+    "is_archived": false,
+    "is_starred": false,
+    "message_count": 5,
+    "messages": [
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call every 5 seconds for up to 120 seconds. Then pass the fetched text to the Bash command \"wc -w\" on stdin (use a heredoc), and return only the word count number. Do not return or print the page text.",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-11-25T07:12:16.837000Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
+        "parent_message_uuid": null,
+        "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
+        "slash_command": null,
+        "text": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call every 5 seconds for up to 120 seconds. Then pass the fetched text to the Bash command \"wc -w\" on stdin (use a heredoc), and return only the word count number. Do not return or print the page text.",
+        "truncated": false,
+        "updated_at": "2026-11-25T07:12:16.837000Z",
+        "uuid": "df6e511f-93c8-4556-be91-cac59599f778"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
+        "content": [
+          {
+            "code_run": {
+              "background": true,
+              "code": "const start = Date.now();\nlet found = null, lastErr = null;\nwhile (Date.now() - start < 120000) {\n  try {\n    const r = await searchTools(\"fetch url\");\n    const list = Array.isArray(r) ? r : [];\n    found = list.find(t => /fetch/i.test(t.name));\n    if (found) {\n      try {\n        const res = await tools[found.name]({url: \"https://example.com\"});\n        var out = res;\n        break;\n      } catch (e) { lastErr = e.message; found = null; }\n    }\n  } catch (e) { lastErr = e.message; }\n  await sleep(5000);\n}\nif (!found) throw new Error(\"fetch failed: \" + lastErr);\nlet text = typeof out === \"string\" ? out : JSON.stringify(out);\nconst r = await $`wc -w <<'EOF_PAGE'\n${{raw: \"\"}}${text.replace(/\\$/g, \"\")}\nEOF_PAGE`.text();\nr.trim()",
+              "description": null,
+              "error": null,
+              "inner_calls": [
+                {
+                  "code_run_parent": "toolu_019A96AwHdz9cHDbajNFJHCb",
+                  "id": "toolu_cc_89cecf95cfb84d6aa311c4caa46ed06b",
+                  "input": {
+                    "url": "https://example.com"
+                  },
+                  "inputs_from": [],
+                  "is_error": false,
+                  "link_source": "transcript_field",
+                  "name": "mcp__fetch__fetch",
+                  "refused": false,
+                  "result": "Contents of https://example.com/:\n# Example Domain\n\nThis domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes."
+                },
+                {
+                  "code_run_parent": "toolu_019A96AwHdz9cHDbajNFJHCb",
+                  "id": "toolu_cc_72b22b987dca404584bf5d75b1b0ff21",
+                  "input": {
+                    "command": "wc -w <<'EOF_PAGE'\n'Contents of https://example.com/:\n# Example Domain\n\nThis domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes.'\nEOF_PAGE"
+                  },
+                  "inputs_from": [
+                    0
+                  ],
+                  "is_error": false,
+                  "link_source": "transcript_field",
+                  "name": "Bash",
+                  "refused": false,
+                  "result": "      31"
+                }
+              ],
+              "language": "javascript",
+              "line_count": 23,
+              "refused": null,
+              "result": "31",
+              "returned_from": [],
+              "status": "completed",
+              "stderr": null,
+              "stdout": null
+            },
+            "content": null,
+            "id": "toolu_019A96AwHdz9cHDbajNFJHCb",
+            "input": null,
+            "name": "REPL",
+            "source": null,
+            "text": null,
+            "tool_use_id": null,
+            "type": "code_run"
+          }
+        ],
+        "created_at": "2026-11-25T07:12:19.886000Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "model": "claude-sonnet-5-5",
+        "model_from_conversation": false,
+        "notice_kind": null,
+        "parent_message_uuid": "df6e511f-93c8-4556-be91-cac59599f778",
+        "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
+        "slash_command": null,
+        "text": "",
+        "truncated": false,
+        "updated_at": "2026-11-25T07:12:19.886000Z",
+        "uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
+        "content": [
+          {
+            "content": null,
+            "from_code_mode": true,
+            "id": "repl_59c780c4-0d8f-4353-9a02-df00ee8ed950",
+            "input": {
+              "query": "fetch url"
+            },
+            "name": "searchTools",
+            "source": null,
+            "text": null,
+            "tool_use_id": null,
+            "type": "tool_use"
+          }
+        ],
+        "created_at": "2026-11-25T07:12:23.688000Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "model": "<synthetic>",
+        "model_from_conversation": false,
+        "notice_kind": null,
+        "parent_message_uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0",
+        "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
+        "slash_command": null,
+        "text": "",
+        "truncated": false,
+        "updated_at": "2026-11-25T07:12:23.688000Z",
+        "uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
+        "content": [
+          {
+            "content": [
+              {
+                "content": null,
+                "id": null,
+                "input": null,
+                "name": null,
+                "source": null,
+                "text": "[{\"name\": \"mcp__fetch__fetch\", \"about\": \"Fetches a URL from the internet and optionally extracts its contents as markdown. Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.\", \"input\": \"{\\n  /** URL to fetch (format uri) */\\n  url: string\\n  /** Maximum number of characters to return. (integer, min 1, max 999999, default 5000) */\\n  max_length?: number\\n  /** On return output starting at this character index, useful if a previous fetch was truncated and more context is required. (integer, min 0, default 0) */\\n  start_index?: number\\n  /** Get the actual HTML content of the requested page, without simplification. (default false) */\\n  raw?: boolean\\n  /** How long to wait, in milliseconds, to connect to the server and for each read of its response before giving up. Raise it for a slow server or a large download; lower it to fail fast. (integer, min 100, max 600000, default 30000) */\\n  timeout_ms?: number\\n}\"}]",
+                "tool_use_id": null,
+                "type": "text"
+              }
+            ],
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": null,
+            "tool_use_id": "repl_59c780c4-0d8f-4353-9a02-df00ee8ed950",
+            "type": "tool_result"
+          }
+        ],
+        "created_at": "2026-11-25T07:12:23.688000Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "model": null,
+        "model_from_conversation": false,
+        "notice_kind": null,
+        "parent_message_uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa",
+        "sender": "human",
+        "shell_command": null,
+        "shell_output": null,
+        "slash_command": null,
+        "text": "",
+        "truncated": false,
+        "updated_at": "2026-11-25T07:12:23.688000Z",
+        "uuid": "e4e03209-7c97-4ddb-8b28-1a193f337e9c"
+      },
+      {
+        "assistant_canned_response_consumed": false,
+        "attachments": [],
+        "command_output": null,
+        "command_output_is_error": false,
+        "content": [
+          {
+            "content": null,
+            "id": null,
+            "input": null,
+            "name": null,
+            "source": null,
+            "text": "31",
+            "tool_use_id": null,
+            "type": "text"
+          }
+        ],
+        "created_at": "2026-11-25T07:12:24.350000Z",
+        "files": [],
+        "files_v2": [],
+        "is_command_marker": false,
+        "is_prelude": false,
+        "model": "claude-sonnet-5-5",
+        "model_from_conversation": false,
+        "notice_kind": null,
+        "parent_message_uuid": "e4e03209-7c97-4ddb-8b28-1a193f337e9c",
+        "sender": "assistant",
+        "shell_command": null,
+        "shell_output": null,
+        "slash_command": null,
+        "text": "31",
+        "truncated": false,
+        "updated_at": "2026-11-25T07:12:24.350000Z",
+        "uuid": "526adb31-bcb1-4be1-a615-378395a47f3d"
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. Th",
+    "notices": [],
+    "organization_id": null,
+    "organization_name": null,
+    "parent_uuid": null,
+    "prelude_hidden_count": 0,
+    "project_name": "cm-sample",
+    "project_path": "/home/fixture/cm-sample",
+    "sandbox_path": null,
+    "source": "CLAUDE_CODE",
+    "source_home": null,
+    "source_home_abs": null,
+    "source_name": null,
+    "subagents": [],
+    "summary": "",
+    "updated_at": "2026-11-25T07:12:24.350000Z",
+    "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
+  },
+  "tree": {
+    "active_path": [],
+    "root_messages": [],
+    "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
+  }
+}

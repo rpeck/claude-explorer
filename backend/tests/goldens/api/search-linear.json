@@ -1,6 +1,24 @@
 {
   "results": [
     {
+      "conversation_created_at": "2026-11-25T02:35:18.164000Z",
+      "conversation_name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
+      "conversation_updated_at": "2026-11-25T02:35:28.844000Z",
+      "conversation_uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85",
+      "matching_messages": [
+        {
+          "created_at": "2026-11-25T02:35:27.825000Z",
+          "fragments": null,
+          "match_end": 85,
+          "match_start": 78,
+          "message_uuid": "2d6965e2-9d37-401d-a7a4-688a0bbbd1ac",
+          "sender": "human",
+          "snippet": "a47f122549f03fce6\ntoolu_cc_cd56a009ecdf40e2ba726ec194ba437f\n/tmp/claude/-home-fixture-cm-sample/2339aab4-744c-4556-95b8-5ee5552c1b85/tasks/a47f122549f03fce6.output\ncompleted\nAgent \"List src directory\" finished\nA task-notification fires..."
+        }
+      ],
+      "project_name": "cm-sample"
+    },
+    {
       "conversation_created_at": "2026-10-06T19:00:00Z",
       "conversation_name": "Remote fixture: widget rollout plan",
       "conversation_updated_at": "2026-10-06T19:06:00Z",
@@ -433,7 +451,7 @@
       "project_name": "synthetic-sandbox"
     }
   ],
-  "returned_messages": 36,
-  "total_messages_matched": 36,
+  "returned_messages": 37,
+  "total_messages_matched": 37,
   "truncated": false
 }
