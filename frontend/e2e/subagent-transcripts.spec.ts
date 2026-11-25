@@ -178,3 +178,121 @@ test.describe('Subagent transcripts (#96)', () => {
     expect(urls[0]).toContain(`agent_id=${AGENT}`)
   })
 })
+
+/**
+ * PR #97: the agent id in bookmarks (SA-BOOKMARKS.md). `/api/bookmarks`
+ * stays mocked (the real endpoint would write next to the fixture tree):
+ * the tests assert the POST body and the navigation.
+ */
+interface MockBookmark {
+  id: string
+  conversation_id: string
+  message_uuid: string
+  source: string
+  created_at: string
+  note: string
+  snippet: string
+  agent_id?: string | null
+  agent_description?: string | null
+}
+
+async function mockBookmarks(page: Page, initial: MockBookmark[] = []) {
+  const state = { list: [...initial], posts: [] as Record<string, unknown>[] }
+  await page.route('**/api/bookmarks**', async (route: Route) => {
+    const req = route.request()
+    if (req.method() === 'GET') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ bookmarks: state.list }) })
+    }
+    if (req.method() === 'POST') {
+      const body = req.postDataJSON() as Record<string, unknown>
+      state.posts.push(body)
+      const created = { ...body, id: `bm-${state.posts.length}`, created_at: '2026-11-25T11:00:00Z' } as unknown as MockBookmark
+      state.list.push(created)
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(created) })
+    }
+    if (req.method() === 'DELETE') {
+      const id = new URL(req.url()).pathname.split('/').pop()
+      state.list = state.list.filter((b) => b.id !== id)
+      return route.fulfill({ status: 204, body: '' })
+    }
+    return route.fulfill({ status: 405, body: 'Method Not Allowed' })
+  })
+  return state
+}
+
+test.describe('Bookmarks on an agent page (#97)', () => {
+  test.beforeEach(async ({ page }) => {
+    await installLocalPrefsMock(page)
+  })
+
+  test('the star on an agent page bookmarks the agent message', async ({ page }) => {
+    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
+    const state = await mockBookmarks(page)
+    await withNetRetry(page, () => page.goto(agentUrl(SESSION, AGENT)))
+    const bubble = page.locator(`[data-message-uuid="${AGENT_REPLY}"]`)
+    await bubble.hover()
+    const star = bubble.getByRole('button', { name: /bookmark/i })
+    await expect(star).toHaveCSS('opacity', '1')
+    await star.click()
+    await expect(bubble.locator('[data-bookmarked]')).toHaveCount(1)
+    expect(state.posts).toHaveLength(1)
+    expect(state.posts[0]).toMatchObject({ conversation_id: SESSION, message_uuid: AGENT_REPLY, agent_id: AGENT })
+  })
+
+  test('b on an agent page bookmarks with the agent id and description', async ({ page }) => {
+    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
+    const state = await mockBookmarks(page)
+    await withNetRetry(page, () => page.goto(agentUrl(SESSION, AGENT)))
+    const bubble = page.locator(`[data-message-uuid="${AGENT_REPLY}"]`)
+    await bubble.click()
+    await expect(bubble.locator('.ring-2')).toBeVisible()
+    await page.keyboard.press('b')
+    await expect(bubble.locator('[data-bookmarked]')).toHaveCount(1)
+    expect(state.posts[0]).toMatchObject({
+      conversation_id: SESSION, message_uuid: AGENT_REPLY, agent_id: AGENT, agent_description: AGENT_DESCRIPTION,
+    })
+  })
+
+  test('a session bookmark of the same message uuid does not mark the agent message', async ({ page }) => {
+    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
+    await mockBookmarks(page, [{
+      id: 'bm-session', conversation_id: SESSION, message_uuid: AGENT_REPLY, source: 'claude_code',
+      created_at: '2026-11-25T10:00:00Z', note: '', snippet: 'x',
+    }])
+    // Settle signal: the bookmark list has loaded before the negative check.
+    const loaded = page.waitForResponse((r) => r.url().endsWith('/api/bookmarks') && r.request().method() === 'GET')
+    await withNetRetry(page, () => page.goto(agentUrl(SESSION, AGENT)))
+    await loaded
+    const bubble = page.locator(`[data-message-uuid="${AGENT_REPLY}"]`)
+    await expect(bubble).toBeVisible()
+    await expect(bubble.locator('[data-bookmarked]')).toHaveCount(0)
+    // The guard of this test: the agent bookmark does mark it.
+    await bubble.hover()
+    await bubble.getByRole('button', { name: /bookmark/i }).click()
+    await expect(bubble.locator('[data-bookmarked]')).toHaveCount(1)
+  })
+
+  test('the Bookmarks tab shows the agent, and a click opens the agent page at the message', async ({ page }) => {
+    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
+    await mockBookmarks(page, [{
+      id: 'bm-agent', conversation_id: SESSION, message_uuid: AGENT_REPLY, source: 'claude_code',
+      created_at: '2026-11-25T10:00:00Z', note: '', snippet: 'I looked at the files',
+      agent_id: AGENT, agent_description: AGENT_DESCRIPTION,
+    }])
+    await withNetRetry(page, () => page.goto(`/conversations/${SESSION}`))
+    await expect(page.locator(`[data-message-uuid="${SESSION_REPLY}"]`)).toBeVisible()
+    await page.keyboard.press('Meta+k')
+    await expect(page.getByRole('tablist')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('tablist').getByRole('tab', { name: /bookmarks/i }).click()
+
+    const item = page.locator('[data-bookmark-item]')
+    await expect(item).toHaveCount(1)
+    await expect(item.getByTestId('bookmark-agent')).toHaveText(AGENT_DESCRIPTION)
+    await item.getByRole('button', { name: 'Open' }).click()
+
+    await expect(page).toHaveURL(new RegExp(agentUrl(SESSION, AGENT)))
+    const bubble = page.locator(`[data-message-uuid="${AGENT_REPLY}"]`)
+    await expect(bubble).toBeVisible()
+    await expect(bubble.locator('[data-bookmarked]')).toHaveCount(1)
+  })
+})
