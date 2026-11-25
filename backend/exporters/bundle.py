@@ -33,7 +33,7 @@ from ._shared import (
     render_compact_summary_markdown,
     sanitize_filename,
 )
-from .markdown import command_output_markdown
+from .markdown import code_run_markdown, command_output_markdown
 
 
 def _image_marker_path_is_safe(path: Path, image_cache_root: Path) -> bool:
@@ -117,6 +117,9 @@ def _bundle_block_to_markdown(
         # We don't know the block's identity from here, so the caller
         # also injects a synthetic textual placeholder we can resolve.
         return ""  # Handled at the message level; see _bundle_message_to_markdown
+
+    if block.type == "code_run":
+        return code_run_markdown(block)
 
     if block.type == "tool_use":
         if not include_tools:

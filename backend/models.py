@@ -3,9 +3,47 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializerFunctionWrapHandler, model_serializer
 
 from .sources.ids import SourceId
+
+# Issue #90. How an inner call was linked to its Code Mode script.
+LinkSource = Literal["transcript_field", "hook_log", "exclusive_window", "caller_field"]
+
+
+class CodeRunCall(BaseModel):
+    """One tool call that a Code Mode script made."""
+
+    id: str
+    name: str
+    input: dict[str, Any] | None = None
+    result: str = ""
+    is_error: bool = False
+    refused: bool = False
+    code_run_parent: str
+    link_source: LinkSource
+
+
+class CodeRun(BaseModel):
+    """A Code Mode run: Claude Code ``REPL`` or Codex ``exec`` (issue #90)."""
+
+    language: str = "javascript"
+    code: str = ""
+    line_count: int = 0
+    description: str | None = None
+    status: Literal["completed", "failed", "terminated", "running", "unknown"] = "unknown"
+    background: bool = False
+    # What went back to the model: the returned value, the output, the error.
+    result: str | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    error: str | None = None
+    refused: str | None = None
+    inner_calls: list[CodeRunCall] = Field(default_factory=list)
+
+
+# Issue #90: left out of the JSON when empty, so other blocks keep their shape.
+_CODE_MODE_FIELDS = ("code_run", "from_code_mode", "ambiguous_with")
 
 
 class ContentBlock(BaseModel):
@@ -34,6 +72,20 @@ class ContentBlock(BaseModel):
     # out of order, some may be missing).
     id: str | None = None
     tool_use_id: str | None = None
+    # Issue #90. ``code_run`` is set on a block of type "code_run".
+    # ``from_code_mode`` marks a tool call that a script made but that has no
+    # exact link; ``ambiguous_with`` names the runs that were open (Codex).
+    code_run: CodeRun | None = None
+    from_code_mode: bool | None = None
+    ambiguous_with: list[str] | None = None
+
+    @model_serializer(mode="wrap")
+    def _drop_empty_code_mode_fields(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        for key in _CODE_MODE_FIELDS:
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
 
 class Message(BaseModel):

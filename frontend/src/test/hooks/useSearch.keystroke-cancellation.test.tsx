@@ -86,7 +86,7 @@ describe('useSearch — per-keystroke cancellation (council 2026-05-22)', () => 
     // `enabled: debouncedQuery.length >= 2` gate in useSearch).
     const { rerender } = renderHook(
       ({ q }: { q: string }) =>
-        useSearch(q, 'all', 'snippet', 'updated_at', 'desc', undefined, true, true),
+        useSearch(q, 'all', 'snippet', 'updated_at', 'desc', undefined, true, true, false),
       {
         wrapper: Wrapper,
         initialProps: { q: 'ab' },
@@ -227,13 +227,13 @@ describe('useSearch — per-keystroke cancellation (council 2026-05-22)', () => 
 
     // Render "tab A" with query="aa".
     const { unmount: unmountA } = renderHook(
-      () => useSearch('aa', 'all', 'snippet', 'updated_at', 'desc', undefined, true, true),
+      () => useSearch('aa', 'all', 'snippet', 'updated_at', 'desc', undefined, true, true, false),
       { wrapper: makeIsolatedWrapper() },
     );
 
     // Render "tab B" with query="bb" in a separate QueryClient.
     renderHook(
-      () => useSearch('bb', 'all', 'snippet', 'updated_at', 'desc', undefined, true, true),
+      () => useSearch('bb', 'all', 'snippet', 'updated_at', 'desc', undefined, true, true, false),
       { wrapper: makeIsolatedWrapper() },
     );
 

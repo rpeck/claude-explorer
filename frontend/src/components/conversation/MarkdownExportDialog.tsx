@@ -57,6 +57,7 @@ export function MarkdownExportDialog({
 }: MarkdownExportDialogProps) {
   const {
     showToolCalls,
+    showCodeMode,
     hideCompactMarkers,
     markdownExportMode: storedMode,
     setMarkdownExportMode: setStoredMode,
@@ -99,6 +100,7 @@ export function MarkdownExportDialog({
           conversationUuid,
           showToolCalls,
           includeCompact,
+          showCodeMode,
         )
         const blob = await response.blob()
         downloadBlob(blob, `${safeName}.md`)
@@ -109,6 +111,7 @@ export function MarkdownExportDialog({
           showToolCalls,
           dialect,
           includeCompact,
+          showCodeMode,
         )
         const blob = await response.blob()
         downloadBlob(blob, `${safeName}.zip`)

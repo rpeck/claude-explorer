@@ -54,6 +54,8 @@ interface UseMessageNavigationRegistryArgs {
   showPrelude: boolean
   /** Whether tool-only messages render. Filters the registry. */
   showToolCalls: boolean
+  /** Issue #90: whether run-only messages render. Filters the registry. */
+  showCodeMode?: boolean
   /** The active search hit's message (2026-10-21): registered although
    *  tool calls are hidden, like `computeVisibleMessages`. */
   revealUuid?: string | null
@@ -81,6 +83,7 @@ export function useMessageNavigationRegistry({
   visibleMessages,
   showPrelude,
   showToolCalls,
+  showCodeMode = false,
   revealUuid = null,
   focusArea,
   messageRefs,
@@ -117,7 +120,7 @@ export function useMessageNavigationRegistry({
         .filter((msg) => {
           if (!showPrelude && msg.is_prelude) return false
           if (revealUuid && msg.uuid === revealUuid) return true
-          return messageHasVisibleContent(msg, showToolCalls)
+          return messageHasVisibleContent(msg, showToolCalls, showCodeMode)
         })
         .map((msg) => ({
           uuid: msg.uuid,
@@ -128,7 +131,7 @@ export function useMessageNavigationRegistry({
     return () => {
       setMessages([])
     }
-  }, [conversation?.messages, showToolCalls, showPrelude, revealUuid, setMessages, setMessagesAndPinSelection])
+  }, [conversation?.messages, showToolCalls, showCodeMode, showPrelude, revealUuid, setMessages, setMessagesAndPinSelection])
 
   // 3) Auto-scroll to selected message.
   //

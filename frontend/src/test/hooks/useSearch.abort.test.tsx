@@ -62,7 +62,7 @@ describe('useSearch — AbortController plumbing (Hunt #5)', () => {
     // mandates it (see useConversations.ts), so pass `true` to match the
     // common in-app default.
     const { unmount } = renderHook(
-      () => useSearch('hello world', 'all', 'snippet', 'updated_at', 'desc', undefined, true, true),
+      () => useSearch('hello world', 'all', 'snippet', 'updated_at', 'desc', undefined, true, true, false),
       { wrapper: Wrapper },
     );
 

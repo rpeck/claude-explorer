@@ -100,6 +100,7 @@ function StreamHarness(opts: RenderOpts) {
       activeMatchUuid={null}
       deferredSearchQuery=""
       showToolCalls={false}
+      showCodeMode={false}
       expandAllTools={false}
       setSelectedMessageIndex={vi.fn()}
       scrollControls={opts.scrollControls ?? null}

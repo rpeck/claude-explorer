@@ -241,6 +241,109 @@ def _compact_markers(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Code mode (issue #90)
+# ---------------------------------------------------------------------------
+
+_EXEC_TOOL, _WAIT_TOOL, _NESTED_PREFIX = "exec", "wait", "exec-"
+# core/src/tools/code_mode/ at f2d3086: the first line of each exec or wait output.
+_EXEC_HEADER_RE = re.compile(r"Script (completed|failed|terminated|running with cell ID (\S+))")
+
+
+def _exec_output(text: str) -> tuple[str | None, str | None, str]:
+    """(final status or None, the cell id of a yielded cell or None, the output body)."""
+    first, _, rest = text.partition("\n")
+    m = _EXEC_HEADER_RE.fullmatch(first.strip())
+    if m is None:
+        return None, None, text.strip("\n")
+    _, sep, body = rest.partition("Output:\n")
+    body = body if sep else rest
+    if m.group(2):
+        return None, m.group(2), body.strip("\n")
+    return m.group(1), None, body.strip("\n")
+
+
+class _CodeMode:
+    """The exec cells of a rollout, in record order.
+
+    A nested tool item (``exec-<uuid>``) has no parent field. It links to the
+    one cell that is alive when it first shows (``exclusive_window``); with
+    two or more alive it links to none of them.
+    """
+
+    def __init__(self, records: list[RolloutRecord]) -> None:
+        self.runs: dict[str, dict[str, Any]] = {}  # exec call id -> code_run
+        self.waits: set[str] = set()  # wait call ids that continue a known cell
+        self.link: dict[str, str] = {}  # nested item id -> run id
+        self.ambiguous: dict[str, list[str]] = {}  # nested item id -> the runs alive
+        cells: dict[str, str] = {}  # cell id -> run id
+        wait_run: dict[str, str] = {}
+        alive: list[str] = []
+        seen: set[str] = set()
+        for r in records:
+            p = r.payload
+            call_id = p.get("call_id") if isinstance(p.get("call_id"), str) else None
+            if r.type == "response_item" and p.get("type") == "custom_tool_call" and p.get("name") == _EXEC_TOOL and call_id:
+                code = p.get("input") if isinstance(p.get("input"), str) else ""
+                self.runs[call_id] = {
+                    "language": "javascript", "code": code,
+                    "line_count": code.count("\n") + 1 if code else 0, "description": None,
+                    "status": "unknown", "background": False, "result": None, "stdout": None,
+                    "stderr": None, "error": None, "refused": None, "inner_calls": [],
+                }
+                alive.append(call_id)
+            elif r.type == "response_item" and p.get("type") == "function_call" and p.get("name") == _WAIT_TOOL and call_id:
+                run_id = cells.get(str(_decode_json_text(p.get("arguments")).get("cell_id")))
+                if run_id:
+                    wait_run[call_id] = run_id
+                    self.waits.add(call_id)
+            elif r.type == "response_item" and p.get("type") in _LEGACY_OUTPUTS and call_id:
+                run_id = call_id if call_id in self.runs else wait_run.get(call_id)
+                if run_id is None:
+                    continue
+                run = self.runs[run_id]
+                status, cell, body = _exec_output(_output_text(p.get("output")))
+                if body:
+                    run["result"] = body if run["result"] is None else f"{run['result']}\n{body}"
+                if cell:
+                    cells[cell] = run_id
+                    run["status"] = "running"
+                elif status:
+                    run["status"] = status
+                    if run_id in alive:
+                        alive.remove(run_id)
+            elif _is_item_completed(r) and isinstance(p.get("item"), dict):
+                item_id = str(p["item"].get("id") or "")
+                if item_id.startswith(_NESTED_PREFIX) and item_id not in seen:
+                    seen.add(item_id)
+                    if len(alive) == 1:
+                        self.link[item_id] = alive[0]
+                    elif alive:
+                        self.ambiguous[item_id] = list(alive)
+
+    def block(self, call_id: str) -> dict[str, Any]:
+        return {"type": "code_run", "id": call_id, "name": _EXEC_TOOL, "code_run": self.runs[call_id]}
+
+    def add_call(self, item: dict[str, Any], name: str, tool_input: dict[str, Any], output: str) -> None:
+        item_id = str(item.get("id") or "")
+        run_id = self.link[item_id]
+        self.runs[run_id]["inner_calls"].append({
+            "id": item_id, "name": name, "input": tool_input, "result": output,
+            "is_error": item.get("status") == "failed", "refused": item.get("status") == "declined",
+            "code_run_parent": run_id, "link_source": "exclusive_window",
+        })
+
+    def mark(self, item: dict[str, Any], blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Tool blocks of a nested item that links to no run."""
+        item_id = str(item.get("id") or "")
+        if not item_id.startswith(_NESTED_PREFIX):
+            return blocks
+        use = {**blocks[0], "from_code_mode": True}
+        if item_id in self.ambiguous:
+            use["ambiguous_with"] = self.ambiguous[item_id]
+        return [use, *blocks[1:]]
+
+
+# ---------------------------------------------------------------------------
 # Paginated history
 # ---------------------------------------------------------------------------
 
@@ -274,6 +377,7 @@ def _paginated_messages(
         if _is_item_completed(r) and isinstance(r.payload.get("item"), dict)
     }
     response_calls: dict[str, _ResponseCall] = {}  # call id -> its entry
+    code_mode = _CodeMode(records)
     compactions = _Compactions()
     compaction_items: set[tuple[str, str]] = set()
     turn = ""  # the turn of the latest record that names one
@@ -332,6 +436,16 @@ def _paginated_messages(
             messages.append(_compaction_message(msg_uuid, entry, turn_models.get(turn_id, "")))
             continue
         if isinstance(entry, _ResponseCall):
+            call_id = str(item_id)
+            if call_id in code_mode.waits:
+                continue  # its output is part of the run
+            if call_id in code_mode.runs:
+                first = entry.call or entry.output
+                latest = entry.output or entry.call
+                assert first is not None and latest is not None
+                messages.append(_message(msg_uuid, "assistant", [code_mode.block(call_id)],
+                                         first.timestamp, latest.timestamp, turn_models.get(turn_id, "")))
+                continue
             messages.append(_response_call_message(msg_uuid, entry, turn_models.get(turn_id, ""), warnings))
             continue
         first, latest = entry
@@ -347,7 +461,10 @@ def _paginated_messages(
         elif item_type == "Extension":
             blocks = _tool(item, *_extension(item, warnings))
         elif item_type in _TOOL_ITEMS:
-            blocks = _tool(item, *_TOOL_ITEMS[item_type](item))
+            if str(item.get("id")) in code_mode.link:
+                code_mode.add_call(item, *_TOOL_ITEMS[item_type](item))
+                continue
+            blocks = code_mode.mark(item, _tool(item, *_TOOL_ITEMS[item_type](item)))
         else:
             blocks = [_unsupported(str(item_type), warnings)]
         if not blocks:
@@ -523,6 +640,7 @@ def _legacy_messages(
     records: list[RolloutRecord], thread_id: str, warnings: list[str]
 ) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
+    code_mode = _CodeMode(records)
     calls: dict[str, dict[str, Any]] = {}  # call_id -> the message that holds the call
     turn_of: dict[str, int] = {}  # message uuid -> turn; each human message starts a turn
     turn = 0
@@ -574,8 +692,14 @@ def _legacy_messages(
         elif kind == "reasoning":
             summary = [s.get("text", "") for s in p.get("summary") or [] if isinstance(s, dict)]
             blocks = [_reasoning(summary)]
+        elif kind in _LEGACY_CALLS and p.get("call_id") in code_mode.waits:
+            continue  # its output is part of the run
+        elif kind in _LEGACY_CALLS and p.get("call_id") in code_mode.runs:
+            blocks = [code_mode.block(p["call_id"])]
         elif kind in _LEGACY_CALLS:
             blocks = [_legacy_call(p)]
+        elif kind in _LEGACY_OUTPUTS and (p.get("call_id") in code_mode.runs or p.get("call_id") in code_mode.waits):
+            continue  # the run holds it
         elif kind in _LEGACY_OUTPUTS:
             result = {"type": "tool_result", "tool_use_id": p.get("call_id"), "content": [_text(_output_text(p.get("output")))]}
             owner = calls.get(p.get("call_id"))

@@ -84,7 +84,7 @@ from .compact_prefixes import (
     is_compaction_prefix_text,
 )
 from .config import get_settings
-from .search_text import _extract_searchable_text
+from .search_text import _extract_code_mode_text, _extract_searchable_text
 from .sources.ids import SourceFilter
 from .sources.registry import get_adapter, get_adapter_or_none, get_adapters
 from .sqlite_read_conns import PerThreadReadConns
@@ -284,7 +284,11 @@ logger = logging.getLogger(__name__)
 #     slash command (``command_output`` on its marker) is now searchable
 #     text, and shell and notice rows lose their tags. A full rebuild
 #     indexes the text again.
-SCHEMA_VERSION = 15
+#   * v16 (2026-11-24, issue #90): a ``body_code`` column holds the text of
+#     the Code Mode runs (script, inner calls, returned value). ``body`` and
+#     ``body_text`` leave it out, so ``include_code_mode`` and
+#     ``include_tool_calls`` are two independent column choices. Full rebuild.
+SCHEMA_VERSION = 16
 
 
 # ``messages`` is the FTS5 virtual table. UNINDEXED columns store metadata
@@ -372,6 +376,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
     title,
     body,
     body_text,
+    body_code,
     tokenize = "porter unicode61 remove_diacritics 1"
 );
 
@@ -675,7 +680,7 @@ class SearchIndex:
         "source", "project_path", "organization_id",
         "conv_created_at", "conv_updated_at",
         "is_compaction_summary",
-        "title", "body", "body_text",
+        "title", "body", "body_text", "body_code",
     })
 
     def _init_schema(self) -> None:
@@ -1238,7 +1243,7 @@ class SearchIndex:
             if isinstance(m, dict) and m.get("message_uuid")
         }
 
-        rows: list[tuple[str, str, str, str, str, str, str, str, str, int, str, str, str]] = []
+        rows: list[tuple[str, str, str, str, str, str, str, str, str, int, str, str, str, str]] = []
         for msg in conv.get("chat_messages", []) or []:
             # 2026-05-16 (v7): two parallel projections from the SAME
             # source message via the existing linear-scan helper.
@@ -1251,6 +1256,7 @@ class SearchIndex:
             # visible regardless of the Tools toggle.
             body = _extract_searchable_text(msg, include_tool_calls=True)
             body_text = _extract_searchable_text(msg, include_tool_calls=False)
+            body_code = _extract_code_mode_text(msg)
             msg_uuid = msg.get("uuid", "") or ""
             # v13 (2026-05-26): 1 iff this is a compaction-summary row
             # by UUID; 0 otherwise. The exporters' identity predicate
@@ -1277,6 +1283,7 @@ class SearchIndex:
                     title,
                     body,
                     body_text,
+                    body_code,
                 )
             )
 
@@ -1291,7 +1298,7 @@ class SearchIndex:
                     source, project_path, organization_id,
                     conv_created_at, conv_updated_at,
                     0,
-                    title, "", "",
+                    title, "", "", "",
                 )
             )
 
@@ -1309,8 +1316,8 @@ class SearchIndex:
                     "(conv_uuid, message_uuid, sender, created_at, source, "
                     " project_path, organization_id, conv_created_at, "
                     " conv_updated_at, is_compaction_summary, "
-                    " title, body, body_text) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " title, body, body_text, body_code) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     row,
                 )
                 mapped.append((cur.lastrowid, conv_uuid))
@@ -1732,6 +1739,7 @@ class SearchIndex:
         organization_id: str | None = None,
         conversation_uuids: set[str] | None = None,
         include_tool_calls: bool = True,
+        include_code_mode: bool = False,
         include_compactions: bool = True,
     ) -> tuple[str, list[Any], bool] | None:
         """Shared WHERE-clause builder for FTS5 MATCH queries.
@@ -1766,7 +1774,9 @@ class SearchIndex:
         # qualifier on the right side). With explicit grouping
         # ``col:(foo AND bar)`` both sides honor the column.
         column = "body_text" if not include_tool_calls else "body"
-        scoped_match = f"{{{column}}} : ({match_expr})"
+        # Issue #90: Code Mode runs are in their own column.
+        columns = f"{column} body_code" if include_code_mode else column
+        scoped_match = f"{{{columns}}} : ({match_expr})"
 
         clauses: list[str] = ["messages MATCH ?"]
         params: list[Any] = [scoped_match]
@@ -1821,6 +1831,7 @@ class SearchIndex:
         organization_id: str | None = None,
         conversation_uuids: set[str] | None = None,
         include_tool_calls: bool = True,
+        include_code_mode: bool = False,
         include_compactions: bool = True,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:
@@ -1880,6 +1891,7 @@ class SearchIndex:
             organization_id=organization_id,
             conversation_uuids=conversation_uuids,
             include_tool_calls=include_tool_calls,
+            include_code_mode=include_code_mode,
             include_compactions=include_compactions,
         )
         if built is None:
@@ -1890,6 +1902,9 @@ class SearchIndex:
             self._SNIPPET_BODY_COL_IDX if include_tool_calls
             else self._SNIPPET_BODY_TEXT_COL_IDX
         )
+        if include_code_mode:
+            # -1: FTS5 picks the column with the match (body or body_code).
+            body_col_idx = -1
         body_snippet_expr = (
             f"snippet(messages, {body_col_idx}, "
             f"?, ?, ?, ?)"
@@ -1948,6 +1963,7 @@ class SearchIndex:
         organization_id: str | None = None,
         conversation_uuids: set[str] | None = None,
         include_tool_calls: bool = True,
+        include_code_mode: bool = False,
         include_compactions: bool = True,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:
@@ -1980,6 +1996,7 @@ class SearchIndex:
             organization_id=organization_id,
             conversation_uuids=conversation_uuids,
             include_tool_calls=include_tool_calls,
+            include_code_mode=include_code_mode,
             include_compactions=include_compactions,
         )
         if built is None:
@@ -1987,6 +2004,8 @@ class SearchIndex:
         where_sql, params, use_allowed_join = built
 
         body_col = "body" if include_tool_calls else "body_text"
+        if include_code_mode:
+            body_col = f"{body_col} || char(10) || body_code"
 
         sql = (
             "SELECT conv_uuid, message_uuid, sender, created_at, "
@@ -2035,6 +2054,7 @@ class SearchIndex:
         organization_id: str | None = None,
         conversation_uuids: set[str] | None = None,
         include_tool_calls: bool = True,
+        include_code_mode: bool = False,
         include_compactions: bool = True,
     ) -> int:
         """COUNT(*) of FTS5 MATCH rows under the same WHERE clauses as
@@ -2060,6 +2080,7 @@ class SearchIndex:
             organization_id=organization_id,
             conversation_uuids=conversation_uuids,
             include_tool_calls=include_tool_calls,
+            include_code_mode=include_code_mode,
             include_compactions=include_compactions,
         )
         if built is None:

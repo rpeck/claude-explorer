@@ -12,9 +12,20 @@ interface ToolUseBlockProps {
   forceExpanded?: boolean
   /** The active search query: its matches get `<mark>` highlights. */
   searchQuery?: string
+  /** Issue #90: a Code Mode script made this call, but no exact link names which one. */
+  fromCodeMode?: boolean
+  /** The runs that were open when it ran (Codex, two or more alive cells). */
+  ambiguousWith?: string[]
 }
 
-export function ToolUseBlock({ name, input, forceExpanded, searchQuery = '' }: ToolUseBlockProps) {
+export function ToolUseBlock({
+  name,
+  input,
+  forceExpanded,
+  searchQuery = '',
+  fromCodeMode = false,
+  ambiguousWith,
+}: ToolUseBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const { copied, trigger } = useCopyFeedback()
 
@@ -47,6 +58,13 @@ export function ToolUseBlock({ name, input, forceExpanded, searchQuery = '' }: T
         <span>
           Tool: <HighlightedText text={name} query={searchQuery} />
         </span>
+        {fromCodeMode && (
+          <span className="text-xs font-normal text-amber-700 dark:text-amber-300" data-testid="tool-from-code-mode">
+            {ambiguousWith && ambiguousWith.length > 1
+              ? `made by a Code Mode script (one of ${ambiguousWith.length} running)`
+              : 'made by a Code Mode script'}
+          </span>
+        )}
       </button>
       {expanded && (
         <div className="relative border-t border-amber-200 dark:border-amber-800">

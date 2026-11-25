@@ -280,6 +280,7 @@ def search_conversations(
     project_path: str | None = None,
     bookmarks: set[str] | None = None,
     include_tool_calls: bool = True,
+    include_code_mode: bool = False,
     include_compactions: bool = True,
     organization_id: str | None = None,
     conversation_uuids: set[str] | None = None,
@@ -400,6 +401,7 @@ def search_conversations(
                         project_path=project_path,
                         bookmarks=bookmarks,
                         include_tool_calls=include_tool_calls,
+                        include_code_mode=include_code_mode,
                         include_compactions=include_compactions,
                         organization_id=organization_id,
                         conversation_uuids=conversation_uuids,
@@ -417,6 +419,7 @@ def search_conversations(
                     project_path=project_path,
                     bookmarks=bookmarks,
                     include_tool_calls=include_tool_calls,
+                    include_code_mode=include_code_mode,
                     include_compactions=include_compactions,
                     organization_id=organization_id,
                     conversation_uuids=conversation_uuids,
@@ -439,6 +442,7 @@ def search_conversations(
         project_path=project_path,
         bookmarks=bookmarks,
         include_tool_calls=include_tool_calls,
+        include_code_mode=include_code_mode,
         include_compactions=include_compactions,
         organization_id=organization_id,
         conversation_uuids=conversation_uuids,
@@ -596,6 +600,7 @@ def _search_via_index_fast(
     project_path: str | None,
     bookmarks: set[str] | None,
     include_tool_calls: bool = True,
+    include_code_mode: bool = False,
     include_compactions: bool = True,
     organization_id: str | None = None,
     conversation_uuids: set[str] | None = None,
@@ -643,6 +648,7 @@ def _search_via_index_fast(
         organization_id=organization_id,
         conversation_uuids=conversation_uuids,
         include_tool_calls=include_tool_calls,
+        include_code_mode=include_code_mode,
         include_compactions=include_compactions,
         limit=limit,
     )
@@ -660,6 +666,7 @@ def _search_via_index_fast(
         organization_id=organization_id,
         conversation_uuids=conversation_uuids,
         include_tool_calls=include_tool_calls,
+        include_code_mode=include_code_mode,
         include_compactions=include_compactions,
     )
 
@@ -811,6 +818,7 @@ def _search_via_index_fast_full(
     project_path: str | None,
     bookmarks: set[str] | None,
     include_tool_calls: bool = True,
+    include_code_mode: bool = False,
     include_compactions: bool = True,
     organization_id: str | None = None,
     conversation_uuids: set[str] | None = None,
@@ -853,6 +861,7 @@ def _search_via_index_fast_full(
         organization_id=organization_id,
         conversation_uuids=conversation_uuids,
         include_tool_calls=include_tool_calls,
+        include_code_mode=include_code_mode,
         include_compactions=include_compactions,
         limit=limit,
     )
@@ -866,6 +875,7 @@ def _search_via_index_fast_full(
         organization_id=organization_id,
         conversation_uuids=conversation_uuids,
         include_tool_calls=include_tool_calls,
+        include_code_mode=include_code_mode,
         include_compactions=include_compactions,
     )
 
@@ -1015,6 +1025,7 @@ def _search_via_linear_scan(
     project_path: str | None = None,
     bookmarks: set[str] | None = None,
     include_tool_calls: bool = True,
+    include_code_mode: bool = False,
     include_compactions: bool = True,
     organization_id: str | None = None,
     conversation_uuids: set[str] | None = None,
@@ -1170,11 +1181,12 @@ def _search_via_linear_scan(
             cache_key = (
                 "__search_text_full__" if include_tool_calls
                 else "__search_text_textonly__"
-            )
+            ) + ("code__" if include_code_mode else "")
             text = msg.get(cache_key)
             if text is None:
                 text = _extract_searchable_text(
                     msg, include_tool_calls=include_tool_calls,
+                    include_code_mode=include_code_mode,
                 )
                 msg[cache_key] = text
 
@@ -1279,6 +1291,7 @@ def _search_via_index(
     project_path: str | None,
     bookmarks: set[str] | None,
     include_tool_calls: bool = True,
+    include_code_mode: bool = False,
     include_compactions: bool = True,
     organization_id: str | None = None,
     conversation_uuids: set[str] | None = None,
@@ -1520,7 +1533,7 @@ def _search_via_index(
         cache_key = (
             "__search_text_full__" if include_tool_calls
             else "__search_text_textonly__"
-        )
+        ) + ("code__" if include_code_mode else "")
         # See the linear-scan callsite above for the `or []` rationale —
         # explicit-None chat_messages must not crash the FTS5 fast path
         # either. Pinned by
@@ -1532,6 +1545,7 @@ def _search_via_index(
             if text is None:
                 text = _extract_searchable_text(
                     msg, include_tool_calls=include_tool_calls,
+                    include_code_mode=include_code_mode,
                 )
                 msg[cache_key] = text
             if not text:

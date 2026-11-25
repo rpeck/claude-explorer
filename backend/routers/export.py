@@ -17,6 +17,7 @@ from ..export import (
     create_markdown_zip,
     create_pdf,
     sanitize_filename,
+    without_code_runs,
 )
 from ..store import ConversationStore
 
@@ -56,6 +57,10 @@ PDF_RENDER_TIMEOUT_SECONDS = 30.0
 async def export_markdown(
     uuid: str,
     include_tools: bool = True,
+    include_code_mode: bool = Query(
+        False,
+        description="When true, Code Mode runs are in the export (issue #90; the Show Code Mode toggle).",
+    ),
     include_compact: bool = Query(
         False,
         description=(
@@ -71,6 +76,8 @@ async def export_markdown(
     conversation = store.get_conversation(uuid)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
 
     content = conversation_to_markdown(
         conversation, include_tools, include_compact=include_compact
@@ -92,6 +99,10 @@ async def export_markdown(
 async def export_markdown_bundle(
     uuid: str,
     include_tools: bool = True,
+    include_code_mode: bool = Query(
+        False,
+        description="When true, Code Mode runs are in the export (issue #90; the Show Code Mode toggle).",
+    ),
     include_compact: bool = Query(
         False,
         description=(
@@ -123,6 +134,8 @@ async def export_markdown_bundle(
     conversation = store.get_conversation(uuid)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
 
     bundle = create_markdown_bundle(
         conversation,
@@ -149,6 +162,10 @@ async def export_markdown_bundle(
 async def export_pdf(
     uuid: str,
     include_tools: bool = True,
+    include_code_mode: bool = Query(
+        False,
+        description="When true, Code Mode runs are in the export (issue #90; the Show Code Mode toggle).",
+    ),
     include_compact: bool = Query(
         False,
         description=(
@@ -181,6 +198,8 @@ async def export_pdf(
     conversation = store.get_conversation(uuid)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
 
     try:
         async with asyncio.timeout(PDF_RENDER_TIMEOUT_SECONDS):
@@ -232,6 +251,7 @@ async def export_pdf(
     responses={200: {"content": {"application/zip": {}}}},
 )
 async def export_all_markdown(
+    include_code_mode: bool = Query(False, description="When true, Code Mode runs are in the export (issue #90)."),
     include_compact: bool = Query(
         False,
         description=(
@@ -256,7 +276,7 @@ async def export_all_markdown(
     for summary in store.list_conversations():
         detail = store.get_conversation(summary.uuid)
         if detail:
-            conversations.append(detail)
+            conversations.append(detail if include_code_mode else without_code_runs(detail))
 
     zip_bytes = create_markdown_zip(conversations, include_compact=include_compact)
 

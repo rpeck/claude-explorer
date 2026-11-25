@@ -181,6 +181,15 @@ async def search(
             "compat for external scripts hitting /api/search directly."
         ),
     ),
+    include_code_mode: bool = Query(
+        False,
+        description=(
+            "When True, search also looks inside Code Mode runs: the "
+            "script, its tool calls, and what it returned (issue #90; "
+            "mirrors the UI's Show Code Mode toggle). Independent of "
+            "include_tool_calls."
+        ),
+    ),
     include_compactions: bool = Query(
         True,
         description=(
@@ -210,6 +219,7 @@ async def search(
             project_path=project_path,
             bookmarks=bookmark_set,
             include_tool_calls=include_tool_calls,
+            include_code_mode=include_code_mode,
             include_compactions=include_compactions,
             organization_id=organization_id,
             conversation_uuids=conversation_uuids_set,
@@ -257,6 +267,7 @@ class SearchRequest(BaseModel):
     # a 100k-UUID POST takes ~21s.
     conversation_uuids: list[str] | None = Field(None, max_length=5000)
     include_tool_calls: bool = True
+    include_code_mode: bool = False  # issue #90, as on the GET form
     # 2026-05-26 (v13): "Show Compactions" toggle plumbed via the same
     # mechanism as ``include_tool_calls``. Default True for backward
     # compat. See backend.search.search_conversations docstring.
@@ -296,6 +307,7 @@ async def search_post(
             project_path=body.project_path,
             bookmarks=set(body.bookmarks) if body.bookmarks is not None else None,
             include_tool_calls=body.include_tool_calls,
+            include_code_mode=body.include_code_mode,
             include_compactions=body.include_compactions,
             organization_id=body.organization_id,
             conversation_uuids=(

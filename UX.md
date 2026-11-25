@@ -238,11 +238,15 @@ a word in a Claude Code session then looked like a broken search.
   3. `filter "<name>"`: the active named filter removes at least one
      conversation. A filter that passes every conversation is not named.
   4. `hidden tool calls`: Show Tools is off.
+  5. `hidden Code Mode runs`: Show Code Mode is off, and the runs hold a
+     match (issue #90). One probe search with `include_code_mode=true`
+     decides, so a user who never ran Code Mode never sees this part.
 - **The buttons:** one per part, in the same order, after the pin button.
   - "Search all agents" sets the source filter to all.
   - "Search all workspaces" sets the workspace to all.
   - "Clear active filter" clears the active named filter.
   - "Search tool calls too" turns Show Tools on.
+  - "Search Code Mode runs too" turns Show Code Mode on.
 - Each button changes the same state as the sidebar control. The sidebar
   shows the change, and the search runs again.
 - The pin keeps its own text and button. The line does not repeat it.
@@ -715,10 +719,11 @@ history base, the session shows no "incomplete:" notice for it. A
 history base that is not in the archive keeps the notice
 "incomplete: history_base missing".
 
-A Codex tool call that has no item (for example a failed `apply_patch`
-or the outer code-mode `exec`) shows as a tool call with its output, at
-its place in the turn. Show Tools hides and shows it like any other tool
-call. Before 1.2.0 the viewer and search left out such a call.
+A Codex tool call that has no item (for example a failed `apply_patch`)
+shows as a tool call with its output, at its place in the turn. Show Tools
+hides and shows it like any other tool call. Before 1.2.0 the viewer and
+search left out such a call. The outer code-mode `exec` is a Code Mode run
+(§18), not a tool call.
 
 ---
 
@@ -778,6 +783,62 @@ Implementation: `backend/model_names.py` and its twin
 `frontend/src/lib/modelName.ts`; `CommandOutputBlock.tsx`,
 `ShellBlock.tsx`, and `NoticeRow.tsx` in
 `frontend/src/components/message/`.
+
+---
+
+## 18. Code Mode runs (issue #90)
+
+In Code Mode, Claude writes a script that makes many tool calls in one
+step. Explorer shows each run as one block, so the reader sees the code,
+each call with its input and output, and what went back to the model.
+
+- **Sources:**
+  - Claude Code: the `REPL` tool (CC 2.1.323 and later,
+    `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`).
+  - Codex: the `exec` tool, and the `wait` calls that continue its cell.
+- **Show Code Mode:** a checkbox in the conversation toolbar, next to Show
+  Tools.
+  - It shows only when the conversation has a run.
+  - Off by default, and not persisted, like Show Tools.
+  - It is independent of Show Tools: Show Tools never shows or hides a
+    run, and Show Code Mode never shows or hides a tool call.
+- **The block:** a dark terminal bubble.
+  - The title bar: "Code Mode", the language, the status (completed,
+    failed, terminated, running, unknown), the line count, "background"
+    for a background script, Copy (the script), and Expand.
+  - The script, highlighted (`rehype-highlight`, `github-dark`), with line
+    numbers. The bubble cuts it after 15 lines; "Show all N lines" shows
+    the rest.
+  - The calls, numbered in order: name, input, and output. A refused call
+    and a call that failed are marked.
+  - "Returned to the model", stdout, stderr, the error, and the refused
+    calls, each only when present.
+  - A background script with no result says "Still running".
+- **The overlay:** Expand opens a dialog with the tabs Script (every
+  line), Calls, Data flow, and Returned. Esc closes it.
+  - Data flow is a sequence diagram: one lane for the model, one for the
+    script, and one per tool. Time goes down. Neither transcript records
+    which output fed which input, so the diagram shows the order of the
+    calls only.
+- **Links, exact or none:**
+  - Claude Code names the parent run of each inner call
+    (`ranByToolUseId`), so every inner call is in its run.
+  - Codex names no parent. A nested call links to the one cell that is
+    alive at the time. With two or more cells alive it links to none: it
+    stays a tool call, labeled "made by a Code Mode script (one of N
+    running)".
+  - A Claude Code call with a Code Mode id and no parent field (an older
+    build) is a tool call, labeled "made by a Code Mode script".
+- **Search:** with Show Code Mode off, the search does not look inside
+  runs. With it on, the script, the calls, and what the run returned are
+  searchable. Turning it on or off runs the search again. A hit in a run
+  shows the whole script and marks the match.
+- **Exports** (Markdown, the bundle, PDF, Copy as Markdown, and Copy on a
+  bubble) follow Show Code Mode: on, each run is a `javascript` block,
+  its numbered calls, and what it returned; off, no run text.
+- Code: `backend/cc_code_mode.py`, `backend/codex/projection.py`
+  (`_CodeMode`), `frontend/src/components/message/blocks/CodeRunBlock.tsx`,
+  `frontend/src/components/diagram/SequenceDiagram.tsx`.
 
 ---
 

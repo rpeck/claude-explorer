@@ -120,6 +120,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 | `organization_id` | `str \| None` | `None` | Workspace UUID. Only conversations whose `organization_id` matches exactly. Claude Code sessions have none, so they never match. |
 | `limit` | `int` | `20` | Max results to return. Clamped to `[1, 100]`. |
 | `offset` | `int` | `0` | Skip this many results for pagination. Clamped to `[0, ∞)`. |
+| `include_code_mode` | `bool` | `False` | Also search Code Mode runs: each script, the tool calls it made, and what it returned (issue #90). Independent of `include_tool_calls`. Ignored when `query` is omitted. |
 
 **Return shape:**
 
@@ -205,7 +206,7 @@ All tools are registered via the `@mcp.tool()` decorator. Argument types are inf
 > Get lightweight per-message summaries for a session's active branch.
 > Only call when the user explicitly asks to examine a specific session.
 >
-> Each entry has: position, message_uuid, sender, summary (first 200 chars), char_count, tool_count, timestamp. Use positions from the outline to fetch full content with get_messages.
+> Each entry has: position, message_uuid, sender, summary (first 200 chars), char_count, tool_count, code_run_count, timestamp. Use positions from the outline to fetch full content with get_messages.
 >
 > The outline comes in pages. message_count is the size of the whole session. If next_position is not null, call again with start_position=next_position to get the next page.
 
@@ -298,6 +299,9 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 | `message_uuids` | `list[str] \| None` | `None` | Message UUIDs to fetch. |
 | `include_tool_calls` | `bool` | `False` | Include tool call names and (truncated) inputs. |
 | `include_tool_results` | `bool` | `False` | Include full tool results. Implies `include_tool_calls=True`. |
+| `include_code_mode` | `bool` | `False` | Give each Code Mode run in full in `code_runs`. Default: a stub per run (`id`, `name`, `status`, `line_count`, `call_count`), with no script, call, or output text. |
+
+A message that holds a Code Mode run (issue #90) has a `code_runs` list in both modes. With `include_code_mode=True` each entry is the whole `CodeRun`: `code`, `status`, `result`, `stdout`, `stderr`, `error`, `refused`, and `inner_calls` (each with `name`, `input`, `result`, `is_error`, `refused`, `code_run_parent`, and `link_source`). `get_session_outline` gives `code_run_count` per entry; it is counted from the messages, not kept in the outline cache.
 
 **Selector resolution:**
 
@@ -383,6 +387,7 @@ Content-block filtering (`_filter_content_blocks`):
 | `start_position` | `int \| None` | `None` | 0-indexed start position (inclusive). Omit for beginning. |
 | `end_position` | `int \| None` | `None` | 0-indexed end position (inclusive). Omit for end. |
 | `include_tools` | `bool` | `True` | Include tool calls and results in output (note: opposite default from `get_messages`). |
+| `include_code_mode` | `bool` | `False` | Include Code Mode runs: each script in a `javascript` block, its numbered calls, and what it returned. |
 
 **Return shape:**
 

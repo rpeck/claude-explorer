@@ -9,7 +9,10 @@ import {
   type RefObject,
   type ReactNode,
 } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useConversations, useSearch } from '@/hooks/useConversations'
+import { api } from '@/lib/api'
+import { queryKeys } from '@/lib/queryClient'
 import { useSourceFilter } from '@/contexts/SourceFilterContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
 import { useBookmarks } from '@/contexts/BookmarkContext'
@@ -214,6 +217,9 @@ interface SearchPanelContextType {
    *  instead of "No matches" while the user waits for slow responses
    *  (manual finding 2026-05-03). */
   isSearching: boolean
+  /** Issue #90: the empty result has matches inside Code Mode runs that the
+   *  search left out (Show Code Mode is off). Names them in the #80 line. */
+  hiddenCodeModeMatches: boolean
   /** True when the active named filter removes conversations from the
    *  search scope. The empty result names it (issue #80). */
   namedFilterLimitsSearch: boolean
@@ -275,8 +281,11 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
   // 2026-05-26: same plumbing for the "Show Compactions" toggle. The
   // mapping `includeCompactions = !hideCompactMarkers` flips the
   // semantic ("hide=true means don't include").
-  const { showToolCalls, hideCompactMarkers } = useSettings()
+  const { showToolCalls, showCodeMode, hideCompactMarkers } = useSettings()
   const includeToolCalls = showToolCalls
+  // Issue #90: the search looks inside Code Mode runs only while Show Code
+  // Mode is on; a flip changes useSearch's queryKey, so the search reruns.
+  const includeCodeMode = showCodeMode
   const includeCompactions = !hideCompactMarkers
   // 2026-05-14 sidebar-scope propagation: the active-filter graph lives
   // in FilterContext, the sidebar applies it client-side via
@@ -461,9 +470,27 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
     scope,
     includeToolCalls,
     includeCompactions,
+    includeCodeMode,
   )
 
   const rawResults = rawResponse?.results
+
+  // Issue #90: when the search finds nothing with Show Code Mode off, one
+  // probe with include_code_mode=true tells whether the runs hold a match.
+  // It shares useSearch's query key, so "Search Code Mode runs too" shows
+  // the cached result at once. A user without runs never sees the part.
+  const probeCodeMode =
+    !includeCodeMode && !isSearching && query.trim().length >= 2 && rawResponse?.results.length === 0
+  const { data: codeModeProbe } = useQuery({
+    queryKey: queryKeys.search(
+      query, sourceFilter, contextSize, sortField, sortOrder, scope, includeToolCalls, includeCompactions, true,
+    ),
+    queryFn: ({ signal }) =>
+      api.search(query, sourceFilter, contextSize, sortField, sortOrder, scope, includeToolCalls, includeCompactions, true, signal),
+    enabled: probeCodeMode,
+    staleTime: 60 * 1000,
+  })
+  const hiddenCodeModeMatches = probeCodeMode && (codeModeProbe?.total_messages_matched ?? 0) > 0
 
   // Client-side filter: while the user keeps typing (debounced query hasn't
   // caught up yet), narrow the stale results locally so additional characters
@@ -603,7 +630,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // react-doctor-disable-next-line react-doctor/no-chain-state-updates -- Phase 2: triggering edge is async (queryKey change + scope flips originating in OTHER providers), not a single user event. Moving this reset into the originating event handlers would miss non-local edges (pin, filter, workspace switch). Council verified the postmortem-pinned semantics hold; restructure would risk re-introducing the search-typing-lag.
     setActiveMatchIndexState(-1) // eslint-disable-line react-hooks/set-state-in-effect -- TODO React 19 migration: hoist activeMatchIndex alongside flatMatches as derived state. Today this resets a single int once per query-equivalent change — bounded cascade.
-  }, [query, sortField, sortOrder, contextSize, scope, includeToolCalls, includeCompactions])
+  }, [query, sortField, sortOrder, contextSize, scope, includeToolCalls, includeCompactions, includeCodeMode])
 
   // V1 polish: auto-focus the first match when results land for a fresh
   // query. Without this, the user types "needle", sees results in the
@@ -805,6 +832,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
       isLoading,
       isSearching,
       namedFilterLimitsSearch,
+      hiddenCodeModeMatches,
       open,
       close,
       toggle,
@@ -831,7 +859,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
     [
       isOpen, query, contextSize, sortField, sortOrder,
       activeMatchIndex, activeMatchSource, flatMatches, results, totalMatched,
-      returnedMatches, truncated, isLoading, isSearching, namedFilterLimitsSearch,
+      returnedMatches, truncated, isLoading, isSearching, namedFilterLimitsSearch, hiddenCodeModeMatches,
       open, close, toggle, setQuery, setContextSize, setSortField,
       setSortOrder, nextMatch, prevMatch, setActiveMatchIndex,
       focusRequestSeq, requestFocus,

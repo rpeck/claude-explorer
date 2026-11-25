@@ -45,6 +45,7 @@ export interface RenderBubbleRowDeps {
   deferredSearchQuery: string
   conversation: ConversationDetail
   showToolCalls: boolean
+  showCodeMode: boolean
   expandAllTools: boolean
   messages: { uuid: string; sender: string }[]
   setSelectedMessageIndex: (i: number) => void
@@ -74,6 +75,7 @@ export function renderBubbleRow(message: Message, deps: RenderBubbleRowDeps) {
     deferredSearchQuery,
     conversation,
     showToolCalls,
+    showCodeMode,
     expandAllTools,
     messages,
     setSelectedMessageIndex,
@@ -127,6 +129,7 @@ export function renderBubbleRow(message: Message, deps: RenderBubbleRowDeps) {
       conversationId={conversation.uuid}
       conversationSource={conversation.source}
       showToolCalls={showToolCalls}
+      showCodeMode={showCodeMode}
       expandAllTools={expandAllTools}
       // 2026-05-24 highlight-gate fix: pass the search query ONLY to
       // the active-match bubble (the one Cmd+G / card-click landed

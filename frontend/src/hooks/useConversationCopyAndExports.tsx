@@ -38,6 +38,8 @@ interface UseConversationCopyAndExportsArgs {
   /** May be null/undefined during initial load — handlers early-return. */
   conversation: ConversationDetail | null | undefined
   showToolCalls: boolean
+  /** Issue #90: Show Code Mode; the copy and the PDF follow it. */
+  showCodeMode?: boolean
   includeCompactInExports: boolean
 }
 
@@ -51,6 +53,7 @@ interface UseConversationCopyAndExportsResult {
 export function useConversationCopyAndExports({
   conversation,
   showToolCalls,
+  showCodeMode = false,
   includeCompactInExports,
 }: UseConversationCopyAndExportsArgs): UseConversationCopyAndExportsResult {
   const [copiedAll, setCopiedAll] = useState(false)
@@ -88,6 +91,7 @@ export function useConversationCopyAndExports({
       conversation.messages,
       showToolCalls,
       sourceDescriptor(conversation.source)?.assistant_label ?? 'Claude',
+      showCodeMode,
     )
     // LOW-1 (council follow-up): see MessageBubble.handleCopyMessage.
     // Flip the success affordance only on a resolved promise.
@@ -98,7 +102,7 @@ export function useConversationCopyAndExports({
     } catch {
       errorToast('Failed to copy conversation to clipboard.')
     }
-  }, [conversation, showToolCalls, scheduleCopiedAllClear])
+  }, [conversation, showToolCalls, showCodeMode, scheduleCopiedAllClear])
 
   const handleExportPdf = useCallback(async () => {
     if (!conversation) return
@@ -153,6 +157,7 @@ export function useConversationCopyAndExports({
         showToolCalls,
         controller.signal,
         includeCompactInExports,
+        showCodeMode,
       )
       clearInterval(interval)
       if (!response.ok) {
@@ -190,7 +195,7 @@ export function useConversationCopyAndExports({
         exportPdfAbortRef.current = null
       }
     }
-  }, [conversation, showToolCalls, includeCompactInExports])
+  }, [conversation, showToolCalls, showCodeMode, includeCompactInExports])
 
   return {
     copiedAll,

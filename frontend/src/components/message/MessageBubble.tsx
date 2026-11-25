@@ -44,6 +44,9 @@ interface MessageBubbleProps {
    *  state — tests and future Storybook fixtures can mount the bubble
    *  with no extra setup. */
   showToolCalls?: boolean
+  /** Issue #90: "Show Code Mode" from SettingsContext. PROP, not context,
+   *  for the same reason as `showToolCalls`. */
+  showCodeMode?: boolean
   /** "Expand all tools" toggle from SettingsContext. Same prop-not-
    *  context rationale as `showToolCalls` above. */
   expandAllTools?: boolean
@@ -73,6 +76,7 @@ function MessageBubbleImpl({
   conversationId,
   conversationSource,
   showToolCalls = false,
+  showCodeMode = false,
   expandAllTools = false,
   searchQuery = '',
 }: MessageBubbleProps) {
@@ -112,6 +116,7 @@ function MessageBubbleImpl({
       message,
       showToolCalls,
       sourceDescriptor(conversationSource)?.assistant_label ?? 'Claude',
+      showCodeMode,
     )
     // LOW-1 (council follow-up): clipboard.writeText() can reject when
     // the document has lost focus, the browser denies permission, or the
@@ -136,7 +141,7 @@ function MessageBubbleImpl({
     [message, searchQuery, showToolCalls],
   )
   const hasVisibleContent =
-    messageHasVisibleContent(message, showToolCalls) || revealedToolBlocks.length > 0
+    messageHasVisibleContent(message, showToolCalls, showCodeMode) || revealedToolBlocks.length > 0
   const imageFiles = dedupeImageFiles(message)
   const hasImages = imageFiles.length > 0
   const hasToolBlocks = message.content.some((b) => b.type === 'tool_use' || b.type === 'tool_result')
@@ -337,6 +342,7 @@ function MessageBubbleImpl({
             <ContentBlockList
               content={message.content}
               showToolCalls={showToolCalls && !bubbleToolsCollapsed}
+              showCodeMode={showCodeMode}
               expandAll={expandAllTools}
               revealedToolBlocks={revealedToolBlocks}
               ccImageEntries={ccImageEntries}
@@ -395,6 +401,7 @@ export const MessageBubble = memo(MessageBubbleImpl, (prev, next) => {
     prev.conversationId === next.conversationId &&
     prev.conversationSource === next.conversationSource &&
     prev.showToolCalls === next.showToolCalls &&
+    prev.showCodeMode === next.showCodeMode &&
     prev.expandAllTools === next.expandAllTools &&
     prev.searchQuery === next.searchQuery
   )

@@ -164,6 +164,9 @@ def _parse_content_blocks(content: list[dict[str, Any]]) -> list[ContentBlock]:
             # parallel tool calls).
             id=block.get("id"),
             tool_use_id=block.get("tool_use_id"),
+            code_run=block.get("code_run"),
+            from_code_mode=block.get("from_code_mode"),
+            ambiguous_with=block.get("ambiguous_with"),
         )
         blocks.append(parsed)
     return blocks

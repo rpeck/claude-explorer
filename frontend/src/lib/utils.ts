@@ -76,7 +76,16 @@ export function formatFullDate(date: string | Date | null | undefined): string {
  * A message with image attachments is always visible regardless of text/tool
  * content (Council Q7: images are primary content, not gated by toggles).
  */
-export function messageHasVisibleContent(message: Message, showToolCalls: boolean): boolean {
+/** True when a message of the conversation holds a Code Mode run (issue #90). */
+export function conversationHasCodeRun(messages: readonly Message[]): boolean {
+  return messages.some((m) => m.content?.some((b) => b.type === 'code_run'))
+}
+
+export function messageHasVisibleContent(
+  message: Message,
+  showToolCalls: boolean,
+  showCodeMode = false,
+): boolean {
   if (dedupeImageFiles(message).length > 0) return true
   if (message.text && message.text.trim()) {
     // Check if it's only tool placeholders
@@ -95,6 +104,8 @@ export function messageHasVisibleContent(message: Message, showToolCalls: boolea
     return message.content.some((block) => {
       if (block.type === 'text' && block.text?.trim()) return true
       if ((block.type === 'tool_use' || block.type === 'tool_result') && showToolCalls) return true
+      // Issue #90: a run follows Show Code Mode only, never Show Tools.
+      if (block.type === 'code_run' && showCodeMode) return true
       // Claude Code inline image content blocks count as visible
       // content (always — never gated by showToolCalls).
       if (block.type === 'image' && block.source) return true
@@ -149,6 +160,9 @@ export function computeVisibleMessages(
      *  the list although tool calls are hidden, because its bubble then
      *  shows the tool block that holds the match (`toolReveal.ts`). */
     revealUuid?: string | null
+    /** Show Code Mode (issue #90): a message that holds only runs is
+     *  visible only when this is true. */
+    showCodeMode?: boolean
   },
 ): Message[] {
   const hide = opts.hideCompactSummaries === true
@@ -156,7 +170,7 @@ export function computeVisibleMessages(
     if (!opts.showPrelude && m.is_prelude) return false
     if (opts.compactMarkerUuids.has(m.uuid)) return !hide
     if (opts.revealUuid && m.uuid === opts.revealUuid) return true
-    return messageHasVisibleContent(m, opts.showToolCalls)
+    return messageHasVisibleContent(m, opts.showToolCalls, opts.showCodeMode)
   })
 }
 
@@ -187,8 +201,42 @@ function filterToolPlaceholders(text: string): string {
   return text.replace(pattern, '').replace(/\n{3,}/g, '\n\n')
 }
 
-function contentBlockToMarkdown(block: ContentBlock, showToolCalls: boolean): string {
+/** A fenced block whose fence is longer than any backtick run in `text`. */
+function codeFence(text: string, lang = ''): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((r) => r.length))
+  const fence = '`'.repeat(Math.max(3, longest + 1))
+  return `${fence}${lang}\n${text}\n${fence}`
+}
+
+/** A Code Mode run as Markdown (twin of the backend's `code_run_markdown`). */
+function codeRunToMarkdown(block: ContentBlock): string {
+  const run = block.code_run
+  if (!run) return ''
+  const lines = [`**Code Mode script** (${run.language}, ${run.status})`, '', codeFence(run.code, run.language)]
+  if (run.inner_calls.length > 0) {
+    lines.push('', '**Calls:**', '')
+    run.inner_calls.forEach((call, i) => {
+      const mark = call.refused ? ' (refused)' : call.is_error ? ' (error)' : ''
+      lines.push(`${i + 1}. \`${call.name}\`${mark}`)
+      if (call.input) lines.push('', codeFence(JSON.stringify(call.input, null, 2), 'json'))
+      if (call.result) lines.push('', codeFence(call.result))
+      lines.push('')
+    })
+  }
+  const parts: [string, string | null][] = [
+    ['Returned to the model', run.result], ['stdout', run.stdout], ['stderr', run.stderr],
+    ['Error', run.error], ['Refused calls', run.refused],
+  ]
+  for (const [label, value] of parts) {
+    if (value) lines.push('', `**${label}:**`, '', codeFence(value))
+  }
+  return `\n\n${lines.join('\n')}\n`
+}
+
+function contentBlockToMarkdown(block: ContentBlock, showToolCalls: boolean, showCodeMode: boolean): string {
   switch (block.type) {
+    case 'code_run':
+      return showCodeMode ? codeRunToMarkdown(block) : ''
     case 'text':
       return block.text || ''
     case 'tool_use':
@@ -210,22 +258,21 @@ function contentBlockToMarkdown(block: ContentBlock, showToolCalls: boolean): st
 /** The output of a slash command, as a fenced block (twin of the backend's
  *  `command_output_markdown`). */
 function commandOutputMarkdown(output: string, isError: boolean): string {
-  const longest = Math.max(0, ...(output.match(/`+/g) ?? []).map((r) => r.length))
-  const fence = '`'.repeat(Math.max(3, longest + 1))
-  return `\n\n**${isError ? 'Claude Code (error)' : 'Claude Code'}:**\n\n${fence}\n${output}\n${fence}`
+  return `\n\n**${isError ? 'Claude Code (error)' : 'Claude Code'}:**\n\n${codeFence(output)}`
 }
 
 export function messageToMarkdown(
   message: Message,
   showToolCalls: boolean,
   assistantLabel = 'Claude',
+  showCodeMode = false,
 ): string {
   const sender = senderLabel(message, assistantLabel)
   let content = ''
 
   if (message.content && message.content.length > 0) {
     content = message.content
-      .map((block) => contentBlockToMarkdown(block, showToolCalls))
+      .map((block) => contentBlockToMarkdown(block, showToolCalls, showCodeMode))
       .join('')
   } else {
     // 2026-05-18 council audit: `message.text` is typed `string` but
@@ -302,12 +349,13 @@ export function conversationToMarkdown(
   messages: Message[],
   showToolCalls: boolean,
   assistantLabel = 'Claude',
+  showCodeMode = false,
 ): string {
   const header = `# ${title}\n\n`
   const body = messages
     .filter((msg) => !isExcludableMarker(msg))
-    .filter((msg) => messageHasVisibleContent(msg, showToolCalls))
-    .map((msg) => messageToMarkdown(msg, showToolCalls, assistantLabel))
+    .filter((msg) => messageHasVisibleContent(msg, showToolCalls, showCodeMode))
+    .map((msg) => messageToMarkdown(msg, showToolCalls, assistantLabel, showCodeMode))
     .join('\n\n---\n\n')
   return header + body
 }

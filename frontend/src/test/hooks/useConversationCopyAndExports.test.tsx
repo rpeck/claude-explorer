@@ -249,6 +249,7 @@ describe('useConversationCopyAndExports — handleExportPdf', () => {
       true,
       expect.any(AbortSignal),
       false,
+      false, // issue #90: include_code_mode follows Show Code Mode (off by default)
     )
     expect(downloadBlob).toHaveBeenCalledWith(blob, 'Test_conversation.pdf')
     expect(result.current.isExportingPdf).toBe(false)

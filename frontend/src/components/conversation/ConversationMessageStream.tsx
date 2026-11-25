@@ -73,6 +73,7 @@ interface ConversationMessageStreamProps {
   activeMatchUuid: string | null
   deferredSearchQuery: string
   showToolCalls: boolean
+  showCodeMode: boolean
   expandAllTools: boolean
   setSelectedMessageIndex: (i: number) => void
   // ScrollControls render slot (the absolute-positioned jump
@@ -106,6 +107,7 @@ export function ConversationMessageStream({
   activeMatchUuid,
   deferredSearchQuery,
   showToolCalls,
+  showCodeMode,
   expandAllTools,
   setSelectedMessageIndex,
   scrollControls,
@@ -179,6 +181,7 @@ export function ConversationMessageStream({
                       deferredSearchQuery,
                       conversation,
                       showToolCalls,
+                      showCodeMode,
                       expandAllTools,
                       messages,
                       setSelectedMessageIndex,
@@ -246,6 +249,7 @@ export function ConversationMessageStream({
                           deferredSearchQuery,
                           conversation,
                           showToolCalls,
+                          showCodeMode,
                           expandAllTools,
                           messages,
                           setSelectedMessageIndex,

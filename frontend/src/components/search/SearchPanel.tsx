@@ -75,6 +75,7 @@ export function SearchPanel() {
     isLoading,
     isSearching,
     namedFilterLimitsSearch,
+    hiddenCodeModeMatches,
     close,
     setQuery,
     setContextSize,
@@ -85,7 +86,7 @@ export function SearchPanel() {
   } = useSearchPanel()
 
   const navigateToMatch = useNavigateToMatch()
-  const { rightPaneTab, setRightPaneTab, showToolCalls, setShowToolCalls } = useSettings()
+  const { rightPaneTab, setRightPaneTab, showToolCalls, setShowToolCalls, showCodeMode, setShowCodeMode } = useSettings()
   const { scope: pinScope, unpin } = useSearchPin()
   const { sourceFilter, setSourceFilter, organizationId, setOrganizationId } = useSourceFilter()
   const { filtersState, setActiveId } = useFilters()
@@ -270,6 +271,15 @@ export function SearchPanel() {
       button: 'Search tool calls too',
       testId: 'search-empty-show-tools',
       clear: () => setShowToolCalls(true),
+    },
+    // Issue #90: with Show Code Mode off, the search leaves runs out. Named
+    // only when the runs hold a match (a probe search in SearchPanelContext).
+    !showCodeMode && hiddenCodeModeMatches && {
+      key: 'code-mode',
+      part: <>hidden Code Mode runs</>,
+      button: 'Search Code Mode runs too',
+      testId: 'search-empty-show-code-mode',
+      clear: () => setShowCodeMode(true),
     },
   ].filter((l) => !!l)
   // Silence unused-var when isLoading falls out of any branch above.

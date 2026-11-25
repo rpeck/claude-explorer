@@ -32,6 +32,7 @@ from backend.config import Settings, get_settings, read_env
 from backend.export import (
     conversation_to_markdown,
     filter_tool_placeholders,
+    without_code_runs,
 )
 from backend.model_names import sender_label
 from backend.models import (
@@ -524,6 +525,7 @@ def _message_to_dict(
     include_tool_calls: bool = False,
     include_tool_results: bool = False,
     assistant_label: str = "Claude",
+    include_code_mode: bool = False,
 ) -> dict[str, Any]:
     """Convert a Message to a dict with the requested verbosity."""
     d: dict[str, Any] = {
@@ -555,6 +557,16 @@ def _message_to_dict(
             msg.content, include_tool_calls, include_tool_results
         )
 
+    # Issue #90: the runs, in full or as a stub with no script or output text.
+    runs = [b for b in msg.content if b.type == "code_run" and b.code_run is not None]
+    if runs:
+        d["code_runs"] = [
+            {"id": b.id, "name": b.name, **b.code_run.model_dump()} if include_code_mode else {
+                "id": b.id, "name": b.name, "status": b.code_run.status,
+                "line_count": b.code_run.line_count, "call_count": len(b.code_run.inner_calls),
+            }
+            for b in runs
+        ]
     return d
 
 
@@ -572,6 +584,7 @@ def list_sessions(
     limit: int = 20,
     offset: int = 0,
     include_tool_calls: bool = False,
+    include_code_mode: bool = False,
 ) -> dict[str, Any]:
     """Search and list saved Claude conversation sessions.
     Only call when the user explicitly asks to search or browse past sessions.
@@ -602,6 +615,9 @@ def list_sessions(
                example an error message, a file path, or a function name),
                or when a search with false finds nothing. Thinking and
                reasoning are never searched. Ignored when query is omitted.
+        include_code_mode: Also search Code Mode runs: each script, the tool
+               calls it made, and what it returned. Default false.
+               Independent of include_tool_calls. Ignored when query is omitted.
 
     Note (spec §3, 2026-05-14): there is intentionally NO ``active_filter``
     or ``conversation_uuids`` parameter. The sidebar's active-filter
@@ -633,6 +649,7 @@ def list_sessions(
             source=src,
             organization_id=organization_id,
             include_tool_calls=include_tool_calls,
+            include_code_mode=include_code_mode,
             limit=MCP_SEARCH_LIMIT,
         )
         # Build a lookup map once (not per result). Pass organization_id
@@ -738,7 +755,7 @@ def get_session_outline(
     Only call when the user explicitly asks to examine a specific session.
 
     Each entry has: position, message_uuid, sender, summary (first 200 chars),
-    char_count, tool_count, timestamp. Use positions from the outline to
+    char_count, tool_count, code_run_count, timestamp. Use positions from the outline to
     fetch full content with get_messages.
 
     The outline comes in pages. message_count is the size of the whole
@@ -782,7 +799,11 @@ def get_session_outline(
         "updated_at": _format_dt(conversation.updated_at),
         "start_position": start,
         "next_position": next_position,
-        "messages": summaries[start:end],
+        # Issue #90: not in the outline cache; counted from the messages.
+        "messages": [
+            {**e, "code_run_count": sum(b.type == "code_run" for b in conversation.messages[e["position"]].content)}
+            for e in summaries[start:end]
+        ],
         **_source_fields(conversation),
         **_history_links(store, conversation),
         **_sync_fields(),
@@ -796,6 +817,7 @@ def get_messages(
     message_uuids: list[str] | None = None,
     include_tool_calls: bool = False,
     include_tool_results: bool = False,
+    include_code_mode: bool = False,
 ) -> list[dict[str, Any]]:
     """Get full message content for specific messages in a session.
     Only call when the user explicitly asks to read specific messages.
@@ -811,6 +833,9 @@ def get_messages(
         message_uuids: List of message UUIDs.
         include_tool_calls: Include tool call names and inputs (default false).
         include_tool_results: Include full tool results (default false, implies tool calls).
+        include_code_mode: Give each Code Mode run in full: the script, the
+               tool calls it made with their input and output, and what it
+               returned (default false: a short stub per run in code_runs).
     """
     _sync_archive()
     store = _get_store()
@@ -833,6 +858,7 @@ def get_messages(
                     _message_to_dict(
                         messages[pos], pos,
                         include_tool_calls, include_tool_results, assistant_label,
+                        include_code_mode,
                     )
                 )
     elif message_uuids is not None:
@@ -843,6 +869,7 @@ def get_messages(
                     _message_to_dict(
                         msg, pos,
                         include_tool_calls, include_tool_results, assistant_label,
+                        include_code_mode,
                     )
                 )
     else:
@@ -852,6 +879,7 @@ def get_messages(
                 _message_to_dict(
                     msg, pos,
                     include_tool_calls, include_tool_results, assistant_label,
+                    include_code_mode,
                 )
             )
 
@@ -864,6 +892,7 @@ def export_session(
     start_position: int | None = None,
     end_position: int | None = None,
     include_tools: bool = True,
+    include_code_mode: bool = False,
 ) -> str:
     """Export a session (or portion) as Markdown text.
     Only call when the user explicitly asks to export a session.
@@ -875,6 +904,8 @@ def export_session(
         start_position: Start position (0-indexed, inclusive). Omit for beginning.
         end_position: End position (0-indexed, inclusive). Omit for end.
         include_tools: Include tool calls and results in output (default true).
+        include_code_mode: Include Code Mode runs: each script, the tool calls
+               it made, and what it returned (default false).
     """
     _sync_archive()
     store = _get_store()
@@ -892,6 +923,8 @@ def export_session(
         # model_copy keeps every field; a field-by-field rebuild dropped new ones.
         conversation = conversation.model_copy(update={"messages": msgs[start:end]})
 
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
     return conversation_to_markdown(conversation, include_tools=include_tools)
 
 

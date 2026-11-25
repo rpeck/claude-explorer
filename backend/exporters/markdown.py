@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import io
 import json
-import re
 import zipfile
 
 from ..model_names import sender_label
@@ -19,6 +18,7 @@ from ._shared import (
     _dedupe_image_files,
     _is_compact_summary_message,
     _is_excludable_marker,
+    code_fence,
     filter_tool_placeholders,
     format_timestamp,
     message_has_visible_content,
@@ -27,11 +27,37 @@ from ._shared import (
 )
 
 
+def code_run_markdown(block: ContentBlock) -> str:
+    """A Code Mode run: the script, the numbered calls, and what went back to the model."""
+    run = block.code_run
+    if run is None:
+        return ""
+    lines = [f"**Code Mode script** ({run.language}, {run.status})", "", code_fence(run.code, run.language)]
+    if run.inner_calls:
+        lines += ["", "**Calls:**", ""]
+        for n, call in enumerate(run.inner_calls, 1):
+            mark = " (refused)" if call.refused else " (error)" if call.is_error else ""
+            lines.append(f"{n}. `{call.name}`{mark}")
+            if call.input:
+                lines += ["", code_fence(json.dumps(call.input, indent=2), "json")]
+            if call.result:
+                lines += ["", code_fence(call.result)]
+            lines.append("")
+    for label, value in (("Returned to the model", run.result), ("stdout", run.stdout),
+                         ("stderr", run.stderr), ("Error", run.error), ("Refused calls", run.refused)):
+        if value:
+            lines += ["", f"**{label}:**", "", code_fence(value)]
+    return "\n".join(lines)
+
+
 def render_content_block(
     block: ContentBlock, indent: int = 0, include_tools: bool = True
 ) -> str:
     """Render a content block to Markdown."""
     prefix = "  " * indent
+
+    if block.type == "code_run":
+        return code_run_markdown(block)
 
     if block.type == "text" and block.text:
         # Always strip TOOL_PLACEHOLDER from text content blocks
@@ -80,10 +106,8 @@ def _image_markdown(message: Message) -> str:
 
 def command_output_markdown(output: str, is_error: bool = False) -> str:
     """The output of a slash command, as a fenced block under its command."""
-    # A fence longer than any backtick run in the output.
-    fence = "`" * max(3, max((len(r) for r in re.findall(r"`+", output)), default=0) + 1)
     label = "Claude Code (error)" if is_error else "Claude Code"
-    return f"\n**{label}:**\n\n{fence}\n{output}\n{fence}\n"
+    return f"\n**{label}:**\n\n{code_fence(output)}\n"
 
 
 def message_to_markdown(

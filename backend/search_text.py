@@ -127,10 +127,33 @@ def _is_compact_trigger_message(message: dict[str, Any]) -> bool:
     return False
 
 
+def _extract_code_mode_text(message: dict[str, Any]) -> str:
+    """The searchable text of the Code Mode runs of a message (issue #90).
+
+    The script, each inner call (name, input, result), the returned value,
+    stdout, stderr, the error, and the refused calls. The index keeps it in
+    its own column, ``body_code``, so ``include_code_mode`` is independent
+    of ``include_tool_calls``.
+    """
+    parts: list[str] = []
+    for block in message.get("content") or []:
+        if not isinstance(block, dict) or block.get("type") != "code_run":
+            continue
+        run = block.get("code_run") or {}
+        parts += [run.get(k) or "" for k in ("code", "result", "stdout", "stderr", "error", "refused")]
+        for call in run.get("inner_calls") or []:
+            parts.append(call.get("name") or "")
+            if isinstance(call.get("input"), dict):
+                parts.append(_stringify_tool_input(call["input"]))
+            parts.append(call.get("result") or "")
+    return "\n".join(p for p in parts if p)
+
+
 def _extract_searchable_text(
     message: dict[str, Any],
     *,
     include_tool_calls: bool = True,
+    include_code_mode: bool = False,
 ) -> str:
     """Flatten every searchable surface of a message into one string.
 
@@ -315,7 +338,9 @@ def _extract_searchable_text(
         # preferences + a header toggle + the search query) when a
         # "Show thinking" affordance ships.
 
-    return "\n".join(parts)
+    if include_code_mode:
+        parts.append(_extract_code_mode_text(message))
+    return "\n".join(p for p in parts if p)
 
 
 def _stringify_tool_input(tool_input: dict[str, Any]) -> str:

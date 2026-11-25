@@ -66,6 +66,9 @@ interface SettingsContextType {
   // Display settings
   showToolCalls: boolean
   setShowToolCalls: (show: boolean) => void
+  // Issue #90: Show Code Mode, independent of Show Tools, not persisted.
+  showCodeMode: boolean
+  setShowCodeMode: (show: boolean) => void
   expandAllTools: boolean
   setExpandAllTools: (expand: boolean) => void
   showPhantomSessions: boolean
@@ -133,6 +136,7 @@ function getDefaultSortOrder(field: SortField): SortOrder {
 export function SettingsProvider({ children }: { children: ReactNode }) {
   // Ephemeral (per-session) toggles — not persisted anywhere.
   const [showToolCalls, setShowToolCalls] = useState(false)
+  const [showCodeMode, setShowCodeMode] = useState(false)
   const [expandAllTools, setExpandAllTools] = useState(false)
 
   // P3d: showPhantomSessions persists via usePreferences (was ephemeral
@@ -299,6 +303,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     () => ({
       showToolCalls,
       setShowToolCalls,
+      showCodeMode,
+      setShowCodeMode,
       expandAllTools,
       setExpandAllTools,
       showPhantomSessions,
@@ -333,6 +339,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }),
     [
       showToolCalls,
+      showCodeMode,
       expandAllTools,
       showPhantomSessions,
       setShowPhantomSessions,

@@ -19,7 +19,7 @@ import { ConversationToolbar } from '@/components/conversation/ConversationToolb
 import { ConversationViewerScrollControls } from '@/components/conversation/ConversationViewerScrollControls'
 import { ConversationHeader } from '@/components/conversation/ConversationHeader'
 import { ConversationMessageStream } from '@/components/conversation/ConversationMessageStream'
-import { cn, computeVisibleMessages } from '@/lib/utils'
+import { cn, computeVisibleMessages, conversationHasCodeRun } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { ApiError } from '@/lib/types'
 import { scrollBubbleIntoView } from '@/lib/scrollBubbleIntoView'
@@ -48,6 +48,8 @@ export function ConversationPage() {
   const {
     showToolCalls,
     setShowToolCalls,
+    showCodeMode,
+    setShowCodeMode,
     expandAllTools,
     setExpandAllTools,
     hideCompactMarkers,
@@ -111,6 +113,7 @@ export function ConversationPage() {
   } = useConversationCopyAndExports({
     conversation,
     showToolCalls,
+    showCodeMode,
     includeCompactInExports,
   })
   // The highlight-clear timer (sets the URL parameter after the
@@ -340,11 +343,17 @@ export function ConversationPage() {
     return computeVisibleMessages(conversation.messages, {
       showPrelude,
       showToolCalls,
+      showCodeMode,
       compactMarkerUuids: allCompactMarkerUuidSet,
       hideCompactSummaries: hideCompactMarkers,
       revealUuid,
     })
-  }, [conversation?.messages, showPrelude, showToolCalls, allCompactMarkerUuidSet, hideCompactMarkers, revealUuid])
+  }, [conversation?.messages, showPrelude, showToolCalls, showCodeMode, allCompactMarkerUuidSet, hideCompactMarkers, revealUuid])
+  // Issue #90: the Show Code Mode toggle shows only when a run exists.
+  const hasCodeRuns = useMemo(
+    () => conversationHasCodeRun(conversation?.messages ?? []),
+    [conversation?.messages],
+  )
 
   // Virtualization (2026-05-23, the load-bearing perf fix) — see
   // PLANS/PERFORMANCE_BASELINE_2026-05-23.md. Pre-fix shape
@@ -576,6 +585,7 @@ export function ConversationPage() {
     visibleMessages,
     showPrelude,
     showToolCalls,
+    showCodeMode,
     revealUuid,
     focusArea,
     messageRefs,
@@ -719,6 +729,9 @@ export function ConversationPage() {
           showToolCalls={showToolCalls}
           setShowToolCalls={setShowToolCalls}
           markPendingRecenter={markPendingRecenter}
+          hasCodeRuns={hasCodeRuns}
+          showCodeMode={showCodeMode}
+          setShowCodeMode={setShowCodeMode}
           expandAllTools={expandAllTools}
           handleToggleExpandAll={handleToggleExpandAll}
           isExpandPending={isExpandPending}
@@ -761,6 +774,7 @@ export function ConversationPage() {
         activeMatchUuid={activeMatchUuid}
         deferredSearchQuery={deferredSearchQuery}
         showToolCalls={showToolCalls}
+        showCodeMode={showCodeMode}
         expandAllTools={expandAllTools}
         setSelectedMessageIndex={setSelectedMessageIndex}
         scrollControls={

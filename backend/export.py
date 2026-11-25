@@ -41,6 +41,7 @@ from .exporters._shared import (
     format_timestamp,
     message_has_visible_content,
     sanitize_filename,
+    without_code_runs,
 )
 from .exporters.bundle import (
     _bundle_block_to_markdown,
@@ -55,6 +56,7 @@ from .exporters.bundle import (
 from .exporters.markdown import (
     _EMPTY_CORPUS_README,
     _image_markdown,
+    code_run_markdown,
     conversation_to_markdown,
     create_markdown_zip,
     message_to_markdown,
@@ -70,6 +72,7 @@ from .exporters.pdf import (
     _resolve_cc_image_path,
     _rewrite_cc_image_markers_to_html,
     _TRANSPARENT_1x1_PNG,
+    code_run_html,
     conversation_to_html,
     create_pdf,
     render_content_block_html,
@@ -93,9 +96,11 @@ __all__ = [
     "format_timestamp",
     "message_has_visible_content",
     "sanitize_filename",
+    "without_code_runs",
     # markdown
     "_EMPTY_CORPUS_README",
     "_image_markdown",
+    "code_run_markdown",
     "conversation_to_markdown",
     "create_markdown_zip",
     "message_to_markdown",
@@ -110,6 +115,7 @@ __all__ = [
     "_render_image_block_html",
     "_resolve_cc_image_path",
     "_rewrite_cc_image_markers_to_html",
+    "code_run_html",
     "conversation_to_html",
     "create_pdf",
     "render_content_block_html",

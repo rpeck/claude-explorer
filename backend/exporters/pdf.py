@@ -159,8 +159,38 @@ def _render_image_block_html(block: ContentBlock) -> str:
     return ""
 
 
+def code_run_html(block: ContentBlock) -> str:
+    """A Code Mode run as HTML: the script, the numbered calls, what it returned."""
+    run = block.code_run
+    if run is None:
+        return ""
+    calls = "".join(
+        f"<li><strong>{escape_html(c.name)}</strong>"
+        f"{' (refused)' if c.refused else ' (error)' if c.is_error else ''}"
+        f"<pre><code>{escape_html(json.dumps(c.input, indent=2) if c.input else '')}</code></pre>"
+        f"<pre><code>{escape_html(c.result)}</code></pre></li>"
+        for c in run.inner_calls
+    )
+    parts = "".join(
+        f"<strong>{label}</strong><pre><code>{escape_html(value)}</code></pre>"
+        for label, value in (("Returned to the model", run.result), ("stdout", run.stdout),
+                             ("stderr", run.stderr), ("Error", run.error), ("Refused calls", run.refused))
+        if value
+    )
+    return f"""
+        <div class="code-run">
+            <strong>Code Mode script ({escape_html(run.language)}, {escape_html(run.status)})</strong>
+            <pre><code class="language-{escape_html(run.language)}">{escape_html(run.code)}</code></pre>
+            {f'<ol>{calls}</ol>' if calls else ''}
+            {parts}
+        </div>
+        """
+
+
 def render_content_block_html(block: ContentBlock, include_tools: bool = True) -> str:
     """Render a content block to HTML."""
+    if block.type == "code_run":
+        return code_run_html(block)
     if block.type == "text" and block.text:
         # Always strip TOOL_PLACEHOLDER (P1.3b), then rewrite cc-image
         # markers to <img> tags before HTML escape.

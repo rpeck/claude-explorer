@@ -34,6 +34,14 @@ from .cc_agent_reader import (  # noqa: F401
     read_agent_summary_fast,
 )
 
+# Raw JSONL I/O (refactor B5, 2026-05-18). The streaming summary
+# reader + path-discovery + LOGIC_VERSION live in ``cc_jsonl_io``; the
+# facade re-exports them so external imports like
+# ``from backend.claude_code_reader import discover_jsonl_files`` and
+# ``from backend.claude_code_reader import LOGIC_VERSION`` keep
+# resolving to the same callables.
+from .cc_code_mode import fold_code_mode_runs
+
 # Compact-marker extraction (refactor B5, 2026-05-18): moved out of this
 # file into a dedicated module. Re-exported here so existing
 # ``from backend.claude_code_reader import extract_compact_markers``
@@ -44,13 +52,6 @@ from .cc_image_markers import (  # noqa: F401
     _COMPACT_LOOKAHEAD,
     extract_compact_markers,
 )
-
-# Raw JSONL I/O (refactor B5, 2026-05-18). The streaming summary
-# reader + path-discovery + LOGIC_VERSION live in ``cc_jsonl_io``; the
-# facade re-exports them so external imports like
-# ``from backend.claude_code_reader import discover_jsonl_files`` and
-# ``from backend.claude_code_reader import LOGIC_VERSION`` keep
-# resolving to the same callables.
 from .cc_jsonl_io import (  # noqa: F401
     DEFAULT_CLAUDE_DIR,
     LOGIC_VERSION,
@@ -212,6 +213,8 @@ def read_claude_code_conversation(jsonl_path: Path) -> dict[str, Any] | None:
     entries = [_local_command_system_row_as_user(e) for e in parse_jsonl_file(jsonl_path)]
     if not entries:
         return None
+    # Issue #90: one code_run block per Code Mode run, before the grouping.
+    entries = fold_code_mode_runs(entries)
 
     metadata = _extract_conversation_metadata(entries, jsonl_path)
 

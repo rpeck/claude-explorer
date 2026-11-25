@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from ..models import ContentBlock, Message
+from ..models import ContentBlock, ConversationDetail, Message
 
 if TYPE_CHECKING:
     from ..models import CompactMarker
@@ -450,6 +450,28 @@ def _dedupe_non_image_files(message: Message) -> list[dict[str, Any]]:
     return list(by_uuid.values())
 
 
+def without_code_runs(conversation: ConversationDetail) -> ConversationDetail:
+    """The conversation with its Code Mode runs left out (issue #90, toggle off).
+
+    A message that holds only runs leaves the export too.
+    """
+    messages = []
+    for m in conversation.messages:
+        if not any(b.type == "code_run" for b in m.content):
+            messages.append(m)
+            continue
+        kept = [b for b in m.content if b.type != "code_run"]
+        if kept or (m.text and m.text.strip()):
+            messages.append(m.model_copy(update={"content": kept}))
+    return conversation.model_copy(update={"messages": messages})
+
+
+def code_fence(text: str, lang: str = "") -> str:
+    """A fenced block whose fence is longer than any backtick run in ``text``."""
+    fence = "`" * max(3, max((len(r) for r in re.findall(r"`+", text)), default=0) + 1)
+    return f"{fence}{lang}\n{text}\n{fence}"
+
+
 def message_has_visible_content(message: Message, include_tools: bool = True) -> bool:
     """Check if a message has any visible content (considering tool call visibility).
 
@@ -469,6 +491,8 @@ def message_has_visible_content(message: Message, include_tools: bool = True) ->
             if block.type == "text" and block.text and block.text.strip():
                 return True
             if block.type in ("tool_use", "tool_result") and include_tools:
+                return True
+            if block.type == "code_run":  # without_code_runs removes it when the toggle is off
                 return True
     return False
 
