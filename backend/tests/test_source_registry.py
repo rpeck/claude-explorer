@@ -61,7 +61,12 @@ CORPUS_UUIDS = {
         "a3c33811-ab27-c195-6938-54121b8673e4",
         "c8da94ab-641d-bf28-d4a6-cba9bc72468e",
     },
-    "CLAUDE_CODE": {"435e56ed-50ba-21c0-3495-0e8749b20543"},
+    "CLAUDE_CODE": {
+        "435e56ed-50ba-21c0-3495-0e8749b20543",
+        # Issue #90: the real Code Mode recordings (scripts/generate_e2e_fixtures.py).
+        "2339aab4-744c-4556-95b8-5ee5552c1b85",
+        "b007d327-80c4-46ea-b737-53d84b30c624",
+    },
     "CLAUDE_COWORK": {
         "aaaa1111-2222-3333-4444-555566667777",
         "session_01FIXTUREREMOTE000000000001",

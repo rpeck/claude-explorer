@@ -43,7 +43,9 @@ FIXTURE_KEY = "fixture000000"
 FIXTURE_HOME_PATH = "/home/fixture/.codex"
 PLAYWRIGHT_CONFIG = REPO_ROOT / "frontend" / "playwright.config.ts"
 #: The threads that ``list_sessions`` and the web list show by default.
-VISIBLE = sorted(t for t in fake.ALL_THREADS if t != fake.THREAD_ARCHIVED)
+# Issue #90: the fixture archive also holds two real code mode rollouts.
+CODE_MODE_THREADS = ("01a2118a-13d2-77e2-b458-a98bffa8713c", "01a2118c-b04a-7160-825d-2010987d5c34")
+VISIBLE = sorted([*(t for t in fake.ALL_THREADS if t != fake.THREAD_ARCHIVED), *CODE_MODE_THREADS])
 
 
 def _fixture_home() -> Path:

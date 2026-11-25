@@ -59,6 +59,10 @@ CONVERSATIONS = (
     ("desktop-branch", "c8da94ab-641d-bf28-d4a6-cba9bc72468e"),
     ("desktop-tools", "a3c33811-ab27-c195-6938-54121b8673e4"),
     ("claude-code", "435e56ed-50ba-21c0-3495-0e8749b20543"),
+    # Issue #90: real Code Mode recordings (an MCP-to-CLI pipe; a failed,
+    # a refused, and a subagent-starting run).
+    ("claude-code-mode-pipe", "b007d327-80c4-46ea-b737-53d84b30c624"),
+    ("claude-code-mode-cases", "2339aab4-744c-4556-95b8-5ee5552c1b85"),
     ("cowork-local", "aaaa1111-2222-3333-4444-555566667777"),
     ("cowork-remote", "session_01FIXTUREREMOTE000000000001"),
 )

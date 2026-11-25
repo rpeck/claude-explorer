@@ -17,6 +17,14 @@ renames the home folder to the fixed key `fixture000000`, writes
 sync times with fixed values. In e2e, `CODEX_HOME` points to a missing
 folder, so the copy never writes into these fixtures.
 
+Code Mode (issue #90): the script also copies scrubbed recordings of real
+sessions (synthetic prompts on synthetic files) into the tree, so the
+Playwright suite runs the real backend on real shapes. Two Claude Code
+sessions (and one subagent) go under `claude/projects/-home-fixture-cm-sample/`
+from `cc_code_mode/`; two Codex rollouts from `codex_code_mode/` go into the
+fake Codex home before the copy. `backend/tests/test_fixture_privacy.py`
+checks every fixture for real data.
+
 ## Layout
 
 ```

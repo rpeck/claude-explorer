@@ -1,0 +1,227 @@
+{
+  "cached_call": {
+    "conversation_id": "2339aab4-744c-4556-95b8-5ee5552c1b85",
+    "created_at": "2026-11-25T02:35:18.164000+00:00",
+    "message_count": 8,
+    "messages": [
+      {
+        "char_count": 535,
+        "code_run_count": 0,
+        "message_uuid": "d99f0627-dd79-4418-a2bb-f450ac2edc10",
+        "position": 0,
+        "sender": "human",
+        "summary": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src` with $ and then throws new Error('synthetic failure'). Step 2: one script that calls tools.Write...",
+        "timestamp": "2026-11-25T02:35:18.164000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "0459ea91-b9ea-4d0e-a5eb-8950fd42cf8d",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:18.994000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "cf760db8-d361-49ec-8a35-609d59c6e7c7",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:21.343000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "9477a851-0f43-4684-b339-624b5452b92e",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:23.228000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "4b53cbc6-6d51-433b-947d-d19960bfd7f4",
+        "position": 4,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:24.744000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 624,
+        "code_run_count": 0,
+        "message_uuid": "86a52a16-aaa8-40ef-9f71-6cd5e1dba781",
+        "position": 5,
+        "sender": "assistant",
+        "summary": "DONE - **Step 1:** `ls src` ran. The script then threw the synthetic error, as planned. - **Step 2:** `tools.Write` was refused. The permission was not granted. The file `src/new.txt` does not exist....",
+        "timestamp": "2026-11-25T02:35:27.793000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 494,
+        "code_run_count": 0,
+        "message_uuid": "2d6965e2-9d37-401d-a7a4-688a0bbbd1ac",
+        "position": 6,
+        "sender": "human",
+        "summary": "a47f122549f03fce6 toolu_cc_cd56a009ecdf40e2ba726ec194ba437f /tmp/claude/-home-fixture-cm-sample/2339aab4-744c-4556-95b8-5ee5552c1b85/tasks/a47f122549f03fce6.output completed Agent \"List src...",
+        "timestamp": "2026-11-25T02:35:27.825000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 173,
+        "code_run_count": 0,
+        "message_uuid": "e7b5fded-3d6f-498d-8997-812db22b0aa6",
+        "position": 7,
+        "sender": "assistant",
+        "summary": "The subagent finished. It ran `ls src` and returned two files: - `app.py` - `util.py` The agent used two tool calls in total. It reported one REPL call for `ls src`. DONE",
+        "timestamp": "2026-11-25T02:35:28.844000+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
+    "next_position": null,
+    "project": "cm-sample",
+    "session_id": "2339aab4-744c-4556-95b8-5ee5552c1b85",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-11-25T02:35:28.844000+00:00"
+  },
+  "first_call": {
+    "conversation_id": "2339aab4-744c-4556-95b8-5ee5552c1b85",
+    "created_at": "2026-11-25T02:35:18.164000+00:00",
+    "message_count": 8,
+    "messages": [
+      {
+        "char_count": 535,
+        "code_run_count": 0,
+        "message_uuid": "d99f0627-dd79-4418-a2bb-f450ac2edc10",
+        "position": 0,
+        "sender": "human",
+        "summary": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src` with $ and then throws new Error('synthetic failure'). Step 2: one script that calls tools.Write...",
+        "timestamp": "2026-11-25T02:35:18.164000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "0459ea91-b9ea-4d0e-a5eb-8950fd42cf8d",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:18.994000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "cf760db8-d361-49ec-8a35-609d59c6e7c7",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:21.343000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "9477a851-0f43-4684-b339-624b5452b92e",
+        "position": 3,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:23.228000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "4b53cbc6-6d51-433b-947d-d19960bfd7f4",
+        "position": 4,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:24.744000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 624,
+        "code_run_count": 0,
+        "message_uuid": "86a52a16-aaa8-40ef-9f71-6cd5e1dba781",
+        "position": 5,
+        "sender": "assistant",
+        "summary": "DONE - **Step 1:** `ls src` ran. The script then threw the synthetic error, as planned. - **Step 2:** `tools.Write` was refused. The permission was not granted. The file `src/new.txt` does not exist....",
+        "timestamp": "2026-11-25T02:35:27.793000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 494,
+        "code_run_count": 0,
+        "message_uuid": "2d6965e2-9d37-401d-a7a4-688a0bbbd1ac",
+        "position": 6,
+        "sender": "human",
+        "summary": "a47f122549f03fce6 toolu_cc_cd56a009ecdf40e2ba726ec194ba437f /tmp/claude/-home-fixture-cm-sample/2339aab4-744c-4556-95b8-5ee5552c1b85/tasks/a47f122549f03fce6.output completed Agent \"List src...",
+        "timestamp": "2026-11-25T02:35:27.825000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 173,
+        "code_run_count": 0,
+        "message_uuid": "e7b5fded-3d6f-498d-8997-812db22b0aa6",
+        "position": 7,
+        "sender": "assistant",
+        "summary": "The subagent finished. It ran `ls src` and returned two files: - `app.py` - `util.py` The agent used two tool calls in total. It reported one REPL call for `ls src`. DONE",
+        "timestamp": "2026-11-25T02:35:28.844000+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
+    "next_position": null,
+    "project": "cm-sample",
+    "session_id": "2339aab4-744c-4556-95b8-5ee5552c1b85",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-11-25T02:35:28.844000+00:00"
+  },
+  "page_1_size_2": {
+    "conversation_id": "2339aab4-744c-4556-95b8-5ee5552c1b85",
+    "created_at": "2026-11-25T02:35:18.164000+00:00",
+    "message_count": 8,
+    "messages": [
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "0459ea91-b9ea-4d0e-a5eb-8950fd42cf8d",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:18.994000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "cf760db8-d361-49ec-8a35-609d59c6e7c7",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T02:35:21.343000+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
+    "next_position": 3,
+    "project": "cm-sample",
+    "session_id": "2339aab4-744c-4556-95b8-5ee5552c1b85",
+    "source": "CLAUDE_CODE",
+    "start_position": 1,
+    "updated_at": "2026-11-25T02:35:28.844000+00:00"
+  }
+}

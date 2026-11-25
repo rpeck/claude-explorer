@@ -87,7 +87,7 @@ export const CM_SUMMARY: ConversationSummary = {
   is_starred: false,
   message_count: CM_MESSAGES.length,
   source: 'CLAUDE_CODE',
-  project_path: '/Users/tester/Source/cm',
+  project_path: '/home/fixture/cm',
   project_name: 'cm',
 } as ConversationSummary
 

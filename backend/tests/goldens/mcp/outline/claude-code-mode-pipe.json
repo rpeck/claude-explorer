@@ -1,0 +1,167 @@
+{
+  "cached_call": {
+    "conversation_id": "b007d327-80c4-46ea-b737-53d84b30c624",
+    "created_at": "2026-11-25T07:12:16.837000+00:00",
+    "message_count": 5,
+    "messages": [
+      {
+        "char_count": 395,
+        "code_run_count": 0,
+        "message_uuid": "df6e511f-93c8-4556-be91-cac59599f778",
+        "position": 0,
+        "sender": "human",
+        "summary": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call...",
+        "timestamp": "2026-11-25T07:12:16.837000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:19.886000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 0,
+        "message_uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:23.688000+00:00",
+        "tool_count": 1
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 0,
+        "message_uuid": "e4e03209-7c97-4ddb-8b28-1a193f337e9c",
+        "position": 3,
+        "sender": "human",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:23.688000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 2,
+        "code_run_count": 0,
+        "message_uuid": "526adb31-bcb1-4be1-a615-378395a47f3d",
+        "position": 4,
+        "sender": "assistant",
+        "summary": "31",
+        "timestamp": "2026-11-25T07:12:24.350000+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. Th",
+    "next_position": null,
+    "project": "cm-sample",
+    "session_id": "b007d327-80c4-46ea-b737-53d84b30c624",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-11-25T07:12:24.350000+00:00"
+  },
+  "first_call": {
+    "conversation_id": "b007d327-80c4-46ea-b737-53d84b30c624",
+    "created_at": "2026-11-25T07:12:16.837000+00:00",
+    "message_count": 5,
+    "messages": [
+      {
+        "char_count": 395,
+        "code_run_count": 0,
+        "message_uuid": "df6e511f-93c8-4556-be91-cac59599f778",
+        "position": 0,
+        "sender": "human",
+        "summary": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. The MCP server can take up to 90 seconds to connect, so in the script retry searchTools and the call...",
+        "timestamp": "2026-11-25T07:12:16.837000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:19.886000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 0,
+        "message_uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:23.688000+00:00",
+        "tool_count": 1
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 0,
+        "message_uuid": "e4e03209-7c97-4ddb-8b28-1a193f337e9c",
+        "position": 3,
+        "sender": "human",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:23.688000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 2,
+        "code_run_count": 0,
+        "message_uuid": "526adb31-bcb1-4be1-a615-378395a47f3d",
+        "position": 4,
+        "sender": "assistant",
+        "summary": "31",
+        "timestamp": "2026-11-25T07:12:24.350000+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. Th",
+    "next_position": null,
+    "project": "cm-sample",
+    "session_id": "b007d327-80c4-46ea-b737-53d84b30c624",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-11-25T07:12:24.350000+00:00"
+  },
+  "page_1_size_2": {
+    "conversation_id": "b007d327-80c4-46ea-b737-53d84b30c624",
+    "created_at": "2026-11-25T07:12:16.837000+00:00",
+    "message_count": 5,
+    "messages": [
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "485be87c-a2f3-40b3-9412-06aeca57caf0",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:19.886000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 0,
+        "message_uuid": "1023df0c-2ebe-4aab-82db-9f741d54befa",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-25T07:12:23.688000+00:00",
+        "tool_count": 1
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. Th",
+    "next_position": 3,
+    "project": "cm-sample",
+    "session_id": "b007d327-80c4-46ea-b737-53d84b30c624",
+    "source": "CLAUDE_CODE",
+    "start_position": 1,
+    "updated_at": "2026-11-25T07:12:24.350000+00:00"
+  }
+}
