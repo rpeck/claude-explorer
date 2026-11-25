@@ -226,7 +226,6 @@ test.describe('Bookmarks on an agent page (#97)', () => {
   })
 
   test('the star on an agent page bookmarks the agent message', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
     const state = await mockBookmarks(page)
     await withNetRetry(page, () => page.goto(agentUrl(SESSION, AGENT)))
     const bubble = page.locator(`[data-message-uuid="${AGENT_REPLY}"]`)
@@ -242,7 +241,6 @@ test.describe('Bookmarks on an agent page (#97)', () => {
   })
 
   test('b on an agent page bookmarks with the agent id and description', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
     const state = await mockBookmarks(page)
     await withNetRetry(page, () => page.goto(agentUrl(SESSION, AGENT)))
     const bubble = page.locator(`[data-message-uuid="${AGENT_REPLY}"]`)
@@ -256,7 +254,6 @@ test.describe('Bookmarks on an agent page (#97)', () => {
   })
 
   test('a session bookmark of the same message uuid does not mark the agent message', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
     await mockBookmarks(page, [{
       id: 'bm-session', conversation_id: SESSION, message_uuid: AGENT_REPLY, source: 'claude_code',
       created_at: '2026-11-25T10:00:00Z', note: '', snippet: 'x',
@@ -275,7 +272,6 @@ test.describe('Bookmarks on an agent page (#97)', () => {
   })
 
   test('the Bookmarks tab shows the agent, and a click opens the agent page at the message', async ({ page }) => {
-    test.fail(!process.env.RUNXFAIL, '#97 is not built yet')
     await mockBookmarks(page, [{
       id: 'bm-agent', conversation_id: SESSION, message_uuid: AGENT_REPLY, source: 'claude_code',
       created_at: '2026-11-25T10:00:00Z', note: '', snippet: 'I looked at the files',

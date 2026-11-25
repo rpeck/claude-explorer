@@ -10,9 +10,6 @@
  * * The Bookmarks tab opens an agent bookmark on the agent page with `?m=`,
  *   shows the agent (`data-testid="bookmark-agent"`), and its Markdown export
  *   names the agent.
- *
- * `pending` (`it.fails`): the feature is not built yet. Step 3 turns each
- * into a plain `it`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
@@ -29,9 +26,6 @@ import { BookmarksPanel } from '../../components/bookmarks/BookmarksPanel'
 import { useBookmarkHotkey } from '../../hooks/useBookmarkHotkey'
 import type { Bookmark, ConversationDetail, Message } from '../../lib/types'
 
-// Expected to fail until #97 is built. VITE_RUNXFAIL=1 runs them as plain tests (like pytest --runxfail).
-const pending = import.meta.env.VITE_RUNXFAIL ? it : it.fails
-
 const downloads = vi.hoisted(() => [] as Blob[])
 vi.mock('@/lib/utils', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/utils')>()
@@ -47,8 +41,7 @@ const AGENT = 'a5a0000000000096c'
 const DESCRIPTION = 'Synthetic search agent'
 const MSG = 'sa-t1'
 
-// The new fields, until Bookmark has them; the cast keeps tsc green.
-type AgentFields = { agent_id?: string | null; agent_description?: string | null }
+type AgentFields = Pick<Bookmark, 'agent_id' | 'agent_description'>
 
 function bookmark(id: string, fields: AgentFields = {}): Bookmark {
   return {
@@ -118,16 +111,8 @@ function Providers({ children }: { children: ReactNode }) {
   )
 }
 
-// The loose view of the context until isBookmarked takes the agent id.
-type LooseBookmarks = {
-  isLoaded: boolean
-  bookmarks: Bookmark[]
-  isBookmarked: (c: string, m: string, a?: string | null) => boolean
-  toggleBookmark: (input: Record<string, unknown>) => Promise<void>
-}
-
 async function contextHook() {
-  const hook = renderHook(() => useBookmarks() as unknown as LooseBookmarks, { wrapper: Providers })
+  const hook = renderHook(() => useBookmarks(), { wrapper: Providers })
   await waitFor(() => expect(hook.result.current.isLoaded).toBe(true))
   return hook
 }
@@ -141,7 +126,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('BookmarkContext — the agent id (#97)', () => {
-  pending('isBookmarked matches the triple: an agent bookmark is not a session bookmark', async () => {
+  it('isBookmarked matches the triple: an agent bookmark is not a session bookmark', async () => {
     serveBookmarks([bookmark('bm-agent', { agent_id: AGENT, agent_description: DESCRIPTION })])
     const { result } = await contextHook()
     expect(result.current.isBookmarked(SESSION, MSG, AGENT)).toBe(true)
@@ -150,7 +135,7 @@ describe('BookmarkContext — the agent id (#97)', () => {
     expect(result.current.isBookmarked(SESSION, MSG, 'aother0000000')).toBe(false)
   })
 
-  pending('an old bookmark without the fields is a session bookmark', async () => {
+  it('an old bookmark without the fields is a session bookmark', async () => {
     serveBookmarks([bookmark('bm-old')])
     const { result } = await contextHook()
     expect(result.current.isBookmarked(SESSION, MSG)).toBe(true)
@@ -158,7 +143,7 @@ describe('BookmarkContext — the agent id (#97)', () => {
     expect(result.current.isBookmarked(SESSION, MSG, AGENT)).toBe(false)
   })
 
-  pending('toggling an agent bookmark sends agent_id and agent_description, and keeps the session bookmark', async () => {
+  it('toggling an agent bookmark sends agent_id and agent_description, and keeps the session bookmark', async () => {
     const { posts, deletes } = serveBookmarks([bookmark('bm-session')])
     const { result } = await contextHook()
     await act(() => result.current.toggleBookmark({
@@ -172,7 +157,7 @@ describe('BookmarkContext — the agent id (#97)', () => {
     expect(result.current.isBookmarked(SESSION, MSG)).toBe(true)
   })
 
-  pending('toggling again removes the agent bookmark by the triple, not the session one', async () => {
+  it('toggling again removes the agent bookmark by the triple, not the session one', async () => {
     const { posts, deletes } = serveBookmarks([
       bookmark('bm-session'),
       bookmark('bm-agent', { agent_id: AGENT, agent_description: DESCRIPTION }),
@@ -187,7 +172,7 @@ describe('BookmarkContext — the agent id (#97)', () => {
     expect(result.current.isBookmarked(SESSION, MSG)).toBe(true)
   })
 
-  pending('toggling a session bookmark removes the session one, not the agent one', async () => {
+  it('toggling a session bookmark removes the session one, not the agent one', async () => {
     const { deletes } = serveBookmarks([
       bookmark('bm-agent', { agent_id: AGENT, agent_description: DESCRIPTION }),
       bookmark('bm-session'),
@@ -218,16 +203,14 @@ const message = {
   files: [],
 } as unknown as Message
 
-// The prop, until MessageBubble has it.
-type BubbleProps = Parameters<typeof MessageBubble>[0] & { agentId?: string | null; agentDescription?: string | null }
-const Bubble = MessageBubble as unknown as (p: BubbleProps) => ReactNode
+const Bubble = MessageBubble
 
 function star(): HTMLElement {
   return screen.getByRole('button', { name: /bookmark/i })
 }
 
 describe('MessageBubble — agentId (#97)', () => {
-  pending('on an agent page the star shows the agent bookmark, not the session one', async () => {
+  it('on an agent page the star shows the agent bookmark, not the session one', async () => {
     serveBookmarks([bookmark('bm-session')])
     // On the session page the message is bookmarked...
     const { rerender } = render(
@@ -239,7 +222,7 @@ describe('MessageBubble — agentId (#97)', () => {
     await waitFor(() => expect(star()).toHaveAttribute('aria-label', 'Bookmark message'))
   })
 
-  pending('the star on an agent page posts the agent id and description', async () => {
+  it('the star on an agent page posts the agent id and description', async () => {
     const { posts } = serveBookmarks([])
     render(
       <Providers>
@@ -253,7 +236,7 @@ describe('MessageBubble — agentId (#97)', () => {
     await waitFor(() => expect(star()).toHaveAttribute('aria-label', 'Remove bookmark'))
   })
 
-  pending('a new agentDescription alone reaches the star (the memo comparator sees it)', async () => {
+  it('a new agentDescription alone reaches the star (the memo comparator sees it)', async () => {
     const { posts } = serveBookmarks([])
     const { rerender } = render(
       <Providers>
@@ -296,7 +279,7 @@ describe('useBookmarkHotkey — agent page (#97)', () => {
     return toggleBookmark
   }
 
-  pending('b on an agent page bookmarks with the agent id and description', () => {
+  it('b on an agent page bookmarks with the agent id and description', () => {
     const toggle = mount(conversation({ agent_id: AGENT, agent_description: DESCRIPTION }))
     press()
     expect(toggle).toHaveBeenCalledTimes(1)
@@ -305,7 +288,7 @@ describe('useBookmarkHotkey — agent page (#97)', () => {
     })
   })
 
-  it('b on a session page bookmarks without an agent id (a guard)', () => {
+  it('b on a session page bookmarks without an agent id', () => {
     const toggle = mount(conversation({}))
     press()
     expect(toggle).toHaveBeenCalledTimes(1)
@@ -329,21 +312,21 @@ describe('BookmarksPanel — agent bookmarks (#97)', () => {
     return Array.from(document.querySelectorAll<HTMLElement>('[data-bookmark-item]'))
   }
 
-  pending('a click on an agent bookmark opens the agent page at the message', async () => {
+  it('a click on an agent bookmark opens the agent page at the message', async () => {
     const [item] = await renderPanel([bookmark('bm-agent', { agent_id: AGENT, agent_description: DESCRIPTION })])
     fireEvent.click(within(item).getByRole('button', { name: 'Open' }))
     await waitFor(() => expect(seen.current.pathname).toBe(`/conversations/${SESSION}/agents/${AGENT}`))
     expect(seen.current.search).toBe(`?m=${MSG}`)
   })
 
-  it('a click on a session bookmark still opens the session page (a guard)', async () => {
+  it('a click on a session bookmark still opens the session page', async () => {
     const [item] = await renderPanel([bookmark('bm-session')])
     fireEvent.click(within(item).getByRole('button', { name: 'Open' }))
     await waitFor(() => expect(seen.current.pathname).toBe(`/conversations/${SESSION}`))
     expect(seen.current.search).toBe(`?m=${MSG}`)
   })
 
-  pending('the item shows the agent description, else "Agent <id>"', async () => {
+  it('the item shows the agent description, else "Agent <id>"', async () => {
     const [withDesc, withoutDesc] = await renderPanel([
       bookmark('bm-a', { agent_id: AGENT, agent_description: DESCRIPTION }),
       { ...bookmark('bm-b', { agent_id: '5a1e9ac', agent_description: null }), message_uuid: 'sl-t1' },
@@ -352,7 +335,7 @@ describe('BookmarksPanel — agent bookmarks (#97)', () => {
     expect(within(withoutDesc).getByTestId('bookmark-agent')).toHaveTextContent('Agent 5a1e9ac')
   })
 
-  pending('a session bookmark shows no agent', async () => {
+  it('a session bookmark shows no agent', async () => {
     const [session, agent] = await renderPanel([
       bookmark('bm-session'),
       bookmark('bm-agent', { agent_id: AGENT, agent_description: DESCRIPTION }),
@@ -361,7 +344,7 @@ describe('BookmarksPanel — agent bookmarks (#97)', () => {
     expect(within(agent).getByTestId('bookmark-agent')).toBeInTheDocument()
   })
 
-  pending('the Markdown export names the agent of an agent bookmark', async () => {
+  it('the Markdown export names the agent of an agent bookmark', async () => {
     await renderPanel([
       bookmark('bm-a', { agent_id: AGENT, agent_description: DESCRIPTION }),
       { ...bookmark('bm-b', { agent_id: '5a1e9ac', agent_description: null }), message_uuid: 'sl-t1' },

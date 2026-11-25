@@ -20,8 +20,6 @@ from typing import Any, Literal
 import pytest
 from pydantic import BaseModel
 
-pytestmark = pytest.mark.xfail(strict=True, reason="#97 agent bookmarks not implemented yet")
-
 SESSION = "5a6e0000-0000-4000-8000-000000000096"
 AGENT = "a5a0000000000096c"
 DESCRIPTION = "Synthetic search agent"
