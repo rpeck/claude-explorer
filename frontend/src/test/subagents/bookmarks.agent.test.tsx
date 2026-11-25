@@ -4,7 +4,8 @@
  * * `isBookmarked(conversationId, messageUuid, agentId?)` and `toggleBookmark`
  *   use the triple (conversation, agent, message); null and a missing
  *   field are the same.
- * * `MessageBubble` takes `agentId` as a prop: the star and the bookmark use it.
+ * * `MessageBubble` takes `agentId` and `agentDescription` as props (Change 1):
+ *   the star and the bookmark use them.
  * * The `b` hotkey on an agent page bookmarks with the agent id and description.
  * * The Bookmarks tab opens an agent bookmark on the agent page with `?m=`,
  *   shows the agent (`data-testid="bookmark-agent"`), and its Markdown export
@@ -218,7 +219,7 @@ const message = {
 } as unknown as Message
 
 // The prop, until MessageBubble has it.
-type BubbleProps = Parameters<typeof MessageBubble>[0] & { agentId?: string | null }
+type BubbleProps = Parameters<typeof MessageBubble>[0] & { agentId?: string | null; agentDescription?: string | null }
 const Bubble = MessageBubble as unknown as (p: BubbleProps) => ReactNode
 
 function star(): HTMLElement {
@@ -238,14 +239,36 @@ describe('MessageBubble — agentId (#97)', () => {
     await waitFor(() => expect(star()).toHaveAttribute('aria-label', 'Bookmark message'))
   })
 
-  pending('the star on an agent page posts the agent id', async () => {
+  pending('the star on an agent page posts the agent id and description', async () => {
     const { posts } = serveBookmarks([])
-    render(<Providers><Bubble message={message} conversationId={SESSION} conversationSource="CLAUDE_CODE" agentId={AGENT} /></Providers>)
+    render(
+      <Providers>
+        <Bubble message={message} conversationId={SESSION} conversationSource="CLAUDE_CODE" agentId={AGENT} agentDescription={DESCRIPTION} />
+      </Providers>,
+    )
     await waitFor(() => expect(star()).toHaveAttribute('aria-label', 'Bookmark message'))
     fireEvent.click(star())
     await waitFor(() => expect(posts).toHaveLength(1))
-    expect(posts[0]).toMatchObject({ conversation_id: SESSION, message_uuid: MSG, agent_id: AGENT })
+    expect(posts[0]).toMatchObject({ conversation_id: SESSION, message_uuid: MSG, agent_id: AGENT, agent_description: DESCRIPTION })
     await waitFor(() => expect(star()).toHaveAttribute('aria-label', 'Remove bookmark'))
+  })
+
+  pending('a new agentDescription alone reaches the star (the memo comparator sees it)', async () => {
+    const { posts } = serveBookmarks([])
+    const { rerender } = render(
+      <Providers>
+        <Bubble message={message} conversationId={SESSION} conversationSource="CLAUDE_CODE" agentId={AGENT} agentDescription="Old name" />
+      </Providers>,
+    )
+    await waitFor(() => expect(star()).toHaveAttribute('aria-label', 'Bookmark message'))
+    rerender(
+      <Providers>
+        <Bubble message={message} conversationId={SESSION} conversationSource="CLAUDE_CODE" agentId={AGENT} agentDescription={DESCRIPTION} />
+      </Providers>,
+    )
+    fireEvent.click(star())
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toMatchObject({ agent_id: AGENT, agent_description: DESCRIPTION })
   })
 })
 

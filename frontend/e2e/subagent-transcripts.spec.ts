@@ -236,7 +236,9 @@ test.describe('Bookmarks on an agent page (#97)', () => {
     await star.click()
     await expect(bubble.locator('[data-bookmarked]')).toHaveCount(1)
     expect(state.posts).toHaveLength(1)
-    expect(state.posts[0]).toMatchObject({ conversation_id: SESSION, message_uuid: AGENT_REPLY, agent_id: AGENT })
+    expect(state.posts[0]).toMatchObject({
+      conversation_id: SESSION, message_uuid: AGENT_REPLY, agent_id: AGENT, agent_description: AGENT_DESCRIPTION,
+    })
   })
 
   test('b on an agent page bookmarks with the agent id and description', async ({ page }) => {
