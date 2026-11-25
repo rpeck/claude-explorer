@@ -192,6 +192,8 @@ export interface CodeRunCall {
   refused: boolean
   code_run_parent: string
   link_source: 'transcript_field' | 'hook_log' | 'exclusive_window' | 'caller_field'
+  /** The earlier calls (indexes) whose output is in this call's input. */
+  inputs_from?: number[]
 }
 
 /** A Code Mode run: Claude Code `REPL` or Codex `exec` (backend CodeRun). */
@@ -208,6 +210,8 @@ export interface CodeRun {
   error: string | null
   refused: string | null
   inner_calls: CodeRunCall[]
+  /** The calls (indexes) whose output is in what the run returned to the model. */
+  returned_from?: number[]
 }
 
 // Image asset metadata (thumbnail or preview variant). Returned by

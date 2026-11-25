@@ -167,6 +167,7 @@ def code_run_html(block: ContentBlock) -> str:
     calls = "".join(
         f"<li><strong>{escape_html(c.name)}</strong>"
         f"{' (refused)' if c.refused else ' (error)' if c.is_error else ''}"
+        f"{' (input from call ' + ', '.join(str(j + 1) for j in c.inputs_from) + ')' if c.inputs_from else ''}"
         f"<pre><code>{escape_html(json.dumps(c.input, indent=2) if c.input else '')}</code></pre>"
         f"<pre><code>{escape_html(c.result)}</code></pre></li>"
         for c in run.inner_calls

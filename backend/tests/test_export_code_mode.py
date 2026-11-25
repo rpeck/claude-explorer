@@ -157,3 +157,18 @@ def test_mcp_export_session_takes_include_code_mode(conversation: Any) -> None:
     fn = getattr(server.export_session, "fn", server.export_session)
     assert W["code"] in fn(conversation_id=fake.SESSION, include_code_mode=True)
     assert W["code"] not in fn(conversation_id=fake.SESSION)
+
+
+def test_an_export_marks_a_call_whose_input_holds_an_earlier_output() -> None:
+    from backend.export import code_run_html, code_run_markdown
+    from backend.models import CodeRun, CodeRunCall, ContentBlock
+
+    calls = [
+        CodeRunCall(id="c1", name="cat", result="x = 1  # TODO a\n", code_run_parent="r", link_source="exclusive_window"),
+        CodeRunCall(id="c2", name="wc", result="16", code_run_parent="r", link_source="exclusive_window", inputs_from=[0]),
+    ]
+    block = ContentBlock(type="code_run", id="r", name="exec", code_run=CodeRun(code="x", inner_calls=calls, result="16"))
+    md = code_run_markdown(block)
+    assert "2. `wc` (input from call 1)" in md
+    assert "1. `cat`\n" in md
+    assert "input from call 1" in code_run_html(block)

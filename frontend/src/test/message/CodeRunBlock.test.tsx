@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CodeRunBlock } from '@/components/message/blocks/CodeRunBlock'
 import { ToolUseBlock } from '@/components/message/blocks/ToolBlocks'
-import { codeRunBlock, CM_WORDS } from '../fixtures/codeMode'
+import { codeRunBlock, CM_WORDS, pipeRunBlock } from '../fixtures/codeMode'
 
 /**
  * Issue #90: a Code Mode run is one dark terminal bubble. The title bar
@@ -81,5 +81,39 @@ describe('an unlinked Code Mode call', () => {
   it('says how many scripts were running', () => {
     render(<ToolUseBlock name="shell" input={{}} fromCodeMode ambiguousWith={['a', 'b']} />)
     expect(screen.getByText('made by a Code Mode script (one of 2 running)')).toBeInTheDocument()
+  })
+})
+
+/**
+ * The common use of Code Mode: one tool's output goes into another tool,
+ * and only a small result goes back to the model (issue #90). The backend
+ * sets `inputs_from` and `returned_from` from exact text matches.
+ */
+describe('CodeRunBlock data flow', () => {
+  it('marks a call whose input holds an earlier output', () => {
+    render(<CodeRunBlock block={pipeRunBlock()} />)
+    const calls = screen.getAllByTestId('code-run-call')
+    expect(calls[1]).toHaveTextContent('input from call 1')
+    expect(calls[0]).not.toHaveTextContent('input from')
+  })
+
+  it('draws the pipe from tool to tool and says how much reached the model', async () => {
+    render(<CodeRunBlock block={pipeRunBlock()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Expand' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('tab', { name: 'Data flow' }))
+    const labels = within(dialog).getAllByTestId('sequence-step-label').map((s) => s.textContent)
+    expect(labels).toContain('output of call 1 → call 2')
+    expect(within(dialog).getByTestId('code-run-context')).toHaveTextContent(
+      'Tool output: 155 characters. Returned to the model: 2 characters.',
+    )
+  })
+
+  it('says which outputs reached the model', async () => {
+    render(<CodeRunBlock block={pipeRunBlock({ returned_from: [0] })} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Expand' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('tab', { name: 'Data flow' }))
+    expect(within(dialog).getByTestId('code-run-context')).toHaveTextContent('The output of call 1 went back to the model.')
   })
 })

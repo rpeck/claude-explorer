@@ -18,12 +18,17 @@ id and no parent field stays a tool call, marked ``from_code_mode``.
 from __future__ import annotations
 
 import html
+import json
 import re
 from typing import Any
 
+from .code_run_flow import add_data_flow
+
 # The UI label of the tool is "Code"; ``Eval`` is an alias in the binary.
 REPL_TOOL_NAMES = frozenset({"REPL", "Eval"})
-CODE_MODE_ID_PREFIXES = ("toolu_cc_", "repl_")
+# repl_: a script helper such as searchTools; repl-error-: the record Claude
+# Code adds for a script's error. Neither names its parent script.
+CODE_MODE_ID_PREFIXES = ("toolu_cc_", "repl_", "repl-error-")
 
 _TAG_RE = re.compile(r"<(result|log|error|refused)>(.*?)</\1>", re.DOTALL)
 _EVENT_RE = re.compile(r"<event\b([^>]*)>(.*?)</event>", re.DOTALL)
@@ -195,6 +200,8 @@ def fold_code_mode_runs(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
                             _settle(runs[run_id], m.group(2), attrs)
         out.append(entry)
 
+    for run in runs.values():
+        add_data_flow(run)
     if dropped:
         out = [_reparent(e, dropped) for e in out]
     return out
@@ -212,9 +219,17 @@ def _mark_unlinked(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def _with_host_results(entry: dict[str, Any]) -> dict[str, Any]:
-    """An unlinked virtual result: fill an empty content from ``hostContent``."""
+    """An unlinked virtual result: fill an empty content from ``hostContent``,
+    else from ``toolUseResult`` (a script helper such as searchTools has only that)."""
+    def filled(use_id: str) -> Any:
+        found = _host_result(entry, use_id)
+        if found:
+            return found
+        tur = entry.get("toolUseResult")
+        return tur if isinstance(tur, str) else json.dumps(tur, ensure_ascii=False) if tur else ""
+
     content = [
-        {**b, "content": _host_result(entry, b["tool_use_id"])}
+        {**b, "content": filled(b["tool_use_id"])}
         if isinstance(b, dict) and b.get("type") == "tool_result" and not b.get("content") and b.get("tool_use_id")
         else b
         for b in entry["message"]["content"]

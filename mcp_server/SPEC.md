@@ -301,7 +301,7 @@ The `session_files` parent row is upserted (`INSERT OR REPLACE`) on every non-tr
 | `include_tool_results` | `bool` | `False` | Include full tool results. Implies `include_tool_calls=True`. |
 | `include_code_mode` | `bool` | `False` | Give each Code Mode run in full in `code_runs`. Default: a stub per run (`id`, `name`, `status`, `line_count`, `call_count`), with no script, call, or output text. |
 
-A message that holds a Code Mode run (issue #90) has a `code_runs` list in both modes. With `include_code_mode=True` each entry is the whole `CodeRun`: `code`, `status`, `result`, `stdout`, `stderr`, `error`, `refused`, and `inner_calls` (each with `name`, `input`, `result`, `is_error`, `refused`, `code_run_parent`, and `link_source`). `get_session_outline` gives `code_run_count` per entry; it is counted from the messages, not kept in the outline cache.
+A message that holds a Code Mode run (issue #90) has a `code_runs` list in both modes. With `include_code_mode=True` each entry is the whole `CodeRun`: `code`, `status`, `result`, `stdout`, `stderr`, `error`, `refused`, `returned_from` (the calls whose output went back to the model), and `inner_calls` (each with `name`, `input`, `result`, `is_error`, `refused`, `code_run_parent`, `link_source`, and `inputs_from`, the earlier calls whose output is in its input). `get_session_outline` gives `code_run_count` per entry; it is counted from the messages, not kept in the outline cache.
 
 **Selector resolution:**
 

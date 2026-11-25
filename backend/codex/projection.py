@@ -29,6 +29,7 @@ from urllib.parse import unquote
 
 import orjson
 
+from ..code_run_flow import add_data_flow
 from .history import LoadBase, parent_uuid, resolve_lineage
 from .rollout import RolloutRecord
 
@@ -302,6 +303,10 @@ class _CodeMode:
                     continue
                 run = self.runs[run_id]
                 status, cell, body = _exec_output(_output_text(p.get("output")))
+                if status == "failed" and body.startswith("Script error:"):
+                    # The error of a failed script is not a value it returned.
+                    run["error"] = body.removeprefix("Script error:").strip("\n")
+                    body = ""
                 if body:
                     run["result"] = body if run["result"] is None else f"{run['result']}\n{body}"
                 if cell:
@@ -319,6 +324,11 @@ class _CodeMode:
                         self.link[item_id] = alive[0]
                     elif alive:
                         self.ambiguous[item_id] = list(alive)
+
+    def finish(self) -> None:
+        """Call once every nested call is in its run."""
+        for run in self.runs.values():
+            add_data_flow(run)
 
     def block(self, call_id: str) -> dict[str, Any]:
         return {"type": "code_run", "id": call_id, "name": _EXEC_TOOL, "code_run": self.runs[call_id]}
@@ -475,6 +485,7 @@ def _paginated_messages(
                 turn_models.get(turn_id, ""),
             )
         )
+    code_mode.finish()
     return messages
 
 
@@ -719,6 +730,7 @@ def _legacy_messages(
         messages.append(msg)
         if kind in _LEGACY_CALLS and p.get("call_id"):
             calls[p["call_id"]] = msg
+    code_mode.finish()
     return messages
 
 

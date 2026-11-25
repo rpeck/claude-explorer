@@ -41,7 +41,7 @@ export function SequenceDiagram({ lanes, steps }: SequenceDiagramProps) {
               className="mt-2 flex flex-col"
               style={{ gridColumn: `${left + 1} / ${right + 2}` }}
             >
-              <span className="truncate px-1 text-zinc-600 dark:text-zinc-300" title={step.label}>
+              <span data-testid="sequence-step-label" className="truncate px-1 text-zinc-600 dark:text-zinc-300" title={step.label}>
                 {step.label}
               </span>
               <span

@@ -37,6 +37,8 @@ def code_run_markdown(block: ContentBlock) -> str:
         lines += ["", "**Calls:**", ""]
         for n, call in enumerate(run.inner_calls, 1):
             mark = " (refused)" if call.refused else " (error)" if call.is_error else ""
+            if call.inputs_from:
+                mark += f" (input from call {', '.join(str(j + 1) for j in call.inputs_from)})"
             lines.append(f"{n}. `{call.name}`{mark}")
             if call.input:
                 lines += ["", code_fence(json.dumps(call.input, indent=2), "json")]

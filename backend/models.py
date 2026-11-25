@@ -22,6 +22,8 @@ class CodeRunCall(BaseModel):
     refused: bool = False
     code_run_parent: str
     link_source: LinkSource
+    # The earlier calls whose output is in this call's input (backend/code_run_flow.py).
+    inputs_from: list[int] = Field(default_factory=list)
 
 
 class CodeRun(BaseModel):
@@ -40,6 +42,8 @@ class CodeRun(BaseModel):
     error: str | None = None
     refused: str | None = None
     inner_calls: list[CodeRunCall] = Field(default_factory=list)
+    # The calls whose output is in what the run returned to the model.
+    returned_from: list[int] = Field(default_factory=list)
 
 
 # Issue #90: left out of the JSON when empty, so other blocks keep their shape.

@@ -75,6 +75,11 @@ function Calls({ calls, searchQuery }: { calls: CodeRunCall[]; searchQuery: stri
             <span className="font-medium text-amber-300">
               <HighlightedText text={call.name} query={searchQuery} />
             </span>
+            {(call.inputs_from ?? []).length > 0 && (
+              <span className="rounded bg-sky-900 px-1 text-sky-200">
+                input from call {(call.inputs_from ?? []).map((j) => j + 1).join(', ')}
+              </span>
+            )}
             {call.refused && <span className="rounded bg-red-900 px-1 text-red-200">refused</span>}
             {!call.refused && call.is_error && <span className="rounded bg-red-900 px-1 text-red-200">error</span>}
           </div>
@@ -123,18 +128,32 @@ function Outputs({ run, searchQuery }: { run: CodeRun; searchQuery: string }) {
   )
 }
 
-/** The data flow of a run: model, script, and one lane per tool. */
+/** The data flow of a run: model, script, and one lane per tool. An output that
+ *  went into a later call's input (`inputs_from`) is a step from tool to tool. */
 function flowOf(run: CodeRun): { lanes: string[]; steps: SequenceStep[] } {
   const lanes = ['Model', 'Script']
   for (const c of run.inner_calls) if (!lanes.includes(c.name)) lanes.push(c.name)
   const steps: SequenceStep[] = [{ from: 0, to: 1, label: `script (${run.line_count} lines)` }]
   run.inner_calls.forEach((c, i) => {
     const lane = lanes.indexOf(c.name)
+    for (const j of c.inputs_from ?? []) {
+      steps.push({ from: lanes.indexOf(run.inner_calls[j].name), to: lane, label: `output of call ${j + 1} → call ${i + 1}` })
+    }
     steps.push({ from: 1, to: lane, label: `call ${i + 1}` })
     steps.push({ from: lane, to: 1, label: c.refused ? 'refused' : c.is_error ? 'error' : 'result' })
   })
   if (run.result || run.error) steps.push({ from: 1, to: 0, label: run.error ? 'error' : 'returned' })
   return { lanes, steps }
+}
+
+/** How much tool output the run handled, and how much of it reached the model. */
+function contextOf(run: CodeRun): string {
+  const total = run.inner_calls.reduce((n, c) => n + c.result.length, 0)
+  const parts = [`Tool output: ${total} characters. Returned to the model: ${(run.result ?? '').length} characters.`]
+  const back = (run.returned_from ?? []).map((j) => j + 1)
+  if (back.length === 1) parts.push(`The output of call ${back[0]} went back to the model.`)
+  if (back.length > 1) parts.push(`The outputs of calls ${back.slice(0, -1).join(', ')} and ${back[back.length - 1]} went back to the model.`)
+  return parts.join(' ')
 }
 
 const TABS = ['Script', 'Calls', 'Data flow', 'Returned'] as const
@@ -176,7 +195,8 @@ function CodeRunDialog({ run, open, onOpenChange }: {
             ? <Calls calls={run.inner_calls} searchQuery="" />
             : <div className="p-3 text-xs text-zinc-400">This script made no tool calls.</div>)}
           {tab === 'Data flow' && (
-            <div className="bg-white p-3 dark:bg-zinc-900">
+            <div className="space-y-3 bg-white p-3 dark:bg-zinc-900">
+              <p data-testid="code-run-context" className="text-xs text-zinc-700 dark:text-zinc-300">{contextOf(run)}</p>
               <SequenceDiagram lanes={flow.lanes} steps={flow.steps} />
             </div>
           )}

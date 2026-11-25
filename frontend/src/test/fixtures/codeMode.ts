@@ -99,3 +99,24 @@ export const CM_DETAIL: ConversationDetail = {
   messages: CM_MESSAGES,
   compact_markers: [],
 } as ConversationDetail
+
+/** A pipe: the fetch output (147 characters) goes into the Bash call; only "31" returns. */
+export const CM_PAGE = 'Contents of https://example.com/:\n# Example Domain\n\nThis domain is for use in documentation examples without needing permission. Do not rely on it.'
+
+export function pipeRunBlock(overrides: Partial<NonNullable<ContentBlock['code_run']>> = {}): ContentBlock {
+  const id = 'toolu_01CMPIPE0000000000000001'
+  return codeRunBlock({
+    code: 'const page = await tools.mcp__fetch__fetch({url: "https://example.com"});\nawait $`wc -w <<EOF\n${page}\nEOF`.text()',
+    line_count: 2,
+    result: '31',
+    stdout: null,
+    inner_calls: [
+      { id: 'toolu_cc_pipe1', name: 'mcp__fetch__fetch', input: { url: 'https://example.com' }, result: CM_PAGE,
+        is_error: false, refused: false, code_run_parent: id, link_source: 'transcript_field', inputs_from: [] },
+      { id: 'toolu_cc_pipe2', name: 'Bash', input: { command: `wc -w <<EOF\n${CM_PAGE}\nEOF` }, result: '      31',
+        is_error: false, refused: false, code_run_parent: id, link_source: 'transcript_field', inputs_from: [0] },
+    ],
+    returned_from: [],
+    ...overrides,
+  }, id)
+}

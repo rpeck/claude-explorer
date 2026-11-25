@@ -794,8 +794,11 @@ each call with its input and output, and what went back to the model.
 
 - **Sources:**
   - Claude Code: the `REPL` tool (CC 2.1.323 and later,
-    `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`).
+    `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`). Cowork sessions fold their runs
+    the same way.
   - Codex: the `exec` tool, and the `wait` calls that continue its cell.
+    `notify()` outputs join the run; a failed script's "Script error:" text
+    is its error, not a value it returned.
 - **Show Code Mode:** a checkbox in the conversation toolbar, next to Show
   Tools.
   - It shows only when the conversation has a run.
@@ -817,9 +820,16 @@ each call with its input and output, and what went back to the model.
 - **The overlay:** Expand opens a dialog with the tabs Script (every
   line), Calls, Data flow, and Returned. Esc closes it.
   - Data flow is a sequence diagram: one lane for the model, one for the
-    script, and one per tool. Time goes down. Neither transcript records
-    which output fed which input, so the diagram shows the order of the
-    calls only.
+    script, and one per tool. Time goes down.
+  - The usual reason for Code Mode is a pipe: one tool's output goes into
+    another tool, and only a small result goes back to the model. Neither
+    transcript records the flow, but both record every input and output.
+    So when an earlier call's output text is in a later call's input, the
+    diagram draws "output of call 1 → call 2" from tool to tool, and the
+    call list marks "input from call 1". Only outputs of 8 or more
+    characters count (`backend/code_run_flow.py`).
+  - Above the diagram: "Tool output: N characters. Returned to the model:
+    M characters.", and which call outputs went back to the model.
 - **Links, exact or none:**
   - Claude Code names the parent run of each inner call
     (`ranByToolUseId`), so every inner call is in its run.
@@ -827,8 +837,13 @@ each call with its input and output, and what went back to the model.
     alive at the time. With two or more cells alive it links to none: it
     stays a tool call, labeled "made by a Code Mode script (one of N
     running)".
-  - A Claude Code call with a Code Mode id and no parent field (an older
-    build) is a tool call, labeled "made by a Code Mode script".
+  - A Claude Code call with a Code Mode id and no parent field is a tool
+    call, labeled "made by a Code Mode script". In 2.1.331 these are the
+    script helpers (`searchTools`, id `repl_…`) and the error record that
+    Claude Code adds for a failed script (id `repl-error-…`).
+- **Tested on real sessions:** `backend/tests/fixtures/cc_code_mode/` and
+  `backend/tests/fixtures/codex_code_mode/` hold recorded sessions (synthetic
+  prompts and files, cleaned by `scripts/scrub_fixture.py`).
 - **Search:** with Show Code Mode off, the search does not look inside
   runs. With it on, the script, the calls, and what the run returned are
   searchable. Turning it on or off runs the search again. A hit in a run

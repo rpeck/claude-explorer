@@ -217,7 +217,9 @@ function codeRunToMarkdown(block: ContentBlock): string {
     lines.push('', '**Calls:**', '')
     run.inner_calls.forEach((call, i) => {
       const mark = call.refused ? ' (refused)' : call.is_error ? ' (error)' : ''
-      lines.push(`${i + 1}. \`${call.name}\`${mark}`)
+      const from = (call.inputs_from ?? []).map((j) => j + 1)
+      const fed = from.length > 0 ? ` (input from call ${from.join(', ')})` : ''
+      lines.push(`${i + 1}. \`${call.name}\`${mark}${fed}`)
       if (call.input) lines.push('', codeFence(JSON.stringify(call.input, null, 2), 'json'))
       if (call.result) lines.push('', codeFence(call.result))
       lines.push('')

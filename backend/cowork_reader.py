@@ -50,6 +50,7 @@ from .agent_session_io import (
     normalize_session_fields,
     parse_jsonl_file,
 )
+from .cc_code_mode import fold_code_mode_runs
 from .compact_prefixes import is_compaction_prefix_text
 
 log = logging.getLogger(__name__)
@@ -91,6 +92,8 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
     # limit BEFORE the merge so the truncated text is what every
     # downstream caller sees.
     normalized = [_truncate_oversized_content(e) for e in normalized]
+    # Issue #90: one code_run block per Code Mode run, as in Claude Code.
+    normalized = fold_code_mode_runs(normalized)
 
     # Step 3: group consecutive entries that belong to the same logical
     # message (same _get_message_key) and merge each group into one
