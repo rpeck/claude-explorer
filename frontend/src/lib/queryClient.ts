@@ -61,6 +61,10 @@ export const queryKeys = {
     list: (filters?: object) =>
       ['conversations', 'list', filters] as const,
     detail: (uuid: string) => ['conversations', 'detail', uuid] as const,
+    // Issue #96: under the session's detail key, so its defaults and
+    // invalidations cover the agent transcripts too.
+    agent: (uuid: string, agentId: string) =>
+      ['conversations', 'detail', uuid, 'agent', agentId] as const,
     tree: (uuid: string) => ['conversations', 'tree', uuid] as const,
   },
   search: (

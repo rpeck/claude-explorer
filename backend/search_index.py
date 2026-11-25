@@ -288,7 +288,18 @@ logger = logging.getLogger(__name__)
 #     the Code Mode runs (script, inner calls, returned value). ``body`` and
 #     ``body_text`` leave it out, so ``include_code_mode`` and
 #     ``include_tool_calls`` are two independent column choices. Full rebuild.
-SCHEMA_VERSION = 16
+#   * v17 (2026-11-25, issue #96): each subagent transcript is its own
+#     indexed source. Its rows use the key ``index_key(session, agent)`` in
+#     ``conv_uuid``, so replace and delete work per file. The new
+#     ``session_uuid`` and ``agent_id`` columns carry the locator, and the
+#     scope filters (pin, bookmarks, active filter) match ``session_uuid``.
+#     Full rebuild.
+SCHEMA_VERSION = 17
+
+
+def index_key(session_uuid: str, agent_id: str | None) -> str:
+    """The ``conv_uuid`` of an indexed source: a session, or one agent of it."""
+    return f"{session_uuid}::agent::{agent_id}" if agent_id else session_uuid
 
 
 # ``messages`` is the FTS5 virtual table. UNINDEXED columns store metadata
@@ -377,6 +388,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
     body,
     body_text,
     body_code,
+    session_uuid UNINDEXED,
+    agent_id UNINDEXED,
     tokenize = "porter unicode61 remove_diacritics 1"
 );
 
@@ -441,7 +454,10 @@ CREATE TABLE IF NOT EXISTS conversations (
     project_path TEXT,
     source TEXT,
     organization_id TEXT,
-    is_compaction_titled INTEGER NOT NULL DEFAULT 0
+    is_compaction_titled INTEGER NOT NULL DEFAULT 0,
+    session_uuid TEXT,
+    agent_id TEXT,
+    agent_description TEXT
 );
 """
 
@@ -681,6 +697,7 @@ class SearchIndex:
         "conv_created_at", "conv_updated_at",
         "is_compaction_summary",
         "title", "body", "body_text", "body_code",
+        "session_uuid", "agent_id",
     })
 
     def _init_schema(self) -> None:
@@ -772,6 +789,18 @@ class SearchIndex:
                     )
                     self._write_conn.commit()
                     conv_cols_ok = True
+                # v17 (issue #96): the same race can leave the agent columns
+                # out. A row from before them is a session: its own session.
+                missing = [c for c in ("session_uuid", "agent_id", "agent_description")
+                           if c not in conv_cols]
+                for col in missing:
+                    cur.execute(f"ALTER TABLE conversations ADD COLUMN {col} TEXT")
+                if missing:
+                    cur.execute(
+                        "UPDATE conversations SET session_uuid = conv_uuid "
+                        "WHERE session_uuid IS NULL"
+                    )
+                    self._write_conn.commit()
 
             if cols_ok and version_ok and conv_cols_ok:
                 # On-disk schema matches; ensure all tables exist (no-op if
@@ -822,12 +851,14 @@ class SearchIndex:
                         "INSERT OR IGNORE INTO conversations "
                         "(conv_uuid, title, conv_created_at, "
                         " conv_updated_at, project_path, source, "
-                        " organization_id, is_compaction_titled) "
+                        " organization_id, is_compaction_titled, "
+                        " session_uuid, agent_id) "
                         "SELECT conv_uuid, title, conv_created_at, "
                         "       conv_updated_at, project_path, source, "
                         "       organization_id, "
                         "       CASE WHEN ltrim(title) LIKE ? || '%' "
-                        "            THEN 1 ELSE 0 END "
+                        "            THEN 1 ELSE 0 END, "
+                        "       session_uuid, agent_id "
                         "FROM messages WHERE conv_uuid != '' "
                         "GROUP BY conv_uuid",
                         (COMPACTION_TITLE_PREFIX,),
@@ -1096,7 +1127,8 @@ class SearchIndex:
         rows = cur.execute(
             "SELECT f.path, f.conv_uuid FROM indexed_files f "
             "JOIN conversations c ON c.conv_uuid = f.conv_uuid "
-            "WHERE c.source = 'CLAUDE_CODE'"
+            # An agent source's key is not its file name (issue #96).
+            "WHERE c.source = 'CLAUDE_CODE' AND COALESCE(c.agent_id, '') = ''"
         ).fetchall()
         stale = sorted({conv for path, conv in rows if Path(path).stem != conv})
         if not stale:
@@ -1210,11 +1242,17 @@ class SearchIndex:
         the OLD state (rolled back) or the NEW state — never a half-deleted
         conversation. Returns the count of message rows written.
         """
-        conv_uuid = conv.get("uuid", "")
-        if not conv_uuid:
+        session_uuid = conv.get("uuid", "")
+        if not session_uuid:
             return 0
+        # Issue #96: an agent transcript is its own source under its own key.
+        agent_id = conv.get("agent_id") or ""
+        agent_description = conv.get("agent_description") or ""
+        conv_uuid = index_key(session_uuid, agent_id)
 
-        title = conv.get("name", "") or ""
+        # Agents give no title hits (contract item 5); a result shows the
+        # session's title, read at query time.
+        title = "" if agent_id else (conv.get("name", "") or "")
         source = conv.get("source", "CLAUDE_AI") or "CLAUDE_AI"
         project_path = conv.get("project_path") or ""
         # 2026-05-14 (v5): workspace gate. Empty string ("") for legacy
@@ -1243,7 +1281,7 @@ class SearchIndex:
             if isinstance(m, dict) and m.get("message_uuid")
         }
 
-        rows: list[tuple[str, str, str, str, str, str, str, str, str, int, str, str, str, str]] = []
+        rows: list[tuple[Any, ...]] = []
         for msg in conv.get("chat_messages", []) or []:
             # 2026-05-16 (v7): two parallel projections from the SAME
             # source message via the existing linear-scan helper.
@@ -1284,6 +1322,8 @@ class SearchIndex:
                     body,
                     body_text,
                     body_code,
+                    session_uuid,
+                    agent_id,
                 )
             )
 
@@ -1299,6 +1339,7 @@ class SearchIndex:
                     conv_created_at, conv_updated_at,
                     0,
                     title, "", "", "",
+                    session_uuid, agent_id,
                 )
             )
 
@@ -1316,8 +1357,8 @@ class SearchIndex:
                     "(conv_uuid, message_uuid, sender, created_at, source, "
                     " project_path, organization_id, conv_created_at, "
                     " conv_updated_at, is_compaction_summary, "
-                    " title, body, body_text, body_code) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " title, body, body_text, body_code, session_uuid, agent_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     row,
                 )
                 mapped.append((cur.lastrowid, conv_uuid))
@@ -1347,8 +1388,8 @@ class SearchIndex:
                 "INSERT OR REPLACE INTO conversations "
                 "(conv_uuid, title, conv_created_at, conv_updated_at, "
                 " project_path, source, organization_id, "
-                " is_compaction_titled) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                " is_compaction_titled, session_uuid, agent_id, agent_description) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     conv_uuid,
                     title,
@@ -1358,6 +1399,9 @@ class SearchIndex:
                     source,
                     organization_id,
                     is_compaction_titled,
+                    session_uuid,
+                    agent_id,
+                    agent_description,
                 ),
             )
             # v12 (2026-05-25): also persist the conv_uuid so
@@ -1638,7 +1682,7 @@ class SearchIndex:
         use_allowed_join = False
 
         if conversation_uuid is not None:
-            clauses.append("conv_uuid = ?")
+            clauses.append("session_uuid = ?")
             params.append(conversation_uuid)
         else:
             if project_path is not None:
@@ -1648,7 +1692,7 @@ class SearchIndex:
                 if not bookmarks:
                     return []
                 placeholders = ",".join("?" * len(bookmarks))
-                clauses.append(f"conv_uuid IN ({placeholders})")
+                clauses.append(f"session_uuid IN ({placeholders})")
                 params.extend(sorted(bookmarks))
             if conversation_uuids is not None:
                 # NOT an IN(?, ?, ...) — that hits SQLITE_MAX_VARIABLE_NUMBER
@@ -1657,7 +1701,7 @@ class SearchIndex:
                 # the allowed set, which fixes the LIMIT-5000-drift
                 # correctness bug Council flagged.
                 use_allowed_join = True
-                clauses.append("conv_uuid IN (SELECT uuid FROM allowed_conv)")
+                clauses.append("session_uuid IN (SELECT uuid FROM allowed_conv)")
 
         if source != "all":
             clauses.append("source = ?")
@@ -1783,7 +1827,7 @@ class SearchIndex:
         use_allowed_join = False
 
         if conversation_uuid is not None:
-            clauses.append("conv_uuid = ?")
+            clauses.append("session_uuid = ?")
             params.append(conversation_uuid)
         else:
             if project_path is not None:
@@ -1793,11 +1837,11 @@ class SearchIndex:
                 if not bookmarks:
                     return None
                 placeholders = ",".join("?" * len(bookmarks))
-                clauses.append(f"conv_uuid IN ({placeholders})")
+                clauses.append(f"session_uuid IN ({placeholders})")
                 params.extend(sorted(bookmarks))
             if conversation_uuids is not None:
                 use_allowed_join = True
-                clauses.append("conv_uuid IN (SELECT uuid FROM allowed_conv)")
+                clauses.append("session_uuid IN (SELECT uuid FROM allowed_conv)")
 
         if source != "all":
             clauses.append("source = ?")
@@ -2147,7 +2191,7 @@ class SearchIndex:
         use_allowed_join = False
 
         if conversation_uuid is not None:
-            title_clauses.append("conv_uuid = ?")
+            title_clauses.append("session_uuid = ?")
             title_params.append(conversation_uuid)
         else:
             if project_path is not None:
@@ -2157,13 +2201,13 @@ class SearchIndex:
                 if not bookmarks:
                     return {}
                 placeholders = ",".join("?" * len(bookmarks))
-                title_clauses.append(f"conv_uuid IN ({placeholders})")
+                title_clauses.append(f"session_uuid IN ({placeholders})")
                 title_params.extend(sorted(bookmarks))
             if conversation_uuids is not None:
                 if not conversation_uuids:
                     return {}
                 use_allowed_join = True
-                title_clauses.append("conv_uuid IN (SELECT uuid FROM allowed_conv)")
+                title_clauses.append("session_uuid IN (SELECT uuid FROM allowed_conv)")
         if source != "all":
             title_clauses.append("source = ?")
             title_params.append(source)
@@ -2286,7 +2330,7 @@ class SearchIndex:
         use_allowed_join = False
 
         if conversation_uuid is not None:
-            title_sql_clauses.append("conv_uuid = ?")
+            title_sql_clauses.append("session_uuid = ?")
             title_sql_params.append(conversation_uuid)
         else:
             if project_path is not None:
@@ -2296,14 +2340,14 @@ class SearchIndex:
                 if not bookmarks:
                     return set()
                 placeholders = ",".join("?" * len(bookmarks))
-                title_sql_clauses.append(f"conv_uuid IN ({placeholders})")
+                title_sql_clauses.append(f"session_uuid IN ({placeholders})")
                 title_sql_params.extend(sorted(bookmarks))
             if conversation_uuids is not None:
                 if not conversation_uuids:
                     return set()
                 use_allowed_join = True
                 title_sql_clauses.append(
-                    "conv_uuid IN (SELECT uuid FROM allowed_conv)"
+                    "session_uuid IN (SELECT uuid FROM allowed_conv)"
                 )
         if source != "all":
             title_sql_clauses.append("source = ?")
@@ -2333,6 +2377,32 @@ class SearchIndex:
             # Fall back to empty — body matches still win.
             logger.exception("search_index: title_match_uuids sweep failed")
             return set()
+
+    @_tracked_read
+    def agent_sources(self, keys: set[str]) -> dict[str, dict[str, Any]]:
+        """For each agent key in ``keys``: its session, agent id, description,
+        and the session's current title (issue #96)."""
+        out: dict[str, dict[str, Any]] = {}
+        conn = self._get_read_conn()
+        ordered = sorted(keys)
+        for start in range(0, len(ordered), 500):
+            chunk = ordered[start:start + 500]
+            rows = conn.execute(
+                "SELECT a.conv_uuid, a.session_uuid, a.agent_id, a.agent_description, s.title "
+                "FROM conversations a LEFT JOIN conversations s "
+                "  ON s.conv_uuid = a.session_uuid "
+                f"WHERE a.conv_uuid IN ({','.join('?' * len(chunk))}) "
+                "  AND COALESCE(a.agent_id, '') != ''",
+                chunk,
+            ).fetchall()
+            for key, session_uuid, agent_id, description, session_title in rows:
+                out[key] = {
+                    "session_uuid": session_uuid,
+                    "agent_id": agent_id,
+                    "agent_description": description or None,
+                    "session_title": session_title,
+                }
+        return out
 
     def _populate_allowed_conv(
         self, conn: sqlite3.Connection, uuids: set[str]

@@ -81,15 +81,17 @@ export function useNavigateToMatch() {
   const { setFocusArea, setSelectedMessageIndex, messages, setNavSource } =
     useKeyboardNavigation()
 
-  const currentUuid = useMemo(() => {
-    const match = location.pathname.match(/\/conversations\/(.+)/)
-    return match?.[1]
+  // Issue #96: the open page is a session or one of its agent transcripts.
+  const [currentUuid, currentAgentId] = useMemo(() => {
+    const match = location.pathname.match(/\/conversations\/([^/]+)(?:\/agents\/([^/]+))?/)
+    return [match?.[1], match?.[2] ? decodeURIComponent(match[2]) : null]
   }, [location.pathname])
 
   const navigateToMatch = useCallback(
     (match: SearchMatch, opts?: NavigateToMatchOptions) => {
       const focus = opts?.focus ?? true
-      const isSameConversation = match.conversationUuid === currentUuid
+      const isSameConversation =
+        match.conversationUuid === currentUuid && (match.agentId ?? null) === currentAgentId
       const hasRealMessage = match.messageUuid && match.messageUuid !== 'title'
 
       // Record that this navigation originated from the search panel, so
@@ -167,13 +169,18 @@ export function useNavigateToMatch() {
       // hits that couldn't take the fast path. Warm the cache for the
       // cross-conversation case so the destination renders without a
       // loading skeleton.
-      const isCached = !!queryClient.getQueryData(
-        queryKeys.conversations.detail(match.conversationUuid)
-      )
+      const { conversationUuid, agentId } = match
+      const detailKey = agentId
+        ? queryKeys.conversations.agent(conversationUuid, agentId)
+        : queryKeys.conversations.detail(conversationUuid)
+      const isCached = !!queryClient.getQueryData(detailKey)
       if (!isCached) {
         queryClient.prefetchQuery({
-          queryKey: queryKeys.conversations.detail(match.conversationUuid),
-          queryFn: () => api.getConversation(match.conversationUuid),
+          queryKey: detailKey,
+          queryFn: () =>
+            agentId
+              ? api.getAgentTranscript(conversationUuid, agentId)
+              : api.getConversation(conversationUuid),
           staleTime: Infinity,
         })
       }
@@ -185,8 +192,11 @@ export function useNavigateToMatch() {
       // — they still get focus on the bubble.
       const focusSuffix = focus ? '' : '&focus=0'
       beginSearchNavigation(hasRealMessage ? match.messageUuid : null)
+      const pagePath = agentId
+        ? `/conversations/${conversationUuid}/agents/${encodeURIComponent(agentId)}`
+        : `/conversations/${conversationUuid}`
       navigate(
-        `/conversations/${match.conversationUuid}${
+        `${pagePath}${
           hasRealMessage
             ? `?highlight=${match.messageUuid}${focusSuffix}`
             : ''
@@ -195,6 +205,7 @@ export function useNavigateToMatch() {
     },
     [
       currentUuid,
+      currentAgentId,
       messages,
       setSelectedMessageIndex,
       setFocusArea,

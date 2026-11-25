@@ -2,8 +2,9 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
+from ..cc_subagents import AGENT_ID_PATTERN
 from ..deps import get_store
 from ..models import (
     ConversationDetail,
@@ -120,6 +121,30 @@ async def get_conversation(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return OrjsonResponse(content=conversation)
+
+
+@router.get(
+    "/{uuid}/subagents/{agent_id}",
+    response_model=ConversationDetail,
+    response_class=OrjsonResponse,
+    summary="Get one subagent transcript of a Claude Code session",
+)
+async def get_subagent_transcript(
+    uuid: str,
+    agent_id: str = Path(..., pattern=AGENT_ID_PATTERN),
+    store: ConversationStore = Depends(get_store),
+) -> OrjsonResponse:
+    """Issue #96: the agent transcript, ``ConversationDetail``-shaped.
+
+    ``uuid`` is the session's and ``agent_id`` is set (plan §4.5). The agent
+    is found only through the session's discovery, never from a path built
+    from the request; an unknown agent, or a file outside the session's
+    project directory, gives 404.
+    """
+    detail = store.get_agent_conversation(uuid, agent_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Subagent transcript not found")
+    return OrjsonResponse(content=detail.model_dump(mode="json"))
 
 
 @router.get(

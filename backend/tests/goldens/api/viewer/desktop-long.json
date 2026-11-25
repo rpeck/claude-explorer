@@ -1,5 +1,7 @@
 {
   "detail": {
+    "agent_description": null,
+    "agent_id": null,
     "child_uuids": [],
     "compact_markers": [],
     "created_at": "2026-04-01T10:00:00Z",
@@ -1079,6 +1081,7 @@
     "source_home_abs": null,
     "source_name": null,
     "subagents": [],
+    "subagents_found": [],
     "summary": "Phase 5 fixture: TLS handshakes (long)",
     "updated_at": "2026-04-01T10:30:00Z",
     "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"

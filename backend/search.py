@@ -588,6 +588,25 @@ def _parse_snippet_to_fragments(
     return rendered, fragments, match_start, match_end
 
 
+def _result_identity(
+    key: str, title: str, agents: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """The identity fields of a result for an index key (issue #96).
+
+    An agent's result names its session (uuid and current title) and carries
+    the agent id and description.
+    """
+    agent = agents.get(key)
+    if agent is None:
+        return {"conversation_uuid": key, "conversation_name": title}
+    return {
+        "conversation_uuid": agent["session_uuid"],
+        "conversation_name": agent["session_title"] or "Untitled",
+        "agent_id": agent["agent_id"],
+        "agent_description": agent["agent_description"],
+    }
+
+
 def _search_via_index_fast(
     store: ConversationStore,
     idx: Any,
@@ -753,6 +772,7 @@ def _search_via_index_fast(
         slot["title_marked"] = meta.get("marked_title")
 
     # Build SearchResult list.
+    agents = idx.agent_sources(set(by_conv))
     results: list[SearchResult] = []
     for cu, slot in by_conv.items():
         matching: list[MessageSnippet] = []
@@ -780,8 +800,7 @@ def _search_via_index_fast(
 
         results.append(
             SearchResult(
-                conversation_uuid=cu,
-                conversation_name=slot["title"],
+                **_result_identity(cu, slot["title"], agents),
                 conversation_updated_at=_parse_datetime(slot["conv_updated_at"]),
                 conversation_created_at=_parse_datetime(slot["conv_created_at"]),
                 project_name=_derive_project_name(slot["project_path"]),
@@ -968,6 +987,7 @@ def _search_via_index_fast_full(
         )
         slot["title_marked"] = meta.get("marked_title")
 
+    agents = idx.agent_sources(set(by_conv))
     results: list[SearchResult] = []
     for cu, slot in by_conv.items():
         matching: list[MessageSnippet] = []
@@ -994,8 +1014,7 @@ def _search_via_index_fast_full(
 
         results.append(
             SearchResult(
-                conversation_uuid=cu,
-                conversation_name=slot["title"],
+                **_result_identity(cu, slot["title"], agents),
                 conversation_updated_at=_parse_datetime(slot["conv_updated_at"]),
                 conversation_created_at=_parse_datetime(slot["conv_created_at"]),
                 project_name=_derive_project_name(slot["project_path"]),
@@ -1057,7 +1076,14 @@ def _search_via_linear_scan(
     tokens_lower = [t.lower() for t in tokens]
     results = []
 
-    for conv in store.get_all_conversations_raw(source=source):
+    sessions = store.get_all_conversations_raw(source=source)
+    # Issue #96: each agent transcript is its own result, named after its session.
+    session_names = {c.get("uuid"): c.get("name") for c in sessions}
+    # A store stand-in without agents (tests, other callers) has none.
+    agent_rows = getattr(store, "get_agent_conversations_raw", None)
+    agents = agent_rows(source=source) if agent_rows is not None else []
+    for conv in [*sessions, *agents]:
+        agent_id = conv.get("agent_id")
         if conversation_uuid:
             # Most specific filter; wins over project_path / bookmarks /
             # conversation_uuids. (We also strip those three at the
@@ -1139,7 +1165,8 @@ def _search_via_linear_scan(
         # truth for the predicate — keeps linear and FTS paths from
         # drifting (Council 2026-05-26).
         if (
-            title_needle
+            not agent_id
+            and title_needle
             and title_needle in name_lower
             and (include_compactions or not is_compaction_prefix_text(name))
         ):
@@ -1264,10 +1291,19 @@ def _search_via_linear_scan(
             )
 
         if matching_messages:
+            agent_fields = (
+                {
+                    "conversation_name": session_names.get(conv.get("uuid")) or "Untitled",
+                    "agent_id": agent_id,
+                    "agent_description": conv.get("agent_description"),
+                }
+                if agent_id
+                else {"conversation_name": conv.get("name", "Untitled")}
+            )
             results.append(
                 SearchResult(
                     conversation_uuid=conv.get("uuid", ""),
-                    conversation_name=conv.get("name", "Untitled"),
+                    **agent_fields,
                     conversation_updated_at=_parse_datetime(conv.get("updated_at")),
                     conversation_created_at=_parse_datetime(conv.get("created_at")),
                     project_name=_derive_project_name(conv.get("project_path")),
@@ -1701,6 +1737,7 @@ def _sort_results(
                 if sort == "updated_at"
                 else r.conversation_created_at,
                 r.conversation_uuid,
+                r.agent_id or "",
             )
 
         results.sort(key=_conv_time_key, reverse=reverse)
@@ -1710,6 +1747,7 @@ def _sort_results(
                 (r.conversation_name or "").lower(),
                 r.conversation_updated_at,
                 r.conversation_uuid,
+                r.agent_id or "",
             ),
             reverse=reverse,
         )
@@ -1720,6 +1758,7 @@ def _sort_results(
                 (r.project_name or "").lower(),
                 r.conversation_updated_at,
                 r.conversation_uuid,
+                r.agent_id or "",
             ),
             reverse=reverse,
         )

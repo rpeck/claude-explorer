@@ -1,5 +1,7 @@
 {
   "detail": {
+    "agent_description": null,
+    "agent_id": null,
     "child_uuids": [],
     "compact_markers": [],
     "created_at": "2026-10-06T19:00:00Z",
@@ -169,6 +171,7 @@
     "source_home_abs": null,
     "source_name": null,
     "subagents": [],
+    "subagents_found": [],
     "summary": "",
     "updated_at": "2026-10-06T19:06:00Z",
     "uuid": "session_01FIXTUREREMOTE000000000001"

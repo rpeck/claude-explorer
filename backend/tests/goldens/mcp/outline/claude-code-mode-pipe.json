@@ -1,5 +1,7 @@
 {
   "cached_call": {
+    "agent_description": null,
+    "agent_id": null,
     "conversation_id": "b007d327-80c4-46ea-b737-53d84b30c624",
     "created_at": "2026-11-25T07:12:16.837000+00:00",
     "message_count": 5,
@@ -65,6 +67,8 @@
     "updated_at": "2026-11-25T07:12:24.350000+00:00"
   },
   "first_call": {
+    "agent_description": null,
+    "agent_id": null,
     "conversation_id": "b007d327-80c4-46ea-b737-53d84b30c624",
     "created_at": "2026-11-25T07:12:16.837000+00:00",
     "message_count": 5,
@@ -130,6 +134,8 @@
     "updated_at": "2026-11-25T07:12:24.350000+00:00"
   },
   "page_1_size_2": {
+    "agent_description": null,
+    "agent_id": null,
     "conversation_id": "b007d327-80c4-46ea-b737-53d84b30c624",
     "created_at": "2026-11-25T07:12:16.837000+00:00",
     "message_count": 5,

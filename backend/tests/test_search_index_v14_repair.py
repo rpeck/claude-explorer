@@ -27,7 +27,7 @@ def _make_broken_v14_db(path) -> None:
     """Construct the exact corrupted state observed on the user's machine:
 
     - schema_version row = the current SCHEMA_VERSION (14 when the bug was seen)
-    - messages table = the current column set (v16 added body_code)
+    - messages table = the current column set (v16 added body_code, v17 the agent columns)
     - conversations table = v13 (NO is_compaction_titled column)
     - indexed_files = v12 (conv_uuid present)
     """
@@ -45,7 +45,7 @@ def _make_broken_v14_db(path) -> None:
             created_at UNINDEXED, source UNINDEXED, project_path UNINDEXED,
             organization_id UNINDEXED, conv_created_at UNINDEXED,
             conv_updated_at UNINDEXED, is_compaction_summary UNINDEXED,
-            title, body, body_text, body_code,
+            title, body, body_text, body_code, session_uuid UNINDEXED, agent_id UNINDEXED,
             tokenize = "porter unicode61 remove_diacritics 1"
         );
 
@@ -149,8 +149,8 @@ def test_open_is_noop_when_v14_db_is_fully_consistent(tmp_path):
         # Insert a row to verify it survives the second open.
         conn.execute(
             "INSERT INTO conversations VALUES "
-            "(?, ?, ?, ?, ?, ?, ?, ?)",
-            ("test-conv", "test title", "", "", "", "", "", 0),
+            "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("test-conv", "test title", "", "", "", "", "", 0, "test-conv", "", ""),
         )
         conn.commit()
 

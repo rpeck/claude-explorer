@@ -24,6 +24,9 @@
  *         then the "Parent:" and "Forks and subagents:" links
  *         (CodexHistoryLinks)
  *       * file_path copy button, after "File:" (when present)
+ *       * Claude Code: the "Subagents:" links (SubagentsDetailRow, issue #96)
+ *   - On an agent page (issue #96): the "Session › <agent>" breadcrumb
+ *     above the title, and an "Agent ID:" row
  *
  * Every copy button is a CopyValueButton, which owns its own "copied"
  * state and copies the exact API value (UX.md, "Conversation header:
@@ -44,6 +47,7 @@ import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { NoticeList } from '@/components/conversation/NoticeList'
 import { CodexHistoryLinks } from '@/components/conversation/CodexHistoryLinks'
+import { AgentBreadcrumb, SubagentsDetailRow } from '@/components/conversation/SubagentLinks'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
 import { modelDisplayName } from '@/lib/modelName'
@@ -58,6 +62,7 @@ interface ConversationHeaderProps {
 export function ConversationHeader({ conversation, onOpenTree }: ConversationHeaderProps) {
   return (
     <div className="min-w-0">
+      <AgentBreadcrumb conversation={conversation} />
       <div className="flex items-center gap-2">
         <h1
           className="truncate text-xl font-semibold text-zinc-900 dark:text-zinc-100"
@@ -163,6 +168,14 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
               </CopyValueButton>
             </div>
           )}
+          {conversation.agent_id && (
+            <div className={DETAIL_ROW}>
+              <span className="text-zinc-500">Agent ID:</span>
+              <CopyValueButton value={conversation.agent_id} label="agent ID">
+                <span>{conversation.agent_id}</span>
+              </CopyValueButton>
+            </div>
+          )}
           {conversation.file_path && (
             <div className={DETAIL_ROW}>
               <span className="text-zinc-500">File:</span>
@@ -171,6 +184,7 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
               </CopyValueButton>
             </div>
           )}
+          <SubagentsDetailRow conversation={conversation} />
         </div>
       </details>
       <NoticeList notices={conversation.notices ?? []} />

@@ -62,22 +62,28 @@ export function useConversations(
   return { ...query, data }
 }
 
-export function useConversation(uuid: string, leaf?: string) {
+export function useConversation(uuid: string, leaf?: string, agentId?: string) {
   // staleTime is inherited from queryClient.setQueryDefaults for the
   // ['conversations', 'detail'] key prefix (see lib/queryClient.ts).
   // Task A6 (2026-05-18): detail is 5min — previously Infinity, which
   // suppressed refetchOnWindowFocus and let the fetch pipeline's new
   // messages stay invisible until a hard refresh.
   return useQuery({
-    queryKey: leaf
-      ? [...queryKeys.conversations.detail(uuid), 'leaf', leaf]
-      : queryKeys.conversations.detail(uuid),
+    queryKey: agentId
+      ? queryKeys.conversations.agent(uuid, agentId)
+      : leaf
+        ? [...queryKeys.conversations.detail(uuid), 'leaf', leaf]
+        : queryKeys.conversations.detail(uuid),
     // 2026-05-18 (Hunt #5): plumb queryFn's AbortSignal into api.getConversation
     // so navigating between conversations via keyboard (fast back-to-back
     // mounts) cancels the in-flight multi-MB detail fetch for the conversation
     // the user left. Without this the backend keeps serializing a large payload
     // the cache will discard.
-    queryFn: ({ signal }) => api.getConversation(uuid, leaf, signal),
+    // Issue #96: an agent transcript has no branches, so no leaf.
+    queryFn: ({ signal }) =>
+      agentId
+        ? api.getAgentTranscript(uuid, agentId, signal)
+        : api.getConversation(uuid, leaf, signal),
     enabled: !!uuid,
   })
 }

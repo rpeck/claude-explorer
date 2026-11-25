@@ -45,6 +45,10 @@ async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   return response.json()
 }
 
+// Issue #96: the exports of a subagent transcript name the agent.
+const agentParam = (agentId?: string | null): string =>
+  agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''
+
 export const api = {
   // `/api/conversations` returns the SKINNY ConversationListItem shape
   // (backend split, see PLANS/SPLIT_CONVERSATION_SCHEMA.md).
@@ -147,6 +151,17 @@ export const api = {
     const qs = leaf ? `?leaf=${encodeURIComponent(leaf)}` : ''
     return fetchJson<ConversationDetail>(`/conversations/${uuid}${qs}`, signal)
   },
+
+  // Issue #96: one subagent transcript of a Claude Code session.
+  getAgentTranscript: (
+    uuid: string,
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<ConversationDetail> =>
+    fetchJson<ConversationDetail>(
+      `/conversations/${uuid}/subagents/${encodeURIComponent(agentId)}`,
+      signal,
+    ),
 
   getConversationTree: (
     uuid: string,
@@ -292,9 +307,10 @@ export const api = {
     showToolCalls: boolean = true,
     includeCompact: boolean = false,
     includeCodeMode: boolean = false,
+    agentId?: string | null,
   ): Promise<Response> =>
     fetch(
-      `${BASE_URL}/conversations/${uuid}/export/markdown?include_tools=${showToolCalls}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}`,
+      `${BASE_URL}/conversations/${uuid}/export/markdown?include_tools=${showToolCalls}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}${agentParam(agentId)}`,
     ),
 
   // Issue #4 — Markdown bundle (zip with conversation.md + images/).
@@ -304,9 +320,10 @@ export const api = {
     dialect: 'commonmark' | 'obsidian' = 'commonmark',
     includeCompact: boolean = false,
     includeCodeMode: boolean = false,
+    agentId?: string | null,
   ): Promise<Response> =>
     fetch(
-      `${BASE_URL}/conversations/${uuid}/export/markdown-bundle?include_tools=${showToolCalls}&dialect=${dialect}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}`,
+      `${BASE_URL}/conversations/${uuid}/export/markdown-bundle?include_tools=${showToolCalls}&dialect=${dialect}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}${agentParam(agentId)}`,
     ),
 
   exportPdf: (
@@ -315,9 +332,10 @@ export const api = {
     signal?: AbortSignal,
     includeCompact: boolean = false,
     includeCodeMode: boolean = false,
+    agentId?: string | null,
   ): Promise<Response> =>
     fetch(
-      `${BASE_URL}/conversations/${uuid}/export/pdf?include_tools=${showToolCalls}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}`,
+      `${BASE_URL}/conversations/${uuid}/export/pdf?include_tools=${showToolCalls}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}${agentParam(agentId)}`,
       { signal },
     ),
 

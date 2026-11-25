@@ -65,6 +65,7 @@ function App() {
                     <Route index element={<Navigate to="/conversations" replace />} />
                     <Route path="conversations" element={<ConversationPage />} />
                     <Route path="conversations/:uuid" element={<ConversationPage />} />
+                    <Route path="conversations/:uuid/agents/:agentId" element={<ConversationPage />} />
                     <Route path="projects/:projectSlug" element={<ConversationPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                   </Route>
