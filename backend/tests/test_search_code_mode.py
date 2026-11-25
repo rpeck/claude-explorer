@@ -32,15 +32,20 @@ RUN_WORDS = ("code", "inner_input", "inner_output", "returned", "stdout", "backg
 
 
 def build_code_mode_corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
-    """The e2e fixture tree plus the Code Mode session, indexed. Return the index."""
+    """The Code Mode session and one ordinary Claude Code session, indexed. Return the index.
+
+    A small tree on purpose: each case builds it, and a copy of the whole e2e
+    fixture tree per case cost over a minute on the serial Windows ARM64 run.
+    """
     from backend import config
     from backend import search_index as si
     from backend.cache import clear_cache
     from backend.store import ConversationStore, invalidate_detail_dict_cache
 
     root = tmp_path / "corpus"
-    shutil.copytree(FIXTURES_DIR / "desktop", root / "data")
-    shutil.copytree(FIXTURES_DIR / "claude", root / "claude")
+    (root / "data").mkdir(parents=True)
+    plain = "claude/projects/-fixture-project"
+    shutil.copytree(FIXTURES_DIR / plain, root / plain)
     fake.write_session(root / "claude")
     monkeypatch.setenv("CLAUDE_EXPLORER_DATA_DIR", str(root / "data"))
     monkeypatch.setenv("CLAUDE_DIR", str(root / "claude"))
