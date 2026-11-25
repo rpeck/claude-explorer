@@ -21,6 +21,22 @@ const CC_PIPE = 'b007d327-80c4-46ea-b737-53d84b30c624'
 const CC_CASES = '2339aab4-744c-4556-95b8-5ee5552c1b85'
 const CODEX_CASES = '01a2118a-13d2-77e2-b458-a98bffa8713c'
 
+/** Scroll the virtualized message stream until it settles at the bottom. */
+async function scrollToBottom(page: import('@playwright/test').Page) {
+  await page.evaluate(async () => {
+    const stream = document.querySelector('[data-testid="message-stream"]') as HTMLElement | null
+    if (!stream) return
+    let lastHeight = -1
+    for (let i = 0; i < 60; i++) {
+      stream.scrollTop = stream.scrollHeight
+      await new Promise((r) => setTimeout(r, 100))
+      const atBottom = stream.scrollTop + stream.clientHeight >= stream.scrollHeight - 2
+      if (stream.scrollHeight === lastHeight && atBottom) return
+      lastHeight = stream.scrollHeight
+    }
+  })
+}
+
 async function open(page: import('@playwright/test').Page, uuid: string) {
   await installLocalPrefsMock(page)
   await withNetRetry(page, () => page.goto(`/conversations/${uuid}`))
@@ -70,27 +86,30 @@ test.describe('Code Mode runs on the real backend (#90)', () => {
     await expect(cards.first()).toContainText('Use your REPL')
   })
 
+  // The Conversation Pane is virtualized: only rows near the screen are in
+  // the DOM, and row heights depend on the fonts (CI showed 5 of 6 runs).
+  // So find each run by its content, and scroll to reach the later ones;
+  // never count the rendered rows.
   test('real failed and refused runs', async ({ page }) => {
     await open(page, CC_CASES)
     await page.getByTestId('header-show-code-mode-checkbox').check()
-    const runs = page.getByTestId('code-run')
-    await expect(runs).toHaveCount(4)
-    await expect(runs.nth(0).getByTestId('code-run-title')).toContainText('failed')
-    await expect(runs.nth(0).getByTestId('code-run-error')).toContainText('synthetic failure')
-    await expect(runs.nth(1).getByTestId('code-run-call')).toContainText('refused')
-    await expect(runs.nth(2).getByTestId('code-run-stdout')).toContainText('y = 2')
+    const failed = page.getByTestId('code-run').filter({ hasText: 'synthetic failure' })
+    await expect(failed.getByTestId('code-run-title')).toContainText('failed')
+    await expect(failed.getByTestId('code-run-error')).toContainText('synthetic failure')
+    await expect(page.getByTestId('code-run-call').filter({ hasText: 'Write' })).toContainText('refused')
+    await expect(page.getByTestId('code-run-stdout').filter({ hasText: 'y = 2' })).toHaveCount(1)
   })
 
   test('real Codex cells: failed, terminated, and the call made while two were alive', async ({ page }) => {
     await open(page, CODEX_CASES)
     await page.getByTestId('header-show-code-mode-checkbox').check()
-    const titles = page.getByTestId('code-run-title')
-    await expect(titles).toHaveCount(6)
-    await expect(titles.nth(0)).toContainText('failed')
-    await expect(page.getByTestId('code-run-error').first()).toContainText('synthetic failure')
-    await expect(titles.nth(5)).toContainText('terminated')
-
     await page.getByTestId('header-show-tools-checkbox').check()
+    const failed = page.getByTestId('code-run').filter({ hasText: 'synthetic failure' })
+    await expect(failed.getByTestId('code-run-title')).toContainText('failed')
+
+    await scrollToBottom(page)
+    const terminated = page.getByTestId('code-run').filter({ hasText: 'sleep 30' })
+    await expect(terminated.getByTestId('code-run-title')).toContainText('terminated')
     await expect(page.getByTestId('tool-from-code-mode').filter({ hasText: 'one of 2 running' })).toHaveCount(1)
   })
 })
