@@ -19,6 +19,7 @@ from ._shared import (
     _is_compact_summary_message,
     _is_excludable_marker,
     code_fence,
+    code_run_media_summary,
     filter_tool_placeholders,
     format_timestamp,
     message_has_visible_content,
@@ -45,10 +46,13 @@ def code_run_markdown(block: ContentBlock) -> str:
             if call.result:
                 lines += ["", code_fence(call.result)]
             lines.append("")
-    for label, value in (("Returned to the model", run.result), ("stdout", run.stdout),
-                         ("stderr", run.stderr), ("Error", run.error), ("Refused calls", run.refused)):
+    for label, value in (("Returned to the model", run.result), ("Cut output", run.uncut_output_note),
+                         ("stdout", run.stdout), ("stderr", run.stderr), ("Error", run.error),
+                         ("Refused calls", run.refused)):
         if value:
             lines += ["", f"**{label}:**", "", code_fence(value)]
+    if run.media:
+        lines += ["", f"**Media returned to the model:** {code_run_media_summary(run.media)}"]
     return "\n".join(lines)
 
 

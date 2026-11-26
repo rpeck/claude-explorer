@@ -3,7 +3,7 @@
   "CLAUDE_CODE": [
     {
       "project": "cm-sample",
-      "session_count": 2
+      "session_count": 3
     },
     {
       "project": "project",
@@ -23,7 +23,7 @@
   "all": [
     {
       "project": "cm-sample",
-      "session_count": 2
+      "session_count": 3
     },
     {
       "project": "remote-fixture-project",

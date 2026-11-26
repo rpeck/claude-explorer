@@ -32,6 +32,7 @@ from backend.config import Settings, get_settings, read_env
 from backend.export import (
     conversation_to_markdown,
     filter_tool_placeholders,
+    media_bytes,
     without_code_runs,
 )
 from backend.model_names import sender_label
@@ -558,10 +559,17 @@ def _message_to_dict(
         )
 
     # Issue #90: the runs, in full or as a stub with no script or output text.
+    # Media is a stub in both: MCP leaves out image bytes, as for other blocks.
     runs = [b for b in msg.content if b.type == "code_run" and b.code_run is not None]
     if runs:
         d["code_runs"] = [
-            {"id": b.id, "name": b.name, **b.code_run.model_dump()} if include_code_mode else {
+            {
+                "id": b.id, "name": b.name, **b.code_run.model_dump(exclude={"media"}),
+                "media": [
+                    {"type": m.type, "media_type": (m.source or {}).get("media_type"), "bytes": media_bytes(m)}
+                    for m in b.code_run.media
+                ],
+            } if include_code_mode else {
                 "id": b.id, "name": b.name, "status": b.code_run.status,
                 "line_count": b.code_run.line_count, "call_count": len(b.code_run.inner_calls),
             }

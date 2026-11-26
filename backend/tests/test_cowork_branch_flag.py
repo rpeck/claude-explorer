@@ -31,6 +31,7 @@ NON_COWORK_FLAGS = {
     # Issue #90: the real Code Mode recordings.
     "2339aab4-744c-4556-95b8-5ee5552c1b85": False,
     "b007d327-80c4-46ea-b737-53d84b30c624": False,
+    "6c2110ef-d09c-4f7b-9e2e-657d6e24353d": False,
 }
 
 NO_PARENTS_ONE = [{"uuid": "m1"}]

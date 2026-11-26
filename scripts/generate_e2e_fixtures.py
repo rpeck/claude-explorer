@@ -327,6 +327,7 @@ CC_CODE_MODE_PROJECT = "-home-fixture-cm-sample"
 CC_CODE_MODE_SESSIONS = (
     ("mcp-to-cli-pipe.jsonl", "b007d327-80c4-46ea-b737-53d84b30c624"),
     ("failed-refused-subagent.jsonl", "2339aab4-744c-4556-95b8-5ee5552c1b85"),
+    ("poll-tool-settle.jsonl", "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"),
 )
 # The subagent of the second session, in the current layout.
 CC_CODE_MODE_SUBAGENT = ("subagent-run.jsonl", "2339aab4-744c-4556-95b8-5ee5552c1b85", "a47f122549f03fce6")
@@ -435,7 +436,7 @@ folder, so the copy never writes into these fixtures.
 
 Code Mode (issue #90): the script also copies scrubbed recordings of real
 sessions (synthetic prompts on synthetic files) into the tree, so the
-Playwright suite runs the real backend on real shapes. Two Claude Code
+Playwright suite runs the real backend on real shapes. Three Claude Code
 sessions (and one subagent) go under `claude/projects/-home-fixture-cm-sample/`
 from `cc_code_mode/`; two Codex rollouts from `codex_code_mode/` go into the
 fake Codex home before the copy. `backend/tests/test_fixture_privacy.py`

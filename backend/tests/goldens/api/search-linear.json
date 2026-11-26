@@ -1,6 +1,33 @@
 {
   "results": [
     {
+      "conversation_created_at": "2026-11-26T00:11:26.838000Z",
+      "conversation_name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
+      "conversation_updated_at": "2026-11-26T00:11:33.431000Z",
+      "conversation_uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
+      "matching_messages": [
+        {
+          "created_at": "2026-11-26T00:11:33.431000Z",
+          "fragments": null,
+          "match_end": 161,
+          "match_start": 154,
+          "message_uuid": "f91e960c-cbea-4e3e-b66e-f8687fe75ffe",
+          "sender": "assistant",
+          "snippet": "...and `media/tiny.pdf` with `tools.Read`, and it returned both results. The picture is a small red square. The PDF has one page with the text \"Synthetic fixture page\".\n- **Step 2:** One script logged 400000 letters \"a\" and returned `'done'`. The harness cut the output in the display. It saved the full text to..."
+        },
+        {
+          "created_at": "2026-11-26T00:11:31.028000Z",
+          "fragments": null,
+          "match_end": 159,
+          "match_start": 152,
+          "message_uuid": "651456b8-b0a1-46a5-84f1-fa4ee8421cbd",
+          "sender": "human",
+          "snippet": "...kind=\"repl-eval\" at=\"2026-11-26T00:11:31.025Z\" eval=\"2\" ms=\"9\" status=\"settled\">\n<log>Part of this output was cut. The uncut text is saved to: /home/fixture/.claude/projects/-home-fixture-cm-sample/6c2110ef-d09c-4f7b-9e2e-657d6e24353d/tool-results/uncut-fa1e409d.txt</log>\n<log>aaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+        }
+      ],
+      "project_name": "cm-sample"
+    },
+    {
       "conversation_created_at": "2026-11-25T02:35:18.164000Z",
       "conversation_name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
       "conversation_updated_at": "2026-11-25T02:35:28.844000Z",
@@ -451,7 +478,7 @@
       "project_name": "synthetic-sandbox"
     }
   ],
-  "returned_messages": 37,
-  "total_messages_matched": 37,
+  "returned_messages": 39,
+  "total_messages_matched": 39,
   "truncated": false
 }

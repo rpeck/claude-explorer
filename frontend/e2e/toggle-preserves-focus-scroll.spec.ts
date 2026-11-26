@@ -196,7 +196,7 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
     const searchInput = page.locator('input[placeholder="Search messages..."]')
     await expect(searchInput).toBeVisible()
     await searchInput.fill(NEEDLE)
-    await expect(page.locator('text=/of\\s+1\\s+matches/')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/of\\s+1\\s+match\\b/')).toBeVisible({ timeout: 10000 })
 
     // Click the search-result card → scroll-to-hit lands the target at
     // viewport center via the existing search-hit fast path. Wait for
@@ -321,7 +321,7 @@ test.describe('Header toggle preserves focused-message viewport position (2026-0
     const searchInput = page.locator('input[placeholder="Search messages..."]')
     await expect(searchInput).toBeVisible()
     await searchInput.fill(NEEDLE)
-    await expect(page.locator('text=/of\\s+1\\s+matches/')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/of\\s+1\\s+match\\b/')).toBeVisible({ timeout: 10000 })
 
     const hitCard = page.getByRole('button', { name: new RegExp(NEEDLE) }).first()
     await hitCard.click()

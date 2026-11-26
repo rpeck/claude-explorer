@@ -296,6 +296,51 @@ describe('scrollBubbleIntoView — distance-gated scroll + supersession', () => 
   // position. A test that scrolls away before the chain ends gets yanked
   // back by a pending correction; e2e tests wait for this mark to go
   // away instead of guessing a fixed delay.
+  // 2026-11-25: a bubble taller than the pane (a Code Mode run with a hit
+  // shows its whole script) hid its match when the bubble was centered.
+  // Only such a bubble centers its mark; a bubble that fits centers itself.
+  describe('the search mark', () => {
+    function withMark(target: HTMLElement, markTop: number) {
+      const mark = document.createElement('mark')
+      target.appendChild(mark)
+      stubRect(mark, { top: markTop, height: 20 })
+      return mark
+    }
+
+    it('centers the first mark of the bubble, not the bubble', () => {
+      const { target } = setupContainerAndTarget(-2000, 3000)
+      const mark = withMark(target, -1900)
+      scrollBubbleIntoView(target)
+      expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1)
+      expect(scrollIntoViewSpy.mock.contexts[0]).toBe(mark)
+    })
+
+    it('centers a mark that renders after the jump, at the first correction', () => {
+      const { target } = setupContainerAndTarget(-2000, 3000)
+      scrollBubbleIntoView(target)
+      expect(scrollIntoViewSpy.mock.contexts[0]).toBe(target)
+      const mark = withMark(target, -1900)
+      vi.advanceTimersByTime(250)
+      expect(scrollIntoViewSpy).toHaveBeenCalledTimes(2)
+      expect(scrollIntoViewSpy.mock.contexts[1]).toBe(mark)
+    })
+
+    it('centers a bubble that fits in the pane, even with a mark', () => {
+      const { target } = setupContainerAndTarget(1000, 400)
+      withMark(target, 1350)
+      scrollBubbleIntoView(target)
+      expect(scrollIntoViewSpy.mock.contexts[0]).toBe(target)
+    })
+
+    it('makes no correction when the mark is centered', () => {
+      const { target } = setupContainerAndTarget(-2000, 3000)
+      withMark(target, 490)
+      scrollBubbleIntoView(target)
+      vi.advanceTimersByTime(1250)
+      expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('data-scroll-settling', () => {
     it('is set while corrections are pending and removed when the target is centered', () => {
       const { container, target } = setupContainerAndTarget(460) // center 500: centered

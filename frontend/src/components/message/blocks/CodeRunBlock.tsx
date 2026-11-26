@@ -12,6 +12,7 @@ import { useCopyFeedback } from '@/hooks/useCopyFeedback'
 import { errorToast } from '@/lib/errorToast'
 import { cn } from '@/lib/utils'
 import type { CodeRun, CodeRunCall, ContentBlock } from '@/lib/types'
+import { imageSourceUrl } from './imageCollection'
 
 /** The bubble shows this many script lines; Show all and the overlay show the rest. */
 const CODE_RUN_CUT_LINES = 15
@@ -99,9 +100,37 @@ function Calls({ calls, searchQuery }: { calls: CodeRunCall[]; searchQuery: stri
   )
 }
 
+/** The images (shown) and documents (a download link) that went back with the run. */
+function Media({ media }: { media: ContentBlock[] }) {
+  if (media.length === 0) return null
+  return (
+    <div data-testid="code-run-media" className="border-t border-zinc-800 px-3 py-2 text-xs">
+      <div className="mb-1 font-medium text-zinc-400">Media returned to the model</div>
+      <div className="flex flex-wrap items-start gap-2">
+        {media.map((m, i) => {
+          const src = m.source ? imageSourceUrl(m.source) : null
+          if (!src) return null
+          if (m.type === 'image') {
+            return <img key={i} src={src} alt={`Image ${i + 1} from the script`} className="max-h-60 max-w-full rounded border border-zinc-800" />
+          }
+          const n = media.filter((x, j) => j <= i && x.type !== 'image').length
+          const mediaType = m.source?.media_type ?? 'unknown'
+          const ext = mediaType === 'application/pdf' ? 'pdf' : 'bin'
+          return (
+            <a key={i} href={src} download={`code-mode-document-${n}.${ext}`} className="rounded bg-zinc-800 px-2 py-1 text-sky-300 underline">
+              Download document {n} ({mediaType})
+            </a>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function Outputs({ run, searchQuery }: { run: CodeRun; searchQuery: string }) {
   const parts: [string, string, string | null][] = [
     ['code-run-returned', 'Returned to the model', run.result],
+    ['code-run-cut-note', 'Cut output', run.uncut_output_note ?? null],
     ['code-run-stdout', 'stdout', run.stdout],
     ['code-run-stderr', 'stderr', run.stderr],
     ['code-run-error', 'Error', run.error],
@@ -119,6 +148,7 @@ function Outputs({ run, searchQuery }: { run: CodeRun; searchQuery: string }) {
           </div>
         ) : null,
       )}
+      <Media media={run.media ?? []} />
       {run.status === 'running' && !run.result && (
         <div className="border-t border-zinc-800 px-3 py-2 text-xs text-zinc-400">
           Still running: the session has no result for this script.

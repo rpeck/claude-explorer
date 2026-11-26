@@ -466,6 +466,21 @@ def without_code_runs(conversation: ConversationDetail) -> ConversationDetail:
     return conversation.model_copy(update={"messages": messages})
 
 
+def media_bytes(block: ContentBlock) -> int:
+    """The size of a base64 media block, without decoding it."""
+    data = str((block.source or {}).get("data") or "")
+    return len(data) * 3 // 4 - data[-2:].count("=")
+
+
+def code_run_media_summary(media: list[ContentBlock]) -> str:
+    """The media of a Code Mode run by kind, e.g. "1 image (image/png), 2 documents (application/pdf)"."""
+    counts: dict[tuple[str, str], int] = {}
+    for block in media:
+        key = (block.type, str((block.source or {}).get("media_type") or "unknown"))
+        counts[key] = counts.get(key, 0) + 1
+    return ", ".join(f"{n} {kind}{'' if n == 1 else 's'} ({mt})" for (kind, mt), n in counts.items())
+
+
 def code_fence(text: str, lang: str = "") -> str:
     """A fenced block whose fence is longer than any backtick run in ``text``."""
     fence = "`" * max(3, max((len(r) for r in re.findall(r"`+", text)), default=0) + 1)

@@ -8,11 +8,16 @@ session; see ``backend/tests/cc_code_mode_fake.py``):
   ``<repl-output>`` text (subagent files);
 * the inner calls: ``isVirtual`` records with ``ranByToolUseId`` = the outer
   id, written AFTER the outer result; their content is in ``hostContent``;
-* for a background script, ``(dispatched #N)`` and a later ``poll_events``
-  attachment with ``<event kind="repl-eval" eval="N" ...>``.
+* for a background script, ``(dispatched #N)`` and a later
+  ``<event kind="repl-eval" eval="N" ...>``: in a ``poll_events`` attachment
+  (its ``media[i]`` belongs to ``envelopes[i]``) or in the result of a
+  ``Poll`` tool call.
 
 Inner calls link only by ``ranByToolUseId``. A virtual call with a Code Mode
 id and no parent field stays a tool call, marked ``from_code_mode``.
+
+Images and documents go back to the model with the run: as blocks of the
+outer result (a foreground run) or in ``poll_events.media`` (background).
 """
 
 from __future__ import annotations
@@ -31,14 +36,60 @@ REPL_TOOL_NAMES = frozenset({"REPL", "Eval"})
 CODE_MODE_ID_PREFIXES = ("toolu_cc_", "repl_", "repl-error-")
 
 _TAG_RE = re.compile(r"<(result|log|error|refused)>(.*?)</\1>", re.DOTALL)
-_EVENT_RE = re.compile(r"<event\b([^>]*)>(.*?)</event>", re.DOTALL)
+_EVENT_TAG_RE = re.compile(r"<event\b([^>]*)>|</event>")
+_NONCES_RE = re.compile(r"authentic event nonces for this delivery: ([\w ,]*)")
 _ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
 _DISPATCHED_RE = re.compile(r"^\(dispatched #(\d+)\)$")
+# The <log> part that Claude Code adds when it cuts a long output.
+_CUT_NOTE = "Part of this output was cut."
+MEDIA_TYPES = frozenset({"image", "document"})
 
 
 def _repl_parts(text: str) -> dict[str, str]:
-    """The ``<result>``, ``<log>``, ``<error>``, ``<refused>`` parts of a REPL output text."""
-    return {m.group(1): html.unescape(m.group(2)) for m in _TAG_RE.finditer(text)}
+    """The ``<result>``, ``<log>``, ``<error>``, ``<refused>`` parts of a REPL output text.
+
+    Log and refused parts join. Claude Code writes the result or the error
+    last, so a later one wins over quoted text. The cut note is ``cut_note``.
+    """
+    parts: dict[str, str] = {}
+    for m in _TAG_RE.finditer(text):
+        tag, body = m.group(1), html.unescape(m.group(2))
+        if tag == "log" and body.startswith(_CUT_NOTE):
+            tag = "cut_note"
+        parts[tag] = f"{parts[tag]}\n{body}" if tag in ("log", "refused") and tag in parts else body
+    return parts
+
+
+def _events(text: str) -> list[tuple[dict[str, str], str]]:
+    """The delivered ``<event>`` elements of a text, as (attributes, body).
+
+    A ``Poll`` result lists its authentic nonces; any other ``<event>`` is
+    quoted text, inside or outside a delivered one. A ``poll_events``
+    envelope holds one event, its first.
+    """
+    listed = _NONCES_RE.search(text)
+    nonces = set(re.findall(r"\w+", listed.group(1))) if listed else None
+    out: list[tuple[dict[str, str], str]] = []
+    current: tuple[dict[str, str], int] | None = None
+    depth = 0
+    for m in _EVENT_TAG_RE.finditer(text):
+        if m.group(0) != "</event>":
+            attrs = dict(_ATTR_RE.findall(m.group(1)))
+            if current is not None:
+                depth += 1
+            elif attrs.get("nonce") in nonces if nonces is not None else not out:
+                current, depth = (attrs, m.end()), 0
+        elif current is not None:
+            if depth:
+                depth -= 1
+            else:
+                out.append((current[0], text[current[1]:m.start()]))
+                current = None
+    return out
+
+
+def _media_of(content: Any) -> list[dict[str, Any]]:
+    return [b for b in content if isinstance(b, dict) and b.get("type") in MEDIA_TYPES] if isinstance(content, list) else []
 
 
 def _text_of(content: Any) -> str:
@@ -66,7 +117,9 @@ def _new_run(block: dict[str, Any]) -> dict[str, Any]:
         "stderr": None,
         "error": None,
         "refused": None,
+        "uncut_output_note": None,
         "inner_calls": [],
+        "media": [],
     }
 
 
@@ -87,21 +140,26 @@ def _apply_result(run: dict[str, Any], block: dict[str, Any], tur: Any) -> int |
         run["stderr"] = tur.get("stderr") or None
         run["error"] = tur.get("error") or None
         run["refused"] = tur.get("refusedCalls") or None
+        run["uncut_output_note"] = tur.get("uncutOutputNote") or parts.get("cut_note")
     else:
         run["result"] = parts.get("result")
         run["stdout"] = parts.get("log")
         run["error"] = parts.get("error")
         run["refused"] = parts.get("refused")
+        run["uncut_output_note"] = parts.get("cut_note")
+    run["media"] = _media_of(block.get("content"))
     run["status"] = "failed" if run["error"] or block.get("is_error") else "completed"
     return None
 
 
-def _settle(run: dict[str, Any], body: str, attrs: dict[str, str]) -> None:
+def _settle(run: dict[str, Any], body: str, attrs: dict[str, str], media: list[dict[str, Any]]) -> None:
     parts = _repl_parts(body)
     run["result"] = parts.get("result")
     run["stdout"] = parts.get("log") or run["stdout"]
     run["error"] = parts.get("error")
     run["refused"] = parts.get("refused") or run["refused"]
+    run["uncut_output_note"] = parts.get("cut_note")
+    run["media"] = media
     if run["error"]:
         run["status"] = "failed"
     elif attrs.get("status") == "settled":
@@ -127,17 +185,30 @@ def fold_code_mode_runs(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Entries are copied before a change; the input list is not changed.
     """
     runs: dict[str, dict[str, Any]] = {}
+    polls: set[str] = set()  # the ids of Poll calls, whose results can settle a run
     for entry in entries:
         if entry.get("type") != "assistant" or entry.get("isVirtual"):
             continue
         for block in (entry.get("message") or {}).get("content") or []:
             if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") in REPL_TOOL_NAMES:
                 runs[block.get("id") or ""] = _new_run(block)
+            elif isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") == "Poll":
+                polls.add(block.get("id") or "")
     runs.pop("", None)
     if not runs and not any(e.get("isVirtual") for e in entries):
         return entries
 
     by_eval: dict[int, str] = {}
+
+    def settle_from(text: str, media: list[dict[str, Any]]) -> None:
+        settled = [
+            (attrs, body) for attrs, body in _events(text)
+            if attrs.get("kind") == "repl-eval" and attrs.get("eval", "").isdigit() and int(attrs["eval"]) in by_eval
+        ]
+        for attrs, body in settled:
+            # shortcut: media of a delivery with several settled events is not split per event; split it when a recording shows one.
+            _settle(runs[by_eval[int(attrs["eval"])]], body, attrs, media if len(settled) == 1 else [])
+
     calls: dict[str, dict[str, Any]] = {}  # inner call id -> its call
     dropped: dict[str, str | None] = {}  # uuid -> parentUuid, for each removed entry
     out: list[dict[str, Any]] = []
@@ -172,6 +243,8 @@ def fold_code_mode_runs(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     if eval_id is not None:
                         by_eval[eval_id] = use_id
                 else:
+                    if use_id in polls:
+                        settle_from(_text_of(block.get("content")), _media_of(block.get("content")))
                     kept.append(block)
             if len(kept) != len(content):
                 if not kept:
@@ -192,12 +265,10 @@ def fold_code_mode_runs(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         elif kind == "attachment":
             att = entry.get("attachment") or {}
             if att.get("type") == "poll_events":
-                for envelope in att.get("envelopes") or []:
-                    for m in _EVENT_RE.finditer(envelope if isinstance(envelope, str) else ""):
-                        attrs = dict(_ATTR_RE.findall(m.group(1)))
-                        run_id = by_eval.get(int(attrs["eval"])) if attrs.get("eval", "").isdigit() else None
-                        if attrs.get("kind") == "repl-eval" and run_id:
-                            _settle(runs[run_id], m.group(2), attrs)
+                media = att.get("media") if isinstance(att.get("media"), list) else []
+                for i, envelope in enumerate(att.get("envelopes") or []):
+                    if isinstance(envelope, str):
+                        settle_from(envelope, _media_of(media[i]) if i < len(media) else [])
         out.append(entry)
 
     for run in runs.values():

@@ -93,6 +93,17 @@ export const SETTLING_ATTR = 'data-scroll-settling'
  *   the originating action (a checkbox click). The multi-shot
  *   correction tail still runs to absorb any post-settle drift.
  */
+/**
+ * The bubble, or its first search `<mark>` when the bubble is taller than
+ * the pane. Only the active-match bubble gets the query, so its marks are
+ * the match. A tall bubble (2026-11-25: a Code Mode run with a hit shows
+ * its whole script) hid the match when the bubble was centered.
+ */
+function scrollTarget(element: HTMLElement, container: HTMLElement): HTMLElement {
+  if (element.getBoundingClientRect().height <= container.getBoundingClientRect().height) return element
+  return element.querySelector<HTMLElement>('mark') ?? element
+}
+
 export function scrollBubbleIntoView(element: HTMLElement, forceInstant = false): void {
   const myToken = ++scrollToken
   const container = element.closest(SCROLL_CONTAINER_SELECTOR) as HTMLElement | null
@@ -106,15 +117,16 @@ export function scrollBubbleIntoView(element: HTMLElement, forceInstant = false)
     return
   }
 
+  const target = scrollTarget(element, container)
   const containerRect = container.getBoundingClientRect()
-  const targetRect = element.getBoundingClientRect()
+  const targetRect = target.getBoundingClientRect()
   const viewportH = containerRect.height
   const targetCenter = targetRect.top + targetRect.height / 2
   const containerCenter = containerRect.top + viewportH / 2
   const distancePx = Math.abs(targetCenter - containerCenter)
   const isLongHop = distancePx > viewportH * LONG_HOP_VIEWPORT_MULTIPLE
 
-  element.scrollIntoView({
+  target.scrollIntoView({
     behavior: isLongHop || forceInstant ? 'auto' : 'smooth',
     block: 'center',
   })
@@ -156,11 +168,13 @@ function scheduleCorrections(
       settled(token, container)
       return
     }
-    const r = element.getBoundingClientRect()
+    // The mark can render after the jump (the query reaches the bubble deferred).
+    const target = scrollTarget(element, container)
+    const r = target.getBoundingClientRect()
     const c = container.getBoundingClientRect()
     const off = (r.top + r.height / 2) - (c.top + c.height / 2)
     if (Math.abs(off) > CORRECTION_THRESHOLD_PX) {
-      element.scrollIntoView({ behavior: 'auto', block: 'center' })
+      target.scrollIntoView({ behavior: 'auto', block: 'center' })
       scheduleCorrections(token, element, container, stepIdx + 1)
     } else {
       settled(token, container)

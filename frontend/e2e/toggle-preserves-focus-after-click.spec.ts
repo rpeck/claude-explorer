@@ -193,7 +193,7 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
     const searchInput = page.locator('input[placeholder="Search messages..."]')
     await expect(searchInput).toBeVisible()
     await searchInput.fill(NEEDLE)
-    await expect(page.locator('text=/of\\s+1\\s+matches/')).toBeVisible({
+    await expect(page.locator('text=/of\\s+1\\s+match\\b/')).toBeVisible({
       timeout: 10000,
     })
 
@@ -310,7 +310,7 @@ test.describe('Bug 2 (2026-05-26): Toggle preserves focus AFTER user click', () 
     await page.keyboard.press('Meta+k')
     const searchInput = page.locator('input[placeholder="Search messages..."]')
     await searchInput.fill(NEEDLE)
-    await expect(page.locator('text=/of\\s+1\\s+matches/')).toBeVisible({
+    await expect(page.locator('text=/of\\s+1\\s+match\\b/')).toBeVisible({
       timeout: 10000,
     })
 

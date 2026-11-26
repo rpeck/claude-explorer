@@ -41,9 +41,13 @@ class CodeRun(BaseModel):
     stderr: str | None = None
     error: str | None = None
     refused: str | None = None
+    # Claude Code's note when it cut a long output; it names the file with the uncut text.
+    uncut_output_note: str | None = None
     inner_calls: list[CodeRunCall] = Field(default_factory=list)
     # The calls whose output is in what the run returned to the model.
     returned_from: list[int] = Field(default_factory=list)
+    # Images and documents (base64 ``image`` and ``document`` blocks) that went back with the run.
+    media: list["ContentBlock"] = Field(default_factory=list)
 
 
 # Issue #90: left out of the JSON when empty, so other blocks keep their shape.
@@ -90,6 +94,9 @@ class ContentBlock(BaseModel):
             if data.get(key) is None:
                 data.pop(key, None)
         return data
+
+
+CodeRun.model_rebuild()  # resolves ``media: list["ContentBlock"]``
 
 
 class Message(BaseModel):

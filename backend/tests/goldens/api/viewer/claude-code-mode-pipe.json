@@ -92,12 +92,14 @@
               ],
               "language": "javascript",
               "line_count": 23,
+              "media": [],
               "refused": null,
               "result": "31",
               "returned_from": [],
               "status": "completed",
               "stderr": null,
-              "stdout": null
+              "stdout": null,
+              "uncut_output_note": null
             },
             "content": null,
             "id": "toolu_019A96AwHdz9cHDbajNFJHCb",
