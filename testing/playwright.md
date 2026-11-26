@@ -300,8 +300,10 @@ Some specs define their own local `async function mockBackend(page)` helper. The
 
 If this mock is missing, these problems occur:
 
-- GET/PATCH/PUT `/api/preferences` falls through the Vite dev-server proxy to the e2e backend on `:18765`.
-  - The e2e servers use their own ports, 18765 and 15173 (`playwright.config.ts`). Before 2026-10-21 they used 8765 and 5173, so a local run could reuse the installed app on 8765, with a real archive.
+- GET/PATCH/PUT `/api/preferences` falls through the Vite dev-server proxy to the e2e backend.
+  - The e2e servers use their own ports (`playwright.config.ts`): 18765 and 15173 plus an offset of 0 to 999 that comes from the worktree path. `E2E_API_PORT` and `E2E_WEB_PORT` override them.
+    - Before 2026-10-21 they used 8765 and 5173, so a local run could reuse the installed app on 8765, with a real archive.
+    - Until 2026-11-26 every worktree used 18765 and 15173. A local run then reused the servers of a run in another worktree, so it tested that worktree's code, and when those servers stopped, Vite reloaded the page mid-test (issue #98).
 - Prefs persist across browser contexts and leak from one test into another. Examples of these prefs:
   - `rightPaneTab`
   - `searchPanel.isOpen`

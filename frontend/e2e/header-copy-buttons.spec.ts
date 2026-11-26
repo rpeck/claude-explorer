@@ -1,4 +1,4 @@
-import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry, nextFrames } from './fixtures'
+import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 
 /**
@@ -169,41 +169,63 @@ test.describe('Header copy buttons — the check mark belongs to the copied valu
     page,
     mockBackend,
   }) => {
+    // Issue #99: page time, not wall time. The test used to fail when a
+    // loaded machine took more than 2 s from the copy to the read, because
+    // A's 2 s reset could then fire first. The page clock is paused after
+    // the copy and moves only when the test moves it, so the reset cannot
+    // fire before the read, however slow the machine is.
+    await page.clock.install()
     await mockBackend({
       conversations: [desktopSummary, desktopBSummary],
       details: { [DESKTOP]: desktopDetail, [DESKTOP_B]: desktopBDetail },
     })
+    // The header's copy button remounts when the conversation changes, so
+    // this end-to-end path cannot show a check mark that outlives its value;
+    // the unit tests of CopyValueButton cover that logic (value changes).
     const header = await openConversation(page, DESKTOP, DESKTOP_NAME)
     const uuidButton = header.getByTitle('Click to copy UUID')
     await expect(uuidButton).toContainText(DESKTOP)
 
-    const clickedAt = Date.now()
+    // Pause 1 s ahead of the page's clock: it keeps running until the pause,
+    // and a smaller margin raced it ("Cannot fast-forward to the past").
+    // The jump comes before the copy, so it does not touch A's window.
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000)
     expect(await copyAndRead(page, uuidButton)).toBe(DESKTOP)
 
     const row = page.locator('aside').getByText(DESKTOP_B_NAME, { exact: true })
     await expect(row).toBeVisible()
     await row.click()
 
-    // Settle: B's header and B's UUID are on screen, and the effects that
-    // render scheduled have run.
-    await expect(header.getByRole('heading', { level: 1, name: DESKTOP_B_NAME })).toBeVisible()
-    await expect(uuidButton).toContainText(DESKTOP_B)
-    await nextFrames(page)
+    // The router and the data layer schedule their updates with timers, so
+    // move page time in 50 ms steps until B's header and UUID show. The
+    // bound counts page time (at most 1,500 ms), so it stays inside A's
+    // 2 s window on any machine.
+    const bHeading = header.getByRole('heading', { level: 1, name: DESKTOP_B_NAME })
+    let pageMs = 0
+    while (!((await bHeading.isVisible()) && (await uuidButton.textContent())?.includes(DESKTOP_B))) {
+      expect(pageMs, 'B did not open within 1,500 ms of page time').toBeLessThan(1500)
+      await page.clock.runFor(50)
+      pageMs += 50
+    }
+    await page.clock.runFor(32) // two animation frames
 
+    const read = () =>
+      uuidButton.evaluate((el) => ({
+        text: el.textContent ?? '',
+        check: el.querySelector('.text-green-500') !== null,
+        copyIcon: el.querySelector('.lucide-copy') !== null,
+      }))
     // One read, no retry: a retrying assertion would pass once A's 2 s
     // reset fires, which is the bug this test exists to catch.
-    const state = await uuidButton.evaluate((el) => ({
-      text: el.textContent ?? '',
-      check: el.querySelector('.text-green-500') !== null,
-      copyIcon: el.querySelector('.lucide-copy') !== null,
-    }))
-    const elapsed = Date.now() - clickedAt
-    expect(
-      elapsed,
-      `inconclusive: B opened ${elapsed} ms after the copy, past A's 2 s check-mark window`,
-    ).toBeLessThan(2000)
+    const state = await read()
     expect(state.text).toContain(DESKTOP_B)
     expect(state.check, "B's UUID button must not show A's check mark").toBe(false)
     expect(state.copyIcon, "B's UUID button shows the copy icon").toBe(true)
+
+    // A's reset fires now; B keeps its copy icon.
+    await page.clock.runFor(2500)
+    const after = await read()
+    expect(after.check).toBe(false)
+    expect(after.copyIcon).toBe(true)
   })
 })

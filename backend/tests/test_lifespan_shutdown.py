@@ -226,80 +226,90 @@ async def test_shutdown_does_not_leak_cancellederror(
 
 
 @pytest.mark.serial
-async def test_watcher_shutdown_under_500ms_when_observer_join_is_slow(
+async def test_watcher_shutdown_does_not_wait_for_a_slow_observer_join(
     minimal_lifespan_env: Path,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The CC watcher's shutdown must complete in < 500ms even when the
-    underlying ``watchdog.Observer.join`` would otherwise take seconds.
+    """The lifespan exit must not wait for ``watchdog.Observer.join``.
 
-    Pre-refactor failure mode: ``backend/main.py`` does ``watcher_stop.set();
-    await asyncio.wait_for(watcher_task, timeout=2.0)``, then ``cancel()``
-    without awaiting. The 2-second wait_for caps cooperative shutdown at
-    2 s. If the watcher's ``observer.join(timeout=5)`` is slow (because the
-    underlying ``observer.stop()`` doesn't return immediately), shutdown
-    can stretch to the full 2 s. The refactor wraps observer cleanup in
-    ``asyncio.to_thread`` inside a ``finally`` block, so the asyncio task
-    cancellation returns quickly even when the OS-level thread join is
-    still in flight — the join completes on its own time without
-    blocking the lifespan exit.
+    The lifespan cancels the watcher task. On cancellation the watcher's
+    ``finally`` calls ``observer.stop()`` and no ``join()``; the observer
+    threads are daemons (``backend.cc_watcher.run_watcher``).
 
-    Strategy: enable the watcher, then patch
-    ``backend.cc_watcher._try_start_observer`` to return a fake
-    Observer whose ``stop()`` is a no-op and ``join()`` sleeps for 4 s.
-    Pre-refactor: shutdown waits up to 2 s on ``wait_for(watcher_task)``,
-    then bails. Post-refactor: shutdown cancels the watcher task; the
-    cancellation triggers the ``finally`` block which kicks the
-    slow-join into a background thread and returns immediately.
+    Issue #100: this test used to assert a wall-clock budget (exit in
+    < 0.5 s). Under machine load it failed at random (0.66 to 1.52 s),
+    although the code never waited: in every run the fake ``join()`` was
+    never called, and the exit took about 1 ms, also with 24 CPU burners
+    on 14 cores. The budget measured the machine, not the code.
+
+    Now the proof is an event, not a clock: the fake ``join()`` blocks
+    until the test releases it after the exit. Two regressions fail:
+
+    * a join called on the event loop: the exit blocks until the join
+      returns (the 10 s safety timeout), so a join returns before the exit;
+    * a join awaited through ``to_thread``: the exit waits until the 5 s
+      hard cap in ``_cancel_background_tasks``, which logs "exceeded 5s
+      budget".
     """
+    import logging
+    import threading
+
     from backend.main import app
+
+    caplog.set_level(logging.ERROR, logger="backend.main")
 
     # Enable the watcher (disabled by default in the fixture).
     monkeypatch.delenv(
         "CLAUDE_EXPLORER_DISABLE_CC_WATCHER", raising=False
     )
     # Force-import the watcher module so the patch targets resolve.
-    # The lifespan imports it lazily inside the if-block; ``patch()``
-    # resolves the attribute path eagerly, so we need the module
-    # present in ``sys.modules`` before the ``with patch(...)`` setup.
     import backend.cc_watcher  # noqa: F401
 
-    class _FakeObserver:
-        """Simulates a watchdog Observer whose join is slow."""
+    release = threading.Event()
+    joins_returned: list[float] = []
+    started: list[str] = []
 
-        def __init__(self) -> None:
-            self._stopped = False
+    class _FakeObserver:
+        """A watchdog Observer whose join blocks until the test releases it."""
 
         def stop(self) -> None:
-            self._stopped = True
+            pass
 
         def join(self, timeout: float | None = None) -> None:
-            # Block synchronously to mimic an Observer whose underlying
-            # FSEvents/inotify thread is slow to teardown.
-            time.sleep(min(timeout or 5.0, 5.0))
+            release.wait(10.0)
+            joins_returned.append(time.perf_counter())
 
     def _fake_start_observer() -> Any:
+        started.append("observer")
         return _FakeObserver()
 
     # Patch BOTH observers (image-cache + projects-dir) with slow joiners.
-    with patch(
-        "backend.cc_watcher._try_start_observer",
-        side_effect=_fake_start_observer,
-    ), patch(
-        "backend.cc_watcher._try_start_projects_observer",
-        side_effect=_fake_start_observer,
-    ):
-        async with app.router.lifespan_context(app):
-            # Give the watcher a beat to start and enter its main loop.
-            await asyncio.sleep(0.1)
-            t0 = time.perf_counter()
-        elapsed = time.perf_counter() - t0
+    try:
+        with patch(
+            "backend.cc_watcher._try_start_observer",
+            side_effect=_fake_start_observer,
+        ), patch(
+            "backend.cc_watcher._try_start_projects_observer",
+            side_effect=_fake_start_observer,
+        ):
+            async with app.router.lifespan_context(app):
+                # Give the watcher a beat to start and enter its main loop.
+                await asyncio.sleep(0.1)
+            exited_at = time.perf_counter()
+            joins_before_exit = [t for t in joins_returned if t <= exited_at]
+    finally:
+        release.set()
 
-    assert elapsed < 0.5, (
-        f"Watcher shutdown took {elapsed:.3f}s; expected < 0.5s. "
-        "The blocking observer.join() is stalling the event loop "
-        "during lifespan exit. Wrap observer cleanup in asyncio.to_thread "
-        "inside a finally block so cancellation returns quickly."
+    assert started, "the watcher did not start its observers, so the test proves nothing"
+    assert joins_before_exit == [], (
+        "The lifespan exit waited for observer.join() on the event loop. "
+        "On cancellation, call observer.stop() and do not join."
+    )
+    capped = [r.getMessage() for r in caplog.records if "exceeded 5s budget" in r.getMessage()]
+    assert capped == [], (
+        f"The lifespan exit waited for a task until the 5 s hard cap: {capped}. "
+        "On cancellation, the watcher must not await observer.join()."
     )
 
 
