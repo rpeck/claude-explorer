@@ -1,0 +1,103 @@
+{
+  "cached_call": {
+    "agent_description": null,
+    "agent_id": null,
+    "conversation_id": "5a6e0000-0000-4000-8000-000000000096",
+    "created_at": "2026-04-01T20:01:00+00:00",
+    "message_count": 2,
+    "messages": [
+      {
+        "char_count": 33,
+        "code_run_count": 0,
+        "message_uuid": "0096-u1",
+        "position": 0,
+        "sender": "human",
+        "summary": "Start the agents (zqsessiontext).",
+        "timestamp": "2026-04-01T20:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 26,
+        "code_run_count": 0,
+        "message_uuid": "0096-t1",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "The agents ran (zqshared).",
+        "timestamp": "2026-04-01T20:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Start the agents (zqsessiontext).",
+    "next_position": null,
+    "project": "proj-sa",
+    "session_id": "5a6e0000-0000-4000-8000-000000000096",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-04-01T20:02:00+00:00"
+  },
+  "first_call": {
+    "agent_description": null,
+    "agent_id": null,
+    "conversation_id": "5a6e0000-0000-4000-8000-000000000096",
+    "created_at": "2026-04-01T20:01:00+00:00",
+    "message_count": 2,
+    "messages": [
+      {
+        "char_count": 33,
+        "code_run_count": 0,
+        "message_uuid": "0096-u1",
+        "position": 0,
+        "sender": "human",
+        "summary": "Start the agents (zqsessiontext).",
+        "timestamp": "2026-04-01T20:01:00+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 26,
+        "code_run_count": 0,
+        "message_uuid": "0096-t1",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "The agents ran (zqshared).",
+        "timestamp": "2026-04-01T20:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Start the agents (zqsessiontext).",
+    "next_position": null,
+    "project": "proj-sa",
+    "session_id": "5a6e0000-0000-4000-8000-000000000096",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-04-01T20:02:00+00:00"
+  },
+  "page_1_size_2": {
+    "agent_description": null,
+    "agent_id": null,
+    "conversation_id": "5a6e0000-0000-4000-8000-000000000096",
+    "created_at": "2026-04-01T20:01:00+00:00",
+    "message_count": 2,
+    "messages": [
+      {
+        "char_count": 26,
+        "code_run_count": 0,
+        "message_uuid": "0096-t1",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "The agents ran (zqshared).",
+        "timestamp": "2026-04-01T20:02:00+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Start the agents (zqsessiontext).",
+    "next_position": null,
+    "project": "proj-sa",
+    "session_id": "5a6e0000-0000-4000-8000-000000000096",
+    "source": "CLAUDE_CODE",
+    "start_position": 1,
+    "updated_at": "2026-04-01T20:02:00+00:00"
+  }
+}

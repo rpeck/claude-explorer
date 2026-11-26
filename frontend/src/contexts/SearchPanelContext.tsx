@@ -47,6 +47,10 @@ export interface SearchMatch {
    *  multi-token cluster — better than the legacy first-token-only
    *  highlight. */
   fragments?: SnippetFragment[] | null
+  /** Issue #96: a hit inside this subagent transcript of the session
+   *  `conversationUuid`; null for the session's own messages. */
+  agentId: string | null
+  agentDescription: string | null
 }
 
 export type SearchContextSize = 'snippet' | 'full'
@@ -583,6 +587,8 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
             conversationUpdatedAt: result.conversation_updated_at,
             conversationCreatedAt: result.conversation_created_at,
             fragments: msg.fragments ?? null,
+            agentId: result.agent_id ?? null,
+            agentDescription: result.agent_description ?? null,
           })
         }
       } else {
@@ -601,6 +607,8 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
           conversationUpdatedAt: result.conversation_updated_at,
           conversationCreatedAt: result.conversation_created_at,
           fragments: titleMatch?.fragments ?? null,
+          agentId: result.agent_id ?? null,
+          agentDescription: result.agent_description ?? null,
         })
       }
     }

@@ -67,6 +67,8 @@ function makeMatch(overrides: Partial<SearchMatch> & { conversationUuid: string;
     createdAt: '2026-05-20T00:00:00Z',
     conversationUpdatedAt: '2026-05-20T00:00:00Z',
     conversationCreatedAt: '2026-05-20T00:00:00Z',
+    agentId: null,
+    agentDescription: null,
     ...overrides,
   }
 }

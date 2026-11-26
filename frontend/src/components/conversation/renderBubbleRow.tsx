@@ -128,6 +128,8 @@ export function renderBubbleRow(message: Message, deps: RenderBubbleRowDeps) {
       isKeyboardSelected={isSelected}
       conversationId={conversation.uuid}
       conversationSource={conversation.source}
+      agentId={conversation.agent_id ?? null}
+      agentDescription={conversation.agent_description ?? null}
       showToolCalls={showToolCalls}
       showCodeMode={showCodeMode}
       expandAllTools={expandAllTools}

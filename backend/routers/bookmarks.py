@@ -12,7 +12,9 @@ Claude Explorer data directory. Schema:
           "source": "claude_desktop" | "claude_code",
           "created_at": "<iso8601>",
           "note": "<user-supplied string>",
-          "snippet": "<auto-truncated message text, ~140 chars>"
+          "snippet": "<auto-truncated message text, ~140 chars>",
+          "agent_id": "<id>" | null,           // issue #96: a message of this agent transcript
+          "agent_description": "<text>" | null // a snapshot of its description
         }
       ]
     }
@@ -33,6 +35,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from fetcher.atomic import atomic_write_bytes
 
+from ..cc_subagents import AGENT_ID_PATTERN
 from ..deps import refuse_if_config_corrupt
 
 logger = logging.getLogger(__name__)
@@ -71,6 +74,10 @@ class Bookmark(BaseModel):
     created_at: str
     note: str = ""
     snippet: str = ""
+    # Issue #96: the identity is (conversation_id, agent_id, message_uuid).
+    # Not validated on read: a hand-edited file keeps its bookmark.
+    agent_id: str | None = None
+    agent_description: str | None = None
 
 
 class BookmarkCreate(BaseModel):
@@ -89,6 +96,9 @@ class BookmarkCreate(BaseModel):
     source: Literal["claude_desktop", "claude_code"]
     snippet: str = Field(default="", max_length=500)
     note: str = ""
+    # Not looked up: a bookmark may outlive its agent file.
+    agent_id: str | None = Field(default=None, pattern=AGENT_ID_PATTERN)
+    agent_description: str | None = Field(default=None, max_length=500)
 
 
 class BookmarkUpdate(BaseModel):
@@ -170,6 +180,8 @@ async def create_bookmark(payload: BookmarkCreate) -> Bookmark:
         created_at=datetime.now(UTC).isoformat(),
         note=payload.note,
         snippet=payload.snippet[:140],
+        agent_id=payload.agent_id,
+        agent_description=payload.agent_description,
     )
     bookmarks = _read_all()
     bookmarks.append(bookmark)

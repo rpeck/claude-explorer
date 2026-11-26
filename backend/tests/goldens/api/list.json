@@ -65,6 +65,22 @@
       "uuid": "session_01FIXTUREREMOTE000000000001"
     },
     {
+      "created_at": "2026-04-01T20:01:00Z",
+      "has_branches": false,
+      "is_starred": false,
+      "message_count": 2,
+      "model": "claude-sonnet-5-5",
+      "name": "Start the agents (zqsessiontext).",
+      "organization_id": null,
+      "organization_name": null,
+      "project_name": "proj-sa",
+      "project_path": "/home/fixture/proj-sa",
+      "source": "CLAUDE_CODE",
+      "subagents": [],
+      "updated_at": "2026-04-01T20:02:00Z",
+      "uuid": "5a6e0000-0000-4000-8000-000000000096"
+    },
+    {
       "created_at": "2026-04-01T10:00:00Z",
       "has_branches": false,
       "is_starred": false,
@@ -209,6 +225,22 @@
       "subagents": [],
       "updated_at": "2026-10-06T19:06:00Z",
       "uuid": "session_01FIXTUREREMOTE000000000001"
+    },
+    {
+      "created_at": "2026-04-01T20:01:00Z",
+      "has_branches": false,
+      "is_starred": false,
+      "message_count": 2,
+      "model": "claude-sonnet-5-5",
+      "name": "Start the agents (zqsessiontext).",
+      "organization_id": null,
+      "organization_name": null,
+      "project_name": "proj-sa",
+      "project_path": "/home/fixture/proj-sa",
+      "source": "CLAUDE_CODE",
+      "subagents": [],
+      "updated_at": "2026-04-01T20:02:00Z",
+      "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
@@ -405,6 +437,22 @@
       "uuid": "session_01FIXTUREREMOTE000000000001"
     },
     {
+      "created_at": "2026-04-01T20:01:00Z",
+      "has_branches": false,
+      "is_starred": false,
+      "message_count": 2,
+      "model": "claude-sonnet-5-5",
+      "name": "Start the agents (zqsessiontext).",
+      "organization_id": null,
+      "organization_name": null,
+      "project_name": "proj-sa",
+      "project_path": "/home/fixture/proj-sa",
+      "source": "CLAUDE_CODE",
+      "subagents": [],
+      "updated_at": "2026-04-01T20:02:00Z",
+      "uuid": "5a6e0000-0000-4000-8000-000000000096"
+    },
+    {
       "created_at": "2025-05-25T10:00:00Z",
       "has_branches": false,
       "is_starred": false,
@@ -533,6 +581,22 @@
       "subagents": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
+    },
+    {
+      "created_at": "2026-04-01T20:01:00Z",
+      "has_branches": false,
+      "is_starred": false,
+      "message_count": 2,
+      "model": "claude-sonnet-5-5",
+      "name": "Start the agents (zqsessiontext).",
+      "organization_id": null,
+      "organization_name": null,
+      "project_name": "proj-sa",
+      "project_path": "/home/fixture/proj-sa",
+      "source": "CLAUDE_CODE",
+      "subagents": [],
+      "updated_at": "2026-04-01T20:02:00Z",
+      "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2026-11-26T00:11:26.838000Z",
@@ -681,6 +745,22 @@
       "subagents": [],
       "updated_at": "2026-11-25T02:35:28.844000Z",
       "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
+    },
+    {
+      "created_at": "2026-04-01T20:01:00Z",
+      "has_branches": false,
+      "is_starred": false,
+      "message_count": 2,
+      "model": "claude-sonnet-5-5",
+      "name": "Start the agents (zqsessiontext).",
+      "organization_id": null,
+      "organization_name": null,
+      "project_name": "proj-sa",
+      "project_path": "/home/fixture/proj-sa",
+      "source": "CLAUDE_CODE",
+      "subagents": [],
+      "updated_at": "2026-04-01T20:02:00Z",
+      "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",

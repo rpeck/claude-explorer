@@ -619,8 +619,15 @@ Bookmarks are persisted **server-side** at `~/.claude-explorer/bookmarks.json`.
 - `PATCH /api/bookmarks/{id}` — update note.
 - `DELETE /api/bookmarks/{id}` — remove.
 
-Each bookmark stores `{conversation_uuid, message_uuid, note,
-created_at}`.
+Each bookmark stores `{conversation_id, message_uuid, source, note,
+snippet, created_at}`, and for a message of a subagent transcript also
+`agent_id` and `agent_description` (issue #96; the description is a
+snapshot, like the snippet).
+
+- A set `agent_id` must match `^[A-Za-z0-9_-]{1,64}$`, else 422. The route
+  does not look the agent up: a bookmark can outlive its file.
+- Identity is `(conversation_id, agent_id, message_uuid)`. A bookmark from
+  before #96 has no `agent_id` and is a bookmark on the session.
 
 ### UI
 
@@ -632,6 +639,13 @@ created_at}`.
   the search UI. Selection is persisted via `rightPaneTab` in settings.
 - Bookmarked messages get a small star badge inline so the user can spot
   them while scrolling the conversation.
+- **On an agent page** (§19), the star and the `b` key bookmark the message
+  with the agent. The same message uuid on the session and on an agent are
+  two bookmarks.
+- In the Bookmarks tab, a bookmark on an agent shows the agent's
+  description, else "Agent <id>". A click opens the agent page at the
+  message (`/conversations/<session>/agents/<agent>?m=<message>`). The
+  Markdown export names the agent the same way and links to the agent page.
 
 ---
 
@@ -872,6 +886,52 @@ each call with its input and output, and what went back to the model.
 - Code: `backend/cc_code_mode.py`, `backend/codex/projection.py`
   (`_CodeMode`), `frontend/src/components/message/blocks/CodeRunBlock.tsx`,
   `frontend/src/components/diagram/SequenceDiagram.tsx`.
+
+## 19. Subagent transcripts (issue #96)
+
+A Claude Code session can start subagents. Each agent writes its own
+transcript, and the answer you need is often in one of them. Explorer opens
+and searches these transcripts like a session.
+
+- **Which transcripts:** for one session, the agent files in
+  `<project>/<session>/subagents/agent-<id>.jsonl` and the older
+  `<project>/agent-<id>.jsonl` whose first `sessionId` is the session.
+  - Compaction runs (`acompact-*`) and side questions (`aside_question-*`)
+    are Claude Code's own runs, so they are left out.
+  - A file whose real path is outside the session's project folder is left
+    out (a symlink that points elsewhere).
+- **The agent page:** `/conversations/<session>/agents/<agent>` shows the
+  transcript in the Conversation Pane.
+  - Above the title, a breadcrumb: "Session › <the agent's description, or
+    its id>". "Session" opens the session.
+  - The title is the description from the agent's `.meta.json`, else
+    "Agent <id>". The Details add an "Agent ID:" row.
+  - Show Tools, Show Code Mode, Show Compactions, Copy as Markdown, the
+    Markdown export, the bundle, and the PDF work as for a session. The
+    export file name holds the agent id.
+- **Ways in:**
+  - The session's Details have a "Subagents:" row, with one link per agent
+    (only when the session has one).
+  - A search hit inside an agent.
+  - The URL.
+  - The Conversation List does not change: it shows sessions only.
+- **Search:** each agent transcript is its own result, under its session's
+  name, with the agent's description (or id) on the card. A click or Cmd+G
+  opens the agent page at the message.
+  - The scope pin, the bookmarks scope, the active filter, the project, and
+    the source apply to an agent through its session.
+  - Show Tools, Show Code Mode, and Show Compactions apply as for a session.
+  - An agent's description gives no title hit.
+- **MCP:** a `list_sessions` hit inside an agent carries `agent_id`;
+  `get_session_outline`, `get_messages`, and `export_session` take it.
+- **What #46 adds later:** the Agent call block in the parent session, links
+  from each call to its agent, nested agents, workflow agents, agents whose
+  transcript is gone, and the Activity panel.
+- **Bookmarks:** a bookmark made on an agent page holds the agent id and
+  opens the agent page (§15).
+- Code: `backend/cc_subagents.py`, the route in
+  `backend/routers/conversations.py`,
+  `frontend/src/components/conversation/SubagentLinks.tsx`.
 
 ---
 

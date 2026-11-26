@@ -66,11 +66,24 @@ CORPUS_UUIDS = {
         # Issue #90: the real Code Mode recordings (scripts/generate_e2e_fixtures.py).
         "2339aab4-744c-4556-95b8-5ee5552c1b85",
         "b007d327-80c4-46ea-b737-53d84b30c624",
+        # Issue #96: the synthetic session with subagents.
+        "5a6e0000-0000-4000-8000-000000000096",
         "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
     },
     "CLAUDE_COWORK": {
         "aaaa1111-2222-3333-4444-555566667777",
         "session_01FIXTUREREMOTE000000000001",
+    },
+}
+
+# Issue #96: each subagent transcript is its own indexed source, under the
+# key ``search_index.index_key(session, agent)``.
+CORPUS_AGENT_KEYS = {
+    "CLAUDE_CODE": {
+        "2339aab4-744c-4556-95b8-5ee5552c1b85::agent::a47f122549f03fce6",
+        # The synthetic session: a current-layout agent and a legacy agent.
+        "5a6e0000-0000-4000-8000-000000000096::agent::a5a0000000000096c",
+        "5a6e0000-0000-4000-8000-000000000096::agent::5a1e9ac",
     },
 }
 
@@ -565,7 +578,7 @@ def test_discover_reads_the_roots_of_the_store_not_the_settings(other_store, sou
 
     store, other = other_store
     paths = [_real(p) for p in get_adapter(source_id, store).discover()]
-    assert len(paths) == len(CORPUS_UUIDS[source_id])
+    assert len(paths) == len(CORPUS_UUIDS[source_id]) + len(CORPUS_AGENT_KEYS.get(source_id, ()))
     for path in paths:
         assert path.startswith(_real(other) + os.sep), path
 
@@ -626,16 +639,21 @@ def test_discover_yields_the_files_that_the_index_records(corpus, store, source_
     from backend.sources.registry import get_adapter
 
     indexed = _indexed_paths(corpus)
-    expected = {indexed[u] for u in CORPUS_UUIDS[source_id]}
+    keys = CORPUS_UUIDS[source_id] | CORPUS_AGENT_KEYS.get(source_id, set())
+    expected = {indexed[u] for u in keys}
     assert {_real(p) for p in get_adapter(source_id, store).discover()} == expected
 
 
 def _reader_load(source_id: str, store, path: Path):
     """Today's _load_conversation_at, per source."""
     if source_id == "CLAUDE_CODE":
+        from backend.cc_subagents import as_agent_conversation, owner_of
         from backend.claude_code_reader import read_claude_code_conversation
 
-        return read_claude_code_conversation(path)
+        data = read_claude_code_conversation(path)
+        # Issue #96: an agent transcript, in its session's identity.
+        owner = owner_of(path)
+        return as_agent_conversation(data, *owner) if owner else data
     if source_id == "CLAUDE_COWORK":
         from backend.cowork_reader import read_cowork_conversation
 

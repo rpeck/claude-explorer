@@ -25,6 +25,16 @@ from `cc_code_mode/`; two Codex rollouts from `codex_code_mode/` go into the
 fake Codex home before the copy. `backend/tests/test_fixture_privacy.py`
 checks every fixture for real data.
 
+Subagent transcripts (issue #96): the recorded subagent gets a synthetic
+`agent-a47f122549f03fce6.meta.json` ("List src directory"). A synthetic
+session `5a6e0000-…0096` under `claude/projects/-home-fixture-proj-sa/` has a
+current-layout agent `a5a0000000000096c` ("Synthetic search agent") and a
+legacy agent `agent-5a1e9ac.jsonl` (no meta file). Each word is in one place:
+`zqsessiontext` (session prompt), `zqshared` (session reply and agent reply),
+`zqagenttext` (agent reply), `zqagenttool` (agent tool output), `zqagentcode`
+(agent Code Mode script), `zqagentcompact` (agent compaction summary),
+`zqlegacyagent` (legacy agent reply). Used by `subagent-transcripts.spec.ts`.
+
 ## Layout
 
 ```

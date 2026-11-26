@@ -68,6 +68,11 @@ interface MessageBubbleProps {
    *
    *  Default `""` (no highlighting) when omitted. */
   searchQuery?: string
+  /** Issue #96: on an agent page, the agent of the transcript; the star
+   *  and the bookmark use it. PROP, not context (AGENTS.md, Performance
+   *  Work rule 1). */
+  agentId?: string | null
+  agentDescription?: string | null
 }
 
 function MessageBubbleImpl({
@@ -79,6 +84,8 @@ function MessageBubbleImpl({
   showCodeMode = false,
   expandAllTools = false,
   searchQuery = '',
+  agentId = null,
+  agentDescription = null,
 }: MessageBubbleProps) {
   // Render probe for e2e tests, in development builds only. An effect
   // without deps runs after each commit in which this bubble rendered,
@@ -98,7 +105,7 @@ function MessageBubbleImpl({
   // unmount — all pinned by useCopyFeedback.test.ts AND the
   // MessageBubble.test.tsx "timer cleanup on unmount" suite.
   const { copied, trigger: triggerCopied } = useCopyFeedback()
-  const bookmarked = conversationId ? isBookmarked(conversationId, message.uuid) : false
+  const bookmarked = conversationId ? isBookmarked(conversationId, message.uuid, agentId) : false
 
   const handleToggleBookmark = async () => {
     if (!conversationId) return
@@ -108,6 +115,8 @@ function MessageBubbleImpl({
       source: conversationSource === 'CLAUDE_AI' ? 'claude_desktop' : 'claude_code',
       note: '',
       snippet: (message.text || '').slice(0, 140),
+      // Issue #96: only an agent page's bookmark names an agent.
+      ...(agentId ? { agent_id: agentId, agent_description: agentDescription } : {}),
     })
   }
 
@@ -403,6 +412,8 @@ export const MessageBubble = memo(MessageBubbleImpl, (prev, next) => {
     prev.showToolCalls === next.showToolCalls &&
     prev.showCodeMode === next.showCodeMode &&
     prev.expandAllTools === next.expandAllTools &&
-    prev.searchQuery === next.searchQuery
+    prev.searchQuery === next.searchQuery &&
+    prev.agentId === next.agentId &&
+    prev.agentDescription === next.agentDescription
   )
 })

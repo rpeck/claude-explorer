@@ -332,6 +332,16 @@ export interface ConversationDetail extends ConversationSummary {
   sandbox_path?: string | null
   // Codex: the forks and subagents of this thread, oldest first.
   child_uuids?: string[]
+  // Issue #96: the agent transcripts of a Claude Code session (session detail only).
+  subagents_found?: SubagentFound[]
+  // Issue #96: set on an agent transcript; `uuid` is then the session's.
+  agent_id?: string | null
+  agent_description?: string | null
+}
+
+export interface SubagentFound {
+  agent_id: string
+  agent_description: string | null
 }
 
 export interface MessageNode {
@@ -383,6 +393,9 @@ export interface SearchResult {
   conversation_created_at: string
   project_name: string | null
   matching_messages: MessageSnippet[]
+  // Issue #96: a hit inside an agent transcript of the session `conversation_uuid`.
+  agent_id?: string | null
+  agent_description?: string | null
 }
 
 /**
@@ -490,6 +503,10 @@ export interface Bookmark {
   created_at: string
   note: string
   snippet: string
+  // Issue #96: a message of this agent transcript of the session. The
+  // identity is (conversation_id, agent_id, message_uuid).
+  agent_id?: string | null
+  agent_description?: string | null
 }
 
 // Config types
