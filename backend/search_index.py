@@ -294,7 +294,12 @@ logger = logging.getLogger(__name__)
 #     ``session_uuid`` and ``agent_id`` columns carry the locator, and the
 #     scope filters (pin, bookmarks, active filter) match ``session_uuid``.
 #     Full rebuild.
-SCHEMA_VERSION = 17
+#   * v18 (2026-11-26, issue #90, #80 option B): ``conversations`` gets
+#     ``has_code_runs`` (1 when any message of the conversation holds a
+#     Code Mode run), so :meth:`SearchIndex.has_code_runs` answers "does the
+#     archive hold runs?" with one EXISTS over that small table. Full
+#     rebuild (v17 was never released, so users still rebuild only once).
+SCHEMA_VERSION = 18
 
 
 def index_key(session_uuid: str, agent_id: str | None) -> str:
@@ -457,7 +462,8 @@ CREATE TABLE IF NOT EXISTS conversations (
     is_compaction_titled INTEGER NOT NULL DEFAULT 0,
     session_uuid TEXT,
     agent_id TEXT,
-    agent_description TEXT
+    agent_description TEXT,
+    has_code_runs INTEGER NOT NULL DEFAULT 0
 );
 """
 
@@ -799,6 +805,17 @@ class SearchIndex:
                     cur.execute(
                         "UPDATE conversations SET session_uuid = conv_uuid "
                         "WHERE session_uuid IS NULL"
+                    )
+                    self._write_conn.commit()
+                # v18 (#80 option B): the same race can leave has_code_runs
+                # out. Add it and fill it from ``messages`` in one pass.
+                if "has_code_runs" not in conv_cols:
+                    cur.execute(
+                        "ALTER TABLE conversations ADD COLUMN has_code_runs INTEGER NOT NULL DEFAULT 0"
+                    )
+                    cur.execute(
+                        "UPDATE conversations SET has_code_runs = 1 WHERE conv_uuid IN "
+                        "(SELECT DISTINCT conv_uuid FROM messages WHERE body_code <> '')"
                     )
                     self._write_conn.commit()
 
@@ -1212,6 +1229,19 @@ class SearchIndex:
         """
         return self._read_conns.get()
 
+    # ----- archive facts ---------------------------------------------
+
+    def has_code_runs(self) -> bool:
+        """True when any indexed conversation holds a Code Mode run (#80 option B).
+
+        One EXISTS over the small ``conversations`` table, not a scan of
+        ``messages``.
+        """
+        row = self._get_read_conn().execute(
+            "SELECT EXISTS(SELECT 1 FROM conversations WHERE has_code_runs = 1)"
+        ).fetchone()
+        return bool(row and row[0])
+
     # ----- readiness flags -------------------------------------------
 
     def is_ready(self) -> bool:
@@ -1384,12 +1414,15 @@ class SearchIndex:
             # ``cc_message_transforms``) get the new title here, so
             # this flag re-evaluates correctly on the next upsert.
             is_compaction_titled = 1 if is_compaction_prefix_text(title) else 0
+            # v18: row index 13 is body_code.
+            has_code_runs = 1 if any(row[13] for row in rows) else 0
             self._write_conn.execute(
                 "INSERT OR REPLACE INTO conversations "
                 "(conv_uuid, title, conv_created_at, conv_updated_at, "
                 " project_path, source, organization_id, "
-                " is_compaction_titled, session_uuid, agent_id, agent_description) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " is_compaction_titled, session_uuid, agent_id, agent_description, "
+                " has_code_runs) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     conv_uuid,
                     title,
@@ -1402,6 +1435,7 @@ class SearchIndex:
                     session_uuid,
                     agent_id,
                     agent_description,
+                    has_code_runs,
                 ),
             )
             # v12 (2026-05-25): also persist the conv_uuid so

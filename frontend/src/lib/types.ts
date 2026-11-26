@@ -420,6 +420,8 @@ export interface SearchResponse {
   total_messages_matched: number
   returned_messages: number
   truncated: boolean
+  /** Issue #90, #80 option B: the archive holds at least one Code Mode run. */
+  has_code_runs?: boolean
 }
 
 /**

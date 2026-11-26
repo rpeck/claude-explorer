@@ -363,7 +363,7 @@ def search_conversations(
     # conversation_uuids check is hoisted up so we don't waste a query on
     # the FTS5 index either.
     if conversation_uuids is not None and not conversation_uuids:
-        return SearchResponse()
+        return _with_has_code_runs(store, SearchResponse())
 
     # ``conversation_uuid`` (singular pin scope) is most-specific; when
     # set, it overrides ``project_path``, ``bookmarks``, AND
@@ -393,7 +393,7 @@ def search_conversations(
         if idx is not None and idx.is_ready():
             try:
                 if context_size == "snippet":
-                    return _search_via_index_fast(
+                    return _with_has_code_runs(store, _search_via_index_fast(
                         store, idx, query,
                         source=source,
                         sort=sort, sort_order=sort_order,
@@ -406,12 +406,12 @@ def search_conversations(
                         organization_id=organization_id,
                         conversation_uuids=conversation_uuids,
                         limit=limit,
-                    )
+                    ))
                 # context_size == "full" fast path (2026-05-22 cold-
                 # cache perf fix). Reads `body`/`body_text` directly
                 # from FTS5 instead of walking 150+ JSONL files from
                 # disk. Cold full-mode goes from ~13 s to ~0.5 s.
-                return _search_via_index_fast_full(
+                return _with_has_code_runs(store, _search_via_index_fast_full(
                     store, idx, query,
                     source=source,
                     sort=sort, sort_order=sort_order,
@@ -424,7 +424,7 @@ def search_conversations(
                     organization_id=organization_id,
                     conversation_uuids=conversation_uuids,
                     limit=limit,
-                )
+                ))
             except sqlite3.Error:
                 logger.exception(
                     "search_index: query failed; falling back to linear scan"
@@ -449,7 +449,42 @@ def search_conversations(
     )
     # Linear scan never truncates — it walks every conversation and
     # emits every match. envelope.truncated = False; total == returned.
-    return _wrap_envelope_no_truncation(linear_results)
+    return _with_has_code_runs(store, _wrap_envelope_no_truncation(linear_results))
+
+
+def archive_has_code_runs(store: ConversationStore) -> bool:
+    """True when the archive holds at least one Code Mode run (#80 option B).
+
+    The Search Pane names "hidden Code Mode runs" on an empty result whenever
+    this is true, so the user knows that hidden content might match. With the
+    index ready, one EXISTS over its ``conversations`` table answers. Before
+    that (the first build after an upgrade), a scan of the conversations
+    stops at the first run; the linear search has just read them, so they
+    are in the cache.
+    """
+    try:
+        from .search_index import get_search_index
+
+        idx = get_search_index()
+        if idx is not None and idx.is_ready():
+            return idx.has_code_runs()
+    except (ImportError, sqlite3.Error):
+        logger.exception("search_index: has_code_runs failed; scanning the conversations")
+    convs = [*store.get_all_conversations_raw(source="all")]
+    agent_rows = getattr(store, "get_agent_conversations_raw", None)
+    if agent_rows is not None:
+        convs += agent_rows(source="all")
+    return any(
+        isinstance(block, dict) and block.get("type") == "code_run"
+        for conv in convs
+        for msg in conv.get("chat_messages") or []
+        for block in msg.get("content") or []
+    )
+
+
+def _with_has_code_runs(store: ConversationStore, response: SearchResponse) -> SearchResponse:
+    response.has_code_runs = archive_has_code_runs(store)
+    return response
 
 
 def _wrap_envelope_no_truncation(results: list[SearchResult]) -> SearchResponse:

@@ -11,7 +11,7 @@ import { CM_CONV_UUID, CM_DETAIL, CM_SUMMARY, CM_WORDS } from '../src/test/fixtu
  * - Expand opens the overlay: Script, Calls, Data flow, Returned. Esc
  *   closes it.
  * - An unlinked Code Mode call is a tool call, labeled.
- * - An empty search names hidden Code Mode runs when they hold a match;
+ * - An empty search names hidden Code Mode runs when the archive holds runs;
  *   its button turns the toggle on and the hit shows.
  * - No unexpected console errors (the consoleAssertions auto-fixture).
  */
@@ -68,7 +68,7 @@ async function mockBackend(page: import('@playwright/test').Page) {
     }] : []
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ results, total_messages_matched: results.length, returned_messages: results.length, truncated: false }),
+      body: JSON.stringify({ results, total_messages_matched: results.length, returned_messages: results.length, truncated: false, has_code_runs: true }),
     })
   })
   return searches
@@ -145,8 +145,10 @@ test.describe('Code Mode runs (#90)', () => {
 
     await expect(page.getByText(/No matches for/)).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('search-empty-filters')).toContainText('hidden Code Mode runs')
-    // The search itself left the runs out; only the probe looked inside.
+    // #80 option B: the archive holds runs (has_code_runs), so the line names
+    // them; no search has looked inside the runs before the button.
     expect(searches.some((p) => p.get('q') === CM_WORDS.code && p.get('include_code_mode') === null)).toBe(true)
+    expect(searches.every((p) => p.get('include_code_mode') !== 'true')).toBe(true)
 
     await page.getByTestId('search-empty-show-code-mode').click()
     await expect(page.getByTestId('header-show-code-mode-checkbox')).toBeChecked()

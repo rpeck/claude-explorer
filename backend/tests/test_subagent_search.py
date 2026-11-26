@@ -270,7 +270,7 @@ def test_a_session_result_on_the_wire_has_agent_id_null(corpus: Any) -> None:
 def test_the_search_index_is_at_schema_17() -> None:
     from backend import search_index as si
 
-    assert si.SCHEMA_VERSION == 17
+    assert si.SCHEMA_VERSION == 18
 
 
 # ---------------------------------------------------------------------------

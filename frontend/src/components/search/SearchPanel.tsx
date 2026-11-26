@@ -75,7 +75,7 @@ export function SearchPanel() {
     isLoading,
     isSearching,
     namedFilterLimitsSearch,
-    hiddenCodeModeMatches,
+    hiddenCodeModeRuns,
     close,
     setQuery,
     setContextSize,
@@ -271,9 +271,10 @@ export function SearchPanel() {
       testId: 'search-empty-show-tools',
       clear: () => setShowToolCalls(true),
     },
-    // Issue #90: with Show Code Mode off, the search leaves runs out. Named
-    // only when the runs hold a match (a probe search in SearchPanelContext).
-    !showCodeMode && hiddenCodeModeMatches && {
+    // Issue #90, #80 option B: with Show Code Mode off, the search leaves runs
+    // out. Named whenever the archive holds runs, so the user knows that hidden
+    // content might match (has_code_runs in the search response).
+    !showCodeMode && hiddenCodeModeRuns && {
       key: 'code-mode',
       part: <>hidden Code Mode runs</>,
       button: 'Search Code Mode runs too',

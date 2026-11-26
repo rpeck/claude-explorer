@@ -238,9 +238,15 @@ a word in a Claude Code session then looked like a broken search.
   3. `filter "<name>"`: the active named filter removes at least one
      conversation. A filter that passes every conversation is not named.
   4. `hidden tool calls`: Show Tools is off.
-  5. `hidden Code Mode runs`: Show Code Mode is off, and the runs hold a
-     match (issue #90). One probe search with `include_code_mode=true`
-     decides, so a user who never ran Code Mode never sees this part.
+  5. `hidden Code Mode runs`: Show Code Mode is off, and the archive holds
+     at least one Code Mode run (issue #90).
+     - The user then knows that hidden content might match and can widen
+       the search, even when no run holds the word.
+     - A user who never ran Code Mode never sees this part.
+     - The search response carries `has_code_runs`, for the whole archive,
+       not the query or its scope. The index answers it with one check of
+       its `conversations` table. Before the index is ready, a scan of the
+       conversations stops at the first run.
 - **The buttons:** one per part, in the same order, after the pin button.
   - "Search all agents" sets the source filter to all.
   - "Search all workspaces" sets the workspace to all.
