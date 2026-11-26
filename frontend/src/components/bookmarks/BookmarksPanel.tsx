@@ -1,12 +1,25 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Bookmark as BookmarkIcon, Trash2, ExternalLink, Edit3, Download } from 'lucide-react'
+import { Bookmark as BookmarkIcon, Bot, Trash2, ExternalLink, Edit3, Download } from 'lucide-react'
 import { useBookmarks } from '@/contexts/BookmarkContext'
 import { useSearchPanel } from '@/contexts/SearchPanelContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { downloadBlob, formatDate } from '@/lib/utils'
 import type { Bookmark } from '@/lib/types'
+
+// Issue #96: a bookmark on an agent transcript opens the agent page.
+function bookmarkPath(b: Bookmark): string {
+  const page = b.agent_id
+    ? `/conversations/${b.conversation_id}/agents/${encodeURIComponent(b.agent_id)}`
+    : `/conversations/${b.conversation_id}`
+  return `${page}?m=${b.message_uuid}`
+}
+
+function agentName(b: Bookmark): string | null {
+  if (!b.agent_id) return null
+  return b.agent_description || `Agent ${b.agent_id}`
+}
 
 function bookmarksToMarkdown(bookmarks: Bookmark[]): string {
   const lines: string[] = ['# Bookmarks', '']
@@ -26,7 +39,9 @@ function bookmarksToMarkdown(bookmarks: Bookmark[]): string {
   for (const [convId, bms] of byConv.entries()) {
     lines.push(`## Conversation ${convId}`, '')
     for (const b of bms) {
-      lines.push(`- **[${b.message_uuid.slice(0, 8)}](/conversations/${convId}?m=${b.message_uuid})**`)
+      lines.push(`- **[${b.message_uuid.slice(0, 8)}](${bookmarkPath(b)})**`)
+      const agent = agentName(b)
+      if (agent) lines.push(`  - Agent: ${agent}`)
       if (b.note) lines.push(`  - Note: ${b.note}`)
       if (b.snippet) lines.push(`  - > ${b.snippet}`)
       lines.push('')
@@ -57,7 +72,7 @@ export function BookmarksPanel() {
 
   const handleOpen = (b: Bookmark) => {
     close()
-    navigate(`/conversations/${b.conversation_id}?m=${b.message_uuid}`)
+    navigate(bookmarkPath(b))
   }
 
   const handleExport = () => {
@@ -133,6 +148,16 @@ export function BookmarksPanel() {
                     >
                       {b.snippet || `Message ${b.message_uuid.slice(0, 8)}`}
                     </button>
+                    {b.agent_id && (
+                      <span
+                        className="flex shrink-0 items-center gap-1 truncate text-[11px] text-purple-600 dark:text-purple-400"
+                        data-testid="bookmark-agent"
+                        title={agentName(b) ?? undefined}
+                      >
+                        <Bot className="h-3 w-3" />
+                        {agentName(b)}
+                      </span>
+                    )}
                     <div className="flex items-center gap-1">
                       <button
                         type="button"

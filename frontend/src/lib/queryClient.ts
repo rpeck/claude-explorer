@@ -61,6 +61,10 @@ export const queryKeys = {
     list: (filters?: object) =>
       ['conversations', 'list', filters] as const,
     detail: (uuid: string) => ['conversations', 'detail', uuid] as const,
+    // Issue #96: under the session's detail key, so its defaults and
+    // invalidations cover the agent transcripts too.
+    agent: (uuid: string, agentId: string) =>
+      ['conversations', 'detail', uuid, 'agent', agentId] as const,
     tree: (uuid: string) => ['conversations', 'tree', uuid] as const,
   },
   search: (
@@ -87,7 +91,9 @@ export const queryKeys = {
     // 2026-05-26: include_compactions mirrors include_tool_calls — same
     // queryKey-membership rationale.
     includeCompactions?: boolean,
-  ) => ['search', query, source, contextSize, sort, sortOrder, scope, includeToolCalls, includeCompactions] as const,
+    // Issue #90: include_code_mode, same rationale.
+    includeCodeMode?: boolean,
+  ) => ['search', query, source, contextSize, sort, sortOrder, scope, includeToolCalls, includeCompactions, includeCodeMode] as const,
   config: ['config'] as const,
   account: ['account'] as const,
 }

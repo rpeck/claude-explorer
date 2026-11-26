@@ -174,7 +174,7 @@ test.describe('Search — include_compactions filter (Bug 1 fix 2026-05-26)', ()
     await searchInput.fill(SUMMARY_NEEDLE)
 
     // Wait for the result envelope to update.
-    await expect(page.locator('text=/of\\s+1\\s+matches/')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/of\\s+1\\s+match\\b/')).toBeVisible({ timeout: 10000 })
 
     // Sidebar shows ONE match (the compaction hit) — the network layer
     // received `include_compactions=true` (or didn't set the param at
@@ -299,6 +299,6 @@ test.describe('Search — include_compactions filter (Bug 1 fix 2026-05-26)', ()
         { timeout: 5000 },
       )
       .toBe(true)
-    await expect(page.locator('text=/of\\s+1\\s+matches/')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/of\\s+1\\s+match\\b/')).toBeVisible({ timeout: 10000 })
   })
 })

@@ -163,15 +163,60 @@ export interface ContentBlock {
   // ingest layer and break /api/conversations on the next Anthropic
   // release. Add the new variant to this TS union when you're ready
   // to render it.
-  type: 'text' | 'tool_use' | 'tool_result' | 'image' | 'thinking'
+  // 'document': only in CodeRun.media (issue #90), rendered by CodeRunBlock.
+  type: 'text' | 'tool_use' | 'tool_result' | 'image' | 'thinking' | 'code_run' | 'document'
   text?: string
-  name?: string // tool_use
+  name?: string // tool_use, code_run
   input?: unknown // tool_use
   content?: ContentBlock[] // tool_result
+  id?: string // tool_use, code_run
+  tool_use_id?: string // tool_result
+  // Issue #90 (backend/models.py CodeRun). Set on a 'code_run' block.
+  code_run?: CodeRun
+  // A tool call that a Code Mode script made but that has no exact link;
+  // `ambiguous_with` names the runs that were open at the time (Codex).
+  from_code_mode?: boolean
+  ambiguous_with?: string[]
   // image content blocks (Claude Code embeds images inline as base64
   // here, alongside a sibling text block that carries the "[Image #N]"
   // marker).
   source?: ImageBlockSource
+}
+
+/** One tool call that a Code Mode script made (backend CodeRunCall). */
+export interface CodeRunCall {
+  id: string
+  name: string
+  input: Record<string, unknown> | null
+  result: string
+  is_error: boolean
+  refused: boolean
+  code_run_parent: string
+  link_source: 'transcript_field' | 'hook_log' | 'exclusive_window' | 'caller_field'
+  /** The earlier calls (indexes) whose output is in this call's input. */
+  inputs_from?: number[]
+}
+
+/** A Code Mode run: Claude Code `REPL` or Codex `exec` (backend CodeRun). */
+export interface CodeRun {
+  language: string
+  code: string
+  line_count: number
+  description: string | null
+  status: 'completed' | 'failed' | 'terminated' | 'running' | 'unknown'
+  background: boolean
+  result: string | null
+  stdout: string | null
+  stderr: string | null
+  error: string | null
+  refused: string | null
+  inner_calls: CodeRunCall[]
+  /** The calls (indexes) whose output is in what the run returned to the model. */
+  returned_from?: number[]
+  /** Claude Code's note when it cut a long output; it names the file with the uncut text. */
+  uncut_output_note?: string | null
+  /** Images and documents (base64 `image` and `document` blocks) that went back with the run. */
+  media?: ContentBlock[]
 }
 
 // Image asset metadata (thumbnail or preview variant). Returned by
@@ -287,6 +332,16 @@ export interface ConversationDetail extends ConversationSummary {
   sandbox_path?: string | null
   // Codex: the forks and subagents of this thread, oldest first.
   child_uuids?: string[]
+  // Issue #96: the agent transcripts of a Claude Code session (session detail only).
+  subagents_found?: SubagentFound[]
+  // Issue #96: set on an agent transcript; `uuid` is then the session's.
+  agent_id?: string | null
+  agent_description?: string | null
+}
+
+export interface SubagentFound {
+  agent_id: string
+  agent_description: string | null
 }
 
 export interface MessageNode {
@@ -338,6 +393,9 @@ export interface SearchResult {
   conversation_created_at: string
   project_name: string | null
   matching_messages: MessageSnippet[]
+  // Issue #96: a hit inside an agent transcript of the session `conversation_uuid`.
+  agent_id?: string | null
+  agent_description?: string | null
 }
 
 /**
@@ -445,6 +503,10 @@ export interface Bookmark {
   created_at: string
   note: string
   snippet: string
+  // Issue #96: a message of this agent transcript of the session. The
+  // identity is (conversation_id, agent_id, message_uuid).
+  agent_id?: string | null
+  agent_description?: string | null
 }
 
 // Config types

@@ -28,10 +28,13 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools.base import ToolResult
 
+from backend.cc_subagents import is_valid_agent_id
 from backend.config import Settings, get_settings, read_env
 from backend.export import (
     conversation_to_markdown,
     filter_tool_placeholders,
+    media_bytes,
+    without_code_runs,
 )
 from backend.model_names import sender_label
 from backend.models import (
@@ -244,6 +247,26 @@ def _history_links(store: ConversationStore, conv: ConversationSummary) -> dict[
     if not hasattr(adapter, "child_uuids"):
         return {}
     return {"parent_uuid": conv.parent_uuid, "child_uuids": adapter.child_uuids(conv.uuid)}
+
+
+def _load_conversation(
+    store: ConversationStore, conversation_id: str, agent_id: str | None
+) -> ConversationDetail:
+    """A session, or one of its subagent transcripts (issue #96); else ValueError."""
+    if agent_id is not None and not is_valid_agent_id(agent_id):
+        raise ValueError(f"Invalid agent_id '{agent_id}'.")
+    conversation = (
+        store.get_conversation(conversation_id)
+        if agent_id is None
+        else store.get_agent_conversation(conversation_id, agent_id)
+    )
+    if conversation is None:
+        if agent_id is not None:
+            raise ValueError(
+                f"Subagent '{agent_id}' of session '{conversation_id}' not found."
+            )
+        raise ValueError(f"Session '{conversation_id}' not found.")
+    return conversation
 
 
 def reset_archive_sync_for_tests() -> None:
@@ -524,6 +547,7 @@ def _message_to_dict(
     include_tool_calls: bool = False,
     include_tool_results: bool = False,
     assistant_label: str = "Claude",
+    include_code_mode: bool = False,
 ) -> dict[str, Any]:
     """Convert a Message to a dict with the requested verbosity."""
     d: dict[str, Any] = {
@@ -555,6 +579,23 @@ def _message_to_dict(
             msg.content, include_tool_calls, include_tool_results
         )
 
+    # Issue #90: the runs, in full or as a stub with no script or output text.
+    # Media is a stub in both: MCP leaves out image bytes, as for other blocks.
+    runs = [b for b in msg.content if b.type == "code_run" and b.code_run is not None]
+    if runs:
+        d["code_runs"] = [
+            {
+                "id": b.id, "name": b.name, **b.code_run.model_dump(exclude={"media"}),
+                "media": [
+                    {"type": m.type, "media_type": (m.source or {}).get("media_type"), "bytes": media_bytes(m)}
+                    for m in b.code_run.media
+                ],
+            } if include_code_mode else {
+                "id": b.id, "name": b.name, "status": b.code_run.status,
+                "line_count": b.code_run.line_count, "call_count": len(b.code_run.inner_calls),
+            }
+            for b in runs
+        ]
     return d
 
 
@@ -572,6 +613,7 @@ def list_sessions(
     limit: int = 20,
     offset: int = 0,
     include_tool_calls: bool = False,
+    include_code_mode: bool = False,
 ) -> dict[str, Any]:
     """Search and list saved Claude conversation sessions.
     Only call when the user explicitly asks to search or browse past sessions.
@@ -602,6 +644,9 @@ def list_sessions(
                example an error message, a file path, or a function name),
                or when a search with false finds nothing. Thinking and
                reasoning are never searched. Ignored when query is omitted.
+        include_code_mode: Also search Code Mode runs: each script, the tool
+               calls it made, and what it returned. Default false.
+               Independent of include_tool_calls. Ignored when query is omitted.
 
     Note (spec §3, 2026-05-14): there is intentionally NO ``active_filter``
     or ``conversation_uuids`` parameter. The sidebar's active-filter
@@ -633,6 +678,7 @@ def list_sessions(
             source=src,
             organization_id=organization_id,
             include_tool_calls=include_tool_calls,
+            include_code_mode=include_code_mode,
             limit=MCP_SEARCH_LIMIT,
         )
         # Build a lookup map once (not per result). Pass organization_id
@@ -661,6 +707,9 @@ def list_sessions(
                     "match_count": sum(
                         1 for m in sr.matching_messages if m.message_uuid != "title"
                     ),
+                    # Issue #96: a hit inside a subagent transcript of the session.
+                    "agent_id": sr.agent_id,
+                    "agent_description": sr.agent_description,
                     **_source_fields(s),
                 }
                 sessions.append(entry)
@@ -733,12 +782,13 @@ def get_session_outline(
     conversation_id: str,
     start_position: int = 0,
     limit: int = OUTLINE_PAGE_DEFAULT,
+    agent_id: str | None = None,
 ) -> dict[str, Any]:
     """Get lightweight per-message summaries for a session's active branch.
     Only call when the user explicitly asks to examine a specific session.
 
     Each entry has: position, message_uuid, sender, summary (first 200 chars),
-    char_count, tool_count, timestamp. Use positions from the outline to
+    char_count, tool_count, code_run_count, timestamp. Use positions from the outline to
     fetch full content with get_messages.
 
     The outline comes in pages. message_count is the size of the whole
@@ -751,16 +801,18 @@ def get_session_outline(
                          prompt says session_id, send conversation_id.
         start_position: First position of the page (0-indexed, default 0).
         limit: Max entries in the page (default 100, max 500).
+        agent_id: Give the outline of this subagent transcript of the session
+                  (the "agent_id" of a list_sessions hit) instead.
     """
     _sync_archive()
     store = _get_store()
-    conversation = store.get_conversation(conversation_id)
-    if conversation is None:
-        raise ValueError(f"Session '{conversation_id}' not found.")
+    conversation = _load_conversation(store, conversation_id, agent_id)
 
+    # An agent transcript is cached under its own key.
+    cache_key = f"{conversation_id}::agent::{agent_id}" if agent_id else conversation_id
     conn = _get_db()
     try:
-        summaries = _build_outline(conn, conversation_id, conversation)
+        summaries = _build_outline(conn, cache_key, conversation)
     finally:
         conn.close()
 
@@ -773,6 +825,8 @@ def get_session_outline(
         "conversation_id": conversation.uuid,
         # Kept for existing readers of the output.
         "session_id": conversation.uuid,
+        "agent_id": conversation.agent_id,
+        "agent_description": conversation.agent_description,
         "name": conversation.name,
         "model": conversation.model,
         "source": conversation.source,
@@ -782,7 +836,11 @@ def get_session_outline(
         "updated_at": _format_dt(conversation.updated_at),
         "start_position": start,
         "next_position": next_position,
-        "messages": summaries[start:end],
+        # Issue #90: not in the outline cache; counted from the messages.
+        "messages": [
+            {**e, "code_run_count": sum(b.type == "code_run" for b in conversation.messages[e["position"]].content)}
+            for e in summaries[start:end]
+        ],
         **_source_fields(conversation),
         **_history_links(store, conversation),
         **_sync_fields(),
@@ -796,6 +854,8 @@ def get_messages(
     message_uuids: list[str] | None = None,
     include_tool_calls: bool = False,
     include_tool_results: bool = False,
+    include_code_mode: bool = False,
+    agent_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get full message content for specific messages in a session.
     Only call when the user explicitly asks to read specific messages.
@@ -811,12 +871,14 @@ def get_messages(
         message_uuids: List of message UUIDs.
         include_tool_calls: Include tool call names and inputs (default false).
         include_tool_results: Include full tool results (default false, implies tool calls).
+        include_code_mode: Give each Code Mode run in full: the script, the
+               tool calls it made with their input and output, and what it
+               returned (default false: a short stub per run in code_runs).
+        agent_id: Read this subagent transcript of the session instead.
     """
     _sync_archive()
     store = _get_store()
-    conversation = store.get_conversation(conversation_id)
-    if conversation is None:
-        raise ValueError(f"Session '{conversation_id}' not found.")
+    conversation = _load_conversation(store, conversation_id, agent_id)
 
     # include_tool_results implies include_tool_calls
     if include_tool_results:
@@ -833,6 +895,7 @@ def get_messages(
                     _message_to_dict(
                         messages[pos], pos,
                         include_tool_calls, include_tool_results, assistant_label,
+                        include_code_mode,
                     )
                 )
     elif message_uuids is not None:
@@ -843,6 +906,7 @@ def get_messages(
                     _message_to_dict(
                         msg, pos,
                         include_tool_calls, include_tool_results, assistant_label,
+                        include_code_mode,
                     )
                 )
     else:
@@ -852,6 +916,7 @@ def get_messages(
                 _message_to_dict(
                     msg, pos,
                     include_tool_calls, include_tool_results, assistant_label,
+                    include_code_mode,
                 )
             )
 
@@ -864,6 +929,8 @@ def export_session(
     start_position: int | None = None,
     end_position: int | None = None,
     include_tools: bool = True,
+    include_code_mode: bool = False,
+    agent_id: str | None = None,
 ) -> str:
     """Export a session (or portion) as Markdown text.
     Only call when the user explicitly asks to export a session.
@@ -875,12 +942,13 @@ def export_session(
         start_position: Start position (0-indexed, inclusive). Omit for beginning.
         end_position: End position (0-indexed, inclusive). Omit for end.
         include_tools: Include tool calls and results in output (default true).
+        include_code_mode: Include Code Mode runs: each script, the tool calls
+               it made, and what it returned (default false).
+        agent_id: Export this subagent transcript of the session instead.
     """
     _sync_archive()
     store = _get_store()
-    conversation = store.get_conversation(conversation_id)
-    if conversation is None:
-        raise ValueError(f"Session '{conversation_id}' not found.")
+    conversation = _load_conversation(store, conversation_id, agent_id)
 
     # Slice messages if positions are specified
     if start_position is not None or end_position is not None:
@@ -892,6 +960,8 @@ def export_session(
         # model_copy keeps every field; a field-by-field rebuild dropped new ones.
         conversation = conversation.model_copy(update={"messages": msgs[start:end]})
 
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
     return conversation_to_markdown(conversation, include_tools=include_tools)
 
 

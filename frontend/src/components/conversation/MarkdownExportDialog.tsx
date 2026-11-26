@@ -47,6 +47,8 @@ interface MarkdownExportDialogProps {
   onOpenChange: (open: boolean) => void
   conversationUuid: string
   conversationName: string
+  // Issue #96: export this subagent transcript of the session.
+  agentId?: string | null
 }
 
 export function MarkdownExportDialog({
@@ -54,9 +56,11 @@ export function MarkdownExportDialog({
   onOpenChange,
   conversationUuid,
   conversationName,
+  agentId = null,
 }: MarkdownExportDialogProps) {
   const {
     showToolCalls,
+    showCodeMode,
     hideCompactMarkers,
     markdownExportMode: storedMode,
     setMarkdownExportMode: setStoredMode,
@@ -93,12 +97,15 @@ export function MarkdownExportDialog({
       if (saveAsDefault) {
         setStoredMode(mode)
       }
-      const safeName = sanitizeFilename(conversationName || 'conversation')
+      const safeName =
+        sanitizeFilename(conversationName || 'conversation') + (agentId ? `-${agentId}` : '')
       if (mode === 'inline') {
         const response = await api.exportMarkdown(
           conversationUuid,
           showToolCalls,
           includeCompact,
+          showCodeMode,
+          agentId,
         )
         const blob = await response.blob()
         downloadBlob(blob, `${safeName}.md`)
@@ -109,6 +116,8 @@ export function MarkdownExportDialog({
           showToolCalls,
           dialect,
           includeCompact,
+          showCodeMode,
+          agentId,
         )
         const blob = await response.blob()
         downloadBlob(blob, `${safeName}.zip`)

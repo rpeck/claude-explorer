@@ -2,10 +2,13 @@ import type { ContentBlock } from '@/lib/types'
 import type { CcImageEntries } from './imageCollection'
 import { ToolUseBlock, ToolResultBlock } from './ToolBlocks'
 import { CcImageMarkerText, InlineImageBlock } from './ImageBlocks'
+import { CodeRunBlock } from './CodeRunBlock'
 
 interface ContentBlockListProps {
   content: ContentBlock[]
   showToolCalls: boolean
+  /** Issue #90: Show Code Mode. A `code_run` block renders only when true. */
+  showCodeMode?: boolean
   expandAll?: boolean
   /** Indexes of the tool blocks that hold the active search hit
    *  (2026-10-21). They render, expanded, even when tool calls are
@@ -24,6 +27,7 @@ interface ContentBlockListProps {
 export function ContentBlockList({
   content,
   showToolCalls,
+  showCodeMode = false,
   expandAll,
   revealedToolBlocks,
   ccImageEntries,
@@ -38,6 +42,7 @@ export function ContentBlockList({
           block={block}
           blockIndex={index}
           showToolCalls={showToolCalls}
+          showCodeMode={showCodeMode}
           expandAll={expandAll}
           revealed={revealedToolBlocks?.includes(index) ?? false}
           ccImageEntries={ccImageEntries}
@@ -53,6 +58,7 @@ interface ContentBlockRendererProps {
   block: ContentBlock
   blockIndex: number
   showToolCalls: boolean
+  showCodeMode?: boolean
   expandAll?: boolean
   /** This tool block holds the active search hit: render it, expanded. */
   revealed?: boolean
@@ -74,6 +80,7 @@ export function ContentBlockRenderer({
   block,
   blockIndex,
   showToolCalls,
+  showCodeMode = false,
   expandAll,
   revealed = false,
   ccImageEntries,
@@ -98,8 +105,12 @@ export function ContentBlockRenderer({
           input={block.input}
           forceExpanded={expandAll || revealed}
           searchQuery={searchQuery}
+          fromCodeMode={block.from_code_mode === true}
+          ambiguousWith={block.ambiguous_with}
         />
       ) : null
+    case 'code_run':
+      return showCodeMode ? <CodeRunBlock block={block} searchQuery={searchQuery} /> : null
     case 'tool_result':
       return showToolCalls || revealed ? (
         <ToolResultBlock

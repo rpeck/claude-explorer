@@ -28,7 +28,8 @@ The Medium series *Unlocking Your Claude History* explains why this project exis
 - **Message tree visualization** for branched conversations
 - **Bookmarks** (per-message): hover any message and click the star to save it; the **Bookmarks** tab in the right pane lists every saved message, with editable notes and Markdown export
 - **Command palette** (Cmd+K) for quick navigation
-- **Claude Code integration** with project grouping and subagent display
+- **Claude Code integration** with project grouping, and subagent transcripts that open and search like a session
+- **Code Mode runs** (Claude Code `REPL` and Codex `exec`): each script shows as one terminal block with its tool calls and what it returned; a **Show Code Mode** toggle hides or shows them in the viewer, search, exports, and the MCP tools
 - **MCP server** exposing your saved sessions to Claude Desktop and Claude Code
 
 ---

@@ -228,3 +228,40 @@ describe('ConversationToolbar — conditional controls', () => {
     expect(props.markPendingRecenter).toHaveBeenCalled();
   });
 });
+
+// Issue #90: the Show Code Mode toggle shows only when the conversation has
+// a run. It is a checkbox like Show Tools, and independent of it.
+describe('ConversationToolbar — Show Code Mode', () => {
+  const base = {
+    showToolCalls: false, setShowToolCalls: vi.fn(), markPendingRecenter: vi.fn(), expandAllTools: false,
+    handleToggleExpandAll: vi.fn(), isExpandPending: false, conversationSource: 'CLAUDE_CODE' as const,
+    handleForceRefetch: vi.fn(), isRefetching: false, hasCompactMarkers: false, hideCompactMarkers: false,
+    setHideCompactMarkers: vi.fn(), copiedAll: false, handleCopyAll: vi.fn(), setMarkdownDialogOpen: vi.fn(),
+    handleExportPdf: vi.fn(), isExportingPdf: false,
+  };
+
+  it('is absent when the conversation has no run', () => {
+    render(<ConversationToolbar {...base} hasCodeRuns={false} showCodeMode={false} setShowCodeMode={vi.fn()} />);
+    expect(screen.queryByTestId('header-show-code-mode-checkbox')).not.toBeInTheDocument();
+  });
+
+  it('shows with a run, and a click turns it on without touching Show Tools', async () => {
+    const user = userEvent.setup();
+    const setShowCodeMode = vi.fn<(next: boolean) => void>();
+    const setShowToolCalls = vi.fn<(next: boolean) => void>();
+    render(
+      <ConversationToolbar
+        {...base}
+        setShowToolCalls={setShowToolCalls}
+        hasCodeRuns
+        showCodeMode={false}
+        setShowCodeMode={setShowCodeMode}
+      />,
+    );
+    const box = screen.getByTestId('header-show-code-mode-checkbox');
+    expect(screen.getByTestId('header-show-code-mode-control')).toHaveTextContent('Show Code Mode');
+    await user.click(box);
+    expect(setShowCodeMode).toHaveBeenCalledWith(true);
+    expect(setShowToolCalls).not.toHaveBeenCalled();
+  });
+});

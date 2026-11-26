@@ -22,7 +22,7 @@
  * because the `default` vs `outline` visual difference was too subtle
  * for users to tell the toggle state at a glance.
  */
-import { ChevronsUpDown, Wrench, Download, Scissors, Copy, Check, FileText, FileType } from 'lucide-react'
+import { ChevronsUpDown, Wrench, Download, Scissors, Copy, Check, FileText, FileType, SquareTerminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { expandAllToolsButtonLabel } from '@/components/conversation/expandAllToolsLabel'
@@ -34,6 +34,10 @@ interface ConversationToolbarProps {
   showToolCalls: boolean
   setShowToolCalls: (next: boolean) => void
   markPendingRecenter: () => void
+  // Show Code Mode (issue #90; only when the conversation has a run)
+  hasCodeRuns?: boolean
+  showCodeMode?: boolean
+  setShowCodeMode?: (next: boolean) => void
   // Expand / Collapse All
   expandAllTools: boolean
   handleToggleExpandAll: () => void
@@ -60,6 +64,9 @@ export function ConversationToolbar({
   showToolCalls,
   setShowToolCalls,
   markPendingRecenter,
+  hasCodeRuns = false,
+  showCodeMode = false,
+  setShowCodeMode,
   expandAllTools,
   handleToggleExpandAll,
   isExpandPending,
@@ -102,6 +109,27 @@ export function ConversationToolbar({
         <Wrench className="h-4 w-4" />
         <span>Show Tools</span>
       </label>
+      {hasCodeRuns && setShowCodeMode && (
+        <label
+          className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200"
+          title={showCodeMode ? 'Hide Code Mode runs' : 'Show Code Mode runs'}
+          data-testid="header-show-code-mode-control"
+        >
+          {/* oxlint-disable-next-line react-doctor/control-has-associated-label */}
+          <input
+            type="checkbox"
+            checked={showCodeMode}
+            onChange={(e) => {
+              markPendingRecenter()
+              setShowCodeMode(e.target.checked)
+            }}
+            className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-600"
+            data-testid="header-show-code-mode-checkbox"
+          />
+          <SquareTerminal className="h-4 w-4" />
+          <span>Show Code Mode</span>
+        </label>
+      )}
       {showToolCalls && (
         <Button
           variant={expandAllTools ? 'default' : 'outline'}

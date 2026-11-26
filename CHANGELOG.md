@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Code Mode runs** (issue #90): Claude Code `REPL` and Codex `exec` scripts show as one terminal block (the highlighted script, the numbered tool calls, and what returned to the model), with an overlay (Script, Calls, Data flow, Returned). A **Show Code Mode** toggle, independent of Show Tools, controls the viewer, search (`include_code_mode`, search index v16), exports, and the MCP tools. Codex projection version 5.
 - **Dark mode support** with system theme detection
   - Automatically follows system preference by default
   - Manual toggle between Light/Dark/System modes

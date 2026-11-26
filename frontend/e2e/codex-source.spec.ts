@@ -49,6 +49,9 @@ const TITLES = {
 }
 const VISIBLE_TITLES = [TITLES.paginated, TITLES.legacy, TITLES.subagent, TITLES.guardian, TITLES.imported]
 const DESKTOP_TITLE = 'Phase 5 fixture: TLS handshakes (long)'
+// The newest non-Codex row: a Claude Code Code Mode recording (issue #90). The
+// list is virtualized, so an older row such as DESKTOP_TITLE may not be rendered.
+const NEWEST_NON_CODEX_TITLE = 'Use your REPL (Code Mode) tool'
 const FIXTURE_HOME = '/home/fixture/.codex'
 // L7: a Codex home outside ~ shows only its last folder name; the copy button keeps the full path.
 const FIXTURE_HOME_DISPLAY = '…/.codex'
@@ -146,11 +149,12 @@ test.describe('Codex source end to end (N9, AC2)', () => {
 
   test('the Codex source filter shows only the Codex sessions', async ({ page }) => {
     await openList(page)
-    await expect(rowOf(page, DESKTOP_TITLE)).toBeVisible()
+    await expect(rowOf(page, NEWEST_NON_CODEX_TITLE).first()).toBeVisible()
     await pickCodex(page)
     for (const title of VISIBLE_TITLES) {
       await expect(rowOf(page, title), `row "${title}"`).toBeVisible()
     }
+    await expect(rowOf(page, NEWEST_NON_CODEX_TITLE)).toHaveCount(0)
     await expect(rowOf(page, DESKTOP_TITLE)).toHaveCount(0)
   })
 

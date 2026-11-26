@@ -642,6 +642,80 @@ def write_orphan_tool_calls(home: Path) -> Path:
     return write_rollout(rollout_path(home, ORPHAN_STARTED, THREAD_ORPHAN_CALLS), orphan_tool_calls_lines())
 
 
+#: Code mode runs (issue #90). Paginated, not in ``ALL_THREADS``. The output
+#: headers follow ``core/src/tools/code_mode/`` at ``f2d3086``.
+THREAD_CODE_MODE = "019aa200-0000-7000-8000-0000000000c9"
+CM_TURN = "turn-cm1"
+CM_STARTED = _at("2026-11-24T12:00:00")
+CM_DONE = "call_cm_done"  # completed in one output, with one nested call
+CM_YIELD = "call_cm_yield"  # yields (cell 7), one nested call, then `wait` finishes it
+CM_WAIT = "call_cm_wait"  # the `wait` call for cell 7
+CM_NOTIFY = "call_cm_notify"  # a notify() output, then the final output
+CM_TWO_A = "call_cm_two_a"  # cells 8 and 9 are alive at once
+CM_TWO_B = "call_cm_two_b"
+CM_WAIT_A = "call_cm_wait_a"
+CM_WAIT_B = "call_cm_wait_b"
+CM_SILENT = "call_cm_silent"  # no output at all
+CM_RUNS = (CM_DONE, CM_YIELD, CM_NOTIFY, CM_TWO_A, CM_TWO_B, CM_SILENT)
+CM_NESTED_DONE = "exec-00000000-0000-4000-8000-0000000000d1"
+CM_NESTED_YIELD = "exec-00000000-0000-4000-8000-0000000000d2"
+CM_NESTED_AMBIGUOUS = "exec-00000000-0000-4000-8000-0000000000d3"
+CM_WORDS = {
+    "code": "cxscriptword",
+    "nested_output": "cxnestedword",
+    "returned": "cxreturnedword",
+    "notify": "cxnotifyword",
+    "reply": "cxreplyword",
+}
+
+
+def exec_output(header: str, output: str, wall: float = 0.4) -> str:
+    return f"{header}\nWall time {wall} seconds\nOutput:\n{output}"
+
+
+def code_mode_lines(t0: datetime = CM_STARTED) -> list[dict[str, Any] | str]:
+    tid, turn, cwd, w = THREAD_CODE_MODE, CM_TURN, "/home/fixture/proj-cx", CM_WORDS
+    s = lambda n: t0 + timedelta(seconds=n)
+    ls = lambda item_id, out: item_completed(s(0), tid, turn, command_item(item_id, ["ls", "src"], cwd=cwd, output=out))
+    return [
+        session_meta(t0, tid, cwd=cwd, history_mode="paginated"),
+        turn_context(s(1), turn, cwd=cwd, model="gpt-5.5-codex"),
+        item_completed(s(2), tid, turn, user_message_item("item-cm-user", "List the files.")),
+        # Completed.
+        response_item(s(3), custom_tool_call(CM_DONE, "exec", f"// {w['code']}\nconst r = await tools.exec_command({{cmd: 'ls src'}});\ntext(r.output);")),
+        ls(CM_NESTED_DONE, f"app.py {w['nested_output']}\n"),
+        response_item(s(5), custom_tool_call_output(CM_DONE, exec_output("Script completed", f"app.py {w['returned']}\n"))),
+        # Yielded, then finished by `wait`.
+        response_item(s(6), custom_tool_call(CM_YIELD, "exec", "const r = await tools.exec_command({cmd: 'sleep 5; ls src'});\ntext(r.output);")),
+        response_item(s(7), custom_tool_call_output(CM_YIELD, exec_output("Script running with cell ID 7", "", 10.0))),
+        ls(CM_NESTED_YIELD, "app.py\n"),
+        response_item(s(9), function_call(CM_WAIT, "wait", {"cell_id": "7"})),
+        response_item(s(10), function_call_output(CM_WAIT, exec_output("Script completed", "yielded-done\n"))),
+        # notify() adds an output to the same call.
+        response_item(s(11), custom_tool_call(CM_NOTIFY, "exec", "notify('step one');\ntext('end');")),
+        response_item(s(12), custom_tool_call_output(CM_NOTIFY, f"{w['notify']} step one")),
+        response_item(s(13), custom_tool_call_output(CM_NOTIFY, exec_output("Script completed", "end\n"))),
+        # Two cells alive at once: the nested call links to neither.
+        response_item(s(14), custom_tool_call(CM_TWO_A, "exec", "await tools.exec_command({cmd: 'sleep 9'});")),
+        response_item(s(15), custom_tool_call_output(CM_TWO_A, exec_output("Script running with cell ID 8", "", 10.0))),
+        response_item(s(16), custom_tool_call(CM_TWO_B, "exec", "await tools.exec_command({cmd: 'ls src'});")),
+        response_item(s(17), custom_tool_call_output(CM_TWO_B, exec_output("Script running with cell ID 9", "", 10.0))),
+        ls(CM_NESTED_AMBIGUOUS, "app.py\n"),
+        response_item(s(19), function_call(CM_WAIT_A, "wait", {"cell_id": "8"})),
+        response_item(s(20), function_call_output(CM_WAIT_A, exec_output("Script failed", "Error: timeout\n"))),
+        response_item(s(21), function_call(CM_WAIT_B, "wait", {"cell_id": "9"})),
+        response_item(s(22), function_call_output(CM_WAIT_B, exec_output("Script terminated", ""))),
+        # No output.
+        response_item(s(23), custom_tool_call(CM_SILENT, "exec", "text('never');")),
+        item_completed(s(24), tid, turn, agent_message_item("item-cm-reply", f"Done ({w['reply']}).")),
+    ]
+
+
+def write_code_mode(home: Path) -> Path:
+    """Write the ``THREAD_CODE_MODE`` rollout into ``home`` and return its path."""
+    return write_rollout(rollout_path(home, CM_STARTED, THREAD_CODE_MODE), code_mode_lines())
+
+
 def build_codex_home(home: Path) -> Path:
     """Write the default synthetic Codex home at ``home`` and return ``home``."""
     home.mkdir(parents=True, exist_ok=True)

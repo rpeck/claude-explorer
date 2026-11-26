@@ -267,7 +267,7 @@ test.describe('Search focus model (manual finding 2026-05-04)', () => {
     // settling so the Cmd+G+Enter below is exercising the openActiveMatch
     // re-navigate path, not racing the initial navigation.
     await input.fill('needle')
-    await expect(page.getByText(/of\s+1\s+matches/)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/of\s+1\s+match\b/)).toBeVisible({ timeout: 5000 })
 
     await page.keyboard.press(isMac ? 'Meta+g' : 'Control+g')
     await page.keyboard.press('Enter')

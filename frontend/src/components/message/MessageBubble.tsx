@@ -44,6 +44,9 @@ interface MessageBubbleProps {
    *  state — tests and future Storybook fixtures can mount the bubble
    *  with no extra setup. */
   showToolCalls?: boolean
+  /** Issue #90: "Show Code Mode" from SettingsContext. PROP, not context,
+   *  for the same reason as `showToolCalls`. */
+  showCodeMode?: boolean
   /** "Expand all tools" toggle from SettingsContext. Same prop-not-
    *  context rationale as `showToolCalls` above. */
   expandAllTools?: boolean
@@ -65,6 +68,11 @@ interface MessageBubbleProps {
    *
    *  Default `""` (no highlighting) when omitted. */
   searchQuery?: string
+  /** Issue #96: on an agent page, the agent of the transcript; the star
+   *  and the bookmark use it. PROP, not context (AGENTS.md, Performance
+   *  Work rule 1). */
+  agentId?: string | null
+  agentDescription?: string | null
 }
 
 function MessageBubbleImpl({
@@ -73,8 +81,11 @@ function MessageBubbleImpl({
   conversationId,
   conversationSource,
   showToolCalls = false,
+  showCodeMode = false,
   expandAllTools = false,
   searchQuery = '',
+  agentId = null,
+  agentDescription = null,
 }: MessageBubbleProps) {
   // Render probe for e2e tests, in development builds only. An effect
   // without deps runs after each commit in which this bubble rendered,
@@ -94,7 +105,7 @@ function MessageBubbleImpl({
   // unmount — all pinned by useCopyFeedback.test.ts AND the
   // MessageBubble.test.tsx "timer cleanup on unmount" suite.
   const { copied, trigger: triggerCopied } = useCopyFeedback()
-  const bookmarked = conversationId ? isBookmarked(conversationId, message.uuid) : false
+  const bookmarked = conversationId ? isBookmarked(conversationId, message.uuid, agentId) : false
 
   const handleToggleBookmark = async () => {
     if (!conversationId) return
@@ -104,6 +115,8 @@ function MessageBubbleImpl({
       source: conversationSource === 'CLAUDE_AI' ? 'claude_desktop' : 'claude_code',
       note: '',
       snippet: (message.text || '').slice(0, 140),
+      // Issue #96: only an agent page's bookmark names an agent.
+      ...(agentId ? { agent_id: agentId, agent_description: agentDescription } : {}),
     })
   }
 
@@ -112,6 +125,7 @@ function MessageBubbleImpl({
       message,
       showToolCalls,
       sourceDescriptor(conversationSource)?.assistant_label ?? 'Claude',
+      showCodeMode,
     )
     // LOW-1 (council follow-up): clipboard.writeText() can reject when
     // the document has lost focus, the browser denies permission, or the
@@ -136,7 +150,7 @@ function MessageBubbleImpl({
     [message, searchQuery, showToolCalls],
   )
   const hasVisibleContent =
-    messageHasVisibleContent(message, showToolCalls) || revealedToolBlocks.length > 0
+    messageHasVisibleContent(message, showToolCalls, showCodeMode) || revealedToolBlocks.length > 0
   const imageFiles = dedupeImageFiles(message)
   const hasImages = imageFiles.length > 0
   const hasToolBlocks = message.content.some((b) => b.type === 'tool_use' || b.type === 'tool_result')
@@ -337,6 +351,7 @@ function MessageBubbleImpl({
             <ContentBlockList
               content={message.content}
               showToolCalls={showToolCalls && !bubbleToolsCollapsed}
+              showCodeMode={showCodeMode}
               expandAll={expandAllTools}
               revealedToolBlocks={revealedToolBlocks}
               ccImageEntries={ccImageEntries}
@@ -395,7 +410,10 @@ export const MessageBubble = memo(MessageBubbleImpl, (prev, next) => {
     prev.conversationId === next.conversationId &&
     prev.conversationSource === next.conversationSource &&
     prev.showToolCalls === next.showToolCalls &&
+    prev.showCodeMode === next.showCodeMode &&
     prev.expandAllTools === next.expandAllTools &&
-    prev.searchQuery === next.searchQuery
+    prev.searchQuery === next.searchQuery &&
+    prev.agentId === next.agentId &&
+    prev.agentDescription === next.agentDescription
   )
 })

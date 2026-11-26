@@ -3,9 +3,55 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializerFunctionWrapHandler, model_serializer
 
 from .sources.ids import SourceId
+
+# Issue #90. How an inner call was linked to its Code Mode script.
+LinkSource = Literal["transcript_field", "hook_log", "exclusive_window", "caller_field"]
+
+
+class CodeRunCall(BaseModel):
+    """One tool call that a Code Mode script made."""
+
+    id: str
+    name: str
+    input: dict[str, Any] | None = None
+    result: str = ""
+    is_error: bool = False
+    refused: bool = False
+    code_run_parent: str
+    link_source: LinkSource
+    # The earlier calls whose output is in this call's input (backend/code_run_flow.py).
+    inputs_from: list[int] = Field(default_factory=list)
+
+
+class CodeRun(BaseModel):
+    """A Code Mode run: Claude Code ``REPL`` or Codex ``exec`` (issue #90)."""
+
+    language: str = "javascript"
+    code: str = ""
+    line_count: int = 0
+    description: str | None = None
+    status: Literal["completed", "failed", "terminated", "running", "unknown"] = "unknown"
+    background: bool = False
+    # What went back to the model: the returned value, the output, the error.
+    result: str | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    error: str | None = None
+    refused: str | None = None
+    # Claude Code's note when it cut a long output; it names the file with the uncut text.
+    uncut_output_note: str | None = None
+    inner_calls: list[CodeRunCall] = Field(default_factory=list)
+    # The calls whose output is in what the run returned to the model.
+    returned_from: list[int] = Field(default_factory=list)
+    # Images and documents (base64 ``image`` and ``document`` blocks) that went back with the run.
+    media: list["ContentBlock"] = Field(default_factory=list)
+
+
+# Issue #90: left out of the JSON when empty, so other blocks keep their shape.
+_CODE_MODE_FIELDS = ("code_run", "from_code_mode", "ambiguous_with")
 
 
 class ContentBlock(BaseModel):
@@ -34,6 +80,23 @@ class ContentBlock(BaseModel):
     # out of order, some may be missing).
     id: str | None = None
     tool_use_id: str | None = None
+    # Issue #90. ``code_run`` is set on a block of type "code_run".
+    # ``from_code_mode`` marks a tool call that a script made but that has no
+    # exact link; ``ambiguous_with`` names the runs that were open (Codex).
+    code_run: CodeRun | None = None
+    from_code_mode: bool | None = None
+    ambiguous_with: list[str] | None = None
+
+    @model_serializer(mode="wrap")
+    def _drop_empty_code_mode_fields(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        for key in _CODE_MODE_FIELDS:
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
+
+
+CodeRun.model_rebuild()  # resolves ``media: list["ContentBlock"]``
 
 
 class Message(BaseModel):
@@ -248,6 +311,13 @@ class ConversationSummary(BaseModel):
             self.project_name = path.split("/")[-1] if "/" in path else path
 
 
+class SubagentFound(BaseModel):
+    """One agent transcript of a session (issue #96)."""
+
+    agent_id: str
+    agent_description: str | None = None
+
+
 class CompactMarker(BaseModel):
     """A /compact event extracted from a Claude Code conversation."""
 
@@ -286,6 +356,12 @@ class ConversationDetail(ConversationSummary):
     sandbox_path: str | None = None
     #: Codex: the forks and subagents of this thread, oldest first. Detail only.
     child_uuids: list[str] = Field(default_factory=list)
+    #: Issue #96: the agent transcripts of a Claude Code session. Session detail only.
+    subagents_found: list[SubagentFound] = Field(default_factory=list)
+    #: Issue #96: set on an agent transcript; ``uuid`` is then the session's (plan §4.5).
+    agent_id: str | None = None
+    #: The ``description`` of the agent's meta file, when it has one.
+    agent_description: str | None = None
 
 
 class MessageNode(BaseModel):
@@ -360,6 +436,10 @@ class SearchResult(BaseModel):
     conversation_created_at: datetime
     project_name: str | None = None
     matching_messages: list[MessageSnippet] = Field(default_factory=list)
+    #: Issue #96: a hit inside an agent transcript of the session
+    #: ``conversation_uuid``. The locator is (conversation_uuid, agent_id, message_uuid).
+    agent_id: str | None = None
+    agent_description: str | None = None
 
 
 class SearchResponse(BaseModel):

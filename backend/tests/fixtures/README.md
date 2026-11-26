@@ -17,6 +17,24 @@ renames the home folder to the fixed key `fixture000000`, writes
 sync times with fixed values. In e2e, `CODEX_HOME` points to a missing
 folder, so the copy never writes into these fixtures.
 
+Code Mode (issue #90): the script also copies scrubbed recordings of real
+sessions (synthetic prompts on synthetic files) into the tree, so the
+Playwright suite runs the real backend on real shapes. Three Claude Code
+sessions (and one subagent) go under `claude/projects/-home-fixture-cm-sample/`
+from `cc_code_mode/`; two Codex rollouts from `codex_code_mode/` go into the
+fake Codex home before the copy. `backend/tests/test_fixture_privacy.py`
+checks every fixture for real data.
+
+Subagent transcripts (issue #96): the recorded subagent gets a synthetic
+`agent-a47f122549f03fce6.meta.json` ("List src directory"). A synthetic
+session `5a6e0000-…0096` under `claude/projects/-home-fixture-proj-sa/` has a
+current-layout agent `a5a0000000000096c` ("Synthetic search agent") and a
+legacy agent `agent-5a1e9ac.jsonl` (no meta file). Each word is in one place:
+`zqsessiontext` (session prompt), `zqshared` (session reply and agent reply),
+`zqagenttext` (agent reply), `zqagenttool` (agent tool output), `zqagentcode`
+(agent Code Mode script), `zqagentcompact` (agent compaction summary),
+`zqlegacyagent` (legacy agent reply). Used by `subagent-transcripts.spec.ts`.
+
 ## Layout
 
 ```

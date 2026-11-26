@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "thread_id": "01a2118c-b04a-7160-825d-2010987d5c34",
+  "home_key": "fixture000000",
+  "source_name": null,
+  "title": "Use the exec tool exactly once. In one script: run \"cat src/app.py\" with tools.exec_command, then pass its output to a second tools.exec_command that runs \"wc -c\" on it (for example printf %s with the text, piped into wc -c), and return only the byte count with text(). Do not return the file text.",
+  "cwd": "/home/fixture/cx-sample",
+  "model": "gpt-5.6-terra",
+  "archived": false,
+  "history_mode": "paginated",
+  "thread_source": null,
+  "parent_thread_id": null,
+  "imported_from": null,
+  "rollouts": [
+    {
+      "stem": "rollout-2026-11-24T00-00-00-01a2118c-b04a-7160-825d-2010987d5c34",
+      "copied_bytes": 9436,
+      "session_meta_ts_ms": 1795590762585
+    }
+  ],
+  "current_stem": "rollout-2026-11-24T00-00-00-01a2118c-b04a-7160-825d-2010987d5c34",
+  "current_ambiguous": false,
+  "updated_at_ms": null
+}

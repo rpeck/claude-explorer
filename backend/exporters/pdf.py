@@ -30,6 +30,7 @@ from ._shared import (
     _is_compact_summary_message,
     _is_excludable_marker,
     _resolve_attachment_path,
+    code_run_media_summary,
     escape_html,
     filter_tool_placeholders,
     format_timestamp,
@@ -159,8 +160,45 @@ def _render_image_block_html(block: ContentBlock) -> str:
     return ""
 
 
+def code_run_html(block: ContentBlock) -> str:
+    """A Code Mode run as HTML: the script, the numbered calls, what it returned."""
+    run = block.code_run
+    if run is None:
+        return ""
+    calls = "".join(
+        f"<li><strong>{escape_html(c.name)}</strong>"
+        f"{' (refused)' if c.refused else ' (error)' if c.is_error else ''}"
+        f"{' (input from call ' + ', '.join(str(j + 1) for j in c.inputs_from) + ')' if c.inputs_from else ''}"
+        f"<pre><code>{escape_html(json.dumps(c.input, indent=2) if c.input else '')}</code></pre>"
+        f"<pre><code>{escape_html(c.result)}</code></pre></li>"
+        for c in run.inner_calls
+    )
+    parts = "".join(
+        f"<strong>{label}</strong><pre><code>{escape_html(value)}</code></pre>"
+        for label, value in (("Returned to the model", run.result), ("Cut output", run.uncut_output_note),
+                             ("stdout", run.stdout), ("stderr", run.stderr), ("Error", run.error),
+                             ("Refused calls", run.refused))
+        if value
+    )
+    # Images show; a document is only named (WeasyPrint cannot embed a PDF in a PDF).
+    media = "".join(_render_image_block_html(m) for m in run.media if m.type == "image")
+    if run.media:
+        media = f"<strong>Media returned to the model:</strong> {escape_html(code_run_media_summary(run.media))}{media}"
+    return f"""
+        <div class="code-run">
+            <strong>Code Mode script ({escape_html(run.language)}, {escape_html(run.status)})</strong>
+            <pre><code class="language-{escape_html(run.language)}">{escape_html(run.code)}</code></pre>
+            {f'<ol>{calls}</ol>' if calls else ''}
+            {parts}
+            {media}
+        </div>
+        """
+
+
 def render_content_block_html(block: ContentBlock, include_tools: bool = True) -> str:
     """Render a content block to HTML."""
+    if block.type == "code_run":
+        return code_run_html(block)
     if block.type == "text" and block.text:
         # Always strip TOOL_PLACEHOLDER (P1.3b), then rewrite cc-image
         # markers to <img> tags before HTML escape.

@@ -10,6 +10,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 
+from ..cc_subagents import AGENT_ID_PATTERN
 from ..deps import get_store
 from ..export import (
     conversation_to_markdown,
@@ -17,12 +18,26 @@ from ..export import (
     create_markdown_zip,
     create_pdf,
     sanitize_filename,
+    without_code_runs,
 )
 from ..store import ConversationStore
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["export"])
+
+
+def _load(store: ConversationStore, uuid: str, agent_id: str | None):
+    """The session, or its subagent transcript ``agent_id`` (issue #96)."""
+    if agent_id is None:
+        return store.get_conversation(uuid)
+    return store.get_agent_conversation(uuid, agent_id)
+
+
+def _file_stem(conversation, agent_id: str | None) -> str:
+    """The export file name; an agent transcript's name holds its id (issue #96)."""
+    stem = sanitize_filename(conversation.name)
+    return f"{stem}-{agent_id}" if agent_id else stem
 
 
 def _content_disposition(filename: str) -> str:
@@ -47,6 +62,13 @@ def _content_disposition(filename: str) -> str:
 # CPU/RAM exhaustion from timeout-and-abandoned render threads.
 PDF_RENDER_TIMEOUT_SECONDS = 30.0
 
+#: Issue #96: export one subagent transcript of the session instead.
+_AGENT_ID_QUERY = Query(
+    None,
+    pattern=AGENT_ID_PATTERN,
+    description="Export this subagent transcript of the session (issue #96).",
+)
+
 
 @router.get(
     "/conversations/{uuid}/export/markdown",
@@ -56,6 +78,10 @@ PDF_RENDER_TIMEOUT_SECONDS = 30.0
 async def export_markdown(
     uuid: str,
     include_tools: bool = True,
+    include_code_mode: bool = Query(
+        False,
+        description="When true, Code Mode runs are in the export (issue #90; the Show Code Mode toggle).",
+    ),
     include_compact: bool = Query(
         False,
         description=(
@@ -65,17 +91,20 @@ async def export_markdown(
             "preference 'export.includeCompactContent'."
         ),
     ),
+    agent_id: str | None = _AGENT_ID_QUERY,
     store: ConversationStore = Depends(get_store),
 ) -> Response:
     """Export a conversation as Markdown."""
-    conversation = store.get_conversation(uuid)
+    conversation = _load(store, uuid, agent_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
 
     content = conversation_to_markdown(
         conversation, include_tools, include_compact=include_compact
     )
-    filename = f"{sanitize_filename(conversation.name)}.md"
+    filename = f"{_file_stem(conversation, agent_id)}.md"
 
     return Response(
         content=content.encode("utf-8"),
@@ -92,6 +121,10 @@ async def export_markdown(
 async def export_markdown_bundle(
     uuid: str,
     include_tools: bool = True,
+    include_code_mode: bool = Query(
+        False,
+        description="When true, Code Mode runs are in the export (issue #90; the Show Code Mode toggle).",
+    ),
     include_compact: bool = Query(
         False,
         description=(
@@ -105,6 +138,7 @@ async def export_markdown_bundle(
         "commonmark",
         description="Markdown dialect: 'commonmark' for ![alt](path), 'obsidian' for ![[path]] wikilinks",
     ),
+    agent_id: str | None = _AGENT_ID_QUERY,
     store: ConversationStore = Depends(get_store),
 ) -> Response:
     """Issue #4 — Bundle a conversation as a self-contained zip
@@ -120,9 +154,11 @@ async def export_markdown_bundle(
     previews require an authenticated proxy fetch and remain
     out-of-scope; the bundled .md surfaces them as a footnote.
     """
-    conversation = store.get_conversation(uuid)
+    conversation = _load(store, uuid, agent_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
 
     bundle = create_markdown_bundle(
         conversation,
@@ -130,7 +166,7 @@ async def export_markdown_bundle(
         include_compact=include_compact,
         dialect=dialect,
     )
-    filename = f"{sanitize_filename(conversation.name)}.zip"
+    filename = f"{_file_stem(conversation, agent_id)}.zip"
     return Response(
         content=bundle,
         media_type="application/zip",
@@ -149,6 +185,10 @@ async def export_markdown_bundle(
 async def export_pdf(
     uuid: str,
     include_tools: bool = True,
+    include_code_mode: bool = Query(
+        False,
+        description="When true, Code Mode runs are in the export (issue #90; the Show Code Mode toggle).",
+    ),
     include_compact: bool = Query(
         False,
         description=(
@@ -158,6 +198,7 @@ async def export_pdf(
             "preference 'export.includeCompactContent'."
         ),
     ),
+    agent_id: str | None = _AGENT_ID_QUERY,
     store: ConversationStore = Depends(get_store),
 ) -> Response:
     """Export a conversation as PDF.
@@ -178,9 +219,11 @@ async def export_pdf(
     handle at this layer, so there is no caller-side cleanup needed on
     the timeout path.
     """
-    conversation = store.get_conversation(uuid)
+    conversation = _load(store, uuid, agent_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not include_code_mode:
+        conversation = without_code_runs(conversation)
 
     try:
         async with asyncio.timeout(PDF_RENDER_TIMEOUT_SECONDS):
@@ -217,7 +260,7 @@ async def export_pdf(
             ),
         )
 
-    filename = f"{sanitize_filename(conversation.name)}.pdf"
+    filename = f"{_file_stem(conversation, agent_id)}.pdf"
 
     return Response(
         content=pdf_bytes,
@@ -232,6 +275,7 @@ async def export_pdf(
     responses={200: {"content": {"application/zip": {}}}},
 )
 async def export_all_markdown(
+    include_code_mode: bool = Query(False, description="When true, Code Mode runs are in the export (issue #90)."),
     include_compact: bool = Query(
         False,
         description=(
@@ -256,7 +300,7 @@ async def export_all_markdown(
     for summary in store.list_conversations():
         detail = store.get_conversation(summary.uuid)
         if detail:
-            conversations.append(detail)
+            conversations.append(detail if include_code_mode else without_code_runs(detail))
 
     zip_bytes = create_markdown_zip(conversations, include_compact=include_compact)
 

@@ -1,5 +1,7 @@
 {
   "detail": {
+    "agent_description": null,
+    "agent_id": null,
     "child_uuids": [],
     "compact_markers": [],
     "created_at": "2025-05-25T10:00:00Z",
@@ -179,6 +181,7 @@
     "source_home_abs": null,
     "source_name": null,
     "subagents": [],
+    "subagents_found": [],
     "summary": "",
     "updated_at": "2025-05-25T10:01:05Z",
     "uuid": "aaaa1111-2222-3333-4444-555566667777"

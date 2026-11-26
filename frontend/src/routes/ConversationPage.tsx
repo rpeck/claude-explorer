@@ -19,7 +19,7 @@ import { ConversationToolbar } from '@/components/conversation/ConversationToolb
 import { ConversationViewerScrollControls } from '@/components/conversation/ConversationViewerScrollControls'
 import { ConversationHeader } from '@/components/conversation/ConversationHeader'
 import { ConversationMessageStream } from '@/components/conversation/ConversationMessageStream'
-import { cn, computeVisibleMessages } from '@/lib/utils'
+import { cn, computeVisibleMessages, conversationHasCodeRun } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { ApiError } from '@/lib/types'
 import { scrollBubbleIntoView } from '@/lib/scrollBubbleIntoView'
@@ -33,7 +33,10 @@ import { useMessageNavigationRegistry } from '@/hooks/useMessageNavigationRegist
 import { useBookmarkHotkey } from '@/hooks/useBookmarkHotkey'
 
 export function ConversationPage() {
-  const { uuid } = useParams<{ uuid: string }>()
+  const { uuid, agentId } = useParams<{ uuid: string; agentId?: string }>()
+  // Issue #96: a session and each of its agent transcripts are different
+  // pages with the same uuid; per-page state resets on this key.
+  const pageKey = agentId ? `${uuid}/agents/${agentId}` : uuid
   const [searchParams, setSearchParams] = useSearchParams()
   const highlightMessageId = searchParams.get('highlight') || searchParams.get('m')
   // 2026-05-23: when `?focus=0` is present, navigate + scroll + ring
@@ -44,10 +47,12 @@ export function ConversationPage() {
   // URLs and user-initiated Cmd+G / Enter / click-on-card navigation.
   const shouldFocusOnHighlight = searchParams.get('focus') !== '0'
   const branchLeaf = searchParams.get('leaf') || undefined
-  const { data: conversation, isLoading, error } = useConversation(uuid || '', branchLeaf)
+  const { data: conversation, isLoading, error } = useConversation(uuid || '', branchLeaf, agentId)
   const {
     showToolCalls,
     setShowToolCalls,
+    showCodeMode,
+    setShowCodeMode,
     expandAllTools,
     setExpandAllTools,
     hideCompactMarkers,
@@ -111,6 +116,7 @@ export function ConversationPage() {
   } = useConversationCopyAndExports({
     conversation,
     showToolCalls,
+    showCodeMode,
     includeCompactInExports,
   })
   // The highlight-clear timer (sets the URL parameter after the
@@ -132,7 +138,7 @@ export function ConversationPage() {
   // oxlint-disable-next-line react-doctor/no-derived-state-effect -- The "use a key prop instead" recommendation would unmount/remount the ENTIRE ConversationPage subtree on every uuid navigation. That would discard the virtualizer's measurement cache, the scroll position, every memoized bubble, and every open dialog. Resetting one boolean is cheaper than nuking the page. See PLANS/POSTMORTEM-search-typing-lag-2026-05-22.md for the perf cost of avoidable re-renders on this surface.
   useEffect(() => {
     setShowPrelude(false)
-  }, [uuid])
+  }, [pageKey])
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -246,7 +252,7 @@ export function ConversationPage() {
   // overwrites; no manual cleanup needed.
   useEffect(() => {
     clearDemonstratedFocus()
-  }, [uuid, clearDemonstratedFocus])
+  }, [pageKey, clearDemonstratedFocus])
   const markPendingRecenter = useCallback(() => {
     // Priority chain (Bug 2 fix, 2026-05-26):
     //   1. demonstratedFocusUuidRef — last explicit bubble click OR
@@ -340,11 +346,17 @@ export function ConversationPage() {
     return computeVisibleMessages(conversation.messages, {
       showPrelude,
       showToolCalls,
+      showCodeMode,
       compactMarkerUuids: allCompactMarkerUuidSet,
       hideCompactSummaries: hideCompactMarkers,
       revealUuid,
     })
-  }, [conversation?.messages, showPrelude, showToolCalls, allCompactMarkerUuidSet, hideCompactMarkers, revealUuid])
+  }, [conversation?.messages, showPrelude, showToolCalls, showCodeMode, allCompactMarkerUuidSet, hideCompactMarkers, revealUuid])
+  // Issue #90: the Show Code Mode toggle shows only when a run exists.
+  const hasCodeRuns = useMemo(
+    () => conversationHasCodeRun(conversation?.messages ?? []),
+    [conversation?.messages],
+  )
 
   // Virtualization (2026-05-23, the load-bearing perf fix) — see
   // PLANS/PERFORMANCE_BASELINE_2026-05-23.md. Pre-fix shape
@@ -571,11 +583,12 @@ export function ConversationPage() {
   // selected message via ref-lookup + virtualizer fallback for off-screen
   // rows. See the hook docstring for the virtualization-recovery rationale.
   useMessageNavigationRegistry({
-    uuid,
+    uuid: pageKey,
     conversation,
     visibleMessages,
     showPrelude,
     showToolCalls,
+    showCodeMode,
     revealUuid,
     focusArea,
     messageRefs,
@@ -719,6 +732,9 @@ export function ConversationPage() {
           showToolCalls={showToolCalls}
           setShowToolCalls={setShowToolCalls}
           markPendingRecenter={markPendingRecenter}
+          hasCodeRuns={hasCodeRuns}
+          showCodeMode={showCodeMode}
+          setShowCodeMode={setShowCodeMode}
           expandAllTools={expandAllTools}
           handleToggleExpandAll={handleToggleExpandAll}
           isExpandPending={isExpandPending}
@@ -761,6 +777,7 @@ export function ConversationPage() {
         activeMatchUuid={activeMatchUuid}
         deferredSearchQuery={deferredSearchQuery}
         showToolCalls={showToolCalls}
+        showCodeMode={showCodeMode}
         expandAllTools={expandAllTools}
         setSelectedMessageIndex={setSelectedMessageIndex}
         scrollControls={
@@ -779,6 +796,7 @@ export function ConversationPage() {
         onOpenChange={setMarkdownDialogOpen}
         conversationUuid={conversation.uuid}
         conversationName={conversation.name || 'conversation'}
+        agentId={conversation.agent_id}
       />
 
       {/* Tree View Modal */}

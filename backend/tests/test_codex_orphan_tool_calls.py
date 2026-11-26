@@ -20,6 +20,9 @@ The rule (fixed by the orchestrator, wave 9 brief, C1):
 * It is a tool call like any other: Show Tools hides and shows it, and search
   finds its input and output only with tools on.
 * ``CODEX_PROJECTION_VERSION`` goes up by one (3 -> 4).
+* Issue #90 changed one rule: the outer code-mode ``exec`` is a
+  ``code_run`` block that holds its nested command
+  (``test_codex_code_mode.py``), so it is not an orphan tool call here.
 * Compaction, rollback, and ``history_base`` apply to these calls as to items.
 
 All data is synthetic (``codex_fake.orphan_tool_calls_lines``); no test reads
@@ -45,7 +48,6 @@ W = cf.ORPHAN_WORDS
 #: Each orphan call or output: (call id, tool name or None, input word or None, output word or None).
 ORPHANS = (
     (cf.ORPHAN_PATCH, "apply_patch", W["patch_input"], W["patch_output"]),
-    (cf.ORPHAN_EXEC, "exec", W["exec_input"], W["exec_output"]),
     (cf.ORPHAN_UNKNOWN, "frobnicate", W["unknown_input"], W["unknown_output"]),
     (cf.ORPHAN_LONE_OUTPUT, None, None, W["lone_output"]),
     (cf.ORPHAN_NO_OUTPUT, "shell", W["no_output_input"], None),
@@ -85,9 +87,9 @@ def conv(tmp_path: Path) -> dict[str, Any]:
 def _tool_ids(msg: dict[str, Any]) -> list[str]:
     """The call ids that a message's tool blocks name."""
     return [
-        b.get("id") if b.get("type") == "tool_use" else b.get("tool_use_id")
+        b.get("id") if b.get("type") in ("tool_use", "code_run") else b.get("tool_use_id")
         for b in msg["content"]
-        if b.get("type") in ("tool_use", "tool_result")
+        if b.get("type") in ("tool_use", "tool_result", "code_run")
     ]
 
 
@@ -130,20 +132,16 @@ def test_a_failed_freeform_apply_patch_is_a_tool_use_and_its_tool_result(conv: d
     assert W["patch_output"] in _result_text(result)
 
 
-def test_the_outer_code_mode_exec_call_is_a_tool_use_and_its_tool_result(conv: dict[str, Any]) -> None:
-    msg = _by_call(conv, cf.ORPHAN_EXEC)
-    use, result = msg["content"]
-    assert (use["type"], use["name"]) == ("tool_use", "exec")
-    assert W["exec_input"] in json.dumps(use["input"])
-    assert result["type"] == "tool_result"
-    assert W["exec_output"] in _result_text(result)
-
-
-def test_the_nested_exec_command_stays_its_own_item(conv: dict[str, Any]) -> None:
-    nested = _by_call(conv, cf.NESTED_EXEC_ITEM)
-    assert nested is not _by_call(conv, cf.ORPHAN_EXEC)
-    assert nested["content"][0]["name"] == "shell"
-    assert W["nested_output"] in _result_text(nested["content"][1])
+def test_the_outer_code_mode_exec_call_is_a_code_run_that_holds_its_nested_command(conv: dict[str, Any]) -> None:
+    # Issue #90: the nested item runs while the cell is alive, so it links to it.
+    (block,) = _by_call(conv, cf.ORPHAN_EXEC)["content"]
+    assert (block["type"], block["name"]) == ("code_run", "exec")
+    run = block["code_run"]
+    assert W["exec_input"] in run["code"]
+    assert W["exec_output"] in run["result"]
+    (call,) = run["inner_calls"]
+    assert (call["id"], call["name"]) == (cf.NESTED_EXEC_ITEM, "shell")
+    assert W["nested_output"] in call["result"]
 
 
 def test_an_unknown_function_call_has_its_decoded_arguments_and_the_unsupported_output(
@@ -170,8 +168,7 @@ def test_an_output_without_its_call_is_a_tool_result_alone(conv: dict[str, Any])
 
 
 def test_every_tool_call_shows_exactly_once(conv: dict[str, Any]) -> None:
-    ids = [cf.ORPHAN_PATCH, cf.ORPHAN_EXEC, cf.NESTED_EXEC_ITEM, cf.MATCHED_SHELL,
-           cf.MATCHED_PATCH, cf.ORPHAN_UNKNOWN, cf.ORPHAN_NO_OUTPUT]
+    ids = [cf.ORPHAN_PATCH, cf.MATCHED_SHELL, cf.MATCHED_PATCH, cf.ORPHAN_UNKNOWN, cf.ORPHAN_NO_OUTPUT]
     uses = [b["id"] for m in conv["chat_messages"] for b in m["content"] if b.get("type") == "tool_use"]
     assert sorted(uses) == sorted(ids)
 
@@ -181,7 +178,7 @@ def test_a_matched_call_keeps_its_item_and_adds_nothing(conv: dict[str, Any]) ->
     use, result = _by_call(conv, cf.MATCHED_PATCH)["content"]
     assert set(use["input"]) == {"changes"}
     assert W["matched_patch_output"] in _result_text(result)
-    assert len(conv["chat_messages"]) == 10
+    assert len(conv["chat_messages"]) == 9
 
 
 def test_each_message_sits_where_its_first_record_is_in_the_rollout(conv: dict[str, Any]) -> None:
@@ -189,7 +186,6 @@ def test_each_message_sits_where_its_first_record_is_in_the_rollout(conv: dict[s
         "text:Fix the lexer tokens.",
         cf.ORPHAN_PATCH,
         cf.ORPHAN_EXEC,
-        cf.NESTED_EXEC_ITEM,
         cf.MATCHED_SHELL,
         cf.MATCHED_PATCH,
         cf.ORPHAN_UNKNOWN,
@@ -230,7 +226,7 @@ def test_the_message_ids_are_unique_and_the_same_on_every_projection(tmp_path: P
     first = _project(tmp_path / "a", cf.orphan_tool_calls_lines())
     second = _project(tmp_path / "b", cf.orphan_tool_calls_lines())
     ids = [m["uuid"] for m in first["chat_messages"]]
-    assert len(set(ids)) == len(ids) == 10
+    assert len(set(ids)) == len(ids) == 9
     assert ids == [m["uuid"] for m in second["chat_messages"]]
 
 
@@ -288,7 +284,7 @@ def test_an_output_in_a_later_turn_still_attaches_to_its_call(tmp_path: Path) ->
     lines = [
         cf.session_meta(_s(0), TID, cwd=cwd, history_mode="paginated"),
         cf.turn_context(_s(1), "turn-l1", cwd=cwd, model=cf.ORPHAN_MODEL),
-        cf.response_item(_s(2), cf.custom_tool_call("call_late", "exec", "late script")),
+        cf.response_item(_s(2), cf.custom_tool_call("call_late", "apply_patch", "late patch")),
         cf.turn_context(_s(3), "turn-l2", cwd=cwd, model=cf.ORPHAN_MODEL),
         cf.response_item(_s(4), cf.custom_tool_call_output("call_late", "late output")),
     ]
@@ -413,8 +409,8 @@ def test_the_store_conversation_holds_each_orphan_call(env: Env) -> None:
     blocks = _store_blocks(env)
     uses = {b.id: b for b in blocks if b.type == "tool_use"}
     results = {b.tool_use_id for b in blocks if b.type == "tool_result"}
-    assert {cf.ORPHAN_PATCH, cf.ORPHAN_EXEC, cf.ORPHAN_UNKNOWN, cf.ORPHAN_NO_OUTPUT} <= set(uses)
-    assert {cf.ORPHAN_PATCH, cf.ORPHAN_EXEC, cf.ORPHAN_UNKNOWN, cf.ORPHAN_LONE_OUTPUT} <= results
+    assert {cf.ORPHAN_PATCH, cf.ORPHAN_UNKNOWN, cf.ORPHAN_NO_OUTPUT} <= set(uses)
+    assert {cf.ORPHAN_PATCH, cf.ORPHAN_UNKNOWN, cf.ORPHAN_LONE_OUTPUT} <= results
     assert uses[cf.ORPHAN_PATCH].name == "apply_patch"
 
 
@@ -498,7 +494,6 @@ def test_mcp_get_messages_with_tool_calls_names_each_orphan_call(env: Env) -> No
     uses = [b for m in msgs for b in m.get("content", []) if b["type"] == "tool_use"]
     names = {b.get("id"): b["name"] for b in uses}
     assert names[cf.ORPHAN_PATCH] == "apply_patch"
-    assert names[cf.ORPHAN_EXEC] == "exec"
     assert names[cf.ORPHAN_UNKNOWN] == "frobnicate"
     assert names[cf.ORPHAN_NO_OUTPUT] == "shell"
 
@@ -513,7 +508,7 @@ def test_mcp_get_messages_with_tool_results_holds_each_orphan_input_and_output(e
 
 def test_mcp_get_messages_without_tools_gives_the_orphan_calls_no_text(env: Env) -> None:
     msgs = _mcp("get_messages", conversation_id=TID)
-    assert len(msgs) == 10
+    assert len(msgs) == 9
     text = json.dumps(msgs)
     for word, _ in TOOL_WORDS:
         assert word not in text, word
@@ -525,8 +520,8 @@ def test_mcp_get_messages_without_tools_gives_the_orphan_calls_no_text(env: Env)
 # ---------------------------------------------------------------------------
 
 
-def test_codex_projection_version_is_4() -> None:
-    # 3 for N10's history; 4 for the tool calls with no item (C1).
+def test_codex_projection_version_is_5() -> None:
+    # 3 for N10's history; 4 for the tool calls with no item (C1); 5 for code mode (#90).
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 4
+    assert codex.CODEX_PROJECTION_VERSION == 5

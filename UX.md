@@ -238,11 +238,15 @@ a word in a Claude Code session then looked like a broken search.
   3. `filter "<name>"`: the active named filter removes at least one
      conversation. A filter that passes every conversation is not named.
   4. `hidden tool calls`: Show Tools is off.
+  5. `hidden Code Mode runs`: Show Code Mode is off, and the runs hold a
+     match (issue #90). One probe search with `include_code_mode=true`
+     decides, so a user who never ran Code Mode never sees this part.
 - **The buttons:** one per part, in the same order, after the pin button.
   - "Search all agents" sets the source filter to all.
   - "Search all workspaces" sets the workspace to all.
   - "Clear active filter" clears the active named filter.
   - "Search tool calls too" turns Show Tools on.
+  - "Search Code Mode runs too" turns Show Code Mode on.
 - Each button changes the same state as the sidebar control. The sidebar
   shows the change, and the search runs again.
 - The pin keeps its own text and button. The line does not repeat it.
@@ -615,8 +619,15 @@ Bookmarks are persisted **server-side** at `~/.claude-explorer/bookmarks.json`.
 - `PATCH /api/bookmarks/{id}` — update note.
 - `DELETE /api/bookmarks/{id}` — remove.
 
-Each bookmark stores `{conversation_uuid, message_uuid, note,
-created_at}`.
+Each bookmark stores `{conversation_id, message_uuid, source, note,
+snippet, created_at}`, and for a message of a subagent transcript also
+`agent_id` and `agent_description` (issue #96; the description is a
+snapshot, like the snippet).
+
+- A set `agent_id` must match `^[A-Za-z0-9_-]{1,64}$`, else 422. The route
+  does not look the agent up: a bookmark can outlive its file.
+- Identity is `(conversation_id, agent_id, message_uuid)`. A bookmark from
+  before #96 has no `agent_id` and is a bookmark on the session.
 
 ### UI
 
@@ -628,6 +639,13 @@ created_at}`.
   the search UI. Selection is persisted via `rightPaneTab` in settings.
 - Bookmarked messages get a small star badge inline so the user can spot
   them while scrolling the conversation.
+- **On an agent page** (§19), the star and the `b` key bookmark the message
+  with the agent. The same message uuid on the session and on an agent are
+  two bookmarks.
+- In the Bookmarks tab, a bookmark on an agent shows the agent's
+  description, else "Agent <id>". A click opens the agent page at the
+  message (`/conversations/<session>/agents/<agent>?m=<message>`). The
+  Markdown export names the agent the same way and links to the agent page.
 
 ---
 
@@ -715,10 +733,11 @@ history base, the session shows no "incomplete:" notice for it. A
 history base that is not in the archive keeps the notice
 "incomplete: history_base missing".
 
-A Codex tool call that has no item (for example a failed `apply_patch`
-or the outer code-mode `exec`) shows as a tool call with its output, at
-its place in the turn. Show Tools hides and shows it like any other tool
-call. Before 1.2.0 the viewer and search left out such a call.
+A Codex tool call that has no item (for example a failed `apply_patch`)
+shows as a tool call with its output, at its place in the turn. Show Tools
+hides and shows it like any other tool call. Before 1.2.0 the viewer and
+search left out such a call. The outer code-mode `exec` is a Code Mode run
+(§18), not a tool call.
 
 ---
 
@@ -778,6 +797,141 @@ Implementation: `backend/model_names.py` and its twin
 `frontend/src/lib/modelName.ts`; `CommandOutputBlock.tsx`,
 `ShellBlock.tsx`, and `NoticeRow.tsx` in
 `frontend/src/components/message/`.
+
+---
+
+## 18. Code Mode runs (issue #90)
+
+In Code Mode, Claude writes a script that makes many tool calls in one
+step. Explorer shows each run as one block, so the reader sees the code,
+each call with its input and output, and what went back to the model.
+
+- **Sources:**
+  - Claude Code: the `REPL` tool (CC 2.1.323 and later,
+    `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`). Cowork sessions fold their runs
+    the same way.
+  - Codex: the `exec` tool, and the `wait` calls that continue its cell.
+    `notify()` outputs join the run; a failed script's "Script error:" text
+    is its error, not a value it returned.
+- **Show Code Mode:** a checkbox in the conversation toolbar, next to Show
+  Tools.
+  - It shows only when the conversation has a run.
+  - Off by default, and not persisted, like Show Tools.
+  - It is independent of Show Tools: Show Tools never shows or hides a
+    run, and Show Code Mode never shows or hides a tool call.
+- **The block:** a dark terminal bubble.
+  - The title bar: "Code Mode", the language, the status (completed,
+    failed, terminated, running, unknown), the line count, "background"
+    for a background script, Copy (the script), and Expand.
+  - The script, highlighted (`rehype-highlight`, `github-dark`), with line
+    numbers. The bubble cuts it after 15 lines; "Show all N lines" shows
+    the rest.
+  - The calls, numbered in order: name, input, and output. A refused call
+    and a call that failed are marked.
+  - "Returned to the model", "Cut output", stdout, stderr, the error, and
+    the refused calls, each only when present.
+    - "Cut output" is Claude Code's note when it cut a long output. It
+      names the file with the uncut text. It is not part of stdout.
+  - "Media returned to the model": the images and documents that inner
+    calls read and that went back to the model with the run.
+    - Each image shows. Each document is a download link, "Download
+      document N (<media type>)".
+    - A foreground run has them in its result. A background run has them
+      in the event that ends it.
+  - A background script with no result says "Still running".
+    - A background script ends with a `poll_events` record or with the
+      result of a `Poll` call. Only an event with a nonce from the "authentic
+      event nonces" list counts; any other `<event>` text is quoted text.
+- **The overlay:** Expand opens a dialog with the tabs Script (every
+  line), Calls, Data flow, and Returned. Esc closes it.
+  - Data flow is a sequence diagram: one lane for the model, one for the
+    script, and one per tool. Time goes down.
+  - The usual reason for Code Mode is a pipe: one tool's output goes into
+    another tool, and only a small result goes back to the model. Neither
+    transcript records the flow, but both record every input and output.
+    So when an earlier call's output text is in a later call's input, the
+    diagram draws "output of call 1 → call 2" from tool to tool, and the
+    call list marks "input from call 1". Only outputs of 8 or more
+    characters count (`backend/code_run_flow.py`).
+  - Above the diagram: "Tool output: N characters. Returned to the model:
+    M characters.", and which call outputs went back to the model.
+- **Links, exact or none:**
+  - Claude Code names the parent run of each inner call
+    (`ranByToolUseId`), so every inner call is in its run.
+  - Codex names no parent. A nested call links to the one cell that is
+    alive at the time. With two or more cells alive it links to none: it
+    stays a tool call, labeled "made by a Code Mode script (one of N
+    running)".
+  - A Claude Code call with a Code Mode id and no parent field is a tool
+    call, labeled "made by a Code Mode script". In 2.1.331 these are the
+    script helpers (`searchTools`, id `repl_…`) and the error record that
+    Claude Code adds for a failed script (id `repl-error-…`).
+- **Tested on real sessions:** `backend/tests/fixtures/cc_code_mode/` and
+  `backend/tests/fixtures/codex_code_mode/` hold recorded sessions (synthetic
+  prompts and files, cleaned by `scripts/scrub_fixture.py`).
+- **Search:** with Show Code Mode off, the search does not look inside
+  runs. With it on, the script, the calls, and what the run returned are
+  searchable. Turning it on or off runs the search again. A hit in a run
+  shows the whole script and marks the match.
+  - Cmd+G and a click on a result center the first match in the bubble,
+    not the bubble. A run with a hit is often taller than the pane, and a
+    centered bubble hid its match (`scrollBubbleIntoView`).
+- **Exports** (Markdown, the bundle, PDF, Copy as Markdown, and Copy on a
+  bubble) follow Show Code Mode: on, each run is a `javascript` block,
+  its numbered calls, and what it returned; off, no run text.
+  - Markdown names the media by kind ("1 image (image/png), 1 document
+    (application/pdf)"). PDF shows the images and names the documents.
+  - MCP `get_messages` gives each media item as a stub (type, media type,
+    and size in bytes), with no bytes, as for other image blocks.
+- Code: `backend/cc_code_mode.py`, `backend/codex/projection.py`
+  (`_CodeMode`), `frontend/src/components/message/blocks/CodeRunBlock.tsx`,
+  `frontend/src/components/diagram/SequenceDiagram.tsx`.
+
+## 19. Subagent transcripts (issue #96)
+
+A Claude Code session can start subagents. Each agent writes its own
+transcript, and the answer you need is often in one of them. Explorer opens
+and searches these transcripts like a session.
+
+- **Which transcripts:** for one session, the agent files in
+  `<project>/<session>/subagents/agent-<id>.jsonl` and the older
+  `<project>/agent-<id>.jsonl` whose first `sessionId` is the session.
+  - Compaction runs (`acompact-*`) and side questions (`aside_question-*`)
+    are Claude Code's own runs, so they are left out.
+  - A file whose real path is outside the session's project folder is left
+    out (a symlink that points elsewhere).
+- **The agent page:** `/conversations/<session>/agents/<agent>` shows the
+  transcript in the Conversation Pane.
+  - Above the title, a breadcrumb: "Session › <the agent's description, or
+    its id>". "Session" opens the session.
+  - The title is the description from the agent's `.meta.json`, else
+    "Agent <id>". The Details add an "Agent ID:" row.
+  - Show Tools, Show Code Mode, Show Compactions, Copy as Markdown, the
+    Markdown export, the bundle, and the PDF work as for a session. The
+    export file name holds the agent id.
+- **Ways in:**
+  - The session's Details have a "Subagents:" row, with one link per agent
+    (only when the session has one).
+  - A search hit inside an agent.
+  - The URL.
+  - The Conversation List does not change: it shows sessions only.
+- **Search:** each agent transcript is its own result, under its session's
+  name, with the agent's description (or id) on the card. A click or Cmd+G
+  opens the agent page at the message.
+  - The scope pin, the bookmarks scope, the active filter, the project, and
+    the source apply to an agent through its session.
+  - Show Tools, Show Code Mode, and Show Compactions apply as for a session.
+  - An agent's description gives no title hit.
+- **MCP:** a `list_sessions` hit inside an agent carries `agent_id`;
+  `get_session_outline`, `get_messages`, and `export_session` take it.
+- **What #46 adds later:** the Agent call block in the parent session, links
+  from each call to its agent, nested agents, workflow agents, agents whose
+  transcript is gone, and the Activity panel.
+- **Bookmarks:** a bookmark made on an agent page holds the agent id and
+  opens the agent page (§15).
+- Code: `backend/cc_subagents.py`, the route in
+  `backend/routers/conversations.py`,
+  `frontend/src/components/conversation/SubagentLinks.tsx`.
 
 ---
 

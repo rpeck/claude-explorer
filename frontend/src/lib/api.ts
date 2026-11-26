@@ -45,6 +45,10 @@ async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   return response.json()
 }
 
+// Issue #96: the exports of a subagent transcript name the agent.
+const agentParam = (agentId?: string | null): string =>
+  agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''
+
 export const api = {
   // `/api/conversations` returns the SKINNY ConversationListItem shape
   // (backend split, see PLANS/SPLIT_CONVERSATION_SCHEMA.md).
@@ -148,6 +152,17 @@ export const api = {
     return fetchJson<ConversationDetail>(`/conversations/${uuid}${qs}`, signal)
   },
 
+  // Issue #96: one subagent transcript of a Claude Code session.
+  getAgentTranscript: (
+    uuid: string,
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<ConversationDetail> =>
+    fetchJson<ConversationDetail>(
+      `/conversations/${uuid}/subagents/${encodeURIComponent(agentId)}`,
+      signal,
+    ),
+
   getConversationTree: (
     uuid: string,
     signal?: AbortSignal,
@@ -185,6 +200,9 @@ export const api = {
     // mapping: `Show Compactions` checkbox checked → includeCompactions
     // = !hideCompactMarkers = !false = true).
     includeCompactions: boolean,
+    // Issue #90: REQUIRED, no default, as above. Show Code Mode: also search
+    // the runs (script, calls, returned value). Independent of tools.
+    includeCodeMode: boolean,
     // 2026-05-18 (Hunt #5): optional AbortSignal. Wired from useSearch's
     // queryFn `({ signal }) => api.search(..., signal)` so a queryKey
     // change (user keeps typing past the 200ms debounce) or an unmount
@@ -212,6 +230,7 @@ export const api = {
         sort_order: sortOrder,
         include_tool_calls: includeToolCalls,
         include_compactions: includeCompactions,
+        include_code_mode: includeCodeMode,
       }
       if (scope?.conversationUuid) body.conversation_uuid = scope.conversationUuid
       if (scope?.projectPath) body.project_path = scope.projectPath
@@ -256,6 +275,7 @@ export const api = {
     // the user has hidden them, so the URL stays short for the default
     // "show everything" case.
     if (!includeCompactions) params.set('include_compactions', 'false')
+    if (includeCodeMode) params.set('include_code_mode', 'true')
     // GET branch — signal threaded through fetchJson so a queryKey change
     // (user keeps typing) aborts the in-flight request mirror-image of the
     // POST branch above. Without this the React Query queryKey-change path
@@ -286,9 +306,11 @@ export const api = {
     uuid: string,
     showToolCalls: boolean = true,
     includeCompact: boolean = false,
+    includeCodeMode: boolean = false,
+    agentId?: string | null,
   ): Promise<Response> =>
     fetch(
-      `${BASE_URL}/conversations/${uuid}/export/markdown?include_tools=${showToolCalls}&include_compact=${includeCompact}`,
+      `${BASE_URL}/conversations/${uuid}/export/markdown?include_tools=${showToolCalls}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}${agentParam(agentId)}`,
     ),
 
   // Issue #4 — Markdown bundle (zip with conversation.md + images/).
@@ -297,9 +319,11 @@ export const api = {
     showToolCalls: boolean = true,
     dialect: 'commonmark' | 'obsidian' = 'commonmark',
     includeCompact: boolean = false,
+    includeCodeMode: boolean = false,
+    agentId?: string | null,
   ): Promise<Response> =>
     fetch(
-      `${BASE_URL}/conversations/${uuid}/export/markdown-bundle?include_tools=${showToolCalls}&dialect=${dialect}&include_compact=${includeCompact}`,
+      `${BASE_URL}/conversations/${uuid}/export/markdown-bundle?include_tools=${showToolCalls}&dialect=${dialect}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}${agentParam(agentId)}`,
     ),
 
   exportPdf: (
@@ -307,9 +331,11 @@ export const api = {
     showToolCalls: boolean = true,
     signal?: AbortSignal,
     includeCompact: boolean = false,
+    includeCodeMode: boolean = false,
+    agentId?: string | null,
   ): Promise<Response> =>
     fetch(
-      `${BASE_URL}/conversations/${uuid}/export/pdf?include_tools=${showToolCalls}&include_compact=${includeCompact}`,
+      `${BASE_URL}/conversations/${uuid}/export/pdf?include_tools=${showToolCalls}&include_compact=${includeCompact}&include_code_mode=${includeCodeMode}${agentParam(agentId)}`,
       { signal },
     ),
 

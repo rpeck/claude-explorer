@@ -8,6 +8,15 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Literal
 
+from .cc_subagents import (
+    AgentFile,
+    find_agent,
+    is_valid_agent_id,
+    iter_agent_files,
+    owner_of,
+    read_agent_conversation,
+    subagents_found,
+)
 from .claude_code_reader import (
     _load_conversation_cached,
     discover_jsonl_files,
@@ -30,6 +39,7 @@ from .models import (
     ConversationTree,
     Message,
     MessageNode,
+    SubagentFound,
     SubagentSummary,
 )
 from .parsing import parse_datetime as _parse_datetime
@@ -164,6 +174,9 @@ def _parse_content_blocks(content: list[dict[str, Any]]) -> list[ContentBlock]:
             # parallel tool calls).
             id=block.get("id"),
             tool_use_id=block.get("tool_use_id"),
+            code_run=block.get("code_run"),
+            from_code_mode=block.get("from_code_mode"),
+            ambiguous_with=block.get("ambiguous_with"),
         )
         blocks.append(parsed)
     return blocks
@@ -1130,7 +1143,48 @@ class ConversationStore:
             notices=data.get("notices") or [],
             parent_uuid=data.get("parent_uuid"),
             child_uuids=data.get("child_uuids") or [],
+            agent_id=data.get("agent_id"),
+            agent_description=data.get("agent_description"),
         )
+
+    # ----- Subagent transcripts (issue #96) -----
+
+    def _claude_code_session_path(self, uuid: str) -> Path | None:
+        """The session file whose name is ``uuid``; a comparison, never a built path."""
+        return next(
+            (p for p in discover_jsonl_files(self.claude_dir) if p.stem == uuid), None
+        )
+
+    def find_agent(self, uuid: str, agent_id: str) -> tuple[Path, AgentFile] | None:
+        """``(session file, agent)`` of the Claude Code session ``uuid``, through discovery."""
+        if not is_valid_agent_id(agent_id):
+            return None
+        session_file = self._claude_code_session_path(uuid)
+        agent = find_agent(session_file, agent_id) if session_file is not None else None
+        return (session_file, agent) if agent is not None else None
+
+    def get_agent_conversation(self, uuid: str, agent_id: str) -> ConversationDetail | None:
+        """The agent transcript as a ``ConversationDetail`` with ``uuid`` = the session's."""
+        found = self.find_agent(uuid, agent_id)
+        if found is None:
+            return None
+        session_file, agent = found
+        data = read_agent_conversation(session_file, agent)
+        if data is None:
+            return None
+        return self._build_detail_from_data(data, agent.path, None)
+
+    def get_agent_conversations_raw(self, source: SourceFilter = "all") -> list[dict[str, Any]]:
+        """Every agent transcript with an owner, in the session identity (linear search)."""
+        if source not in ("all", "CLAUDE_CODE"):
+            return []
+        out = []
+        for path in iter_agent_files(self.claude_dir):
+            owner = owner_of(path)
+            data = read_agent_conversation(*owner) if owner is not None else None
+            if data is not None:
+                out.append(data)
+        return out
 
     def get_conversation(self, uuid: str, leaf_override: str | None = None) -> ConversationDetail | None:
         """Get a single conversation by UUID with resolved active branch.
@@ -1148,9 +1202,27 @@ class ConversationStore:
         data, file_path = self._find_conversation_data(uuid)
         if not data:
             return None
-        return self._build_detail_from_data(data, file_path, leaf_override)
+        detail = self._build_detail_from_data(data, file_path, leaf_override)
+        if detail.source == "CLAUDE_CODE" and file_path is not None:
+            detail.subagents_found = [
+                SubagentFound(**a) for a in subagents_found(file_path)
+            ]
+        return detail
 
     def get_conversation_dict(
+        self, uuid: str, leaf_override: str | None = None
+    ) -> dict[str, Any] | None:
+        """:meth:`_get_conversation_dict_cached`, plus a session's ``subagents_found``.
+
+        Discovery runs on each call, outside the dict cache: a new agent file
+        does not change the session file's mtime.
+        """
+        detail = self._get_conversation_dict_cached(uuid, leaf_override)
+        if detail and detail.get("source") == "CLAUDE_CODE" and detail.get("file_path"):
+            return {**detail, "subagents_found": subagents_found(Path(detail["file_path"]))}
+        return detail
+
+    def _get_conversation_dict_cached(
         self, uuid: str, leaf_override: str | None = None
     ) -> dict[str, Any] | None:
         """Get a conversation as a ``model_dump(mode='json')`` dict, cached.

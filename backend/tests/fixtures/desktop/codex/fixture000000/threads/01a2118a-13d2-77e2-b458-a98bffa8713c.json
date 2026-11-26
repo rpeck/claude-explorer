@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "thread_id": "01a2118a-13d2-77e2-b458-a98bffa8713c",
+  "home_key": "fixture000000",
+  "source_name": null,
+  "title": "Do these steps in order, one at a time, and use the exec tool for every script. Step 1: one exec script that runs \"ls src\" with tools.exec_command and then throws new Error(\"synthetic failure\"). Step 2: one exec script whose first line is // @exec: {\"yield_time_ms\": 300} and that runs \"sleep 3; ls src\" with tools.exec_command and returns its output with text(); when exec says the script is still running, call wait with its cell_id until it completes. Step 3: one exec script that calls notify(\"step one\"), then runs \"cat src/util.py\" with tools.exec_command, and returns that output with text(). Step 4: start two exec scripts back to back, each with first line // @exec: {\"yield_time_ms\": 300}; the first runs \"sleep 4; echo first\" and the second runs \"sleep 4; echo second\" with tools.exec_command. Start the second one before you call wait on the first. Then call wait on both cells until both finish. Step 5: one exec script with first line // @exec: {\"yield_time_ms\": 300} that runs \"sleep 30\" with tools.exec_command; when it yields, call wait on its cell with terminate: true. Then reply DONE.",
+  "cwd": "/home/fixture/cx-sample",
+  "model": "gpt-5.6-terra",
+  "archived": false,
+  "history_mode": "paginated",
+  "thread_source": null,
+  "parent_thread_id": null,
+  "imported_from": null,
+  "rollouts": [
+    {
+      "stem": "rollout-2026-11-24T00-00-00-01a2118a-13d2-77e2-b458-a98bffa8713c",
+      "copied_bytes": 25276,
+      "session_meta_ts_ms": 1795590591458
+    }
+  ],
+  "current_stem": "rollout-2026-11-24T00-00-00-01a2118a-13d2-77e2-b458-a98bffa8713c",
+  "current_ambiguous": false,
+  "updated_at_ms": null
+}

@@ -75,6 +75,7 @@ export function SearchPanel() {
     isLoading,
     isSearching,
     namedFilterLimitsSearch,
+    hiddenCodeModeMatches,
     close,
     setQuery,
     setContextSize,
@@ -85,7 +86,7 @@ export function SearchPanel() {
   } = useSearchPanel()
 
   const navigateToMatch = useNavigateToMatch()
-  const { rightPaneTab, setRightPaneTab, showToolCalls, setShowToolCalls } = useSettings()
+  const { rightPaneTab, setRightPaneTab, showToolCalls, setShowToolCalls, showCodeMode, setShowCodeMode } = useSettings()
   const { scope: pinScope, unpin } = useSearchPin()
   const { sourceFilter, setSourceFilter, organizationId, setOrganizationId } = useSourceFilter()
   const { filtersState, setActiveId } = useFilters()
@@ -172,14 +173,13 @@ export function SearchPanel() {
   const flatIndexByKey = useMemo(() => {
     const map = new Map<string, number>()
     flatMatches.forEach((m, i) => {
-      map.set(`${m.conversationUuid}:${m.messageUuid}:${m.matchStart}`, i)
+      map.set(matchKey(m), i)
     })
     return map
   }, [flatMatches])
 
   const handleCardClick = (match: SearchMatch) => {
-    const key = `${match.conversationUuid}:${match.messageUuid}:${match.matchStart}`
-    const idx = flatIndexByKey.get(key) ?? -1
+    const idx = flatIndexByKey.get(matchKey(match)) ?? -1
     // 2026-05-23: when the click would actually flip activeMatchIndex
     // or activeMatchSource, let the navigation flow through the
     // index-change effect above (single source of truth, fires
@@ -270,6 +270,15 @@ export function SearchPanel() {
       button: 'Search tool calls too',
       testId: 'search-empty-show-tools',
       clear: () => setShowToolCalls(true),
+    },
+    // Issue #90: with Show Code Mode off, the search leaves runs out. Named
+    // only when the runs hold a match (a probe search in SearchPanelContext).
+    !showCodeMode && hiddenCodeModeMatches && {
+      key: 'code-mode',
+      part: <>hidden Code Mode runs</>,
+      button: 'Search Code Mode runs too',
+      testId: 'search-empty-show-code-mode',
+      clear: () => setShowCodeMode(true),
     },
   ].filter((l) => !!l)
   // Silence unused-var when isLoading falls out of any branch above.
@@ -525,7 +534,7 @@ export function SearchPanel() {
           >
             {flatMatches.length}{truncated ? '+' : ''}
           </span>{' '}
-          matches
+          {flatMatches.length === 1 && !truncated ? 'match' : 'matches'}
         </div>
       )}
 
@@ -665,7 +674,7 @@ export function SearchPanel() {
               const visibleMatches = flatMatches.slice(0, cap)
               return visibleMatches.map((match, idx) => {
                 const isActive = idx === activeMatchIndex
-                const key = `${match.conversationUuid}:${match.messageUuid}:${match.matchStart}`
+                const key = matchKey(match)
                 return (
                   <ResultCard
                     key={key}
@@ -720,6 +729,10 @@ export function SearchPanel() {
   )
 }
 
+// Issue #96: an agent's hits share the session uuid, so the agent is in the key.
+const matchKey = (m: SearchMatch): string =>
+  `${m.conversationUuid}:${m.agentId ?? ''}:${m.messageUuid}:${m.matchStart}`
+
 interface ResultCardProps {
   match: SearchMatch
   isActive: boolean
@@ -771,6 +784,17 @@ const ResultCard = ({
           </span>
         )}
       </div>
+      {match.agentId && (
+        // Issue #96: the hit is inside this subagent transcript of the session.
+        <div
+          className="mb-1 flex items-center gap-1 truncate text-[11px] text-purple-600 dark:text-purple-400"
+          data-testid="search-hit-agent"
+          title={match.agentDescription || match.agentId}
+        >
+          <Bot className="h-3 w-3 shrink-0" />
+          <span className="truncate">{match.agentDescription || match.agentId}</span>
+        </div>
+      )}
       <div className="mb-1 flex items-center gap-1.5 text-xs">
         <Icon
           className={cn(

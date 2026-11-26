@@ -249,7 +249,7 @@ def test_http_route_uses_limit_1000(envelope_app, monkeypatch) -> None:
     def _spy(self, user_query, *, source="all", conversation_uuid=None,
              project_path=None, bookmarks=None, organization_id=None,
              conversation_uuids=None, include_tool_calls=True,
-             include_compactions=True, limit=1000):
+             include_code_mode=False, include_compactions=True, limit=1000):
         seen_limits.append(limit)
         return original(
             self, user_query,
@@ -258,6 +258,7 @@ def test_http_route_uses_limit_1000(envelope_app, monkeypatch) -> None:
             organization_id=organization_id,
             conversation_uuids=conversation_uuids,
             include_tool_calls=include_tool_calls,
+            include_code_mode=include_code_mode,
             include_compactions=include_compactions,
             limit=limit,
         )

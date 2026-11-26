@@ -62,22 +62,28 @@ export function useConversations(
   return { ...query, data }
 }
 
-export function useConversation(uuid: string, leaf?: string) {
+export function useConversation(uuid: string, leaf?: string, agentId?: string) {
   // staleTime is inherited from queryClient.setQueryDefaults for the
   // ['conversations', 'detail'] key prefix (see lib/queryClient.ts).
   // Task A6 (2026-05-18): detail is 5min — previously Infinity, which
   // suppressed refetchOnWindowFocus and let the fetch pipeline's new
   // messages stay invisible until a hard refresh.
   return useQuery({
-    queryKey: leaf
-      ? [...queryKeys.conversations.detail(uuid), 'leaf', leaf]
-      : queryKeys.conversations.detail(uuid),
+    queryKey: agentId
+      ? queryKeys.conversations.agent(uuid, agentId)
+      : leaf
+        ? [...queryKeys.conversations.detail(uuid), 'leaf', leaf]
+        : queryKeys.conversations.detail(uuid),
     // 2026-05-18 (Hunt #5): plumb queryFn's AbortSignal into api.getConversation
     // so navigating between conversations via keyboard (fast back-to-back
     // mounts) cancels the in-flight multi-MB detail fetch for the conversation
     // the user left. Without this the backend keeps serializing a large payload
     // the cache will discard.
-    queryFn: ({ signal }) => api.getConversation(uuid, leaf, signal),
+    // Issue #96: an agent transcript has no branches, so no leaf.
+    queryFn: ({ signal }) =>
+      agentId
+        ? api.getAgentTranscript(uuid, agentId, signal)
+        : api.getConversation(uuid, leaf, signal),
     enabled: !!uuid,
   })
 }
@@ -134,6 +140,8 @@ export function useSearch(
   // includeToolCalls. Maps `Show Compactions` checkbox via
   // `includeCompactions = !useSettings().hideCompactMarkers`.
   includeCompactions: boolean,
+  // Issue #90: REQUIRED, no default. `useSettings().showCodeMode`.
+  includeCodeMode: boolean,
 ) {
   const [debouncedQuery, setDebouncedQuery] = useState(query)
   const queryClient = useQueryClient()
@@ -188,14 +196,14 @@ export function useSearch(
     // Include includeToolCalls AND includeCompactions in the key so
     // toggling either re-fires the network call and React Query doesn't
     // return a stale cached payload that contains hidden-content snippets.
-    queryKey: queryKeys.search(debouncedQuery, source, contextSize, sort, sortOrder, scope, includeToolCalls, includeCompactions),
+    queryKey: queryKeys.search(debouncedQuery, source, contextSize, sort, sortOrder, scope, includeToolCalls, includeCompactions, includeCodeMode),
     // 2026-05-18 (Hunt #5): plumb queryFn's AbortSignal into api.search so
     // a queryKey change OR component unmount cancels the in-flight `/api/search`
     // request. Critical for the FTS-fallback slow path (multi-second) where
     // orphan searches were burning local-backend CPU after the user kept
     // typing past the 200ms debounce.
     queryFn: ({ signal }) =>
-      api.search(debouncedQuery, source, contextSize, sort, sortOrder, scope, includeToolCalls, includeCompactions, signal),
+      api.search(debouncedQuery, source, contextSize, sort, sortOrder, scope, includeToolCalls, includeCompactions, includeCodeMode, signal),
     enabled: debouncedQuery.length >= 2,
     staleTime: 60 * 1000, // 1 minute
     // 2026-05-22 (per CLAUDE-TESTING §5.13): keep previous data only for

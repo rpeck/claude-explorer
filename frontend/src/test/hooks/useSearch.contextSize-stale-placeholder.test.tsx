@@ -100,7 +100,7 @@ describe('useSearch — contextSize toggle MUST NOT return stale previous-mode d
     const Wrapper = makeWrapper();
     const { result, rerender } = renderHook(
       ({ ctx }: { ctx: 'snippet' | 'full' }) =>
-        useSearch('hello', 'all', ctx, 'updated_at', 'desc', undefined, true, true),
+        useSearch('hello', 'all', ctx, 'updated_at', 'desc', undefined, true, true, false),
       { wrapper: Wrapper, initialProps: { ctx: 'full' as 'snippet' | 'full' } },
     );
 
@@ -158,7 +158,7 @@ describe('useSearch — contextSize toggle MUST NOT return stale previous-mode d
     const Wrapper = makeWrapper();
     const { result, rerender } = renderHook(
       ({ ctx }: { ctx: 'snippet' | 'full' }) =>
-        useSearch('hello', 'all', ctx, 'updated_at', 'desc', undefined, true, true),
+        useSearch('hello', 'all', ctx, 'updated_at', 'desc', undefined, true, true, false),
       { wrapper: Wrapper, initialProps: { ctx: 'snippet' as 'snippet' | 'full' } },
     );
 
@@ -203,7 +203,7 @@ describe('useSearch — contextSize toggle MUST NOT return stale previous-mode d
     const Wrapper = makeWrapper();
     const { result, rerender } = renderHook(
       ({ q }: { q: string }) =>
-        useSearch(q, 'all', 'snippet', 'updated_at', 'desc', undefined, true, true),
+        useSearch(q, 'all', 'snippet', 'updated_at', 'desc', undefined, true, true, false),
       { wrapper: Wrapper, initialProps: { q: 'hello' } },
     );
 
