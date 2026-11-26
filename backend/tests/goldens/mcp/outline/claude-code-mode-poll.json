@@ -1,0 +1,173 @@
+{
+  "cached_call": {
+    "agent_description": null,
+    "agent_id": null,
+    "conversation_id": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
+    "created_at": "2026-11-26T00:11:26.838000+00:00",
+    "message_count": 5,
+    "messages": [
+      {
+        "char_count": 298,
+        "code_run_count": 0,
+        "message_uuid": "a84a199e-0775-415f-b278-311c19b79308",
+        "position": 0,
+        "sender": "human",
+        "summary": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/pic.png and media/tiny.pdf with tools.Read and returns both results. Step 2: one script that calls...",
+        "timestamp": "2026-11-26T00:11:26.838000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "265f15d3-3578-4343-8a1b-a2a0f92c2254",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:29.328000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "319f9dcf-dc11-4c14-9fdd-19e7e9f75189",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:30.307000+00:00",
+        "tool_count": 1
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 0,
+        "message_uuid": "651456b8-b0a1-46a5-84f1-fa4ee8421cbd",
+        "position": 3,
+        "sender": "human",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:31.028000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 413,
+        "code_run_count": 0,
+        "message_uuid": "f91e960c-cbea-4e3e-b66e-f8687fe75ffe",
+        "position": 4,
+        "sender": "assistant",
+        "summary": "DONE - **Step 1:** One script read `media/pic.png` and `media/tiny.pdf` with `tools.Read`, and it returned both results. The picture is a small red square. The PDF has one page with the text...",
+        "timestamp": "2026-11-26T00:11:33.431000+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
+    "next_position": null,
+    "project": "cm-sample",
+    "session_id": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-11-26T00:11:33.431000+00:00"
+  },
+  "first_call": {
+    "agent_description": null,
+    "agent_id": null,
+    "conversation_id": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
+    "created_at": "2026-11-26T00:11:26.838000+00:00",
+    "message_count": 5,
+    "messages": [
+      {
+        "char_count": 298,
+        "code_run_count": 0,
+        "message_uuid": "a84a199e-0775-415f-b278-311c19b79308",
+        "position": 0,
+        "sender": "human",
+        "summary": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/pic.png and media/tiny.pdf with tools.Read and returns both results. Step 2: one script that calls...",
+        "timestamp": "2026-11-26T00:11:26.838000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "265f15d3-3578-4343-8a1b-a2a0f92c2254",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:29.328000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "319f9dcf-dc11-4c14-9fdd-19e7e9f75189",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:30.307000+00:00",
+        "tool_count": 1
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 0,
+        "message_uuid": "651456b8-b0a1-46a5-84f1-fa4ee8421cbd",
+        "position": 3,
+        "sender": "human",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:31.028000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 413,
+        "code_run_count": 0,
+        "message_uuid": "f91e960c-cbea-4e3e-b66e-f8687fe75ffe",
+        "position": 4,
+        "sender": "assistant",
+        "summary": "DONE - **Step 1:** One script read `media/pic.png` and `media/tiny.pdf` with `tools.Read`, and it returned both results. The picture is a small red square. The PDF has one page with the text...",
+        "timestamp": "2026-11-26T00:11:33.431000+00:00",
+        "tool_count": 0
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
+    "next_position": null,
+    "project": "cm-sample",
+    "session_id": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
+    "source": "CLAUDE_CODE",
+    "start_position": 0,
+    "updated_at": "2026-11-26T00:11:33.431000+00:00"
+  },
+  "page_1_size_2": {
+    "agent_description": null,
+    "agent_id": null,
+    "conversation_id": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
+    "created_at": "2026-11-26T00:11:26.838000+00:00",
+    "message_count": 5,
+    "messages": [
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "265f15d3-3578-4343-8a1b-a2a0f92c2254",
+        "position": 1,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:29.328000+00:00",
+        "tool_count": 0
+      },
+      {
+        "char_count": 0,
+        "code_run_count": 1,
+        "message_uuid": "319f9dcf-dc11-4c14-9fdd-19e7e9f75189",
+        "position": 2,
+        "sender": "assistant",
+        "summary": "",
+        "timestamp": "2026-11-26T00:11:30.307000+00:00",
+        "tool_count": 1
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
+    "next_position": 3,
+    "project": "cm-sample",
+    "session_id": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d",
+    "source": "CLAUDE_CODE",
+    "start_position": 1,
+    "updated_at": "2026-11-26T00:11:33.431000+00:00"
+  }
+}

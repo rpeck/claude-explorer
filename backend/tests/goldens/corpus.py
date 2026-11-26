@@ -65,6 +65,8 @@ CONVERSATIONS = (
     ("claude-code-mode-cases", "2339aab4-744c-4556-95b8-5ee5552c1b85"),
     # Issue #96: a synthetic session with a current-layout and a legacy agent.
     ("claude-subagents", "5a6e0000-0000-4000-8000-000000000096"),
+    # Media, a cut output, and a run that ends through the Poll tool.
+    ("claude-code-mode-poll", "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"),
     ("cowork-local", "aaaa1111-2222-3333-4444-555566667777"),
     ("cowork-remote", "session_01FIXTUREREMOTE000000000001"),
 )

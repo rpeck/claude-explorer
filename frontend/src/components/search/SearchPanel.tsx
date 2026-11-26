@@ -534,7 +534,7 @@ export function SearchPanel() {
           >
             {flatMatches.length}{truncated ? '+' : ''}
           </span>{' '}
-          matches
+          {flatMatches.length === 1 && !truncated ? 'match' : 'matches'}
         </div>
       )}
 

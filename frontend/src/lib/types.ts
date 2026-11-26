@@ -163,7 +163,8 @@ export interface ContentBlock {
   // ingest layer and break /api/conversations on the next Anthropic
   // release. Add the new variant to this TS union when you're ready
   // to render it.
-  type: 'text' | 'tool_use' | 'tool_result' | 'image' | 'thinking' | 'code_run'
+  // 'document': only in CodeRun.media (issue #90), rendered by CodeRunBlock.
+  type: 'text' | 'tool_use' | 'tool_result' | 'image' | 'thinking' | 'code_run' | 'document'
   text?: string
   name?: string // tool_use, code_run
   input?: unknown // tool_use
@@ -212,6 +213,10 @@ export interface CodeRun {
   inner_calls: CodeRunCall[]
   /** The calls (indexes) whose output is in what the run returned to the model. */
   returned_from?: number[]
+  /** Claude Code's note when it cut a long output; it names the file with the uncut text. */
+  uncut_output_note?: string | null
+  /** Images and documents (base64 `image` and `document` blocks) that went back with the run. */
+  media?: ContentBlock[]
 }
 
 // Image asset metadata (thumbnail or preview variant). Returned by

@@ -79,12 +79,14 @@
               ],
               "language": "javascript",
               "line_count": 2,
+              "media": [],
               "refused": null,
               "result": null,
               "returned_from": [],
               "status": "failed",
               "stderr": null,
-              "stdout": null
+              "stdout": null,
+              "uncut_output_note": null
             },
             "content": null,
             "id": "toolu_01XSNW8uG3Q1zCkPBq99k4h8",
@@ -144,6 +146,7 @@
               ],
               "language": "javascript",
               "line_count": 2,
+              "media": [],
               "refused": "Tool calls that were refused while this script ran:\n- \"Write\", refused: \"Permission denied for Write: Claude requested permissions to write to /home/fixture/cm-sample/src/new.txt, but you haven't granted it yet.\"",
               "result": "{\n  error: \"Permission denied for Write: Claude requested permissions to write to /home/fixture/cm-sample/src/new.txt, but you haven't granted it yet.\"\n}",
               "returned_from": [
@@ -151,7 +154,8 @@
               ],
               "status": "completed",
               "stderr": null,
-              "stdout": null
+              "stdout": null,
+              "uncut_output_note": null
             },
             "content": null,
             "id": "toolu_01DcQT55bLR6riMvaDivGCrC",
@@ -210,12 +214,14 @@
               ],
               "language": "javascript",
               "line_count": 6,
+              "media": [],
               "refused": null,
               "result": "1",
               "returned_from": [],
               "status": "completed",
               "stderr": null,
-              "stdout": "{\"type\":\"text\",\"file\":{\"filePath\":\"/home/fixture/cm-sample/src/util.py\",\"content\":\"y = 2\\n\",\"numLines\":2,\"startLine\":1,\"totalLines\":2}}"
+              "stdout": "{\"type\":\"text\",\"file\":{\"filePath\":\"/home/fixture/cm-sample/src/util.py\",\"content\":\"y = 2\\n\",\"numLines\":2,\"startLine\":1,\"totalLines\":2}}",
+              "uncut_output_note": null
             },
             "content": null,
             "id": "toolu_01E2AsVFx8xHjrVjBVKr6qZ7",
@@ -286,12 +292,14 @@
               ],
               "language": "javascript",
               "line_count": 1,
+              "media": [],
               "refused": null,
               "result": "{\n  isAsync: true,\n  status: 'async_launched',\n  agentId: 'a47f122549f03fce6',\n  description: 'List src directory',\n  resolvedModel: 'claude-sonnet-5-5',\n  outputFile: '/tmp/claude/-home-fixture-cm-sample/2339aab4-744c-4556-95b8-5ee5552c1b85/tasks/a47f122549f03fce6.output',\n  canReadOutputFile: true,\n  canContinueAgent: true,\n  note: 'Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\n' +\n    \"agentId: a47f122549f03fce6 (internal ID - do not mention to user. Use SendMessage with to: 'a47f122549f03fce6', summary: '<5-10 word recap>' to continue this agent.)\\n\" +\n    'The agent is working in the background. You will be notified automatically when it completes. You know nothing about its results until that notification arrives — do not report, assume, or predict them; continue other work or respond to the user in the meantime.\\n' +\n    \"Do not duplicate this agent's work — avoid working with the same files or topics it is using.\\n\" +\n    'output_file: /tmp/claude/-home-fixture-cm-sample/2339aab4-744c-4556-95b8-5ee5552c1b85/tasks/a47f122549f03fce6.output\\n' +\n    \"Do NOT Read or tail this file via the shell tool — it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you'll get a completion notification.\"\n}",
               "returned_from": [],
               "status": "completed",
               "stderr": null,
-              "stdout": null
+              "stdout": null,
+              "uncut_output_note": null
             },
             "content": null,
             "id": "toolu_01HVE5DyUUhtZmrCv5LN6g5s",

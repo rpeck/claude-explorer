@@ -33,6 +33,7 @@ NON_COWORK_FLAGS = {
     "b007d327-80c4-46ea-b737-53d84b30c624": False,
     # Issue #96: the synthetic session with subagents.
     "5a6e0000-0000-4000-8000-000000000096": False,
+    "6c2110ef-d09c-4f7b-9e2e-657d6e24353d": False,
 }
 
 NO_PARENTS_ONE = [{"uuid": "m1"}]

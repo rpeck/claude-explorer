@@ -828,9 +828,20 @@ each call with its input and output, and what went back to the model.
     the rest.
   - The calls, numbered in order: name, input, and output. A refused call
     and a call that failed are marked.
-  - "Returned to the model", stdout, stderr, the error, and the refused
-    calls, each only when present.
+  - "Returned to the model", "Cut output", stdout, stderr, the error, and
+    the refused calls, each only when present.
+    - "Cut output" is Claude Code's note when it cut a long output. It
+      names the file with the uncut text. It is not part of stdout.
+  - "Media returned to the model": the images and documents that inner
+    calls read and that went back to the model with the run.
+    - Each image shows. Each document is a download link, "Download
+      document N (<media type>)".
+    - A foreground run has them in its result. A background run has them
+      in the event that ends it.
   - A background script with no result says "Still running".
+    - A background script ends with a `poll_events` record or with the
+      result of a `Poll` call. Only an event with a nonce from the "authentic
+      event nonces" list counts; any other `<event>` text is quoted text.
 - **The overlay:** Expand opens a dialog with the tabs Script (every
   line), Calls, Data flow, and Returned. Esc closes it.
   - Data flow is a sequence diagram: one lane for the model, one for the
@@ -862,9 +873,16 @@ each call with its input and output, and what went back to the model.
   runs. With it on, the script, the calls, and what the run returned are
   searchable. Turning it on or off runs the search again. A hit in a run
   shows the whole script and marks the match.
+  - Cmd+G and a click on a result center the first match in the bubble,
+    not the bubble. A run with a hit is often taller than the pane, and a
+    centered bubble hid its match (`scrollBubbleIntoView`).
 - **Exports** (Markdown, the bundle, PDF, Copy as Markdown, and Copy on a
   bubble) follow Show Code Mode: on, each run is a `javascript` block,
   its numbered calls, and what it returned; off, no run text.
+  - Markdown names the media by kind ("1 image (image/png), 1 document
+    (application/pdf)"). PDF shows the images and names the documents.
+  - MCP `get_messages` gives each media item as a stub (type, media type,
+    and size in bytes), with no bytes, as for other image blocks.
 - Code: `backend/cc_code_mode.py`, `backend/codex/projection.py`
   (`_CodeMode`), `frontend/src/components/message/blocks/CodeRunBlock.tsx`,
   `frontend/src/components/diagram/SequenceDiagram.tsx`.

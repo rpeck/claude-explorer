@@ -30,6 +30,7 @@ from ._shared import (
     _is_compact_summary_message,
     _is_excludable_marker,
     _resolve_attachment_path,
+    code_run_media_summary,
     escape_html,
     filter_tool_placeholders,
     format_timestamp,
@@ -174,16 +175,22 @@ def code_run_html(block: ContentBlock) -> str:
     )
     parts = "".join(
         f"<strong>{label}</strong><pre><code>{escape_html(value)}</code></pre>"
-        for label, value in (("Returned to the model", run.result), ("stdout", run.stdout),
-                             ("stderr", run.stderr), ("Error", run.error), ("Refused calls", run.refused))
+        for label, value in (("Returned to the model", run.result), ("Cut output", run.uncut_output_note),
+                             ("stdout", run.stdout), ("stderr", run.stderr), ("Error", run.error),
+                             ("Refused calls", run.refused))
         if value
     )
+    # Images show; a document is only named (WeasyPrint cannot embed a PDF in a PDF).
+    media = "".join(_render_image_block_html(m) for m in run.media if m.type == "image")
+    if run.media:
+        media = f"<strong>Media returned to the model:</strong> {escape_html(code_run_media_summary(run.media))}{media}"
     return f"""
         <div class="code-run">
             <strong>Code Mode script ({escape_html(run.language)}, {escape_html(run.status)})</strong>
             <pre><code class="language-{escape_html(run.language)}">{escape_html(run.code)}</code></pre>
             {f'<ol>{calls}</ol>' if calls else ''}
             {parts}
+            {media}
         </div>
         """
 
