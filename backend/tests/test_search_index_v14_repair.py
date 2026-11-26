@@ -149,8 +149,8 @@ def test_open_is_noop_when_v14_db_is_fully_consistent(tmp_path):
         # Insert a row to verify it survives the second open.
         conn.execute(
             "INSERT INTO conversations VALUES "
-            "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            ("test-conv", "test title", "", "", "", "", "", 0, "test-conv", "", ""),
+            "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("test-conv", "test title", "", "", "", "", "", 0, "test-conv", "", "", 0),
         )
         conn.commit()
 

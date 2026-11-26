@@ -127,6 +127,18 @@ test.describe('Code Mode runs on the real backend (#90)', () => {
     await expect(page.getByText(/of\s+1\s+match\b/)).toBeVisible({ timeout: 10_000 })
   })
 
+  test('a word that is nowhere: the empty search still names the hidden runs (#80 option B)', async ({ page }) => {
+    // The archive holds runs, so the user learns that hidden content might
+    // match. The e2e backend runs with the index off, so the archive check
+    // is the scan of the conversations.
+    await open(page, CC_PIPE)
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+f' : 'Control+f')
+    await page.getByPlaceholder('Search messages...').fill('qqzzuunowhere')
+    await expect(page.getByText(/No matches for/)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('search-empty-filters')).toContainText('hidden Code Mode runs')
+    await expect(page.getByTestId('search-empty-show-code-mode')).toHaveText('Search Code Mode runs too')
+  })
+
   // The Conversation Pane is virtualized: only rows near the screen are in
   // the DOM, and row heights depend on the fonts (CI showed 5 of 6 runs).
   // So find each run by its content, and scroll to reach the later ones;

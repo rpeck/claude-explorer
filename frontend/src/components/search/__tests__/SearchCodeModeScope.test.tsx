@@ -4,10 +4,11 @@
  *
  *   - The search sends `include_code_mode=true` only while it is on, and a
  *     flip runs the search again.
- *   - An empty result names `hidden Code Mode runs` (the #80 line) only when
- *     the runs hold a match: with Show Code Mode off, one probe search with
- *     `include_code_mode=true` decides. Without a hidden match the line does
- *     not name it, so a user who never ran Code Mode never sees it.
+ *   - An empty result names `hidden Code Mode runs` (the #80 line) whenever
+ *     the archive holds at least one run (`has_code_runs` in the search
+ *     response), so the user knows that hidden content might match and can
+ *     widen the search. An archive without runs never names it. No probe
+ *     search is sent.
  *   - Its button "Search Code Mode runs too" turns Show Code Mode on, and the
  *     search shows the hit.
  */
@@ -49,7 +50,7 @@ interface SearchCall {
   includeCodeMode: boolean
 }
 
-function installHandlers() {
+function installHandlers(hasCodeRuns = true) {
   const calls: SearchCall[] = []
   const reply = (c: SearchCall) => {
     calls.push(c)
@@ -67,6 +68,7 @@ function installHandlers() {
     }] : []
     return HttpResponse.json({
       results, total_messages_matched: results.length, returned_messages: results.length, truncated: false,
+      has_code_runs: hasCodeRuns,
     })
   }
   server.use(
@@ -124,8 +126,8 @@ function makeWrapper() {
   return Wrapper
 }
 
-async function renderAndSearch(q: string) {
-  const calls = installHandlers()
+async function renderAndSearch(q: string, hasCodeRuns = true) {
+  const calls = installHandlers(hasCodeRuns)
   localStorageMock.setItem('searchPanel.isOpen', JSON.stringify(true))
   render(<><SearchPanel /><Probe /></>, { wrapper: makeWrapper() })
   fireEvent.click(screen.getByTestId('probe-tools-on'))
@@ -140,7 +142,7 @@ describe('Search Pane and Show Code Mode', () => {
   beforeEach(() => localStorageMock.clear())
   afterEach(() => server.resetHandlers())
 
-  it('names hidden Code Mode runs when they hold a match, and the button finds it', async () => {
+  it('names hidden Code Mode runs when the archive holds runs, and the button finds a run hit', async () => {
     const calls = await renderAndSearch(RUN_WORD)
     await waitFor(() => expect(line()?.textContent).toBe('Search limited by hidden Code Mode runs.'), { timeout: 3000 })
     expect(codeButton()).toHaveTextContent('Search Code Mode runs too')
@@ -152,12 +154,20 @@ describe('Search Pane and Show Code Mode', () => {
     expect(line()).toBeNull()
   })
 
-  it('does not name Code Mode runs when they hold no match', async () => {
-    const calls = await renderAndSearch(NO_WORD)
+  it('names hidden Code Mode runs when the archive holds runs, even if no run holds the word', async () => {
+    const calls = await renderAndSearch(NO_WORD, true)
+    await waitFor(() => expect(line()?.textContent).toBe('Search limited by hidden Code Mode runs.'), { timeout: 3000 })
+    expect(codeButton()).toHaveTextContent('Search Code Mode runs too')
+    // No probe: every search so far left the runs out.
+    expect(calls.length).toBeGreaterThan(0)
+    expect(calls.every((c) => !c.includeCodeMode)).toBe(true)
+  })
+
+  it('does not name Code Mode runs when the archive holds none', async () => {
+    const calls = await renderAndSearch(RUN_WORD, false)
     await waitFor(() => expect(screen.queryByText(/No matches for/)).toBeInTheDocument(), { timeout: 3000 })
-    // The probe ran, and found nothing.
-    await waitFor(() => expect(calls.some((c) => c.q === NO_WORD && c.includeCodeMode)).toBe(true))
     expect(line()).toBeNull()
     expect(codeButton()).toBeNull()
+    expect(calls.every((c) => !c.includeCodeMode)).toBe(true)
   })
 })

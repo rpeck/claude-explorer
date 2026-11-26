@@ -474,6 +474,10 @@ class SearchResponse(BaseModel):
     total_messages_matched: int = 0
     returned_messages: int = 0
     truncated: bool = False
+    # Issue #90, #80 option B: the archive holds at least one Code Mode run,
+    # for the whole archive, not this query or its scope. The Search Pane
+    # names "hidden Code Mode runs" on an empty result when it is true.
+    has_code_runs: bool = False
 
 
 class Org(BaseModel):

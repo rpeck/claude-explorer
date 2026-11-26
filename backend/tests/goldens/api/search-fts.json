@@ -1,5 +1,6 @@
 {
   "q_COWORK_FIXTURE_HELLO_XYZ": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -84,6 +85,7 @@
     "truncated": false
   },
   "q_NEEDLE_BRANCH": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -120,6 +122,7 @@
     "truncated": false
   },
   "q_NEEDLE_CC": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -182,6 +185,7 @@
     "truncated": false
   },
   "q_NEEDLE_HANDSHAKE": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -222,6 +226,7 @@
     "truncated": false
   },
   "q_NEEDLE_TOOL": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -258,6 +263,7 @@
     "truncated": false
   },
   "q_REMOTE_FIXTURE_TOKEN": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -320,6 +326,7 @@
     "truncated": false
   },
   "q_fixture": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -1421,6 +1428,7 @@
     "truncated": false
   },
   "q_fixture_CLAUDE_AI": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -2173,6 +2181,7 @@
     "truncated": false
   },
   "q_fixture_CLAUDE_CODE": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -2353,6 +2362,7 @@
     "truncated": false
   },
   "q_fixture_CLAUDE_COWORK": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,
@@ -2536,6 +2546,7 @@
     "truncated": false
   },
   "q_fixture_full": {
+    "has_code_runs": true,
     "results": [
       {
         "agent_description": null,

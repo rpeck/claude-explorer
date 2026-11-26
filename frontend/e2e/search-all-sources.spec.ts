@@ -108,8 +108,11 @@ test.describe('Search Pane: every session source (#80)', () => {
     const input = await openSearch(page)
     await input.fill(CC.word)
     await expect(page.getByText(/No matches for/)).toBeVisible({ timeout: 10_000 })
-    // Show Tools is off by default, so the line also names it (#84).
-    await expect(page.getByTestId('search-empty-filters')).toHaveText('Search limited by source “Codex” and hidden tool calls.')
+    // Show Tools and Show Code Mode are off by default, so the line also names
+    // them (#84; #80 option B: the fixture archive holds Code Mode runs).
+    await expect(page.getByTestId('search-empty-filters')).toHaveText(
+      'Search limited by source “Codex” and hidden tool calls and hidden Code Mode runs.',
+    )
     const clear = page.getByTestId('search-empty-clear-source')
     await expect(clear).toHaveText('Search all agents')
     await expect(page.locator('[data-result-card]')).toHaveCount(0)

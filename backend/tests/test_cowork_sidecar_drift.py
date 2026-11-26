@@ -55,7 +55,7 @@ SIDECAR_MTIME = AUDIT_MTIME - 100
 # different ``messages`` column set, makes released code drop and rebuild
 # the whole index each time it opens the file. If a later node bumps the
 # version on purpose, it changes these values.
-RELEASED_SCHEMA_VERSION = 17  # #52 bumped it to 15; #90 to 16 (body_code); #96 to 17
+RELEASED_SCHEMA_VERSION = 18  # #52 bumped it to 15; #90 to 16 (body_code); #96 to 17; #80 option B to 18
 RELEASED_MESSAGES_COLS = {
     "conv_uuid", "message_uuid", "sender", "created_at", "source",
     "project_path", "organization_id", "conv_created_at", "conv_updated_at",

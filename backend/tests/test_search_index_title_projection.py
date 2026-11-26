@@ -130,6 +130,8 @@ def test_conversations_projection_table_exists(fresh_index):
         "session_uuid",
         "agent_id",
         "agent_description",
+        # v18 (#80 option B): 1 when the conversation holds a Code Mode run.
+        "has_code_runs",
     }, f"conversations projection has unexpected columns: {cols}"
 
 

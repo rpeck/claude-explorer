@@ -489,7 +489,7 @@ def test_the_search_schema_version_is_bumped_once() -> None:
     from backend.search_index import SCHEMA_VERSION
 
     # 15 for #52; 16 for body_code (#90); 17 for subagent sources (#96).
-    assert SCHEMA_VERSION == 17
+    assert SCHEMA_VERSION == 18
 
 
 def test_a_search_for_command_output_text_finds_the_session_after_the_index_rebuild(tmp_path: Path) -> None:
