@@ -844,6 +844,15 @@ each call with its input and output, and what went back to the model.
       document N (<media type>)".
     - A foreground run has them in its result. A background run has them
       in the event that ends it.
+    - One `Poll` result can end several Claude Code scripts. Each run gets
+      the media of its own event (`toolUseResult.media`, one list per
+      event). Without that list, each run gets the media that its event marks
+      ("image bytes moved to the REPL result"), in order. If the marks do not
+      match the media, no run of that result shows media (issue #103).
+    - Codex: an `exec` script that returns an image (for example from
+      `view_image`) has it as a `data:` URL in its output. That URL is
+      data inside the record, not a reference, so the image shows.
+    - Any other URL is never fetched; its image stays the "[Image]" label.
   - A background script with no result says "Still running".
     - A background script ends with a `poll_events` record or with the
       result of a `Poll` call. Only an event with a nonce from the "authentic

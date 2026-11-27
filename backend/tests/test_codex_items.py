@@ -999,9 +999,9 @@ def test_the_report_counts_an_unknown_extension_kind_as_other(
 # ---------------------------------------------------------------------------
 
 
-def test_codex_projection_version_is_5() -> None:
+def test_codex_projection_version_is_6() -> None:
     # 2 for N12's items; 3 for N10's history (compaction, rollback, history_base);
     # 4 for C1's response_item tool calls; 5 for code mode runs (#90).
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 5
+    assert codex.CODEX_PROJECTION_VERSION == 6

@@ -18,6 +18,9 @@ id and no parent field stays a tool call, marked ``from_code_mode``.
 
 Images and documents go back to the model with the run: as blocks of the
 outer result (a foreground run) or in ``poll_events.media`` (background).
+One ``Poll`` result can end several scripts: event i's media are
+``toolUseResult.media[i]``; without that list, the media of the content follow
+the events, one per "bytes moved to the REPL result" mark (issue #103).
 """
 
 from __future__ import annotations
@@ -40,6 +43,9 @@ _EVENT_TAG_RE = re.compile(r"<event\b([^>]*)>|</event>")
 _NONCES_RE = re.compile(r"authentic event nonces for this delivery: ([\w ,]*)")
 _ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
 _DISPATCHED_RE = re.compile(r"^\(dispatched #(\d+)\)$")
+# The text that stands for each image or document of a result; the media
+# blocks follow the events in this order (issue #103).
+_MOVED_RE = re.compile(r"base64 chars — (image|document) bytes moved to the REPL result")
 # The <log> part that Claude Code adds when it cuts a long output.
 _CUT_NOTE = "Part of this output was cut."
 MEDIA_TYPES = frozenset({"image", "document"})
@@ -200,14 +206,27 @@ def fold_code_mode_runs(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     by_eval: dict[int, str] = {}
 
-    def settle_from(text: str, media: list[dict[str, Any]]) -> None:
+    def settle_from(text: str, media: list[dict[str, Any]], per_event: Any = None) -> None:
+        events = _events(text)
+        # A Poll result's toolUseResult.media: one list per delivered event, in order.
+        if not (isinstance(per_event, list) and len(per_event) == len(events)):
+            per_event = None
         settled = [
-            (attrs, body) for attrs, body in _events(text)
+            (i, attrs, body) for i, (attrs, body) in enumerate(events)
             if attrs.get("kind") == "repl-eval" and attrs.get("eval", "").isdigit() and int(attrs["eval"]) in by_eval
         ]
-        for attrs, body in settled:
-            # shortcut: media of a delivery with several settled events is not split per event; split it when a recording shows one.
-            _settle(runs[by_eval[int(attrs["eval"])]], body, attrs, media if len(settled) == 1 else [])
+        kinds = [_MOVED_RE.findall(body) for _, _, body in settled]
+        # Without per_event, the media of the content follow the events' marks.
+        # When the marks do not match the media (a cap dropped one), give none.
+        split = len(settled) == 1 or [k for ks in kinds for k in ks] == [m.get("type") for m in media]
+        start = 0
+        for (i, attrs, body), ks in zip(settled, kinds, strict=True):
+            if per_event is not None:
+                own = _media_of(per_event[i])
+            else:
+                own = media if len(settled) == 1 else media[start:start + len(ks)] if split else []
+            start += len(ks)
+            _settle(runs[by_eval[int(attrs["eval"])]], body, attrs, own)
 
     calls: dict[str, dict[str, Any]] = {}  # inner call id -> its call
     dropped: dict[str, str | None] = {}  # uuid -> parentUuid, for each removed entry
@@ -244,7 +263,9 @@ def fold_code_mode_runs(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         by_eval[eval_id] = use_id
                 else:
                     if use_id in polls:
-                        settle_from(_text_of(block.get("content")), _media_of(block.get("content")))
+                        tur = entry.get("toolUseResult")
+                        settle_from(_text_of(block.get("content")), _media_of(block.get("content")),
+                                    tur.get("media") if isinstance(tur, dict) else None)
                     kept.append(block)
             if len(kept) != len(content):
                 if not kept:
