@@ -29,6 +29,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -296,17 +297,23 @@ def sync_stream(
     source_path: Path,
     decode: Callable[[Path], Iterable[bytes]],
     meta_extra: Mapping[str, object] | None = None,
+    side_dir: Path | None = None,
 ) -> None:
     """Bring ``dest_dir/<stem>.jsonl`` up to date with ``source_path``.
 
     ``decode(source_path)`` yields the decoded bytes. Any exception from it is
     a decode error: the archive stays as it is, and the next pass tries again.
     An invalid ``stem`` raises ``ValueError`` and writes nothing.
+
+    The ``.meta.json`` and ``.rev-<n>.jsonl`` files go to ``side_dir``
+    (default ``dest_dir``). A copy that mirrors a live tree keeps them
+    outside the mirror, so that the readers of the tree never see them.
     """
     if not isinstance(stem, str) or not _STEM_RE.fullmatch(stem):
         raise ValueError(f"invalid archive stem: {stem!r}")
+    side_dir = dest_dir if side_dir is None else side_dir
     copy_path = _checked_path(dest_dir, f"{stem}.jsonl")
-    meta_path = _checked_path(dest_dir, f"{stem}.meta.json")
+    meta_path = _checked_path(side_dir, f"{stem}.meta.json")
 
     # 2.1: an unchanged source needs no read.
     try:
@@ -389,11 +396,12 @@ def sync_stream(
                 report.counts["appended"] += 1
             else:
                 # 2.6: the source diverged. Keep the old copy as the next revision.
-                newest, newest_path = _newest_revision(dest_dir, stem)
+                newest, newest_path = _newest_revision(side_dir, stem)
                 if newest_path is not None and _same_content(spool, newest_path):
                     report.counts["unchanged"] += 1
                     return
-                rev_path = _checked_path(dest_dir, f"{stem}.rev-{newest + 1}.jsonl")
+                rev_path = _checked_path(side_dir, f"{stem}.rev-{newest + 1}.jsonl")
+                side_dir.mkdir(parents=True, exist_ok=True)
                 atomic_replace(copy_path, rev_path)
                 _append_from(copy_path, spool)
                 report.wrote_any = True
@@ -411,22 +419,268 @@ def sync_stream(
                 "source_mtime_ns": st.st_mtime_ns,
                 "last_sync_ms": int(time.time() * 1000),
             }
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            side_dir.mkdir(parents=True, exist_ok=True)
             atomic_write_bytes(meta_path, json.dumps(meta_out, indent=2, ensure_ascii=False).encode("utf-8"))
         except OSError as exc:
             # The copy only grows, so the next pass continues from what is on disk.
             report.warn(f"cannot write the archive copy of {stem}: {exc}")
 
 
+def sync_small_file(report: SyncReport, *, source_path: Path, dest_path: Path) -> None:
+    """Copy a small JSON side file (a sidecar) when its bytes differ.
+
+    Such a file changes in place (a new title), so the newest bytes replace
+    the copy. A source that is gone or empty leaves the copy as it is.
+    """
+    try:
+        data = source_path.read_bytes()
+    except OSError:
+        return
+    if not data:
+        return
+    try:
+        if dest_path.read_bytes() == data:
+            return
+    except OSError:
+        pass
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_bytes(dest_path, data)
+    except OSError as exc:
+        report.warn(f"cannot write the archive copy of {source_path.name}: {exc}")
+        return
+    report.wrote_any = True
+
+
+def _is_inside(root: Path, path: Path) -> bool:
+    try:
+        return Path(os.path.realpath(path)).is_relative_to(os.path.realpath(root))
+    except (OSError, ValueError):
+        return False
+
+
+def _plain(path: Path) -> Iterator[bytes]:
+    with open(path, "rb") as fh:
+        while chunk := fh.read(_CHUNK):
+            yield chunk
+
+
+def _size(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
+def _mtime(path: Path) -> int:
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return 0
+
+
+def sync_tree(
+    report: SyncReport,
+    *,
+    live_root: Path,
+    archive_root: Path,
+    side_root: Path,
+    streams: Iterable[Path],
+    side_files: Iterable[Path] = (),
+    deadline: float | None = None,
+) -> tuple[int, int, bool]:
+    """Mirror plain append-only files of ``live_root`` under ``archive_root``.
+
+    Each stream keeps its path relative to ``live_root``; its copy metadata
+    and revisions go to the same relative folder under ``side_root``. A
+    file whose real path is outside ``live_root`` is skipped. The oldest
+    files go first: the source tool deletes those first. After ``deadline``
+    (``time.monotonic``) the pass stops; the next pass goes on from what is
+    on disk. ``side_files`` (sidecars) are byte copies at the same relative path.
+
+    Returns ``(files written, bytes written, finished)``.
+    """
+    files = written = 0
+    for path in sorted(streams, key=_mtime):
+        if deadline is not None and time.monotonic() >= deadline:
+            return files, written, False
+        if not _is_inside(live_root, path):
+            continue
+        rel = path.relative_to(live_root)
+        dest_dir = archive_root / rel.parent
+        copy = dest_dir / path.name
+        before = _size(copy)
+        was, report.wrote_any = report.wrote_any, False
+        try:
+            sync_stream(
+                report, dest_dir=dest_dir, stem=path.name.removesuffix(".jsonl"),
+                source_path=path, decode=_plain, side_dir=side_root / rel.parent,
+            )
+        except ValueError as exc:
+            report.warn(f"archive copy skipped: {exc}")
+        if report.wrote_any:
+            files += 1
+            written += max(_size(copy) - before, 0)
+        report.wrote_any = report.wrote_any or was
+    for path in side_files:
+        if _is_inside(live_root, path):
+            sync_small_file(report, source_path=path, dest_path=archive_root / path.relative_to(live_root))
+    return files, written, True
+
+
+# --- Machine folders (#92) ----------------------------------------------------
+
+MACHINES_DIR = "machines"
+MACHINE_FILE = "machine.json"
+_MACHINE_ID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def _identity_file() -> Path:
+    # Not in data_dir: a shared data folder must not give two machines one id.
+    from backend.config import canonical_home_dir
+
+    return canonical_home_dir() / MACHINE_FILE
+
+
+def _read_machine_id(path: Path) -> str | None:
+    data = _read_meta(path)
+    mid = data.get("machine_id") if data is not None else None
+    return mid if isinstance(mid, str) and _MACHINE_ID_RE.fullmatch(mid) else None
+
+
+def this_machine_dir(data_dir: Path) -> Path | None:
+    """``<data_dir>/machines/<machine_id>`` of this machine; makes the id on first use.
+
+    The id is a random UUID, never the host name. Call this only when there
+    is something to copy: it writes the identity file and ``machine.json``.
+    ``None`` when the identity file cannot be written.
+    """
+    ident = _identity_file()
+    mid = _read_machine_id(ident)
+    if mid is None:
+        lock = ArchiveLock(ident.with_name(ident.name + ".lock"))
+        if not lock.acquire(5.0):
+            return None
+        try:
+            mid = _read_machine_id(ident)  # another process can have made it
+            if mid is None:
+                mid = str(uuid.uuid4())
+                body = {"version": META_VERSION, "machine_id": mid, "label": None}
+                atomic_write_bytes(ident, json.dumps(body, indent=2).encode("utf-8"))
+        except OSError as exc:
+            log.warning("cannot write the machine identity file %s: %s", ident, exc)
+            return None
+        finally:
+            lock.release()
+    machine = data_dir / MACHINES_DIR / mid
+    marker = machine / MACHINE_FILE
+    if _read_machine_id(marker) != mid:
+        body = {"version": META_VERSION, "machine_id": mid, "label": None}
+        machine.mkdir(parents=True, exist_ok=True)
+        atomic_write_bytes(marker, json.dumps(body, indent=2).encode("utf-8"))
+    return machine
+
+
+#: A pass that a person waits for stops after this time; the watcher passes do not stop.
+_PASS_BUDGET_S: dict[str, float] = {"refresh": 20.0, "cli": 20.0}
+
+
+def sync_machine_tree(
+    ctx: SyncContext,
+    *,
+    data_dir: Path,
+    part: str,
+    label: str,
+    live_root: Path,
+    mirror: str | None,
+    streams: Callable[[], list[Path]],
+    side_files: Callable[[list[Path]], list[Path]],
+) -> SyncReport | None:
+    """Copy one live tree into ``machines/<id>/<part>`` of this machine.
+
+    ``mirror`` is the folder under ``<part>`` that mirrors ``live_root``
+    (``None`` = ``<part>`` itself). The copy metadata and revisions go to
+    ``<part>/sync``. MCP does not copy: a first copy can be gigabytes. A
+    pass with nothing to copy creates nothing and gives no report.
+    """
+    if ctx.reason == "mcp":
+        return None
+    if not live_root.is_dir():
+        return SyncReport(skipped_reason="no_home")
+    files = streams()
+    if not files:
+        return None
+    machine = this_machine_dir(data_dir)
+    if machine is None:
+        report = SyncReport()
+        report.warn(f"{label} archive copy skipped: this machine has no id")
+        return report
+    part_dir = machine / part
+    archive_root = part_dir / mirror if mirror else part_dir
+    budget = _PASS_BUDGET_S.get(ctx.reason)
+
+    def body(report: SyncReport) -> None:
+        deadline = time.monotonic() + budget if budget is not None else None
+        n, size, finished = sync_tree(
+            report, live_root=live_root, archive_root=archive_root, side_root=part_dir / "sync",
+            streams=files, side_files=side_files(files), deadline=deadline,
+        )
+        if n or not finished:
+            log.info(
+                "archive copy (%s): %s: %d file(s), %d byte(s)%s", ctx.reason, label, n, size,
+                "" if finished else "; stopped at the time limit, the next pass goes on",
+            )
+
+    return run_locked_pass(ctx, source_home=live_root, archive_dir=part_dir, body=body)
+
+
+def archive_roots(data_dir: Path, part: str) -> list[Path]:
+    """``<data_dir>/machines/<id>/<part>`` of every machine, in name order."""
+    try:
+        machines = sorted(os.listdir(data_dir / MACHINES_DIR))
+    except OSError:
+        return []
+    out = []
+    for name in machines:
+        root = data_dir / MACHINES_DIR / name / part
+        if _MACHINE_ID_RE.fullmatch(name) and root.is_dir():
+            out.append(root)
+    return out
+
+
+def live_first(groups: Iterable[Iterable[Path]], key: Callable[[Path], object]) -> list[Path]:
+    """Every path of each group whose key no earlier group has.
+
+    The live files are the first group, so an archive copy shows only when
+    its live file is gone. Repeated keys inside one group all stay, as the
+    readers had them before the copy.
+    """
+    seen: set[object] = set()
+    out: list[Path] = []
+    for group in groups:
+        kept = [p for p in group if key(p) not in seen]
+        seen.update(key(p) for p in kept)
+        out.extend(kept)
+    return out
+
+
 __all__ = [
     "LOCK_FILE_NAME",
+    "MACHINES_DIR",
+    "MACHINE_FILE",
     "MAX_DECODED_BYTES",
     "MAX_LINE_BYTES",
     "META_VERSION",
     "ArchiveLock",
     "SyncContext",
     "SyncReport",
+    "archive_roots",
     "home_key",
+    "live_first",
     "run_locked_pass",
+    "sync_machine_tree",
+    "sync_small_file",
     "sync_stream",
+    "sync_tree",
+    "this_machine_dir",
 ]

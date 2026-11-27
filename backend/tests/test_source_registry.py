@@ -852,7 +852,8 @@ def test_claude_code_branch_flag_is_always_false(store, messages):
 # --- archive_sync ------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("source_id", SOURCE_IDS)
+# A1: Claude Code and Cowork copy into the archive (test_cc_archive_copy.py).
+@pytest.mark.parametrize("source_id", ["CLAUDE_AI"])
 def test_archive_sync_is_none_for_the_current_sources(store, source_id):
     from backend.archive_sync import SyncContext
     from backend.sources.registry import get_adapter

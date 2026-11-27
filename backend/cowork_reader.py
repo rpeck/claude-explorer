@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import OrderedDict
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -50,6 +51,7 @@ from .agent_session_io import (
     normalize_session_fields,
     parse_jsonl_file,
 )
+from .archive_sync import live_first
 from .cc_code_mode import fold_code_mode_runs
 from .compact_prefixes import is_compaction_prefix_text
 
@@ -268,7 +270,9 @@ def remote_cowork_root(data_dir: Path) -> Path:
 
 
 def iter_cowork_session_dirs(
-    cowork_root: Path | None, remote_root: Path | None = None
+    cowork_root: Path | None,
+    remote_root: Path | None = None,
+    archive_roots: Sequence[Path] = (),
 ) -> list[Path]:
     """Every Cowork session directory, local and remote.
 
@@ -277,18 +281,27 @@ def iter_cowork_session_dirs(
     Remote sessions (cloud tasks, written by ``fetcher.remote_sessions``):
         ``<remote_root>/<org>/remote_<session_id>/``
 
+    Archive copies of local sessions (``machines/<id>/cowork``, same shape
+    as ``cowork_root``): a copy shows only when no earlier root has a
+    session of that name, so the live session wins.
+
     Missing or unreadable roots contribute nothing; this never raises.
     """
-    out: list[Path] = []
-    for org_dir in _subdirs_at_depth(cowork_root, 2):
-        out.extend(_session_dirs_in(org_dir, LOCAL_SESSION_PREFIX))
+    groups = [
+        [d for org_dir in _subdirs_at_depth(root, 2) for d in _session_dirs_in(org_dir, LOCAL_SESSION_PREFIX)]
+        for root in (cowork_root, *archive_roots)
+    ]
+    out: list[Path] = live_first(groups, key=lambda d: d.name)
     for org_dir in _subdirs_at_depth(remote_root, 1):
         out.extend(_session_dirs_in(org_dir, REMOTE_SESSION_PREFIX))
     return out
 
 
 def find_cowork_session_dirs(
-    cowork_root: Path | None, remote_root: Path | None, uuid: str
+    cowork_root: Path | None,
+    remote_root: Path | None,
+    uuid: str,
+    archive_roots: Sequence[Path] = (),
 ) -> list[Path]:
     """Every session directory for conversation ``uuid``, in list order.
 
@@ -302,10 +315,14 @@ def find_cowork_session_dirs(
     O(sessions).
     """
     out: list[Path] = []
-    for org_dir in _subdirs_at_depth(cowork_root, 2):
-        candidate = org_dir / f"{LOCAL_SESSION_PREFIX}{uuid}"
-        if candidate.is_dir():
-            out.append(candidate)
+    # The first root that has the session wins: the live one, then the archive copies.
+    for root in (cowork_root, *archive_roots):
+        if out:
+            break
+        for org_dir in _subdirs_at_depth(root, 2):
+            candidate = org_dir / f"{LOCAL_SESSION_PREFIX}{uuid}"
+            if candidate.is_dir():
+                out.append(candidate)
     for org_dir in _subdirs_at_depth(remote_root, 1):
         candidate = org_dir / f"{REMOTE_SESSION_PREFIX}{uuid}"
         if candidate.is_dir():
@@ -334,7 +351,9 @@ def _session_dirs_in(org_dir: Path, prefix: str) -> list[Path]:
 
 
 def list_cowork_conversations(
-    cowork_root: Path, remote_root: Path | None = None
+    cowork_root: Path,
+    remote_root: Path | None = None,
+    archive_roots: Sequence[Path] = (),
 ) -> list[dict]:
     """Read every local and remote Cowork session.
 
@@ -355,7 +374,7 @@ def list_cowork_conversations(
     Returns ``[]`` (not raises) when neither root exists — a user
     without Cowork data installed must not see a crash.
     """
-    session_dirs = iter_cowork_session_dirs(cowork_root, remote_root)
+    session_dirs = iter_cowork_session_dirs(cowork_root, remote_root, archive_roots)
 
     out: list[dict] = []
     for sd in session_dirs:
