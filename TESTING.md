@@ -52,6 +52,7 @@ for any cited number.
 | §8 | Verifying each platform by hand | [manual-checks.md](testing/manual-checks.md) | You verify a release by hand. |
 | §9 | Protecting credentials on every platform | [ci.md](testing/ci.md) | You touch credential storage. |
 | §10 | What cannot be automated, and why | [ci.md](testing/ci.md) | You plan a new check. |
+| §11 | The recorded cross-machine test (issue #92) | this file, below | You build links across machines. |
 | — | Reference incidents | [principles.md](testing/principles.md) | You add a new rule to this guide. |
 
 ---
@@ -177,5 +178,37 @@ exit code of the runner to verify it.
    - A green claim that later proves false is a falsification event. Correct it
      immediately, and state the correction clearly and prominently.
    - Full detail: [§5.16](testing/backend-contracts.md).
+
+---
+
+## 11 · The recorded cross-machine test (issue #92)
+
+Links across machines wait for this test. It records how Claude Code writes
+one cross-machine `SendMessage` exchange on both sides. It needs the user at
+both machines (A = this Mac, B = the work laptop).
+
+1. **Prepare both machines:**
+   - Claude Code 2.1.325 or later, signed in with claude.ai.
+   - Remote Control on (`claude --remote-control`, or `/remote-control`).
+   - A throwaway folder with synthetic files only.
+2. **Name the sessions** `xm-test-a` and `xm-test-b` (`--name`).
+3. **Exchange from A:**
+   - Run `ListAgents`. Record that B shows as "Remote Control".
+   - Send "synthetic ping 1" to `xm-test-b`. B replies "synthetic pong 1".
+4. **Edge cases from A:**
+   - Send with `notify_when_idle: true` (expected: refused; it is local only).
+   - Send while B is offline (expected: queued). Then reconnect B.
+   - Send once to a cloud session C (`claude --cloud`).
+5. **Capture** only the two test session files
+   (`~/.claude/projects/<folder>/<session>.jsonl`) on each machine.
+6. **Scrub before a file leaves the machine.**
+   - Run `scripts/scrub_fixture.py` on each file.
+   - Read the scrubbed files in full.
+   - Never commit or move a raw file.
+7. **Pin** the result as `backend/tests/fixtures/cc_cross_machine/{a,b,c}.jsonl`,
+   with a `README.md` that states the Claude Code versions and the date.
+8. **Decide the link rule:** if `msg_id` is on both sides, the rule of issue
+   #91 holds. Else use `fromSession` or the `bridge-session` records. Write the
+   rule in the issue before you code it.
 
 ---
