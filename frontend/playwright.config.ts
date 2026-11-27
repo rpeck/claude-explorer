@@ -42,8 +42,20 @@ const REPO_ROOT = path.resolve(__dirname, '..')
 // ports, and 8765 and 5173 are the ports of the installed app and of
 // `npm run dev`. On 2026-10-21 the tests reused the installed app, with the
 // developer's real archive, so the suite tested an older release.
-const E2E_API_PORT = 18765
-const E2E_WEB_PORT = 15173
+//
+// Each worktree also gets its own pair (issue #98): with one shared pair, a
+// run in one worktree reused the servers of a run in another, so it tested
+// the other worktree's code, and when those servers stopped, Vite's client
+// reloaded the page in the middle of a test. The offset comes from the
+// worktree path (0-999); E2E_API_PORT and E2E_WEB_PORT override it.
+function worktreePortOffset(root: string): number {
+  let hash = 0
+  for (const ch of root) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+  return hash % 1000
+}
+const PORT_OFFSET = worktreePortOffset(REPO_ROOT)
+const E2E_API_PORT = Number(process.env.E2E_API_PORT) || 18765 + PORT_OFFSET
+const E2E_WEB_PORT = Number(process.env.E2E_WEB_PORT) || 15173 + PORT_OFFSET
 
 export default defineConfig({
   testDir: './e2e',
