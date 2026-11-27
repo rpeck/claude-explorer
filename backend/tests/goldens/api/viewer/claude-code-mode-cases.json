@@ -6,6 +6,7 @@
     "compact_markers": [],
     "created_at": "2026-11-25T02:35:18.164000Z",
     "current_leaf_message_uuid": "e7b5fded-3d6f-498d-8997-812db22b0aa6",
+    "entrypoint": "sdk-cli",
     "error": null,
     "file_path": "<TMP>/claude/projects/-home-fixture-cm-sample/2339aab4-744c-4556-95b8-5ee5552c1b85.jsonl",
     "git_branch": "HEAD",
@@ -458,6 +459,7 @@
       }
     ],
     "summary": "",
+    "tickets": [],
     "updated_at": "2026-11-25T02:35:28.844000Z",
     "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
   },

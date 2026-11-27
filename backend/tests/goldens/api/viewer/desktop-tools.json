@@ -6,6 +6,7 @@
     "compact_markers": [],
     "created_at": "2026-04-01T10:00:00Z",
     "current_leaf_message_uuid": "fa504360-824e-981c-4676-531d8f59bf5d",
+    "entrypoint": null,
     "error": null,
     "file_path": "<TMP>/data/by-org/00000000-1111-2222-3333-444444444444/a3c33811-ab27-c195-6938-54121b8673e4.json",
     "git_branch": null,
@@ -172,6 +173,7 @@
     "subagents": [],
     "subagents_found": [],
     "summary": "Phase 5 fixture: Tool calls",
+    "tickets": [],
     "updated_at": "2026-04-01T10:03:00Z",
     "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
   },

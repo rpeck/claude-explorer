@@ -144,6 +144,10 @@ def project_rollout(
         "parent_uuid": parent_uuid(meta, thread_id),
         # Issue #91: set only on a thread with agent messages; the index keys its links.
         "agent_path": agent_path,
+        # Issue #93: the launcher and the remote, from session_meta.
+        "originator": meta.get("originator"),
+        "session_source": meta.get("source"),
+        "git_repository_url": (meta.get("git") or {}).get("repository_url") if isinstance(meta.get("git"), dict) else None,
     }
 
 

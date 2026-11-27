@@ -49,6 +49,8 @@ import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { NoticeList } from '@/components/conversation/NoticeList'
 import { CodexHistoryLinks } from '@/components/conversation/CodexHistoryLinks'
 import { PeerSessionsRow } from '@/components/conversation/PeerSessionsRow'
+import { EntrypointChip } from '@/components/tickets/EntrypointChip'
+import { TicketsRow } from '@/components/tickets/TicketsRow'
 import { AgentBreadcrumb, SubagentsDetailRow } from '@/components/conversation/SubagentLinks'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
@@ -101,6 +103,7 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
             lives in SourceBadge so a future source rename / recolor
             / addition is a single-file change. */}
         <SourceBadge source={conversation.source} variant="header" />
+        <EntrypointChip entrypoint={conversation.entrypoint} />
         <Badge variant="secondary" data-testid="model-badge" title={conversation.model}>
           {modelDisplayName(conversation.model)}
         </Badge>
@@ -188,6 +191,7 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
           )}
           <SubagentsDetailRow conversation={conversation} />
           <PeerSessionsRow conversation={conversation} />
+          <TicketsRow tickets={conversation.tickets} />
         </div>
       </details>
       <NoticeList notices={conversation.notices ?? []} />

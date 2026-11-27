@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { Sun, Moon, Monitor, Settings, Keyboard, Database, Info, ExternalLink, FileText, FolderTree } from 'lucide-react'
+import { Sun, Moon, Monitor, Settings, Keyboard, Database, Info, ExternalLink, FileText, FolderTree, Play } from 'lucide-react'
 import { isProjectKey } from '@/lib/conversationListView'
 import {
   useSettings,
@@ -22,6 +22,8 @@ export function SettingsPage() {
     setMarkdownExportMode,
     listProjectKey,
     setListProjectKey,
+    startSessionCommand,
+    setStartSessionCommand,
   } = useSettings()
   // V1 polish 2026-05-24 (Bug 2) — the previous
   // `export.includeCompactContent` pref + checkbox was REMOVED. The
@@ -292,6 +294,40 @@ export function SettingsPage() {
                 />
               </RadioGroup>
             </div>
+          </section>
+
+          {/* Issue #93: the optional "start a session" template. Explorer fills
+              it and copies it on a ticket page; it never runs it. */}
+          <section className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800" data-section="start-session">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              <Play className="h-5 w-5" />
+              Start a Session
+            </h2>
+            <label
+              htmlFor="start-session-command-input"
+              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+            >
+              Start session command
+            </label>
+            <input
+              // The saved value can arrive after the first render; a new key resets the draft.
+              key={startSessionCommand}
+              id="start-session-command-input"
+              data-testid="start-session-command-input"
+              type="text"
+              defaultValue={startSessionCommand}
+              // Save on blur, not on each key: each save is one preferences write.
+              onBlur={(e) => {
+                if (e.target.value !== startSessionCommand) setStartSessionCommand(e.target.value)
+              }}
+              placeholder={'claude --bg "Fix {repo}#{issue}"'}
+              className="mt-1 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+            />
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              A ticket page fills this command and copies it to the clipboard. Explorer never runs it.
+              Leave it empty to hide the button. Placeholders: <code>{'{repo}'}</code>, <code>{'{issue}'}</code>,{' '}
+              <code>{'{title}'}</code>, <code>{'{cwd}'}</code>.
+            </p>
           </section>
 
           {/* Data Section */}

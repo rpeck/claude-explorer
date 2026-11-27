@@ -49,6 +49,16 @@ from .parsing import parse_datetime as _parse_datetime
 from .sources.base import SourceAdapter
 from .sources.ids import SourceFilter
 from .sources.registry import get_adapter_or_none, get_adapters, get_descriptor
+from .tickets import (
+    GITHUB,
+    TicketDetail,
+    TicketPr,
+    TicketRefEntry,
+    TicketSession,
+    key_system,
+    ticket_key,
+    ticket_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -632,6 +642,7 @@ class ConversationStore:
             source=data.get("source") or "CLAUDE_AI",
             project_path=data.get("project_path"),
             git_branch=data.get("git_branch"),
+            entrypoint=data.get("entrypoint") or None,
             organization_id=data.get("organization_id"),
             organization_name=data.get("organization_name"),
             subagents=subagents,
@@ -927,7 +938,85 @@ class ConversationStore:
                 reverse=reverse,
             )
 
+        keys = self._ticket_keys()
+        for c in conversations:
+            c.tickets = keys.get(c.uuid, [])
         return conversations
+
+    def _ticket_index(self) -> Any:
+        """Issue #93: the search index when it can answer ticket queries, else None."""
+        from .search_index import get_search_index
+
+        idx = get_search_index()
+        return idx if idx is not None and idx.is_ready() else None
+
+    def _ticket_keys(self) -> dict[str, list[str]]:
+        """conv_uuid -> ticket keys; empty when the index cannot answer."""
+        idx = self._ticket_index()
+        if idx is None:
+            return {}
+        try:
+            return idx.ticket_keys()
+        except sqlite3.Error:
+            logger.warning("tickets: index read failed", exc_info=True)
+            return {}
+
+    def get_ticket(self, scope: str | None, number: int) -> TicketDetail | None:
+        """Issue #93: every session that refers to a ticket, and each message that names it.
+
+        ``scope`` as in ``tickets.ticket_key``. None: the index is not ready.
+        """
+        idx = self._ticket_index()
+        if idx is None:
+            return None
+        try:
+            refs, prs = idx.ticket_rows(scope, number)
+        except sqlite3.Error:
+            logger.warning("tickets: index read failed", exc_info=True)
+            return None
+        by_conv: dict[str, list[dict[str, Any]]] = {}
+        for r in refs:
+            by_conv.setdefault(r["conv_uuid"], []).append(r)
+        summaries = {
+            s.uuid: s for s in self.list_conversations(include_phantom=True, show_archived=True)
+            if s.uuid in by_conv
+        }
+        sessions = [
+            TicketSession(
+                conversation_uuid=s.uuid,
+                name=s.name,
+                source=s.source,
+                project_path=s.project_path,
+                entrypoint=s.entrypoint,
+                # A2 (machines) and L2 (state) add these fields to the summary.
+                machine_id=getattr(s, "machine_id", None),
+                machine_label=getattr(s, "machine_label", None),
+                state=getattr(s, "state", None),
+                created_at=s.created_at.isoformat(),
+                updated_at=s.updated_at.isoformat(),
+                kinds=sorted({r["kind"] for r in by_conv[s.uuid]}),
+                refs=[TicketRefEntry(kind=r["kind"], message_uuid=r["message_uuid"], snippet=r["snippet"])
+                      for r in by_conv[s.uuid]],
+            )
+            for s in sorted(summaries.values(), key=lambda s: (s.updated_at, s.uuid), reverse=True)
+        ]
+        seen: dict[str, TicketPr] = {}
+        for p in sorted(prs, key=lambda p: (p["timestamp"], p["url"])):
+            if p["conv_uuid"] in summaries and p["url"] not in seen:
+                seen[p["url"]] = TicketPr(
+                    number=p["number"], repository=p["repository"], url=p["url"],
+                    conversation_uuid=p["conv_uuid"], timestamp=p["timestamp"],
+                )
+        github = scope is None or "/" in scope
+        system = GITHUB if github else (
+            next((r["system"] for r in refs), None) or key_system(scope, get_settings().ticket_keys)
+        )
+        seen_url = next((r["url"] for r in refs if r["url"]), None)
+        return TicketDetail(
+            key=ticket_key(scope, number), repo=scope if github else None, number=number,
+            system=system, url=ticket_url(system, scope, number, None if github else seen_url),
+            sessions=sessions, prs=list(seen.values()),
+        )
 
     def _find_conversation_data(self, uuid: str) -> tuple[dict[str, Any] | None, Path | None]:
         """Find conversation data by UUID from any source.
@@ -1157,6 +1246,7 @@ class ConversationStore:
             source=source,
             project_path=data.get("project_path"),
             git_branch=data.get("git_branch"),
+            entrypoint=data.get("entrypoint") or None,
             messages=messages,
             current_leaf_message_uuid=leaf_uuid,
             file_path=str(file_path) if file_path else None,
@@ -1250,6 +1340,8 @@ class ConversationStore:
                 SubagentFound(**a) for a in subagents_found(file_path)
             ]
         link_detail_model(detail, self._peer_links(detail.uuid, detail.agent_id, detail.source))
+        if not detail.agent_id:
+            detail.tickets = self._ticket_keys().get(detail.uuid, [])
         return detail
 
     def get_conversation_dict(
@@ -1265,7 +1357,10 @@ class ConversationStore:
             detail = {**detail, "subagents_found": subagents_found(Path(detail["file_path"]))}
         if not detail:
             return detail
-        return link_detail_dict(detail, self._peer_links(detail["uuid"], detail.get("agent_id"), detail.get("source")))
+        detail = link_detail_dict(detail, self._peer_links(detail["uuid"], detail.get("agent_id"), detail.get("source")))
+        # Issue #93: outside the dict cache, as the peer links; a new dict only when it differs.
+        tickets = [] if detail.get("agent_id") else self._ticket_keys().get(detail["uuid"], [])
+        return detail if detail.get("tickets") == tickets else {**detail, "tickets": tickets}
 
     def _peer_links(self, uuid: str, agent_id: str | None, source: str | None) -> dict | None:
         """Issue #91: the links between sessions, from the search index; outside the

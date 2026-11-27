@@ -6,6 +6,7 @@
     "compact_markers": [],
     "created_at": "2026-04-01T10:00:00Z",
     "current_leaf_message_uuid": "d080483b-90a6-a8ee-4a53-578a945a0e53",
+    "entrypoint": null,
     "error": null,
     "file_path": "<TMP>/data/by-org/00000000-1111-2222-3333-444444444444/c8da94ab-641d-bf28-d4a6-cba9bc72468e.json",
     "git_branch": null,
@@ -174,6 +175,7 @@
     "subagents": [],
     "subagents_found": [],
     "summary": "Phase 5 fixture: Branch tree",
+    "tickets": [],
     "updated_at": "2026-04-01T10:04:00Z",
     "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
   },

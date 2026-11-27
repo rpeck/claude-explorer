@@ -167,6 +167,8 @@ def test_list_conversations_schema_contract(title_filter_data_dir):
         "organization_id": None,
         "organization_name": None,
         "subagents": [],
+        "entrypoint": None,
+        "tickets": [],
     }
 
 

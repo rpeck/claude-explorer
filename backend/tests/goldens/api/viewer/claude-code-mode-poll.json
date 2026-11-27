@@ -6,6 +6,7 @@
     "compact_markers": [],
     "created_at": "2026-11-26T00:11:26.838000Z",
     "current_leaf_message_uuid": "f91e960c-cbea-4e3e-b66e-f8687fe75ffe",
+    "entrypoint": "sdk-cli",
     "error": null,
     "file_path": "<TMP>/claude/projects/-home-fixture-cm-sample/6c2110ef-d09c-4f7b-9e2e-657d6e24353d.jsonl",
     "git_branch": "HEAD",
@@ -330,6 +331,7 @@
     "subagents": [],
     "subagents_found": [],
     "summary": "",
+    "tickets": [],
     "updated_at": "2026-11-26T00:11:33.431000Z",
     "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
   },

@@ -6,6 +6,7 @@
     "compact_markers": [],
     "created_at": "2025-05-25T10:00:00Z",
     "current_leaf_message_uuid": "a-2",
+    "entrypoint": null,
     "error": null,
     "file_path": "<TMP>/desktop-app/local-agent-mode-sessions/d_deployment1/o_org1/local_aaaa1111-2222-3333-4444-555566667777/audit.jsonl",
     "git_branch": "",
@@ -184,6 +185,7 @@
     "subagents": [],
     "subagents_found": [],
     "summary": "",
+    "tickets": [],
     "updated_at": "2025-05-25T10:01:05Z",
     "uuid": "aaaa1111-2222-3333-4444-555566667777"
   },

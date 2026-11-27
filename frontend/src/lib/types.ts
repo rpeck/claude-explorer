@@ -42,6 +42,10 @@ export interface ConversationListItem {
   source: ConversationSource
   project_path?: string | null
   project_name?: string | null
+  // Issue #93: the launcher (CC entrypoint, Codex originator), and the
+  // ticket keys ("owner/repo#84", "#84") from the search index.
+  entrypoint?: string | null
+  tickets?: string[]
   // cowork-multi-org C6: workspace metadata. Null for legacy untagged
   // JSONs that haven't been re-fetched yet.
   organization_id?: string | null
@@ -87,6 +91,9 @@ export interface ConversationSummary {
   // field must live here). Stripped from `ConversationListItem` —
   // the sidebar never renders it.
   git_branch?: string | null
+  // Issue #93 (see ConversationListItem).
+  entrypoint?: string | null
+  tickets?: string[]
   // cowork-multi-org C6: workspace metadata. Null for legacy untagged
   // JSONs that haven't been re-fetched yet.
   organization_id?: string | null
@@ -110,6 +117,46 @@ export interface ConversationSummary {
 }
 
 // cowork-multi-org C6: workspace selector source.
+// Issue #93: GET /api/tickets/{owner}/{repo}/{number}.
+export interface TicketRefEntry {
+  kind: 'title' | 'message' | 'branch' | 'pr_link' | string
+  message_uuid: string | null
+  snippet: string
+}
+
+export interface TicketSession {
+  conversation_uuid: string
+  name: string
+  source: ConversationSource
+  project_path: string | null
+  entrypoint: string | null
+  machine_id: string | null
+  machine_label: string | null
+  state: string | null
+  created_at: string
+  updated_at: string
+  kinds: string[]
+  refs: TicketRefEntry[]
+}
+
+export interface TicketPr {
+  number: number
+  repository: string
+  url: string
+  conversation_uuid: string
+  timestamp: string
+}
+
+export interface TicketDetail {
+  key: string
+  repo: string | null
+  number: number
+  system: 'github' | 'linear' | 'jira' | null
+  url: string | null
+  sessions: TicketSession[]
+  prs: TicketPr[]
+}
+
 export interface Org {
   org_id: string
   name: string | null

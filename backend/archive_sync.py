@@ -559,7 +559,12 @@ def this_machine_dir(data_dir: Path) -> Path | None:
     mid = _read_machine_id(ident)
     if mid is None:
         lock = ArchiveLock(ident.with_name(ident.name + ".lock"))
-        if not lock.acquire(5.0):
+        try:
+            got = lock.acquire(5.0)
+        except OSError as exc:  # the folder of the identity file cannot be made
+            log.warning("cannot write the machine identity file %s: %s", ident, exc)
+            return None
+        if not got:
             return None
         try:
             mid = _read_machine_id(ident)  # another process can have made it

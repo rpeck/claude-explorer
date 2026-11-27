@@ -14,6 +14,7 @@ single deprecation warning emitted on first read per variable.
 import json
 import logging
 import os
+import re
 import shutil
 from functools import lru_cache
 from pathlib import Path
@@ -148,6 +149,24 @@ def migrate_legacy_data_dir() -> None:
     log.info("Migrated data dir %s -> %s", legacy, new)
 
 
+_TICKET_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def _ticket_keys(raw: object) -> dict[str, list[str]]:
+    """``{"linear": [...], "jira": [...]}`` with valid upper-case prefixes; anything else is dropped."""
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for system in ("linear", "jira"):
+        keys = raw.get(system)
+        if isinstance(keys, list):
+            valid = sorted({k.strip().upper() for k in keys if isinstance(k, str)} - {""})
+            valid = [k for k in valid if _TICKET_KEY_RE.match(k)]
+            if valid:
+                out[system] = valid
+    return out
+
+
 class Settings(BaseModel):
     """Application settings."""
 
@@ -209,6 +228,9 @@ class Settings(BaseModel):
     # an env var). A moved ``data_dir`` no longer matches, so the gate closes
     # again. See ``backend/write_gate.py``.
     allow_writes_in_cloud_sync: str | None = None
+    # Issue #93: the Linear and Jira key prefixes that count as tickets in
+    # text and branches (``config.json`` "ticket_keys"); empty = off.
+    ticket_keys: dict[str, list[str]] = {}
 
     @classmethod
     def load(cls) -> "Settings":
@@ -236,6 +258,7 @@ class Settings(BaseModel):
         config_claude_desktop_app_dir: Path | None = None
         config_codex_home: Path | None = None
         allow_writes_in_cloud_sync: str | None = None
+        ticket_keys: dict[str, list[str]] = {}
         # Layer 1 (2026-05-18): accumulate per-candidate parse failures.
         # Joined with `` | `` into ``config_corrupt_reason`` at the bottom
         # of ``load``. The list is empty in the happy path (no parse
@@ -295,6 +318,7 @@ class Settings(BaseModel):
                     config_codex_home = Path(parsed["codex_home"])
                 if isinstance(parsed.get("allow_writes_in_cloud_sync"), str):
                     allow_writes_in_cloud_sync = parsed["allow_writes_in_cloud_sync"]
+                ticket_keys = _ticket_keys(parsed.get("ticket_keys"))
                 break
             except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
                 log.warning(
@@ -364,6 +388,7 @@ class Settings(BaseModel):
             claude_desktop_app_dir=claude_desktop_app_dir,
             codex_home=codex_home,
             allow_writes_in_cloud_sync=allow_writes_in_cloud_sync,
+            ticket_keys=ticket_keys,
             config_corrupt_reason=(
                 " | ".join(corruption_reasons) if corruption_reasons else None
             ),

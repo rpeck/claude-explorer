@@ -6,6 +6,7 @@
     "compact_markers": [],
     "created_at": "2026-04-01T10:00:00Z",
     "current_leaf_message_uuid": "d7a4e89e-982e-6f1e-0389-da8242eb794e",
+    "entrypoint": null,
     "error": null,
     "file_path": "<TMP>/data/by-org/00000000-1111-2222-3333-444444444444/0f415a45-9c62-8671-d4ad-53b84acb7e1a.json",
     "git_branch": null,
@@ -1084,6 +1085,7 @@
     "subagents": [],
     "subagents_found": [],
     "summary": "Phase 5 fixture: TLS handshakes (long)",
+    "tickets": [],
     "updated_at": "2026-04-01T10:30:00Z",
     "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
   },

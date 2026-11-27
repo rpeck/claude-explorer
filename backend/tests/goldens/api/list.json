@@ -2,6 +2,7 @@
   "default": [
     {
       "created_at": "2026-11-26T00:11:26.838000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 11,
@@ -13,11 +14,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-26T00:11:33.431000Z",
       "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
     },
     {
       "created_at": "2026-11-25T07:12:16.837000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 10,
@@ -29,11 +32,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T07:12:24.350000Z",
       "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
     },
     {
       "created_at": "2026-11-25T02:35:18.164000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 20,
@@ -45,11 +50,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T02:35:28.844000Z",
       "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
     },
     {
       "created_at": "2026-10-06T19:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -61,11 +68,13 @@
       "project_path": "/workspace/remote-fixture-project",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-10-06T19:06:00Z",
       "uuid": "session_01FIXTUREREMOTE000000000001"
     },
     {
       "created_at": "2026-04-01T20:01:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 2,
@@ -77,11 +86,13 @@
       "project_path": "/home/fixture/proj-sa",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T20:02:00Z",
       "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 30,
@@ -93,11 +104,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:30:00Z",
       "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -109,11 +122,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:04:00Z",
       "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 3,
@@ -125,11 +140,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": "cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -141,11 +158,13 @@
       "project_path": "/fixture/project",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
     },
     {
       "created_at": "2025-05-25T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -157,6 +176,7 @@
       "project_path": "/sessions/synthetic-sandbox",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2025-05-25T10:01:05Z",
       "uuid": "aaaa1111-2222-3333-4444-555566667777"
     }
@@ -164,6 +184,7 @@
   "show_archived": [
     {
       "created_at": "2026-11-26T00:11:26.838000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 11,
@@ -175,11 +196,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-26T00:11:33.431000Z",
       "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
     },
     {
       "created_at": "2026-11-25T07:12:16.837000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 10,
@@ -191,11 +214,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T07:12:24.350000Z",
       "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
     },
     {
       "created_at": "2026-11-25T02:35:18.164000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 20,
@@ -207,11 +232,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T02:35:28.844000Z",
       "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
     },
     {
       "created_at": "2026-10-06T19:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -223,11 +250,13 @@
       "project_path": "/workspace/remote-fixture-project",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-10-06T19:06:00Z",
       "uuid": "session_01FIXTUREREMOTE000000000001"
     },
     {
       "created_at": "2026-04-01T20:01:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 2,
@@ -239,11 +268,13 @@
       "project_path": "/home/fixture/proj-sa",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T20:02:00Z",
       "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 30,
@@ -255,11 +286,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:30:00Z",
       "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -271,11 +304,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:04:00Z",
       "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 3,
@@ -287,11 +322,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": "cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -303,11 +340,13 @@
       "project_path": "/fixture/project",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
     },
     {
       "created_at": "2025-05-25T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -319,6 +358,7 @@
       "project_path": "/sessions/synthetic-sandbox",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2025-05-25T10:01:05Z",
       "uuid": "aaaa1111-2222-3333-4444-555566667777"
     }
@@ -326,6 +366,7 @@
   "sort_name_asc": [
     {
       "created_at": "2026-11-26T00:11:26.838000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 11,
@@ -337,11 +378,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-26T00:11:33.431000Z",
       "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
     },
     {
       "created_at": "2026-11-25T02:35:18.164000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 20,
@@ -353,11 +396,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T02:35:28.844000Z",
       "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": "cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -369,11 +414,13 @@
       "project_path": "/fixture/project",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -385,11 +432,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:04:00Z",
       "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 30,
@@ -401,11 +450,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:30:00Z",
       "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 3,
@@ -417,11 +468,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
     },
     {
       "created_at": "2026-10-06T19:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -433,11 +486,13 @@
       "project_path": "/workspace/remote-fixture-project",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-10-06T19:06:00Z",
       "uuid": "session_01FIXTUREREMOTE000000000001"
     },
     {
       "created_at": "2026-04-01T20:01:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 2,
@@ -449,11 +504,13 @@
       "project_path": "/home/fixture/proj-sa",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T20:02:00Z",
       "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2025-05-25T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -465,11 +522,13 @@
       "project_path": "/sessions/synthetic-sandbox",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2025-05-25T10:01:05Z",
       "uuid": "aaaa1111-2222-3333-4444-555566667777"
     },
     {
       "created_at": "2026-11-25T07:12:16.837000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 10,
@@ -481,6 +540,7 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T07:12:24.350000Z",
       "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
     }
@@ -488,6 +548,7 @@
   "sort_project": [
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 30,
@@ -499,11 +560,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:30:00Z",
       "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -515,11 +578,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:04:00Z",
       "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 3,
@@ -531,11 +596,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
     },
     {
       "created_at": "2025-05-25T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -547,11 +614,13 @@
       "project_path": "/sessions/synthetic-sandbox",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2025-05-25T10:01:05Z",
       "uuid": "aaaa1111-2222-3333-4444-555566667777"
     },
     {
       "created_at": "2026-10-06T19:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -563,11 +632,13 @@
       "project_path": "/workspace/remote-fixture-project",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-10-06T19:06:00Z",
       "uuid": "session_01FIXTUREREMOTE000000000001"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": "cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -579,11 +650,13 @@
       "project_path": "/fixture/project",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
     },
     {
       "created_at": "2026-04-01T20:01:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 2,
@@ -595,11 +668,13 @@
       "project_path": "/home/fixture/proj-sa",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T20:02:00Z",
       "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2026-11-26T00:11:26.838000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 11,
@@ -611,11 +686,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-26T00:11:33.431000Z",
       "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
     },
     {
       "created_at": "2026-11-25T07:12:16.837000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 10,
@@ -627,11 +704,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T07:12:24.350000Z",
       "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
     },
     {
       "created_at": "2026-11-25T02:35:18.164000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 20,
@@ -643,6 +722,7 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T02:35:28.844000Z",
       "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
     }
@@ -650,6 +730,7 @@
   "source_CLAUDE_AI": [
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 30,
@@ -661,11 +742,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:30:00Z",
       "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -677,11 +760,13 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:04:00Z",
       "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 3,
@@ -693,6 +778,7 @@
       "project_path": null,
       "source": "CLAUDE_AI",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
     }
@@ -700,6 +786,7 @@
   "source_CLAUDE_CODE": [
     {
       "created_at": "2026-11-26T00:11:26.838000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 11,
@@ -711,11 +798,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-26T00:11:33.431000Z",
       "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
     },
     {
       "created_at": "2026-11-25T07:12:16.837000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 10,
@@ -727,11 +816,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T07:12:24.350000Z",
       "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
     },
     {
       "created_at": "2026-11-25T02:35:18.164000Z",
+      "entrypoint": "sdk-cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 20,
@@ -743,11 +834,13 @@
       "project_path": "/home/fixture/cm-sample",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-11-25T02:35:28.844000Z",
       "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
     },
     {
       "created_at": "2026-04-01T20:01:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 2,
@@ -759,11 +852,13 @@
       "project_path": "/home/fixture/proj-sa",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T20:02:00Z",
       "uuid": "5a6e0000-0000-4000-8000-000000000096"
     },
     {
       "created_at": "2026-04-01T10:00:00Z",
+      "entrypoint": "cli",
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -775,6 +870,7 @@
       "project_path": "/fixture/project",
       "source": "CLAUDE_CODE",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-04-01T10:03:00Z",
       "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
     }
@@ -782,6 +878,7 @@
   "source_CLAUDE_COWORK": [
     {
       "created_at": "2026-10-06T19:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -793,11 +890,13 @@
       "project_path": "/workspace/remote-fixture-project",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2026-10-06T19:06:00Z",
       "uuid": "session_01FIXTUREREMOTE000000000001"
     },
     {
       "created_at": "2025-05-25T10:00:00Z",
+      "entrypoint": null,
       "has_branches": false,
       "is_starred": false,
       "message_count": 4,
@@ -809,6 +908,7 @@
       "project_path": "/sessions/synthetic-sandbox",
       "source": "CLAUDE_COWORK",
       "subagents": [],
+      "tickets": [],
       "updated_at": "2025-05-25T10:01:05Z",
       "uuid": "aaaa1111-2222-3333-4444-555566667777"
     }
