@@ -26,9 +26,6 @@ import pytest
 
 from backend.tests import codex_fake as cf
 
-# Per test, not module-level: the regression guards pass before M1 too.
-M1 = pytest.mark.xfail(strict=True, reason="M1 not implemented yet")
-
 TESTS = Path(__file__).resolve().parent
 CC_FIXTURE = TESTS / "fixtures" / "cc_code_mode" / "poll-two-media-scripts.jsonl"
 CODEX_FIXTURE = TESTS / "fixtures" / "codex_code_mode" / "exec-view-image.jsonl"
@@ -86,7 +83,6 @@ def test_the_recording_has_one_poll_result_that_ends_both_media_scripts() -> Non
     assert [b["type"] for b in block["content"]] == ["text", "image", "image"]
 
 
-@M1
 def test_each_script_ended_by_one_poll_result_keeps_only_its_own_image() -> None:
     runs = _cc_runs(CC_FIXTURE)
     assert runs[RUN_B]["media"] == [_png(RED)]
@@ -127,7 +123,6 @@ def test_a_poll_result_that_ends_one_script_keeps_all_its_media(tmp_path: Path) 
     assert runs[RUN_C]["media"] == []
 
 
-@M1
 def test_the_shortcut_comment_on_poll_media_is_gone() -> None:
     source = (TESTS.parent / "cc_code_mode.py").read_text(encoding="utf-8")
     assert "shortcut:" not in source
@@ -169,14 +164,12 @@ def _with_image_url(tmp_path: Path, url: str) -> dict[str, Any]:
     return _codex_runs(_write_codex(tmp_path, lines))[EXEC]
 
 
-@M1
 def test_a_codex_exec_image_goes_to_the_run_media() -> None:
     run = _codex_runs(CODEX_FIXTURE)[EXEC]
     assert run["media"] == [_png(RED)]
     assert run["status"] == "completed"
 
 
-@M1
 def test_a_codex_run_whose_only_output_is_an_image_has_no_result_text() -> None:
     assert _codex_runs(CODEX_FIXTURE)[EXEC]["result"] is None
 
@@ -187,14 +180,12 @@ def test_the_view_image_call_stays_linked_to_its_run() -> None:
     assert call["link_source"] == "exclusive_window"
 
 
-@M1
 def test_a_codex_image_with_a_web_url_stays_a_label(tmp_path: Path) -> None:
     run = _with_image_url(tmp_path, "https://example.invalid/x.png")
     assert run["media"] == []
     assert "[Image]" in run["result"]
 
 
-@M1
 @pytest.mark.parametrize(
     "url",
     [
@@ -209,7 +200,6 @@ def test_only_a_base64_image_data_url_becomes_media(tmp_path: Path, url: str) ->
     assert "[Image]" in run["result"]
 
 
-@M1
 def test_text_and_image_in_one_codex_output_both_stay(tmp_path: Path) -> None:
     lines = _codex_lines()
     _exec_output(lines)[0]["text"] += "synthetic-hello\n"
@@ -218,7 +208,6 @@ def test_text_and_image_in_one_codex_output_both_stay(tmp_path: Path) -> None:
     assert run["media"] == [_png(RED)]
 
 
-@M1
 def test_an_image_in_a_wait_output_goes_to_the_run_of_its_cell(tmp_path: Path) -> None:
     lines = copy.deepcopy(cf.code_mode_lines())
     (wait_out,) = [
@@ -236,14 +225,12 @@ def test_an_image_in_a_wait_output_goes_to_the_run_of_its_cell(tmp_path: Path) -
     assert all(runs[r]["media"] == [] for r in cf.CM_RUNS if r != cf.CM_YIELD)
 
 
-@M1
 def test_every_codex_run_without_an_image_has_empty_media(tmp_path: Path) -> None:
     runs = _codex_runs(_write_codex(tmp_path, cf.code_mode_lines(), cf.THREAD_CODE_MODE))
     assert set(runs) == set(cf.CM_RUNS)
     assert all(run["media"] == [] for run in runs.values())
 
 
-@M1
 def test_the_codex_projection_version_is_6() -> None:
     from backend.sources import codex
 
