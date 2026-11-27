@@ -167,6 +167,23 @@ def _ticket_keys(raw: object) -> dict[str, list[str]]:
     return out
 
 
+_TICKET_HOST_RES = {
+    "jira": re.compile(r"^[A-Za-z0-9-]+\.atlassian\.net$"),
+    "linear": re.compile(r"^[A-Za-z0-9_-]+$"),
+}
+
+
+def _ticket_hosts(raw: object) -> dict[str, str]:
+    """``{"jira": "<site>.atlassian.net", "linear": "<workspace>"}``; an invalid value is dropped."""
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        system: raw[system].strip().lower()
+        for system, rx in _TICKET_HOST_RES.items()
+        if isinstance(raw.get(system), str) and rx.match(raw[system].strip())
+    }
+
+
 class Settings(BaseModel):
     """Application settings."""
 
@@ -231,6 +248,9 @@ class Settings(BaseModel):
     # Issue #93: the Linear and Jira key prefixes that count as tickets in
     # text and branches (``config.json`` "ticket_keys"); empty = off.
     ticket_keys: dict[str, list[str]] = {}
+    # Issue #93: {"jira": "<site>.atlassian.net", "linear": "<workspace>"}; the
+    # "Open in Jira/Linear" link uses it instead of the URLs in messages.
+    ticket_hosts: dict[str, str] = {}
 
     @classmethod
     def load(cls) -> "Settings":
@@ -259,6 +279,7 @@ class Settings(BaseModel):
         config_codex_home: Path | None = None
         allow_writes_in_cloud_sync: str | None = None
         ticket_keys: dict[str, list[str]] = {}
+        ticket_hosts: dict[str, str] = {}
         # Layer 1 (2026-05-18): accumulate per-candidate parse failures.
         # Joined with `` | `` into ``config_corrupt_reason`` at the bottom
         # of ``load``. The list is empty in the happy path (no parse
@@ -319,6 +340,7 @@ class Settings(BaseModel):
                 if isinstance(parsed.get("allow_writes_in_cloud_sync"), str):
                     allow_writes_in_cloud_sync = parsed["allow_writes_in_cloud_sync"]
                 ticket_keys = _ticket_keys(parsed.get("ticket_keys"))
+                ticket_hosts = _ticket_hosts(parsed.get("ticket_hosts"))
                 break
             except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
                 log.warning(
@@ -389,6 +411,7 @@ class Settings(BaseModel):
             codex_home=codex_home,
             allow_writes_in_cloud_sync=allow_writes_in_cloud_sync,
             ticket_keys=ticket_keys,
+            ticket_hosts=ticket_hosts,
             config_corrupt_reason=(
                 " | ".join(corruption_reasons) if corruption_reasons else None
             ),

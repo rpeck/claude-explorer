@@ -4,9 +4,10 @@
  *
  *   - fillStartCommand(template, {repo, issue, title, cwd}) in
  *     components/tickets/startCommand.ts. {repo} is "owner/repo" when it is
- *     valid, else "". {issue} is the number. {title} and {cwd} get a backslash
- *     before the backslash, ", $ and the backtick, and each newline becomes a space, so
- *     they are safe inside double quotes. Every occurrence is filled.
+ *     valid, else "". {issue} is the number. Every occurrence is filled.
+ *     T1 security round 2: {title} and {cwd} fill as single-quoted words
+ *     (startCommandShell.test.ts has the full rule); the old double-quote
+ *     tests changed to that rule.
  *   - entrypointLabel(value) in components/tickets/entrypoint.ts.
  *   - filterEngine: the 'ticket' and 'entrypoint' targets, targetValues and
  *     applyActiveFilterToItem; applyActiveFilter(text, state) is unchanged.
@@ -14,6 +15,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { importModule } from '@/test/codex/codexHelpers'
+
 
 type Values = { repo: string | null; issue: number; title: string; cwd: string }
 type Fill = (template: string, values: Values) => string
@@ -27,8 +29,8 @@ const VALUES: Values = { repo: 'fixture-org/alpha', issue: 84, title: 'Fix searc
 describe('fillStartCommand', () => {
   it('fills every placeholder', async () => {
     const f = await fill()
-    expect(f('claude --bg "Fix {repo}#{issue}: {title}" --cwd "{cwd}"', VALUES)).toBe(
-      'claude --bg "Fix fixture-org/alpha#84: Fix search" --cwd "/home/fixture/alpha"',
+    expect(f('claude --bg "Fix {repo}#{issue}: "{title} --cwd {cwd}', VALUES)).toBe(
+      "claude --bg \"Fix fixture-org/alpha#84: \"'Fix search' --cwd '/home/fixture/alpha'",
     )
   })
 
@@ -42,20 +44,20 @@ describe('fillStartCommand', () => {
     expect(f('claude --cloud', VALUES)).toBe('claude --cloud')
   })
 
-  it('escapes the title for double quotes', async () => {
+  it('single-quotes the title, with no backslashes', async () => {
     const f = await fill()
     const title = 'A "q" $(touch x) `id` back\\slash'
-    expect(f('"{title}"', { ...VALUES, title })).toBe('"A \\"q\\" \\$(touch x) \\`id\\` back\\\\slash"')
+    expect(f('{title}', { ...VALUES, title })).toBe("'A \"q\" $(touch x) `id` back\\slash'")
   })
 
   it('turns the newlines of the title into spaces', async () => {
     const f = await fill()
-    expect(f('"{title}"', { ...VALUES, title: 'line one\nline two' })).toBe('"line one line two"')
+    expect(f('{title}', { ...VALUES, title: 'line one\nline two' })).toBe("'line one line two'")
   })
 
-  it('escapes the cwd for double quotes', async () => {
+  it('single-quotes the cwd', async () => {
     const f = await fill()
-    expect(f('"{cwd}"', { ...VALUES, cwd: '/home/fixture/$HOME "x"' })).toBe('"/home/fixture/\\$HOME \\"x\\""')
+    expect(f('{cwd}', { ...VALUES, cwd: '/home/fixture/$HOME "x"' })).toBe("'/home/fixture/$HOME \"x\"'")
   })
 
   it('an unknown repo fills as an empty string', async () => {

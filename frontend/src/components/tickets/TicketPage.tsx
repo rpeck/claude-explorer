@@ -17,9 +17,23 @@ import { useSettings } from '@/contexts/SettingsContext'
 import { Button } from '@/components/ui/button'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { EntrypointChip } from './EntrypointChip'
-import { fillStartCommand } from './startCommand'
+import { fillStartCommand, placeholdersInQuotes } from './startCommand'
 
 const LINK = 'text-blue-600 hover:underline dark:text-blue-400'
+
+/** "Open in Jira (acme.atlassian.net)", "Open in Linear (acme)"; the host comes from the backend's URL. */
+function externalLabel(system: TicketDetail['system'], url: string): string {
+  const name = system === 'jira' ? 'Jira' : 'Linear'
+  let host = ''
+  try {
+    const u = new URL(url)
+    host = system === 'jira' ? u.host : u.pathname.split('/')[1] ?? ''
+    if (system !== 'jira' && host === 'issue') host = '' // linear.app/issue/KEY: no workspace
+  } catch {
+    host = ''
+  }
+  return host ? `Open in ${name} (${host})` : `Open in ${name}`
+}
 
 function startValues(t: TicketDetail) {
   return {
@@ -60,7 +74,7 @@ export function TicketPage() {
             <Ticket className="h-6 w-6" />
             {heading}
           </h1>
-          {startSessionCommand.trim() !== '' && ticket && (
+          {startSessionCommand.trim() !== '' && !placeholdersInQuotes(startSessionCommand) && ticket && (
             <Button variant="outline" size="sm" onClick={onCopy} data-testid="start-session-button">
               <Copy className="mr-1 h-4 w-4" />
               Copy start command
@@ -74,7 +88,7 @@ export function TicketPage() {
               data-testid="ticket-external-link"
               className={`inline-flex items-center gap-1 text-sm ${LINK}`}
             >
-              {ticket.system === 'jira' ? 'Open in Jira' : 'Open in Linear'}
+              {externalLabel(ticket.system, ticket.url)}
               <ExternalLink className="h-3 w-3" />
             </a>
           )}

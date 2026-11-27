@@ -55,7 +55,7 @@ from .tickets import (
     TicketPr,
     TicketRefEntry,
     TicketSession,
-    key_system,
+    external_link,
     ticket_key,
     ticket_url,
 )
@@ -1008,14 +1008,14 @@ class ConversationStore:
                     conversation_uuid=p["conv_uuid"], timestamp=p["timestamp"],
                 )
         github = scope is None or "/" in scope
-        system = GITHUB if github else (
-            next((r["system"] for r in refs), None) or key_system(scope, get_settings().ticket_keys)
-        )
-        seen_url = next((r["url"] for r in refs if r["url"]), None)
+        if github:
+            system, url = GITHUB, ticket_url(GITHUB, scope, number, None)
+        else:
+            settings = get_settings()
+            system, url = external_link(scope, number, refs, settings.ticket_keys, settings.ticket_hosts)
         return TicketDetail(
             key=ticket_key(scope, number), repo=scope if github else None, number=number,
-            system=system, url=ticket_url(system, scope, number, None if github else seen_url),
-            sessions=sessions, prs=list(seen.values()),
+            system=system, url=url, sessions=sessions, prs=list(seen.values()),
         )
 
     def _find_conversation_data(self, uuid: str) -> tuple[dict[str, Any] | None, Path | None]:

@@ -1020,6 +1020,9 @@ Jira API and assumes no launcher.
   - The git branch: a path segment that starts with digits and then "-" or
     the end (`fix/84-search-tools`, `fix/84`).
   - Claude Code `pr-link` records: an exact link to a PR.
+- **Limits:** at most 200 references per message and 2000 tickets per
+  session; Explorer drops the rest in text order. The scan is linear, so a
+  huge message cannot stall the index.
 - **The ticket key** is `owner/repo#84` (lower case), `#84` when the repo
   is not known, or `ENG-123` for Linear and Jira. The same number in two
   repos is two tickets.
@@ -1027,7 +1030,8 @@ Jira API and assumes no launcher.
   prefixes in upper case; the default is empty, and then only URLs count:
 
   ```json
-  {"ticket_keys": {"linear": ["ENG", "WEB"], "jira": ["OPS"]}}
+  {"ticket_keys": {"linear": ["ENG", "WEB"], "jira": ["OPS"]},
+   "ticket_hosts": {"linear": "example-team", "jira": "example.atlassian.net"}}
   ```
 
   - `ENG-123` in text counts only when `ENG` is listed, with the
@@ -1046,10 +1050,18 @@ Jira API and assumes no launcher.
 - **The ticket page** `/tickets/<owner>/<repo>/<n>` (`/tickets/_/_/<n>` for
   the unknown repo), or `/tickets/key/ENG-123`:
   - the heading `owner/repo#84`, `#84 (unknown repo)`, or `ENG-123`;
-  - "Open in Linear" or "Open in Jira": the URL that a message holds; for
-    Linear without one, `linear.app/issue/ENG-123`;
+  - "Open in Linear (acme)" or "Open in Jira (acme.atlassian.net)". Explorer
+    builds the link from a host; it never copies a URL from a message:
+    - the host in `config.json` `"ticket_hosts"` (a Jira host, a Linear
+      workspace), when it is set;
+    - else the host that most references to the key name (a tie goes to the
+      earliest reference);
+    - else, for Linear, `linear.app/issue/ENG-123`; Jira has no link.
+    - The system (Linear or Jira) comes from `ticket_keys` first, then from
+      the chosen URL.
   - the PRs from the pr-link records of the listed sessions (open in a new
-    tab);
+    tab). Only a `https://github.com/<owner>/<repo>/pull/<n>` URL shows;
+    Explorer drops any other `prUrl`;
   - one row per session, newest first: the name (a link), the source, the
     entrypoint chip, the state and the machine when the archive has them;
   - under each session, every message (turn) that names the ticket, and the
@@ -1072,17 +1084,23 @@ Jira API and assumes no launcher.
   never runs it.
   - Placeholders: `{repo}`, `{issue}`, `{title}` (the newest session's
     name), `{cwd}` (the newest session's project folder).
-  - `{repo}` and `{issue}` are checked. In `{title}` and `{cwd}`, a
-    backslash goes before `\`, `"`, `$`, and the backtick, and a newline
-    becomes a space, so put them in double quotes.
+  - `{repo}` and `{issue}` are checked (`owner/repo`, digits).
+  - **Put `{title}` and `{cwd}` outside quotes.** Explorer fills each as
+    one single-quoted shell word, so no value can run a command. Double
+    quotes are not enough: interactive bash and zsh still run history
+    expansion (`!#`) inside them.
+    - A newline becomes a space. A title that starts with `-` gets a
+      leading space, so no program reads it as a flag.
+    - A `{cwd}` that is not an absolute path fills as `''`.
+    - When the template has `{title}` or `{cwd}` inside quotes, Settings
+      shows "Put {title} and {cwd} outside quotes: Explorer quotes them.",
+      and the ticket page shows no button.
   - Examples:
-    - `claude --bg "Fix {repo}#{issue}: {title}"`
+    - `claude --bg "Fix {repo}#{issue}: "{title}`
     - `claude --cloud "Fix {repo}#{issue}"`
-    - claude-code-ide.el: an `emacsclient -e '(...)'` call to the function
-      of your setup that starts a session, with `"{cwd}"` and
-      `"Fix {repo}#{issue}"` as its arguments.
-    - Herdr: the Herdr command that starts an agent in `"{cwd}"` (see the
-      Herdr docs).
+    - `cd {cwd} && claude "Fix {repo}#{issue}: "{title}`
+    - Herdr: the Herdr command that starts an agent in a folder, with
+      `{cwd}` outside quotes (see the Herdr docs).
 - **Not yet:** the Messages view scoped to a ticket (#91, the Messages tab);
   GitLab, custom patterns, and a Settings UI for `ticket_keys`.
 - Code: `backend/tickets.py`, the `ticket_refs`, `ticket_prs`, and

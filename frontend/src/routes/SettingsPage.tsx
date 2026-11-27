@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Sun, Moon, Monitor, Settings, Keyboard, Database, Info, ExternalLink, FileText, FolderTree, Play } from 'lucide-react'
 import { isProjectKey } from '@/lib/conversationListView'
+import { placeholdersInQuotes } from '@/components/tickets/startCommand'
 import {
   useSettings,
   isTheme,
@@ -25,6 +26,8 @@ export function SettingsPage() {
     startSessionCommand,
     setStartSessionCommand,
   } = useSettings()
+  // The typed value until blur; null shows the saved value.
+  const [startDraft, setStartDraft] = useState<string | null>(null)
   // V1 polish 2026-05-24 (Bug 2) — the previous
   // `export.includeCompactContent` pref + checkbox was REMOVED. The
   // conversation header's "Show Compactions" checkbox now drives BOTH
@@ -310,24 +313,30 @@ export function SettingsPage() {
               Start session command
             </label>
             <input
-              // The saved value can arrive after the first render; a new key resets the draft.
-              key={startSessionCommand}
               id="start-session-command-input"
               data-testid="start-session-command-input"
               type="text"
-              defaultValue={startSessionCommand}
+              value={startDraft ?? startSessionCommand}
+              onChange={(e) => setStartDraft(e.target.value)}
               // Save on blur, not on each key: each save is one preferences write.
               onBlur={(e) => {
                 if (e.target.value !== startSessionCommand) setStartSessionCommand(e.target.value)
+                setStartDraft(null)
               }}
-              placeholder={'claude --bg "Fix {repo}#{issue}"'}
+              placeholder={'claude --bg "Fix {repo}#{issue}: "{title}'}
               className="mt-1 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
             />
             <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
               A ticket page fills this command and copies it to the clipboard. Explorer never runs it.
               Leave it empty to hide the button. Placeholders: <code>{'{repo}'}</code>, <code>{'{issue}'}</code>,{' '}
-              <code>{'{title}'}</code>, <code>{'{cwd}'}</code>.
+              <code>{'{title}'}</code>, <code>{'{cwd}'}</code>. Explorer quotes {'{title}'} and {'{cwd}'} itself, so
+              put them outside quotes, for example <code>{'claude --bg "Fix {repo}#{issue}: "{title}'}</code>.
             </p>
+            {placeholdersInQuotes(startDraft ?? startSessionCommand) && (
+              <p role="alert" data-testid="start-session-quote-warning" className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                Put {'{title}'} and {'{cwd}'} outside quotes: Explorer quotes them.
+              </p>
+            )}
           </section>
 
           {/* Data Section */}

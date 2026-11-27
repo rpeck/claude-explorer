@@ -2,6 +2,22 @@ import { test, expect, makeSummary, makeMessage, makeDetail, withNetRetry } from
 import type { Page, Route } from '@playwright/test'
 import type { ConversationDetail, ConversationSummary } from '../src/lib/types'
 
+
+/** True when {title} or {cwd} is between POSIX quotes in a template. */
+function placeholderInQuotes(s: string): boolean {
+  let quote: string | null = null
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === '\\' && quote !== "'") {
+      i++
+      continue
+    }
+    if (c === "'" || c === '"') quote = quote === null ? c : quote === c ? null : quote
+    else if (quote !== null && (s.startsWith('{title}', i) || s.startsWith('{cwd}', i))) return true
+  }
+  return false
+}
+
 /**
  * T1 (issue #93): the ticket page and the start command. The contract
  * (orchestrator, 2026-11-27):
@@ -222,14 +238,14 @@ test.describe('Ticket view (T1)', () => {
   })
 
   test('a Linear ticket page names the key and links to Linear', async ({ page, mockBackend }) => {
-    const body = { ...ALPHA_84, key: 'ENG-123', repo: null, number: 123, system: 'linear', url: 'https://linear.app/issue/ENG-123', prs: [] }
+    const body = { ...ALPHA_84, key: 'ENG-123', repo: null, number: 123, system: 'linear', url: 'https://linear.app/acme/issue/ENG-123', prs: [] }
     await serve(page, mockBackend, { tickets: { 'key/ENG-123': { status: 200, body } } })
     await openTicket(page, 'key/ENG-123')
     await expect(page.getByTestId('ticket-heading')).toHaveText('ENG-123')
     await expect(page.getByTestId('ticket-session')).toHaveCount(2)
     const ext = page.getByTestId('ticket-external-link')
-    await expect(ext).toHaveText('Open in Linear')
-    await expect(ext).toHaveAttribute('href', 'https://linear.app/issue/ENG-123')
+    await expect(ext).toHaveText('Open in Linear (acme)')
+    await expect(ext).toHaveAttribute('href', 'https://linear.app/acme/issue/ENG-123')
   })
 
   test('a Jira ticket page links to Jira only when a URL is known', async ({ page, mockBackend }) => {
@@ -242,7 +258,7 @@ test.describe('Ticket view (T1)', () => {
       },
     })
     await openTicket(page, 'key/DATA-4')
-    await expect(page.getByTestId('ticket-external-link')).toHaveText('Open in Jira')
+    await expect(page.getByTestId('ticket-external-link')).toHaveText('Open in Jira (fixture.atlassian.net)')
     await expect(page.getByTestId('ticket-external-link')).toHaveAttribute('href', 'https://fixture.atlassian.net/browse/DATA-4')
     await openTicket(page, 'key/PROJ-7')
     await expect(page.getByTestId('ticket-heading')).toHaveText('PROJ-7')
@@ -294,7 +310,7 @@ test.describe('Ticket view (T1)', () => {
   test('the start button copies the filled command and sends nothing', async ({ page, mockBackend }) => {
     await stubClipboard(page)
     const sent = await serve(page, mockBackend, {
-      preferences: { start_session_command: 'claude --bg "Fix {repo}#{issue}: {title}" --cwd "{cwd}"' },
+      preferences: { start_session_command: 'claude --bg "Fix {repo}#{issue}: "{title} --cwd {cwd}' },
     })
     await openTicket(page, 'fixture-org/alpha/84')
     const button = page.getByTestId('start-session-button')
@@ -303,10 +319,44 @@ test.describe('Ticket view (T1)', () => {
     await button.click()
     await expect(page.getByText('Command copied')).toBeVisible()
     expect(await copied(page)).toEqual([
-      'claude --bg "Fix fixture-org/alpha#84: The laptop session" --cwd "/home/fixture/laptop"',
+      "claude --bg \"Fix fixture-org/alpha#84: \"'The laptop session' --cwd '/home/fixture/laptop'",
     ])
     expect(sent.slice(before).filter((r) => !r.startsWith('GET '))).toEqual([])
     expect(sent.filter((r) => r.includes('claude --bg') && !r.includes('/api/preferences'))).toEqual([])
+  })
+
+  for (const template of ['claude --bg "Fix {title}"', "cd '{cwd}' && claude"]) {
+    test(`a template with a quoted placeholder warns and shows no button: ${template}`, async ({ page, mockBackend }) => {
+      await serve(page, mockBackend, { preferences: { start_session_command: template } })
+      await withNetRetry(page, () => page.goto('/settings'))
+      await expect(page.locator('[data-section="start-session"]')).toContainText(
+        'Put {title} and {cwd} outside quotes: Explorer quotes them.',
+      )
+      await openTicket(page, 'fixture-org/alpha/84')
+      await expect(page.getByTestId('ticket-session')).toHaveCount(2)
+      await expect(page.getByTestId('start-session-button')).toHaveCount(0)
+    })
+  }
+
+  test('a template with the placeholders outside quotes has no warning', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend, { preferences: { start_session_command: 'claude --bg "Fix {repo}#{issue}: "{title}' } })
+    await withNetRetry(page, () => page.goto('/settings'))
+    await expect(page.getByTestId('start-session-command-input')).toHaveValue('claude --bg "Fix {repo}#{issue}: "{title}')
+    await expect(page.getByText('Put {title} and {cwd} outside quotes: Explorer quotes them.')).toHaveCount(0)
+  })
+
+  test('every example in the Settings help puts {title} and {cwd} outside quotes', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend)
+    await withNetRetry(page, () => page.goto('/settings'))
+    const section = page.locator('[data-section="start-session"]')
+    await expect(section).toBeVisible()
+    const examples = [
+      ...(await section.locator('code').allTextContents()),
+      (await page.getByTestId('start-session-command-input').getAttribute('placeholder')) ?? '',
+    ].filter((s) => s.includes('{title}') || s.includes('{cwd}'))
+    // At least one example shows how to place {title}: else this test proves nothing.
+    expect(examples.filter((s) => s.includes('{title}') && s.length > '{title}'.length)).not.toEqual([])
+    expect(examples.filter(placeholderInQuotes)).toEqual([])
   })
 
   test('the settings page saves the start command, and the button appears', async ({ page, mockBackend }) => {

@@ -23,10 +23,11 @@ reindex. A bare #N in message text counts only when the repo resolves.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 import zlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -58,6 +59,14 @@ _REMOTE_RE = re.compile(
 )
 _SNIPPET_BEFORE = 60
 _SNIPPET_AFTER = 100
+_JIRA_HOST_RE = re.compile(r"https?://([A-Za-z0-9-]+\.atlassian\.net)/")
+_LINEAR_WS_RE = re.compile(r"https?://linear\.app/([A-Za-z0-9_-]+)/issue/")
+_PR_URL_RE = re.compile(r"https://github\.com/" + _OWNER + "/" + _NAME + r"/pull/(\d+)/?")
+
+#: Caps against a hostile or huge message; extra references are dropped in
+#: text order. Read at call time, so a test can lower them.
+MAX_REFS_PER_MESSAGE = 200
+MAX_TICKETS_PER_SESSION = 2000
 
 #: An index row: (system, repo, prefix, number, message_uuid, kind, snippet, url).
 RefRow = tuple[str, "str | None", "str | None", int, "str | None", str, str, "str | None"]
@@ -92,11 +101,14 @@ def _repo(owner: str, name: str) -> str:
     return f"{owner}/{name}".lower()
 
 
+@functools.lru_cache(maxsize=32)
+def _key_text_re_for(prefixes: tuple[str, ...]) -> re.Pattern[str]:
+    return re.compile(r"(?<![\w/-])(" + "|".join(map(re.escape, prefixes)) + r")-(\d+)(?!\w)")
+
+
 def _key_text_re(ticket_keys: TicketKeys | None) -> re.Pattern[str] | None:
     prefixes = sorted({k for v in (ticket_keys or {}).values() for k in v}, key=len, reverse=True)
-    if not prefixes:
-        return None
-    return re.compile(r"(?<![\w/-])(" + "|".join(map(re.escape, prefixes)) + r")-(\d+)(?!\w)")
+    return _key_text_re_for(tuple(prefixes)) if prefixes else None
 
 
 #: A match: (system, scope, number, start, end, url).
@@ -104,32 +116,39 @@ _Match = tuple[str, "str | None", int, int, int, "str | None"]
 
 
 def _matches(text: str, ticket_keys: TicketKeys | None = None) -> list[_Match]:
-    """Each reference in a text, in text order. ``scope`` as in :func:`ticket_key`."""
-    out: list[_Match] = []
-    taken: list[tuple[int, int]] = []
+    """Each reference in a text, in text order, without overlaps. ``scope`` as in :func:`ticket_key`.
 
-    def take(m: re.Match[str], system: str, scope: str | None, n: str, url: bool) -> None:
-        if all(m.end() <= a or m.start() >= b for a, b in taken):
-            out.append((system, scope, int(n), m.start(), m.end(), m.group(0) if url else None))
-            taken.append(m.span())
+    Linear in the number of candidates: collect all, sort by start, one sweep.
+    Where two overlap, the higher priority wins (URL forms, then
+    ``owner/repo#N``, then a configured key, then a bare #N).
+    """
+    cands: list[tuple[int, int, int, _Match]] = []  # (start, priority, -end, match)
 
-    for m in _URL_RE.finditer(text):
-        take(m, GITHUB, _repo(m.group(1), m.group(2)), m.group(3), True)
-    for m in _GRAPHITE_RE.finditer(text):
-        take(m, GITHUB, _repo(m.group(1), m.group(2)), m.group(3), True)
-    for m in _LINEAR_URL_RE.finditer(text):
-        take(m, LINEAR, m.group(1).upper(), m.group(2), True)
-    for m in _JIRA_URL_RE.finditer(text):
-        take(m, JIRA, m.group(1).upper(), m.group(2), True)
-    for m in _FULL_RE.finditer(text):
-        take(m, GITHUB, _repo(m.group(1), m.group(2)), m.group(3), False)
+    def add(prio: int, rx: re.Pattern[str], make: Callable[[re.Match[str]], tuple[str, str | None, str, bool]]) -> None:
+        for m in rx.finditer(text):
+            system, scope, n, url = make(m)
+            if int(n) >= 1:
+                cands.append((m.start(), prio, -m.end(),
+                              (system, scope, int(n), m.start(), m.end(), m.group(0) if url else None)))
+
+    add(0, _URL_RE, lambda m: (GITHUB, _repo(m.group(1), m.group(2)), m.group(3), True))
+    add(1, _GRAPHITE_RE, lambda m: (GITHUB, _repo(m.group(1), m.group(2)), m.group(3), True))
+    add(2, _LINEAR_URL_RE, lambda m: (LINEAR, m.group(1).upper(), m.group(2), True))
+    add(3, _JIRA_URL_RE, lambda m: (JIRA, m.group(1).upper(), m.group(2), True))
+    add(4, _FULL_RE, lambda m: (GITHUB, _repo(m.group(1), m.group(2)), m.group(3), False))
     key_re = _key_text_re(ticket_keys)
     if key_re is not None:
-        for m in key_re.finditer(text):
-            take(m, key_system(m.group(1), ticket_keys) or LINEAR, m.group(1), m.group(2), False)
-    for m in _BARE_RE.finditer(text):
-        take(m, GITHUB, None, m.group(1), False)
-    return sorted((r for r in out if r[2] >= 1), key=lambda r: r[3])
+        add(5, key_re, lambda m: (key_system(m.group(1), ticket_keys) or LINEAR, m.group(1), m.group(2), False))
+    add(6, _BARE_RE, lambda m: (GITHUB, None, m.group(1), False))
+    cands.sort(key=lambda c: c[:3])
+    out: list[tuple[int, _Match]] = []  # (priority, match)
+    for _start, prio, _neg_end, match in cands:
+        if out and match[3] < out[-1][1][4]:  # overlaps the last kept match
+            if prio < out[-1][0]:
+                out[-1] = (prio, match)
+            continue
+        out.append((prio, match))
+    return [m for _p, m in out]
 
 
 def extract_text_refs(
@@ -222,8 +241,10 @@ def _pr_links(conv: dict) -> list[dict]:
 
 
 def pr_rows(conv: dict) -> list[PrRow]:
-    return [(p["prNumber"], p["prRepository"], str(p.get("prUrl") or ""), str(p.get("timestamp") or ""))
-            for p in _pr_links(conv)]
+    """The PR links. Only a github.com PR URL is kept: the ticket page links to it."""
+    return [(p["prNumber"], p["prRepository"], p["prUrl"], str(p.get("timestamp") or ""))
+            for p in _pr_links(conv)
+            if isinstance(p.get("prUrl"), str) and _PR_URL_RE.fullmatch(p["prUrl"])]
 
 
 def session_repo(conv: dict) -> str | None:
@@ -245,12 +266,18 @@ def index_rows(conv: dict, ticket_keys: TicketKeys | None = None) -> tuple[list[
     if conv.get("agent_id"):
         return [], [], None
     refs: dict[tuple[str, str | None, int, str | None, str], tuple[str, str | None]] = {}
+    keys: set[str] = set()
 
     def add(system: str, scope: str | None, n: int, msg: str | None, kind: str, snippet: str, url: str | None) -> None:
+        key = ticket_key(scope, n)
+        if key not in keys:
+            if len(keys) >= MAX_TICKETS_PER_SESSION:
+                return
+            keys.add(key)
         refs.setdefault((system, scope, n, msg, kind), (snippet, url))
 
     def add_text(text: str, msg_uuid: str | None, kind: str) -> None:
-        for system, scope, n, s, e, url in _matches(text, ticket_keys):
+        for system, scope, n, s, e, url in _matches(text, ticket_keys)[:MAX_REFS_PER_MESSAGE]:
             add(system, scope, n, msg_uuid, kind, _snippet(text, s, e), url)
 
     add_text(str(conv.get("name") or ""), None, "title")
@@ -303,6 +330,45 @@ def row_key(system: str, repo: str | None, prefix: str | None, number: int, kind
     if repo is None and kind == "message":
         return None
     return ticket_key(repo, number)
+
+
+def _host_of(system: str, url: str | None) -> str | None:
+    """The Jira host or the Linear workspace that a seen URL names."""
+    m = (_JIRA_HOST_RE if system == JIRA else _LINEAR_WS_RE).match(url or "")
+    return m.group(1).lower() if m else None
+
+
+def external_link(
+    prefix: str, number: int, refs: Sequence[Mapping[str, Any]],
+    ticket_keys: TicketKeys | None, ticket_hosts: Mapping[str, str] | None,
+) -> tuple[str | None, str | None]:
+    """(system, url) of a Linear or Jira ticket, for "Open in Linear" or "Open in Jira".
+
+    The first URL in a message is not trusted. The system comes from the
+    configured prefix lists, else from the chosen URL. The host is the
+    configured one (``ticket_hosts``), else the one that most references
+    name (a tie goes to the earliest reference). The URL is built from the
+    host, never copied from a message.
+    """
+    key = ticket_key(prefix, number)
+    system = key_system(prefix, ticket_keys)
+    seen = [(r["system"], _host_of(r["system"], r.get("url"))) for r in refs if r.get("url")]
+    seen = [s for s in seen if s[1] and (system is None or s[0] == system)]
+    host: str | None = None
+    if seen:
+        counts: dict[tuple[str, str | None], int] = {}
+        for s in seen:
+            counts[s] = counts.get(s, 0) + 1
+        best = max(counts.values())
+        chosen = next(s for s in seen if counts[s] == best)
+        system = system or chosen[0]
+        host = chosen[1]
+    host = (ticket_hosts or {}).get(system or "") or host
+    if system == JIRA:
+        return system, f"https://{host}/browse/{key}" if host else None
+    if system == LINEAR:
+        return system, f"https://linear.app/{host}/issue/{key}" if host else f"https://linear.app/issue/{key}"
+    return system, None
 
 
 def ticket_url(system: str | None, scope: str | None, number: int, seen_url: str | None) -> str | None:
