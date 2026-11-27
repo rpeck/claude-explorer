@@ -938,9 +938,11 @@ class ConversationStore:
                 reverse=reverse,
             )
 
-        keys = self._ticket_keys()
+        sets = self._ticket_key_sets()
         for c in conversations:
-            c.tickets = keys.get(c.uuid, [])
+            c.tickets = sets["tickets"].get(c.uuid, [])
+            c.named_keys = sets["named_keys"].get(c.uuid, [])
+            c.pr_keys = sets["pr_keys"].get(c.uuid, [])
         return conversations
 
     def _ticket_index(self) -> Any:
@@ -950,16 +952,22 @@ class ConversationStore:
         idx = get_search_index()
         return idx if idx is not None and idx.is_ready() else None
 
-    def _ticket_keys(self) -> dict[str, list[str]]:
-        """conv_uuid -> ticket keys; empty when the index cannot answer."""
+    def _ticket_key_sets(self) -> dict[str, dict[str, list[str]]]:
+        """"tickets", "named_keys", "pr_keys": conv_uuid -> keys; empty maps when the index cannot answer."""
+        empty: dict[str, dict[str, list[str]]] = {"tickets": {}, "named_keys": {}, "pr_keys": {}}
         idx = self._ticket_index()
         if idx is None:
-            return {}
+            return empty
         try:
-            return idx.ticket_keys()
+            return idx.ticket_key_sets()
         except sqlite3.Error:
             logger.warning("tickets: index read failed", exc_info=True)
-            return {}
+            return empty
+
+    def _ticket_fields(self, uuid: str) -> dict[str, list[str]]:
+        """The three ticket fields of one session."""
+        sets = self._ticket_key_sets()
+        return {name: m.get(uuid, []) for name, m in sets.items()}
 
     def get_ticket(self, scope: str | None, number: int) -> TicketDetail | None:
         """Issue #93: every session that refers to a ticket, and each message that names it.
@@ -1341,7 +1349,8 @@ class ConversationStore:
             ]
         link_detail_model(detail, self._peer_links(detail.uuid, detail.agent_id, detail.source))
         if not detail.agent_id:
-            detail.tickets = self._ticket_keys().get(detail.uuid, [])
+            for name, keys in self._ticket_fields(detail.uuid).items():
+                setattr(detail, name, keys)
         return detail
 
     def get_conversation_dict(
@@ -1359,8 +1368,13 @@ class ConversationStore:
             return detail
         detail = link_detail_dict(detail, self._peer_links(detail["uuid"], detail.get("agent_id"), detail.get("source")))
         # Issue #93: outside the dict cache, as the peer links; a new dict only when it differs.
-        tickets = [] if detail.get("agent_id") else self._ticket_keys().get(detail["uuid"], [])
-        return detail if detail.get("tickets") == tickets else {**detail, "tickets": tickets}
+        fields = (
+            {"tickets": [], "named_keys": [], "pr_keys": []} if detail.get("agent_id")
+            else self._ticket_fields(detail["uuid"])
+        )
+        if all(detail.get(name) == keys for name, keys in fields.items()):
+            return detail
+        return {**detail, **fields}
 
     def _peer_links(self, uuid: str, agent_id: str | None, source: str | None) -> dict | None:
         """Issue #91: the links between sessions, from the search index; outside the

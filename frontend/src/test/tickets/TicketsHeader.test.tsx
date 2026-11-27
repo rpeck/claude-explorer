@@ -23,7 +23,11 @@ const A = 'a9300000-0000-4000-8000-000000000001'
 const B = 'a9300000-0000-4000-8000-000000000002'
 
 function ccDetail(uuid: string, fields: Record<string, unknown>) {
-  return detail({ uuid, name: `Session ${uuid.slice(-2)}`, source: 'CLAUDE_CODE', project_path: '/home/fixture/alpha', ...fields })
+  // T1 UI round 3: the "Tickets:" row reads named_keys; by default the tests name every ticket.
+  return detail({
+    uuid, name: `Session ${uuid.slice(-2)}`, source: 'CLAUDE_CODE', project_path: '/home/fixture/alpha',
+    named_keys: fields.tickets, pr_keys: [], ...fields,
+  })
 }
 
 function serveNothing(): void {
@@ -132,9 +136,53 @@ describe('Tickets:', () => {
   })
 
   it('a Desktop conversation shows the row too', async () => {
-    await renderHeader(detail({ uuid: A, name: 'Desktop', source: 'CLAUDE_AI', entrypoint: null, tickets: ['fixture-org/alpha#84'] }))
+    await renderHeader(detail({ uuid: A, name: 'Desktop', source: 'CLAUDE_AI', entrypoint: null, tickets: ['fixture-org/alpha#84'], named_keys: ['fixture-org/alpha#84'], pr_keys: [] }))
     expect(links(await screen.findByTestId('tickets-row'))).toEqual([
       ['fixture-org/alpha#84', '/tickets/fixture-org/alpha/84'],
     ])
+  })
+})
+
+// T1 UI round 3 (_orchestration/T1-UI.md, V3): PRs apart from tickets.
+
+describe('PRs: (V3)', () => {
+  const both = { entrypoint: 'cli', tickets: ['fixture-org/alpha#84', 'fixture-org/alpha#85'] }
+
+  it('the Tickets row lists only named_keys', async () => {
+    await renderHeader(ccDetail(A, { ...both, named_keys: ['fixture-org/alpha#84'], pr_keys: ['fixture-org/alpha#85'] }))
+    expect(links(await screen.findByTestId('tickets-row'))).toEqual([
+      ['fixture-org/alpha#84', '/tickets/fixture-org/alpha/84'],
+    ])
+  })
+
+  it('the PRs row links each pr_key to its GitHub pull request in a new tab', async () => {
+    await renderHeader(ccDetail(A, { ...both, named_keys: ['fixture-org/alpha#84'], pr_keys: ['fixture-org/alpha#85'] }))
+    const row = await screen.findByTestId('prs-row')
+    expect(row).toHaveTextContent('PRs:')
+    expect(links(row)).toEqual([['fixture-org/alpha#85', 'https://github.com/fixture-org/alpha/pull/85']])
+    const link = within(row).getByTestId('pr-link')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link.getAttribute('rel') ?? '').toMatch(/noopener/)
+    expect(link.getAttribute('rel') ?? '').toMatch(/noreferrer/)
+  })
+
+  it('a key that is both a PR and named shows in both rows', async () => {
+    await renderHeader(ccDetail(A, {
+      entrypoint: 'cli', tickets: ['fixture-org/alpha#85'], named_keys: ['fixture-org/alpha#85'], pr_keys: ['fixture-org/alpha#85'],
+    }))
+    expect(links(await screen.findByTestId('tickets-row'))).toEqual([['fixture-org/alpha#85', '/tickets/fixture-org/alpha/85']])
+    expect(links(await screen.findByTestId('prs-row'))).toEqual([['fixture-org/alpha#85', 'https://github.com/fixture-org/alpha/pull/85']])
+  })
+
+  it('a session with only a PR has a PRs row and no Tickets row', async () => {
+    await renderHeader(ccDetail(A, { entrypoint: 'cli', tickets: ['fixture-org/alpha#85'], named_keys: [], pr_keys: ['fixture-org/alpha#85'] }))
+    expect(await screen.findByTestId('prs-row')).toBeInTheDocument()
+    expect(screen.queryByTestId('tickets-row')).toBeNull()
+  })
+
+  it('a session without PRs has no PRs row', async () => {
+    await renderHeader(ccDetail(A, { entrypoint: 'cli', tickets: ['fixture-org/alpha#84'] }))
+    expect(await screen.findByTestId('tickets-row')).toBeInTheDocument()
+    expect(screen.queryByTestId('prs-row')).toBeNull()
   })
 })

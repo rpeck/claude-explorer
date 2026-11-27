@@ -1062,15 +1062,24 @@ Jira API and assumes no launcher.
   - the PRs from the pr-link records of the listed sessions (open in a new
     tab). Only a `https://github.com/<owner>/<repo>/pull/<n>` URL shows;
     Explorer drops any other `prUrl`;
+  - "Open in GitHub" next to a GitHub heading with a known repo: the issue
+    URL `github.com/<owner>/<repo>/issues/<n>`, built from the page's own
+    key (GitHub redirects it to the PR when the number is a PR). The
+    unknown-repo page has no such link;
   - one row per session, newest first: the name (a link), the source, the
-    entrypoint chip, the state and the machine when the archive has them;
+    entrypoint chip, the state and the machine when the archive has them,
+    and the time in the format of the conversation header;
   - under each session, every message (turn) that names the ticket, and the
     title, branch, and PR references. A message reference opens the session
-    at that message.
+    at that message. When the title and a message have the same text (a
+    session titled by its first message), the reference shows once, as the
+    message, labeled "title and message".
   - "No sessions refer to this ticket." when there are none. "The ticket
     index is not ready yet." while the search index builds.
-- **Details: "Tickets:"** in the conversation header links to each ticket of
-  the session.
+- **Details: "Tickets:"** in the conversation header links to each ticket
+  that the session names in its title, a message, or its branch.
+  **"PRs:"** links to each GitHub PR of the session's pr-link records (new
+  tab). A PR that the session also names elsewhere shows in both rows.
 - **The entrypoint chip** (list row and header) names the launcher: CLI,
   Desktop, VS Code, SDK, GitHub Action, Codex CLI, Codex exec, Codex VS
   Code. An unknown value shows as it is. The tooltip is the raw value.

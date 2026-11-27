@@ -751,8 +751,8 @@ class SearchIndex:
         # queries fall back gracefully while the rebuild runs.
         self._schema_ok = True
 
-        # Issue #93: (ticket_generation.gen, ticket_keys()); see ticket_keys.
-        self._ticket_keys_cache: tuple[int, dict[str, list[str]]] | None = None
+        # Issue #93: (ticket_generation.gen, ticket_key_sets()); see ticket_key_sets.
+        self._ticket_keys_cache: tuple[int, dict[str, dict[str, list[str]]]] | None = None
         self._init_schema()
         # Outside _init_schema, so that each of its paths gets the table.
         with self._write_lock, self._write_conn:
@@ -1364,7 +1364,15 @@ class SearchIndex:
 
     def ticket_keys(self) -> dict[str, list[str]]:
         """Issue #93: conv_uuid -> its ticket keys (sorted, unique); a bare #N resolved
-        (``tickets.row_key``).
+        (``tickets.row_key``)."""
+        return self.ticket_key_sets()["tickets"]
+
+    def ticket_key_sets(self) -> dict[str, dict[str, list[str]]]:
+        """Issue #93: three maps conv_uuid -> sorted unique keys:
+
+        * "tickets": every key (the filter target);
+        * "named_keys": the keys of title, message, and branch references;
+        * "pr_keys": the keys of the session's valid GitHub pr-link records.
 
         The list calls it on each request: 131 ms on 400k messages and 50k refs,
         so the result is cached until ``ticket_generation`` changes.
@@ -1374,23 +1382,37 @@ class SearchIndex:
         gen = row[0] if row else None
         cached = self._ticket_keys_cache
         if gen is not None and cached is not None and cached[0] == gen:
-            return {c: list(k) for c, k in cached[1].items()}
-        keys = self._read_ticket_keys(conn)
-        self._ticket_keys_cache = (gen, keys) if gen is not None else None
-        return {c: list(k) for c, k in keys.items()}
+            sets = cached[1]
+        else:
+            sets = self._read_ticket_key_sets(conn)
+            self._ticket_keys_cache = (gen, sets) if gen is not None else None
+        return {name: {c: list(k) for c, k in m.items()} for name, m in sets.items()}
 
-    def _read_ticket_keys(self, conn: sqlite3.Connection) -> dict[str, list[str]]:
-        from .tickets import row_key
+    def _read_ticket_key_sets(self, conn: sqlite3.Connection) -> dict[str, dict[str, list[str]]]:
+        from .tickets import row_key, ticket_key
 
         repos = self._ticket_repos(conn)
-        out: dict[str, set[str]] = {}
+        every: dict[str, set[str]] = {}
+        named: dict[str, set[str]] = {}
         for conv, system, repo, prefix, number, kind in conn.execute(
             "SELECT DISTINCT conv_uuid, system, repo, prefix, number, kind FROM ticket_refs"
         ):
             key = row_key(system, repo, prefix, number, kind, repos.get(conv))
             if key is not None:
-                out.setdefault(conv, set()).add(key)
-        return {c: sorted(keys) for c, keys in out.items()}
+                every.setdefault(conv, set()).add(key)
+                if kind != "pr_link":
+                    named.setdefault(conv, set()).add(key)
+        prs: dict[str, set[str]] = {}
+        # ticket_prs holds only valid GitHub PR URLs (tickets.pr_rows).
+        for conv, repository, number in conn.execute(
+            "SELECT DISTINCT conv_uuid, repository, number FROM ticket_prs"
+        ):
+            prs.setdefault(conv, set()).add(ticket_key(repository, number))
+
+        def done(m: dict[str, set[str]]) -> dict[str, list[str]]:
+            return {c: sorted(keys) for c, keys in m.items()}
+
+        return {"tickets": done(every), "named_keys": done(named), "pr_keys": done(prs)}
 
     def ticket_prefixes_seen(self) -> set[str]:
         """The Linear and Jira prefixes that a URL in the archive names."""

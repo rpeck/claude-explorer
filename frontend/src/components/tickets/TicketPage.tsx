@@ -12,12 +12,13 @@ import { Link, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Copy, ExternalLink, Ticket } from 'lucide-react'
 import { fetchTicket, fetchTicketByKey } from '@/lib/api'
-import { ApiError, type TicketDetail } from '@/lib/types'
+import { ApiError, type TicketDetail, type TicketRefEntry } from '@/lib/types'
 import { useSettings } from '@/contexts/SettingsContext'
 import { Button } from '@/components/ui/button'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { EntrypointChip } from './EntrypointChip'
-import { fillStartCommand, placeholdersInQuotes } from './startCommand'
+import { REPO_RE, fillStartCommand, placeholdersInQuotes } from './startCommand'
+import { formatFullDate } from '@/lib/utils'
 
 const LINK = 'text-blue-600 hover:underline dark:text-blue-400'
 
@@ -33,6 +34,28 @@ function externalLabel(system: TicketDetail['system'], url: string): string {
     host = ''
   }
   return host ? `Open in ${name} (${host})` : `Open in ${name}`
+}
+
+/**
+ * A title ref whose text equals a message ref's text (a session titled by its
+ * first message) shows once: as the message, labeled "title and message".
+ * The texts are compared through their snippets, which are equal for equal texts.
+ */
+function mergeTitleRefs(refs: TicketRefEntry[]): { ref: TicketRefEntry; label: string }[] {
+  const titles = new Set(refs.filter((r) => r.kind === 'title').map((r) => r.snippet.trim()))
+  const merged = new Set(
+    refs.filter((r) => r.kind === 'message' && titles.has(r.snippet.trim())).map((r) => r.snippet.trim()),
+  )
+  const shown = new Set<string>()
+  return refs.flatMap((r) => {
+    const text = r.snippet.trim()
+    if (r.kind === 'title' && merged.has(text)) return []
+    if (r.kind === 'message' && merged.has(text) && !shown.has(text)) {
+      shown.add(text)
+      return [{ ref: r, label: 'title and message' }]
+    }
+    return [{ ref: r, label: r.kind }]
+  })
 }
 
 function startValues(t: TicketDetail) {
@@ -56,6 +79,17 @@ export function TicketPage() {
   const unknownRepo = owner === '_' && repo === '_'
   const heading = key ? key.toUpperCase() : unknownRepo ? `#${number} (unknown repo)` : `${owner}/${repo}#${number}`
   const ticket = query.data
+  // GitHub: owner and repo only from the checked route key, never from a message URL.
+  const githubRepo = !key && !unknownRepo && REPO_RE.test(`${owner}/${repo}`) ? `${owner}/${repo}` : null
+  const externalLink = !ticket
+    ? null
+    : ticket.system === 'github'
+      ? githubRepo && /^\d+$/.test(number)
+        ? { url: `https://github.com/${githubRepo}/issues/${number}`, label: 'Open in GitHub' }
+        : null
+      : ticket.url
+        ? { url: ticket.url, label: externalLabel(ticket.system, ticket.url) }
+        : null
 
   const onCopy = async () => {
     if (!ticket) return
@@ -80,15 +114,15 @@ export function TicketPage() {
               Copy start command
             </Button>
           )}
-          {ticket?.url && ticket.system !== 'github' && (
+          {externalLink && (
             <a
-              href={ticket.url}
+              href={externalLink.url}
               target="_blank"
               rel="noopener noreferrer"
               data-testid="ticket-external-link"
               className={`inline-flex items-center gap-1 text-sm ${LINK}`}
             >
-              {externalLabel(ticket.system, ticket.url)}
+              {externalLink.label}
               <ExternalLink className="h-3 w-3" />
             </a>
           )}
@@ -159,12 +193,12 @@ export function TicketPage() {
                     <EntrypointChip entrypoint={s.entrypoint} />
                     {s.state && <span className="text-xs text-zinc-500">{s.state}</span>}
                     {s.machine_label && <span className="text-xs text-zinc-500">{s.machine_label}</span>}
-                    <span className="text-xs text-zinc-400">{new Date(s.updated_at).toLocaleString()}</span>
+                    <span className="text-xs text-zinc-400">{formatFullDate(s.updated_at)}</span>
                   </div>
                   <ul className="mt-2 space-y-1">
-                    {s.refs.map((r, i) => (
+                    {mergeTitleRefs(s.refs).map(({ ref: r, label }, i) => (
                       <li key={`${r.kind}-${r.message_uuid ?? ''}-${i}`} data-testid="ticket-ref" className="text-xs text-zinc-600 dark:text-zinc-400">
-                        <span className="mr-1 text-zinc-400">{r.kind}:</span>
+                        <span className="mr-1 text-zinc-400">{label}:</span>
                         {r.message_uuid ? (
                           <Link to={`/conversations/${s.conversation_uuid}?m=${encodeURIComponent(r.message_uuid)}`} className={LINK}>
                             {r.snippet}

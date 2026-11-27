@@ -46,6 +46,10 @@ export interface ConversationListItem {
   // ticket keys ("owner/repo#84", "#84") from the search index.
   entrypoint?: string | null
   tickets?: string[]
+  // Issue #93: the keys of title, message, and branch references, and the
+  // keys of the session's GitHub pr-link records; `tickets` is their union.
+  named_keys?: string[]
+  pr_keys?: string[]
   // cowork-multi-org C6: workspace metadata. Null for legacy untagged
   // JSONs that haven't been re-fetched yet.
   organization_id?: string | null
@@ -94,6 +98,10 @@ export interface ConversationSummary {
   // Issue #93 (see ConversationListItem).
   entrypoint?: string | null
   tickets?: string[]
+  // Issue #93: the keys of title, message, and branch references, and the
+  // keys of the session's GitHub pr-link records; `tickets` is their union.
+  named_keys?: string[]
+  pr_keys?: string[]
   // cowork-multi-org C6: workspace metadata. Null for legacy untagged
   // JSONs that haven't been re-fetched yet.
   organization_id?: string | null

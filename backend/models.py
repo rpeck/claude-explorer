@@ -266,6 +266,8 @@ class ConversationListItem(BaseModel):
     project_name: str | None = None  # Short name extracted from project_path
     entrypoint: str | None = None  # Issue #93
     tickets: list[str] = Field(default_factory=list)  # Issue #93
+    named_keys: list[str] = Field(default_factory=list)  # Issue #93
+    pr_keys: list[str] = Field(default_factory=list)  # Issue #93
     # Multi-org metadata (cowork-multi-org C3). Null for legacy untagged
     # JSONs that haven't been re-fetched yet.
     organization_id: str | None = None
@@ -324,6 +326,10 @@ class ConversationSummary(BaseModel):
     entrypoint: str | None = None
     #: Issue #93: the ticket keys of the session, from the search index; [] when it cannot answer.
     tickets: list[str] = Field(default_factory=list)
+    #: Issue #93: the keys of title, message, and branch references (the header "Tickets:").
+    named_keys: list[str] = Field(default_factory=list)
+    #: Issue #93: the keys of the session's valid GitHub pr-link records (the header "PRs:").
+    pr_keys: list[str] = Field(default_factory=list)
     # `git_branch` is read by the conversation-detail page (see
     # `frontend/src/routes/ConversationPage.tsx` "Details" disclosure).
     # `ConversationDetail extends ConversationSummary`, so this field

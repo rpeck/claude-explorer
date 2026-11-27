@@ -20,7 +20,7 @@ export interface StartCommandValues {
   cwd: string
 }
 
-const REPO_RE = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/
+export const REPO_RE = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/
 const ABSOLUTE_RE = /^(?:\/|[A-Za-z]:[\\/])/
 
 /** One POSIX single-quoted word: ' + the value with each ' as '\'' + '. */

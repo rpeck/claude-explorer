@@ -1032,3 +1032,45 @@ def test_the_key_route_is_503_without_an_index(
     _no_index(monkeypatch)
     r = _client().get("/api/tickets/key/ENG-123")
     assert r.status_code == 503, r.text
+
+
+# ---------------------------------------------------------------------------
+# T1 UI round 3, V3: pr_keys and named_keys (tickets stays the union)
+# ---------------------------------------------------------------------------
+
+def test_summaries_split_pr_keys_from_named_keys(corpus: Corpus) -> None:
+    s = corpus.summaries()
+    assert (s[S1].named_keys, s[S1].pr_keys) == (
+        ["fixture-org/alpha#84", "fixture-org/beta#84"],
+        ["fixture-org/alpha#85"],
+    )
+    assert (s[S3].named_keys, s[S3].pr_keys) == (["fixture-org/beta#84"], ["fixture-org/beta#7"])
+
+
+def test_tickets_stay_the_union_of_named_and_pr_keys(corpus: Corpus) -> None:
+    for c in corpus.summaries().values():
+        assert c.tickets == sorted(set(c.named_keys) | set(c.pr_keys)), c.uuid
+
+
+def test_named_keys_hold_resolved_bare_refs_and_linear_keys(corpus: Corpus) -> None:
+    s = corpus.summaries()
+    assert s[S2].named_keys == ["fixture-org/alpha#84"]
+    assert s[S7].named_keys == ["fixture-org/alpha#77"]
+    assert s[L1].named_keys == ["ENG-123", "PROJ-7"]
+    assert s[L1].pr_keys == []
+
+
+def test_the_list_and_detail_routes_carry_pr_keys_and_named_keys(corpus: Corpus) -> None:
+    (row,) = [c for c in _list_rows() if c["uuid"] == S3]
+    r = _client().get(f"/api/conversations/{S3}")
+    assert r.status_code == 200, r.text
+    for body in (row, r.json()):
+        assert (body["named_keys"], body["pr_keys"]) == (["fixture-org/beta#84"], ["fixture-org/beta#7"])
+
+
+def test_split_keys_are_empty_when_there_is_no_index(
+    corpus: Corpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _no_index(monkeypatch)
+    s = corpus.summaries()[S1]
+    assert (s.named_keys, s.pr_keys) == ([], [])

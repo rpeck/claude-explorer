@@ -82,7 +82,10 @@ const details: Record<string, ConversationDetail> = {
       makeMessage({ uuid: 's1-prompt', sender: 'human', text: 'Please fix #84 now.', content: [{ type: 'text', text: 'Please fix #84 now.' }] }),
       makeMessage({ uuid: 's1-reply', sender: 'assistant', text: 'Fixed.', parent_message_uuid: 's1-prompt', content: [{ type: 'text', text: 'Fixed.' }] }),
     ],
-    { entrypoint: 'cli', tickets: ['fixture-org/alpha#84', 'fixture-org/alpha#85'] } as unknown as Partial<ConversationDetail>,
+    {
+      entrypoint: 'cli', tickets: ['fixture-org/alpha#84', 'fixture-org/alpha#85'],
+      named_keys: ['fixture-org/alpha#84'], pr_keys: ['fixture-org/alpha#85'],
+    } as unknown as Partial<ConversationDetail>,
   ),
 }
 
@@ -425,5 +428,102 @@ test.describe('Ticket and entrypoint filter targets (T1)', () => {
     await withNetRetry(page, () => page.goto('/'))
     await expect(page.getByText('Beta session', { exact: true })).toBeVisible()
     await expect(page.getByText('Alpha session', { exact: true })).toHaveCount(0)
+  })
+})
+
+test.describe('Ticket UI round 3 (T1)', () => {
+  // T1 UI round 3 (_orchestration/T1-UI.md).
+  test.use({ timezoneId: 'UTC', locale: 'en-US' })
+
+  test('V1: session times use the header date format', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend)
+    await openTicket(page, 'fixture-org/alpha/84')
+    const rows = page.getByTestId('ticket-session')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.nth(0)).toContainText('Nov 20, 2026, 9:05:02 AM')
+    await expect(rows.nth(1)).toContainText('Nov 20, 2026, 9:01:06 AM')
+    await expect(rows.nth(0)).not.toContainText(/\d{1,2}\/\d{1,2}\/\d{4}/)
+  })
+
+  test('V2: a title that equals a message shows once, as the message', async ({ page, mockBackend }) => {
+    const body = {
+      ...ALPHA_84,
+      sessions: [
+        session(S1, {
+          kinds: ['message', 'title'],
+          refs: [
+            { kind: 'title', message_uuid: null, snippet: 'Fix #84 in the search' },
+            { kind: 'message', message_uuid: 's1-prompt', snippet: '  Fix #84 in the search\n' },
+            { kind: 'message', message_uuid: 's1-reply', snippet: 'Done with #84.' },
+          ],
+        }),
+      ],
+    }
+    await serve(page, mockBackend, { tickets: { 'fixture-org/alpha/84': { status: 200, body } } })
+    await openTicket(page, 'fixture-org/alpha/84')
+    const refs = page.getByTestId('ticket-ref')
+    await expect(refs).toHaveCount(2)
+    await expect(refs.nth(0)).toContainText('title and message:')
+    await expect(refs.nth(0).getByRole('link')).toHaveAttribute('href', `/conversations/${S1}?m=s1-prompt`)
+    await expect(refs.nth(1).getByRole('link')).toHaveAttribute('href', `/conversations/${S1}?m=s1-reply`)
+    await expect(page.getByText('title:', { exact: true })).toHaveCount(0)
+  })
+
+  test('V2: a title that differs from every message still shows on its own', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend)
+    await openTicket(page, 'fixture-org/alpha/84')
+    const refs = page.getByTestId('ticket-session').nth(1).getByTestId('ticket-ref')
+    await expect(refs).toHaveCount(3)
+    await expect(refs.filter({ hasText: TITLES[S1] }).getByRole('link')).toHaveCount(0)
+  })
+
+  test('V3: the header shows PRs apart from tickets', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend)
+    await withNetRetry(page, () => page.goto(`/conversations/${S1}`))
+    const header = page.locator('header').first()
+    await expect(header.getByTestId('tickets-row').getByTestId('ticket-link')).toHaveText(['fixture-org/alpha#84'])
+    const pr = header.getByTestId('prs-row').getByTestId('pr-link')
+    await expect(pr).toHaveText(['fixture-org/alpha#85'])
+    await expect(pr).toHaveAttribute('href', 'https://github.com/fixture-org/alpha/pull/85')
+    await expect(pr).toHaveAttribute('target', '_blank')
+  })
+
+  test('V4: a GitHub ticket page links to the issue on GitHub', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend)
+    await openTicket(page, 'fixture-org/alpha/84')
+    const link = page.getByRole('link', { name: 'Open in GitHub' })
+    await expect(link).toHaveAttribute('href', 'https://github.com/fixture-org/alpha/issues/84')
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', /noopener/)
+    await expect(link).toHaveAttribute('rel', /noreferrer/)
+  })
+
+  test('V4: the GitHub link comes from the ticket key, never from a URL in the data', async ({ page, mockBackend }) => {
+    const body = { ...ALPHA_84, url: 'https://evil.example/fixture-org/alpha/issues/84' }
+    await serve(page, mockBackend, { tickets: { 'fixture-org/alpha/84': { status: 200, body } } })
+    await openTicket(page, 'fixture-org/alpha/84')
+    await expect(page.getByRole('link', { name: 'Open in GitHub' })).toHaveAttribute(
+      'href',
+      'https://github.com/fixture-org/alpha/issues/84',
+    )
+  })
+
+  test('V4: the unknown-repo page has no GitHub link', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend, {
+      tickets: { '_/_/84': { status: 200, body: { ...ALPHA_84, key: '#84', repo: null, url: null, prs: [] } } },
+    })
+    await openTicket(page, '_/_/84')
+    await expect(page.getByTestId('ticket-heading')).toHaveText('#84 (unknown repo)')
+    await expect(page.getByTestId('ticket-session')).toHaveCount(2)
+    await expect(page.getByRole('link', { name: /Open in GitHub/ })).toHaveCount(0)
+  })
+
+  test('V4: an owner that fails the repo check gives no GitHub link', async ({ page, mockBackend }) => {
+    await serve(page, mockBackend, {
+      tickets: { '-bad/alpha/84': { status: 200, body: { ...ALPHA_84, key: '-bad/alpha#84', repo: '-bad/alpha' } } },
+    })
+    await openTicket(page, '-bad/alpha/84')
+    await expect(page.getByTestId('ticket-session')).toHaveCount(2)
+    await expect(page.getByRole('link', { name: /Open in GitHub/ })).toHaveCount(0)
   })
 })

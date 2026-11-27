@@ -349,3 +349,11 @@ def test_pr_rows_keep_only_github_pull_request_urls() -> None:
 def test_the_ticket_page_lists_only_github_pr_links(corpus: None) -> None:
     body = tt.ticket("fixture-org", "alpha", 84)
     assert [p["url"] for p in body["prs"]] == [GOOD_PR]
+
+
+def test_pr_keys_hold_only_valid_github_pr_links(corpus: None) -> None:
+    from backend.store import ConversationStore
+
+    (p1,) = [c for c in ConversationStore().list_conversations() if c.uuid == P1]
+    assert p1.pr_keys == ["fixture-org/alpha#7"]
+    assert p1.named_keys == ["fixture-org/alpha#84"]
