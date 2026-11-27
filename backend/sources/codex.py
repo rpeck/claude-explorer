@@ -69,7 +69,7 @@ DESCRIPTOR = SourceDescriptor(
 )
 
 #: The search index reindexes the Codex rows when this changes (§4.4).
-CODEX_PROJECTION_VERSION = 6  # 5: code mode runs (issue #90); 6: exec images (#103)
+CODEX_PROJECTION_VERSION = 7  # 5: code mode runs (issue #90); 6: exec images (#103); 7: agent message links (#91)
 
 ARCHIVE_DIR = "codex"
 HOME_FILE = "home.json"

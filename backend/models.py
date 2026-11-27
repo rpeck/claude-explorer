@@ -51,7 +51,42 @@ class CodeRun(BaseModel):
 
 
 # Issue #90: left out of the JSON when empty, so other blocks keep their shape.
-_CODE_MODE_FIELDS = ("code_run", "from_code_mode", "ambiguous_with")
+_CODE_MODE_FIELDS = ("code_run", "from_code_mode", "ambiguous_with", "peer_ref")
+
+
+class PeerRef(BaseModel):
+    """The other side of a message between sessions (issue #91).
+
+    ``link_state``: "linked" (the other session is in the archive), "not_in_archive",
+    or "unknown" (the search index cannot answer).
+    """
+
+    kind: Literal["sent", "received", "idle_notice"]
+    #: The Claude Code key. None for Codex and for idle notices.
+    msg_id: str | None = None
+    #: The other side: a session name, or a Codex agent path such as "/root".
+    name: str | None = None
+    conversation_uuid: str | None = None
+    #: None for a link at session level only.
+    message_uuid: str | None = None
+    title: str | None = None
+    link_state: Literal["linked", "not_in_archive", "unknown"] = "unknown"
+    #: Claude Code received: ``origin.fromMode``.
+    mode: str | None = None
+    #: Received only: "Sent because of", the sender's prompt that led to the send.
+    because_text: str | None = None
+    because_message_uuid: str | None = None
+    #: Idle notice only: the asker's own message that holds the notify_when_idle send.
+    notify_message_uuid: str | None = None
+
+
+class PeerSession(BaseModel):
+    """One entry of the "Messages with:" row (issue #91)."""
+
+    conversation_uuid: str | None = None
+    name: str | None = None
+    title: str | None = None
+    link_state: Literal["linked", "not_in_archive", "unknown"] = "unknown"
 
 
 class ContentBlock(BaseModel):
@@ -86,6 +121,8 @@ class ContentBlock(BaseModel):
     code_run: CodeRun | None = None
     from_code_mode: bool | None = None
     ambiguous_with: list[str] | None = None
+    # Issue #91: a SendMessage call or a Codex agent message, and its other side.
+    peer_ref: PeerRef | None = None
 
     @model_serializer(mode="wrap")
     def _drop_empty_code_mode_fields(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
@@ -172,6 +209,16 @@ class Message(BaseModel):
         Literal["task-notification", "bash-notification", "scheduled-task", "system-reminder"]
         | None
     ) = None
+    # Issue #91: a message from another session (shown without its envelope),
+    # or an idle notice. Left out of the JSON when None.
+    peer_ref: PeerRef | None = None
+
+    @model_serializer(mode="wrap")
+    def _drop_empty_peer_ref(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        if data.get("peer_ref") is None:
+            data.pop("peer_ref", None)
+        return data
 
 
 class SubagentSummary(BaseModel):
@@ -362,6 +409,8 @@ class ConversationDetail(ConversationSummary):
     agent_id: str | None = None
     #: The ``description`` of the agent's meta file, when it has one.
     agent_description: str | None = None
+    #: Issue #91: the sessions that this one exchanged messages with. Detail only.
+    peers: list[PeerSession] = Field(default_factory=list)
 
 
 class MessageNode(BaseModel):

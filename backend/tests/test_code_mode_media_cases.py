@@ -231,7 +231,8 @@ def test_every_codex_run_without_an_image_has_empty_media(tmp_path: Path) -> Non
     assert all(run["media"] == [] for run in runs.values())
 
 
-def test_the_codex_projection_version_is_6() -> None:
+def test_the_codex_projection_version_is_at_least_6() -> None:
+    # 6 for exec images (#103); later changes raise it further.
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 6
+    assert codex.CODEX_PROJECTION_VERSION >= 6

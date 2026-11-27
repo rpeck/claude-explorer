@@ -43,6 +43,7 @@ _EXPECTED_CC_ONLY_FIELDS = {
     "shell_command",
     "shell_output",
     "notice_kind",
+    "peer_ref",
 }
 
 # Desktop-compatible fields: explicitly named in _parse_message OUTSIDE

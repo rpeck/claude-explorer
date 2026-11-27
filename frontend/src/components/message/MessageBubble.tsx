@@ -6,6 +6,7 @@ import { SlashCommandBadge } from './SlashCommandBadge'
 import { CommandOutputBlock } from './CommandOutputBlock'
 import { ShellBlock } from './ShellBlock'
 import { NoticeRow } from './NoticeRow'
+import { PeerMessageRow } from './PeerMessageRow'
 import { Button } from '@/components/ui/button'
 import { useConversationLightbox } from '@/contexts/ConversationLightboxContext'
 import { useBookmarks } from '@/contexts/BookmarkContext'
@@ -219,6 +220,14 @@ function MessageBubbleImpl({
     return null
   }
 
+  // Issue #91: a message from another session, or an idle notice.
+  if (message.peer_ref && message.peer_ref.kind !== 'sent') {
+    return (
+      <div data-message-uuid={message.uuid} tabIndex={-1} className="focus:outline-none">
+        <PeerMessageRow peer={message.peer_ref} text={message.text} conversationId={conversationId} />
+      </div>
+    )
+  }
   // Issue #52: rows that Claude Code wrote are not "You" bubbles.
   if (message.notice_kind) {
     return (

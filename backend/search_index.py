@@ -79,6 +79,7 @@ from typing import Any
 
 from fetcher.paths import REMOTE_COWORK_DIRNAME, REMOTE_SESSION_PREFIX
 
+from .cc_peer_messages import peer_index_rows
 from .compact_prefixes import (
     COMPACTION_TITLE_PREFIX,
     is_compaction_prefix_text,
@@ -375,6 +376,29 @@ CREATE TABLE IF NOT EXISTS source_projection_versions (
     source TEXT PRIMARY KEY,
     version INTEGER NOT NULL
 )
+"""
+
+# ``peer_messages`` (issue #91) holds the keys of the messages between sessions:
+# one row per sent or received message, and one row per Codex thread with its
+# agent path. The viewer joins on ``msg_id`` to link the two sides: the Claude
+# Code msg_id, or a Codex key ("cx|..."; "cxpath|..." for a thread). Additive:
+# no SCHEMA_VERSION bump. A new CC_PEER_PROJECTION_VERSION marks the Claude
+# Code files stale, so the drift pass fills the table for them.
+PEER_MESSAGES_SQL = """
+CREATE TABLE IF NOT EXISTS peer_messages (
+    msg_id TEXT NOT NULL,
+    conv_uuid TEXT NOT NULL,
+    message_uuid TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    block_id TEXT NOT NULL DEFAULT '',
+    session_uuid TEXT NOT NULL,
+    agent_id TEXT NOT NULL DEFAULT '',
+    peer_name TEXT,
+    because_uuid TEXT,
+    because_text TEXT
+);
+CREATE INDEX IF NOT EXISTS peer_messages_msg_id ON peer_messages (msg_id);
+CREATE INDEX IF NOT EXISTS peer_messages_conv_uuid ON peer_messages (conv_uuid);
 """
 
 SCHEMA_SQL = MESSAGE_ROWIDS_SQL + """
@@ -689,6 +713,9 @@ class SearchIndex:
         with self._write_lock, self._write_conn:
             self._write_conn.execute(COWORK_SIDECAR_MTIMES_SQL)
             self._write_conn.execute(SOURCE_PROJECTION_VERSIONS_SQL)
+            for statement in PEER_MESSAGES_SQL.split(";"):
+                if statement.strip():
+                    self._write_conn.execute(statement)
             self._mark_stale_projections(self._write_conn)
 
     # ----- schema ----------------------------------------------------
@@ -1065,15 +1092,26 @@ class SearchIndex:
 
     @staticmethod
     def _mark_stale_projections(cur: sqlite3.Connection) -> None:
-        """Mark the Codex files stale when ``CODEX_PROJECTION_VERSION`` changed.
+        """Mark a source's files stale when its projection version changed.
+
+        The sources: Codex (``CODEX_PROJECTION_VERSION``) and Claude Code
+        (``backend.cc_peer_messages.CC_PEER_PROJECTION_VERSION``, issue #91).
 
         An mtime of -1 never equals a file's mtime, so the next drift pass
         upserts each file again; the upsert replaces the old rows. Search
         keeps the old rows until then.
         """
+        from . import cc_peer_messages
         from .sources import codex  # the module attribute: a test patches it
 
-        source, version = codex.DESCRIPTOR.id, codex.CODEX_PROJECTION_VERSION
+        for source, version in (
+            (codex.DESCRIPTOR.id, codex.CODEX_PROJECTION_VERSION),
+            ("CLAUDE_CODE", cc_peer_messages.CC_PEER_PROJECTION_VERSION),
+        ):
+            SearchIndex._mark_stale_source(cur, source, version)
+
+    @staticmethod
+    def _mark_stale_source(cur: sqlite3.Connection, source: str, version: int) -> None:
         row = cur.execute(
             "SELECT version FROM source_projection_versions WHERE source = ?", (source,)
         ).fetchone()
@@ -1231,6 +1269,33 @@ class SearchIndex:
 
     # ----- archive facts ---------------------------------------------
 
+    def peer_rows(self, conv_uuid: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Issue #91: the peer rows of one conversation, and the rows of the other
+        conversations that share a ``msg_id`` with them (with their title).
+
+        A row whose conversation is gone from ``conversations`` is left out.
+        """
+        conn = self._get_read_conn()
+
+        def dicts(cur: sqlite3.Cursor) -> list[dict[str, Any]]:
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, r, strict=True)) for r in cur]
+
+        own = dicts(conn.execute("SELECT * FROM peer_messages WHERE conv_uuid = ?", (conv_uuid,)))
+        keys = sorted({r["msg_id"] for r in own} | {
+            f"cxpath|{r['peer_name']}" for r in own if r["msg_id"].startswith("cx|") and r["peer_name"]
+        })
+        others: list[dict[str, Any]] = []
+        for i in range(0, len(keys), 500):
+            chunk = keys[i:i + 500]
+            others += dicts(conn.execute(
+                "SELECT p.*, c.title AS title FROM peer_messages p "
+                "JOIN conversations c ON c.conv_uuid = p.conv_uuid "
+                f"WHERE p.conv_uuid != ? AND p.msg_id IN ({','.join('?' * len(chunk))})",
+                (conv_uuid, *chunk),
+            ))
+        return own, others
+
     def has_code_runs(self) -> bool:
         """True when any indexed conversation holds a Code Mode run (#80 option B).
 
@@ -1311,6 +1376,7 @@ class SearchIndex:
             if isinstance(m, dict) and m.get("message_uuid")
         }
 
+        peer_rows = peer_index_rows(conv)
         rows: list[tuple[Any, ...]] = []
         for msg in conv.get("chat_messages", []) or []:
             # 2026-05-16 (v7): two parallel projections from the SAME
@@ -1396,6 +1462,13 @@ class SearchIndex:
                 "INSERT INTO message_rowids (msg_rowid, conv_uuid) VALUES (?, ?)",
                 mapped,
             )
+            self._write_conn.execute("DELETE FROM peer_messages WHERE conv_uuid = ?", (conv_uuid,))
+            self._write_conn.executemany(
+                "INSERT INTO peer_messages (msg_id, conv_uuid, message_uuid, block_id, direction, "
+                " peer_name, because_uuid, because_text, session_uuid, agent_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [(r[0], conv_uuid, *r[1:], session_uuid, agent_id) for r in peer_rows],
+            )
             # v10 title projection (2026-05-23). INSERT OR REPLACE
             # keeps one-row-per-conv invariant on title renames /
             # re-upserts. Same transaction as the messages writes
@@ -1464,6 +1537,7 @@ class SearchIndex:
             self._write_conn.execute(
                 "DELETE FROM conversations WHERE conv_uuid = ?", (conv_uuid,)
             )
+            self._write_conn.execute("DELETE FROM peer_messages WHERE conv_uuid = ?", (conv_uuid,))
             if file_path is not None:
                 self._write_conn.execute(
                     "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
@@ -1521,6 +1595,7 @@ class SearchIndex:
                 "DELETE FROM conversations WHERE conv_uuid = ?",
                 (conv_uuid,),
             )
+            self._write_conn.execute("DELETE FROM peer_messages WHERE conv_uuid = ?", (conv_uuid,))
             self._write_conn.execute(
                 "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
             )
@@ -1618,6 +1693,7 @@ class SearchIndex:
             self._write_conn.execute("DELETE FROM indexed_files")
             self._write_conn.execute("DELETE FROM cowork_sidecar_mtimes")
             self._write_conn.execute("DELETE FROM conversations")
+            self._write_conn.execute("DELETE FROM peer_messages")
         with self._unloadable_lock:
             self._unloadable.clear()
             self._unloadable_logged.clear()

@@ -70,6 +70,10 @@ NOTICE_LABELS = {
 def sender_label(message: object, assistant_label: str) -> str:
     """The sender line of a message in the exports and the MCP server: the
     reply label, "You", or the kind of a row that Claude Code wrote."""
+    peer_ref = getattr(message, "peer_ref", None)
+    if getattr(peer_ref, "kind", None) == "received":
+        # Issue #91: a message from another session.
+        return f"Message from @{peer_ref.name}" if peer_ref.name else "Message from another session"
     notice_kind = getattr(message, "notice_kind", None)
     if notice_kind:
         return NOTICE_LABELS.get(notice_kind, notice_kind)

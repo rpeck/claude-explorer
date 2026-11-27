@@ -107,6 +107,7 @@ export function ContentBlockRenderer({
           searchQuery={searchQuery}
           fromCodeMode={block.from_code_mode === true}
           ambiguousWith={block.ambiguous_with}
+          peerRef={block.peer_ref}
         />
       ) : null
     case 'code_run':

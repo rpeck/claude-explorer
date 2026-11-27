@@ -21,6 +21,7 @@ follow ``ThreadHistoryBuilder`` in
 
 from __future__ import annotations
 
+import hashlib
 import re
 import uuid as uuid_mod
 from collections.abc import Iterable
@@ -123,6 +124,7 @@ def project_rollout(
 
     for prev, msg in zip([None, *messages], messages, strict=False):
         msg["parent_message_uuid"] = prev["uuid"] if prev else None
+    agent_path = _link_agent_messages(messages, records, meta, thread_id)
 
     stamps = [r.timestamp for r in records if r.timestamp]
     created_at = meta.get("timestamp") or (stamps[0] if stamps else "")
@@ -140,6 +142,8 @@ def project_rollout(
         "incomplete_reasons": reasons,
         "warnings": warnings,
         "parent_uuid": parent_uuid(meta, thread_id),
+        # Issue #91: set only on a thread with agent messages; the index keys its links.
+        "agent_path": agent_path,
     }
 
 
@@ -411,6 +415,7 @@ def _paginated_messages(
     response_calls: dict[str, _ResponseCall] = {}  # call id -> its entry
     code_mode = _CodeMode(records)
     compactions = _Compactions()
+    agent_ids: set[str] = set()  # agent messages already shown, by id
     compaction_items: set[tuple[str, str]] = set()
     turn = ""  # the turn of the latest record that names one
     for r in records:
@@ -427,7 +432,9 @@ def _paginated_messages(
             if row is not None:
                 items[(turn, f"compacted-{r.line_no}")] = row
             continue
-        if r.type == "inter_agent_communication":
+        if _is_agent_message(r):
+            if _seen_agent_message(r, agent_ids):
+                continue
             own_turn = r.payload.get("turn_id")
             items[(own_turn if isinstance(own_turn, str) and own_turn else turn, r.line_no)] = r
             continue
@@ -646,14 +653,58 @@ def _lines(*parts: str) -> str:
     return "\n".join(p for p in parts if p)
 
 
+_ENCRYPTED_AGENT_MESSAGE = "[Encrypted agent message]"
+_PAYLOAD_MARK = "Payload:\n"
+# The multi-agent tools whose ``message`` argument is an agent message (issue #91).
+_SEND_TOOLS = {"spawn_agent": "task_name", "send_message": "target", "followup_task": "target"}
+
+
+def _is_agent_message(r: RolloutRecord) -> bool:
+    """An agent message: the ``inter_agent_communication`` record, or (0.164) a
+    ``response_item`` of type ``agent_message``."""
+    return r.type == "inter_agent_communication" or (
+        r.type == "response_item" and r.payload.get("type") == "agent_message"
+    )
+
+
+def _agent_payload(p: dict[str, Any]) -> tuple[str, str]:
+    """(the text to show, the text to compare). The shown text is the part after
+    "Payload:"; an encrypted part shows as a marker and compares by its ciphertext."""
+    content = p.get("content")
+    parts = content if isinstance(content, list) else [{"type": "input_text", "text": content}] if isinstance(content, str) else []
+    texts = [str(c.get("text") or "") for c in parts if isinstance(c, dict) and c.get("type") in ("input_text", "text")]
+    ciphers = [str(c["encrypted_content"]) for c in parts if isinstance(c, dict) and c.get("encrypted_content")]
+    if isinstance(p.get("encrypted_content"), str) and p["encrypted_content"]:
+        ciphers.append(p["encrypted_content"])
+    text = "".join(texts)
+    if _PAYLOAD_MARK in text:
+        text = text.split(_PAYLOAD_MARK, 1)[1]
+    text = text.strip()
+    shown = _lines(text, *(_ENCRYPTED_AGENT_MESSAGE for _ in ciphers[:1]))  # never decode it
+    return shown, ciphers[0] if ciphers else text
+
+
+def _seen_agent_message(r: RolloutRecord, seen: set[str]) -> bool:
+    """True for a second record of one agent message (the same id)."""
+    comm_id = r.payload.get("id")
+    if not isinstance(comm_id, str) or not comm_id:
+        return False
+    if comm_id in seen:
+        return True
+    seen.add(comm_id)
+    return False
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:32]
+
+
 def _agent_message(
     r: RolloutRecord, thread_id: str, turn_id: str | None, model: str
 ) -> dict[str, Any]:
-    """An ``inter_agent_communication`` record: a message between agents, in both history modes."""
+    """An agent message between the threads of one tree, in both history modes."""
     p = r.payload
-    content = p.get("content") if isinstance(p.get("content"), str) else ""
-    if not content and p.get("encrypted_content"):
-        content = "[Encrypted agent message]"  # never decode it
+    content, compared = _agent_payload(p)
     comm_id = p.get("id") if isinstance(p.get("id"), str) and p.get("id") else None
     msg_uuid = (
         message_uuid(thread_id, turn_id=turn_id, item_id=comm_id)
@@ -661,7 +712,74 @@ def _agent_message(
     )
     blocks = _tool({"id": comm_id or f"line-{r.line_no}"}, "agent_message",
                    _present(p, "author", "recipient", "trigger_turn"), content)
+    blocks[0]["_peer_digest"] = _digest(compared)  # private: for the links (issue #91)
     return _message(msg_uuid, "assistant", blocks, r.timestamp, r.timestamp, model)
+
+
+def own_agent_path(meta: dict[str, Any]) -> str | None:
+    """The thread's agent path: a spawned agent's ``thread_spawn.agent_path``, else
+    "/root". None for another kind of subagent (for example a review)."""
+    source = meta.get("source")
+    sub = source.get("subagent") if isinstance(source, dict) else None
+    if sub is None:
+        return "/root"
+    spawn = sub.get("thread_spawn") if isinstance(sub, dict) else None
+    path = spawn.get("agent_path") if isinstance(spawn, dict) else None
+    return path if isinstance(path, str) and path else None
+
+
+def _own_start(records: list[RolloutRecord], thread_id: str) -> int:
+    """The index of the thread's first own record. A spawned agent's file can start
+    with a copy of the parent's turns (``fork_turns``); its own turns have a parent turn."""
+    foreign = [i for i, r in enumerate(records) if r.type == "session_meta" and r.payload.get("id") not in (None, thread_id)]
+    if not foreign:
+        return 0
+    for i in range(foreign[-1], len(records)):
+        r = records[i]
+        if r.type == "event_msg" and r.payload.get("type") == "task_started":
+            attribution = r.payload.get("turn_attribution")
+            if isinstance(attribution, dict) and attribution.get("parent_turn_id"):
+                return i
+    return len(records)
+
+
+def _link_agent_messages(messages: list[dict[str, Any]], records: list[RolloutRecord], meta: dict[str, Any], thread_id: str) -> str | None:
+    """Issue #91: a ``peer_ref`` and a private index key on each received agent
+    message and on each own send call. Returns the thread's agent path when it has any."""
+    own_path = own_agent_path(meta)
+    if own_path is None:
+        return None
+    start = _own_start(records, thread_id)
+    sends: dict[str, tuple[str, str]] = {}  # call_id -> (recipient path, digest)
+    for r in records[start:]:
+        p = r.payload
+        if r.type != "response_item" or p.get("type") != "function_call" or p.get("name") not in _SEND_TOOLS:
+            continue
+        args = _decode_json_text(p.get("arguments", {}))
+        if not isinstance(args, dict):
+            continue
+        target, message = args.get(_SEND_TOOLS[p["name"]]), args.get("message")
+        if not isinstance(target, str) or not target or not isinstance(message, str) or not isinstance(p.get("call_id"), str):
+            continue
+        recipient = target if target.startswith("/") else f"{own_path.rstrip('/')}/{target}"
+        sends[p["call_id"]] = (recipient, _digest(message))
+    found = False
+    for m in messages:
+        for b in m.get("content") or []:
+            if b.get("type") != "tool_use":
+                continue
+            digest = b.pop("_peer_digest", None)
+            inp = b.get("input") or {}
+            if digest is not None and inp.get("recipient") == own_path and isinstance(inp.get("author"), str):
+                b["peer_ref"] = {"kind": "received", "name": inp["author"], "link_state": "unknown"}
+                b["_peer_key"] = f"cx|{own_path}|{inp['author']}|{digest}"
+                found = True
+            elif b.get("id") in sends:
+                recipient, sent_digest = sends.pop(b["id"])
+                b["peer_ref"] = {"kind": "sent", "name": recipient, "link_state": "unknown"}
+                b["_peer_key"] = f"cx|{recipient}|{own_path}|{sent_digest}"
+                found = True
+    return own_path if found else None
 
 
 # ---------------------------------------------------------------------------
@@ -678,6 +796,7 @@ def _legacy_messages(
     turn_of: dict[str, int] = {}  # message uuid -> turn; each human message starts a turn
     turn = 0
     compactions = _Compactions()
+    agent_ids: set[str] = set()  # agent messages already shown, by id
     model = ""
     turn_id: str | None = None  # the turn_context turn; ``turn`` counts the human messages
     for r in records:
@@ -685,7 +804,9 @@ def _legacy_messages(
             model = r.payload.get("model") or model
             turn_id = r.payload.get("turn_id") or turn_id
             continue
-        if r.type == "inter_agent_communication":
+        if _is_agent_message(r):
+            if _seen_agent_message(r, agent_ids):
+                continue
             msg = _agent_message(r, thread_id, r.payload.get("turn_id") or turn_id, model)
             turn_of[msg["uuid"]] = turn
             messages.append(msg)

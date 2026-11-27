@@ -172,6 +172,7 @@
     "organization_id": null,
     "organization_name": null,
     "parent_uuid": null,
+    "peers": [],
     "prelude_hidden_count": 0,
     "project_name": "synthetic-sandbox",
     "project_path": "/sessions/synthetic-sandbox",

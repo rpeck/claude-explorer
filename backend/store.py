@@ -3,12 +3,14 @@
 import json
 import logging
 import re
+import sqlite3
 import threading
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Literal
 
 from .archive_sync import archive_roots, live_first
+from .cc_peer_messages import compute_links, link_detail_dict, link_detail_model
 from .cc_subagents import (
     AgentFile,
     find_agent,
@@ -183,6 +185,7 @@ def _parse_content_blocks(content: list[dict[str, Any]]) -> list[ContentBlock]:
             code_run=block.get("code_run"),
             from_code_mode=block.get("from_code_mode"),
             ambiguous_with=block.get("ambiguous_with"),
+            peer_ref=block.get("peer_ref"),
         )
         blocks.append(parsed)
     return blocks
@@ -214,6 +217,7 @@ _CC_ONLY_PASSTHROUGH_FIELDS: tuple[str, ...] = (
     "shell_command",
     "shell_output",
     "notice_kind",
+    "peer_ref",
 )
 _CC_ONLY_DEFAULTS: dict[str, Any] = {
     "is_command_marker": False,
@@ -227,6 +231,7 @@ _CC_ONLY_DEFAULTS: dict[str, Any] = {
     "shell_command": None,
     "shell_output": None,
     "notice_kind": None,
+    "peer_ref": None,
 }
 
 
@@ -1207,7 +1212,9 @@ class ConversationStore:
         data = read_agent_conversation(session_file, agent)
         if data is None:
             return None
-        return self._build_detail_from_data(data, agent.path, None)
+        detail = self._build_detail_from_data(data, agent.path, None)
+        link_detail_model(detail, self._peer_links(detail.uuid, detail.agent_id, detail.source))
+        return detail
 
     def get_agent_conversations_raw(self, source: SourceFilter = "all") -> list[dict[str, Any]]:
         """Every agent transcript with an owner, in the session identity (linear search)."""
@@ -1242,6 +1249,7 @@ class ConversationStore:
             detail.subagents_found = [
                 SubagentFound(**a) for a in subagents_found(file_path)
             ]
+        link_detail_model(detail, self._peer_links(detail.uuid, detail.agent_id, detail.source))
         return detail
 
     def get_conversation_dict(
@@ -1254,8 +1262,47 @@ class ConversationStore:
         """
         detail = self._get_conversation_dict_cached(uuid, leaf_override)
         if detail and detail.get("source") == "CLAUDE_CODE" and detail.get("file_path"):
-            return {**detail, "subagents_found": subagents_found(Path(detail["file_path"]))}
-        return detail
+            detail = {**detail, "subagents_found": subagents_found(Path(detail["file_path"]))}
+        if not detail:
+            return detail
+        return link_detail_dict(detail, self._peer_links(detail["uuid"], detail.get("agent_id"), detail.get("source")))
+
+    def _peer_links(self, uuid: str, agent_id: str | None, source: str | None) -> dict | None:
+        """Issue #91: the links between sessions, from the search index; outside the
+        dict cache, because they change when the other session changes. None: the
+        index cannot answer (no index, the cloud-sync gate is closed, a read error)."""
+        if source not in ("CLAUDE_CODE", "CODEX"):
+            return {}
+        from .search_index import get_search_index, index_key
+
+        idx = get_search_index()
+        if idx is None:
+            return None
+        try:
+            own, others = idx.peer_rows(index_key(uuid, agent_id))
+        except sqlite3.Error:
+            logger.warning("peer links: index read failed for %s", uuid, exc_info=True)
+            return None
+        if not own:
+            return {}
+        same_tree = (lambda _u: True) if source != "CODEX" else self._codex_tree_test(uuid)
+        return compute_links(own, others, same_tree)
+
+    def _codex_tree_test(self, uuid: str):
+        """A test: is a Codex thread in the same thread tree as ``uuid``?"""
+        adapter = get_adapter_or_none("CODEX", self)
+        rows = adapter.list_rows(full_content=False, include_phantom=True) if adapter else []
+        parent = {r["uuid"]: r.get("parent_uuid") for r in rows if r.get("uuid")}
+
+        def root(u: str) -> str:
+            seen = set()
+            while parent.get(u) and u not in seen:
+                seen.add(u)
+                u = parent[u]
+            return u
+
+        mine = root(uuid)
+        return lambda other: root(other) == mine
 
     def _get_conversation_dict_cached(
         self, uuid: str, leaf_override: str | None = None

@@ -950,6 +950,55 @@ and searches these transcripts like a session.
 
 ---
 
+## 20. Messages between sessions (issue #91)
+
+Sessions can message each other: Claude Code with `SendMessage`, and Codex
+agents within one thread tree. When you read one side of an exchange, the
+other side is one click away, and a message that arrived during a turn shows
+where it arrived.
+
+- **A received message** shows as a row: "Message from @<name>" and the body.
+  - The envelope does not show: no prefix line, no tags, no safety paragraph.
+  - A message that arrived during a turn (a `queued_command` attachment)
+    shows at its place in the turn, not at the end.
+  - One row per message: a second copy with the same `msg_id` does not show.
+  - The row shows also with Show Tools off. Its sender label in the exports
+    and in MCP is "Message from @<name>".
+  - A mode chip shows the sender's mode when it is not "prompting".
+- **Links, both ways:** "From <title> →" on the received row, and "Sent to
+  <title> →" on the send block (with Show Tools on). A link opens the other
+  session at the message.
+  - Claude Code links by `msg_id` only: the sender's result and the
+    receiver's `origin` have the same id. Never by name, socket, or time.
+  - "not in the archive": the other side is not in the archive.
+  - No link and no such text: the search index cannot answer (no index, or
+    the cloud-sync gate is closed).
+- **"Sent because of: <first line>"** on a received row: the sender's prompt
+  that led to the send (the nearest earlier prompt or received message in the
+  sender's session). It opens the sender's session at that prompt.
+- **Idle notice** (`notify_when_idle`): the row keeps its text, links to
+  your own request in this session ("Your request →"), and to the peer.
+- **Codex agent messages** show as `agent_message` tool calls, with the
+  payload as the output. An encrypted payload shows "[Encrypted agent
+  message]"; the ciphertext never shows.
+  - Exact link: the sender's `spawn_agent` or `send_message` call with the
+    same payload, within one thread tree.
+  - Else a link to the sender's thread only (for example a worker's final
+    answer to the root).
+  - A worker's copy of its parent's turns is never a link target.
+- **Details: "Messages with:"** lists the other sessions, in the order of the
+  first message. A session in the archive is a link; another shows its name.
+- **MCP:** `get_messages` gives `peer_ref` on each such message (and on the
+  tool call, with `include_tool_calls`); follow it with `get_messages`.
+- **Not yet:** the Messages tab, session state, and the link across
+  machines (`bridge-session`).
+- Code: `backend/cc_peer_messages.py`, the `peer_messages` table in
+  `backend/search_index.py`, the join in `backend/store.py`,
+  `frontend/src/components/message/PeerMessageRow.tsx`,
+  `frontend/src/components/conversation/PeerSessionsRow.tsx`.
+
+---
+
 ## Cross-cutting rules
 
 ### Toasts

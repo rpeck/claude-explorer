@@ -441,6 +441,7 @@
     "organization_id": null,
     "organization_name": null,
     "parent_uuid": null,
+    "peers": [],
     "prelude_hidden_count": 0,
     "project_name": "cm-sample",
     "project_path": "/home/fixture/cm-sample",
