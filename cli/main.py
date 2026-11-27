@@ -139,7 +139,8 @@ def fetch(
 
     if sync_busy(run_archive_syncs(ConversationStore(), "cli", 60.0)):
         click.echo(
-            "Another Claude Explorer process is copying the Codex sessions into "
+            # The text of backend.routers.fetch.ARCHIVE_BUSY_MESSAGE; that module imports FastAPI.
+            "Another Claude Explorer process is copying sessions into "
             "the archive. This fetch skipped the copy; the next one does it."
         )
 

@@ -17,6 +17,7 @@ before the commit.
 | `poll-tool-settle.jsonl` | Two scripts: the media read, then the long log. The second script ends through the `Poll` tool, whose result lists the authentic event nonces. |
 | `two-background-scripts.jsonl` | Two background scripts at once; one ends in `poll_events` (with a `repl-status` event), the other through `Poll`. |
 | `parallel-subagents.jsonl`, `parallel-subagent-1.jsonl`, `parallel-subagent-2.jsonl` | One script starts two subagents at once; each subagent runs its own script. |
+| `poll-two-media-scripts.jsonl` | Recorded 2026-11-26 (issue #103). Three background scripts: A times out; B and C each read a synthetic PNG (red, blue) and end in one `Poll` result. Its content is the text with two events and two image blocks; `toolUseResult.media[i]` holds the media of event i. |
 | `subagent-media-cut-output.jsonl` | A subagent's foreground runs: the media are blocks of the outer result, and the cut note is a `<log>` part of `<repl-output>`. |
 
 ## How to record again

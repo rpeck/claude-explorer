@@ -451,12 +451,17 @@ def _build_outline(
         )
         append_from = 0
 
-    # Upsert session_files record first (FK parent must exist before children)
+    # Upsert session_files record first (FK parent must exist before children).
+    # Not INSERT OR REPLACE: REPLACE deletes the old row, and ON DELETE CASCADE
+    # then deletes every summary that the append path keeps.
     now = datetime.now(UTC).isoformat()
     conn.execute(
-        "INSERT OR REPLACE INTO session_files "
+        "INSERT INTO session_files "
         "(session_id, file_path, file_mtime, leaf_message_uuid, "
-        "message_count, cached_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "message_count, cached_at) VALUES (?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(session_id) DO UPDATE SET file_path = excluded.file_path, "
+        "file_mtime = excluded.file_mtime, leaf_message_uuid = excluded.leaf_message_uuid, "
+        "message_count = excluded.message_count, cached_at = excluded.cached_at",
         (session_id, file_path, mtime, leaf_uuid, msg_count, now),
     )
 

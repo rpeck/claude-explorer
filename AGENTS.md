@@ -23,11 +23,20 @@ and the MCP tools.
    - Never delete or mark an archived session because its source is gone.
    - A sync adds and updates. It does not remove. The Desktop fetch and the
      remote-task sync follow this rule.
-   - **Known gap (2026-11-14):** nothing copies Claude Code session files or
-     local Cowork sessions into the archive. The watcher copies only images
-     (`backend/cc_watcher.py`). When Claude Code deletes a session file, the
-     list loses it, and the drift pass deletes its search rows
-     (`SearchIndex.delete_by_path`).
+   - **Claude Code and local Cowork sessions (#92, 2026-11-27):** the copy
+     pass mirrors `~/.claude/projects` into
+     `<data_dir>/machines/<machine_id>/claude-code/projects/` and the local
+     Cowork root into `.../machines/<machine_id>/cowork/`
+     (`backend/archive_sync.py:sync_machine_tree`). Copy metadata and
+     revisions go to the `sync/` folder beside the mirror, so the readers
+     read the mirror unchanged.
+     - The machine id is a random UUID in `~/.claude-explorer/machine.json`,
+       never in `data_dir` and never the host name.
+     - The readers read every `machines/*/` folder, live first by uuid. When
+       Claude Code deletes a session file, the drift pass deletes the rows of
+       the live path and indexes the archive copy.
+     - MCP does not copy (a first copy can be gigabytes); Refresh and the
+       CLI stop after 20 s, and the watcher copies the rest.
 
 ## UX Rules
 

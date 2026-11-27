@@ -2691,12 +2691,15 @@ def _file_path_for_conv(conv: dict[str, Any], data_dir: Path, claude_dir: Path) 
     source = conv.get("source", "CLAUDE_AI")
     if source == "CLAUDE_CODE":
         # CC files: claude_dir/projects/<encoded-cwd>/<uuid>.jsonl
-        projects_dir = claude_dir / "projects"
-        if projects_dir.exists():
-            for project_dir in projects_dir.iterdir():
-                candidate = project_dir / f"{uuid}.jsonl"
-                if candidate.exists():
-                    return candidate
+        # Live first, then the archive copies (machines/<id>/claude-code).
+        from .archive_sync import archive_roots
+        for root in (claude_dir, *archive_roots(data_dir, "claude-code")):
+            projects_dir = root / "projects"
+            if projects_dir.exists():
+                for project_dir in projects_dir.iterdir():
+                    candidate = project_dir / f"{uuid}.jsonl"
+                    if candidate.exists():
+                        return candidate
         return None
 
     if source == "CLAUDE_COWORK":
@@ -2708,11 +2711,13 @@ def _file_path_for_conv(conv: dict[str, Any], data_dir: Path, claude_dir: Path) 
         # Settings directly. Drift detection on Cowork without a tagged
         # path can fall back to the next backstop poll, so a missing
         # session dir just returns None.
+        from .archive_sync import archive_roots
         from .cowork_reader import find_cowork_session_dirs, remote_cowork_root
         for session_dir in find_cowork_session_dirs(
             get_settings().claude_desktop_app_dir / "local-agent-mode-sessions",
             remote_cowork_root(data_dir),
             uuid,
+            archive_roots(data_dir, "cowork"),
         ):
             candidate = session_dir / "audit.jsonl"
             if candidate.exists():

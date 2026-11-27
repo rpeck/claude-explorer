@@ -252,6 +252,7 @@ def _compact_markers(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 _EXEC_TOOL, _WAIT_TOOL, _NESTED_PREFIX = "exec", "wait", "exec-"
 # core/src/tools/code_mode/ at f2d3086: the first line of each exec or wait output.
 _EXEC_HEADER_RE = re.compile(r"Script (completed|failed|terminated|running with cell ID (\S+))")
+_DATA_URL_RE = re.compile(r"data:(image/[\w.+-]+);base64,([A-Za-z0-9+/=]+)")
 
 
 def _exec_output(text: str) -> tuple[str | None, str | None, str]:
@@ -265,6 +266,25 @@ def _exec_output(text: str) -> tuple[str | None, str | None, str]:
     if m.group(2):
         return None, m.group(2), body.strip("\n")
     return m.group(1), None, body.strip("\n")
+
+
+def _exec_media(output: Any) -> tuple[Any, list[dict[str, Any]]]:
+    """(the output without its inline images, those images as media blocks) (issue #103).
+
+    A script that returns an image (for example from ``view_image``) puts it in
+    its output as a data URL. Any other image stays a label: never fetch a URL.
+    """
+    if not isinstance(output, list):
+        return output, []
+    rest, media = [], []
+    for c in output:
+        url = c.get("image_url") if isinstance(c, dict) else None
+        m = _DATA_URL_RE.fullmatch(url) if isinstance(url, str) else None
+        if m:
+            media.append({"type": "image", "source": {"type": "base64", "media_type": m.group(1), "data": m.group(2)}})
+        else:
+            rest.append(c)
+    return rest, media
 
 
 class _CodeMode:
@@ -293,7 +313,7 @@ class _CodeMode:
                     "language": "javascript", "code": code,
                     "line_count": code.count("\n") + 1 if code else 0, "description": None,
                     "status": "unknown", "background": False, "result": None, "stdout": None,
-                    "stderr": None, "error": None, "refused": None, "inner_calls": [],
+                    "stderr": None, "error": None, "refused": None, "inner_calls": [], "media": [],
                 }
                 alive.append(call_id)
             elif r.type == "response_item" and p.get("type") == "function_call" and p.get("name") == _WAIT_TOOL and call_id:
@@ -306,7 +326,9 @@ class _CodeMode:
                 if run_id is None:
                     continue
                 run = self.runs[run_id]
-                status, cell, body = _exec_output(_output_text(p.get("output")))
+                output, media = _exec_media(p.get("output"))
+                run["media"].extend(media)
+                status, cell, body = _exec_output(_output_text(output))
                 if status == "failed" and body.startswith("Script error:"):
                     # The error of a failed script is not a value it returned.
                     run["error"] = body.removeprefix("Script error:").strip("\n")
