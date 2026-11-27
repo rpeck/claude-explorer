@@ -339,7 +339,12 @@ test.describe('U5: the Graph view', () => {
     const pane = page.getByTestId('messages-graph')
     const svgBox = (await pane.locator('svg').first().boundingBox())!
     const paneBox = (await pane.boundingBox())!
-    expect(svgBox.width).toBeLessThanOrEqual(paneBox.width + 1)
+    // Round 4 (U7): below GRAPH_MIN_SCALE the graph stays at 0.75 and the pane scrolls instead.
+    const scrolls = await pane.evaluate((root) =>
+      [root as HTMLElement, ...Array.from(root.querySelectorAll<HTMLElement>('*'))].some(
+        (e) => e.scrollWidth > e.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowX),
+      ))
+    expect(svgBox.width <= paneBox.width + 1 || scrolls).toBe(true)
   })
 
   test('U5: "+", "−", and "Fit" zoom the graph', async ({ page, mockBackend }) => {
@@ -358,17 +363,19 @@ test.describe('U5: the Graph view', () => {
   })
 
   test('U5: a drag pans the graph', async ({ page, mockBackend }) => {
-    await setup(mockBackend, { active: pairGraph() })
+    // Round 4 (U7): a drag scrolls the pane, so it needs a graph wider than the
+    // pane: the 60-session tree, which stays at GRAPH_MIN_SCALE.
+    await setup(mockBackend)
     await openGraph(page)
     const node = page.locator(`[data-testid="messages-graph-node"][data-session-key="${CO}"]`)
     const before = (await node.boundingBox())!
     const pane = (await page.getByTestId('messages-graph').boundingBox())!
-    // Start the drag on empty space near the bottom left of the pane.
-    await page.mouse.move(pane.x + 10, pane.y + pane.height - 10)
+    // Drag to the left from empty space near the bottom middle of the pane.
+    await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height - 20)
     await page.mouse.down()
-    await page.mouse.move(pane.x + 110, pane.y + pane.height - 60, { steps: 5 })
+    await page.mouse.move(pane.x + pane.width / 2 - 150, pane.y + pane.height - 20, { steps: 6 })
     await page.mouse.up()
-    await expect.poll(async () => Math.round((await node.boundingBox())!.x - before.x)).toBeGreaterThan(50)
+    await expect.poll(async () => Math.round(before.x - (await node.boundingBox())!.x)).toBeGreaterThan(50)
   })
 
   test('U5: a folded group is one node, and a click expands it', async ({ page, mockBackend }) => {

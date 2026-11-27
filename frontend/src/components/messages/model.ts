@@ -47,6 +47,11 @@ export const DEFAULT_PREFS: MessagesPrefs = {
 
 export const LANE_LIMIT = 12
 
+/** The Graph view's scale range: "Fit" stays in [GRAPH_MIN_SCALE, 1]; the zoom buttons in [0.25, 2]. */
+export const GRAPH_MIN_SCALE = 0.75
+export const GRAPH_ZOOM_MIN = 0.25
+export const GRAPH_ZOOM_MAX = 2
+
 export function sessionLabel(s: PeerGraphSession): string {
   return s.title || s.name || s.key
 }

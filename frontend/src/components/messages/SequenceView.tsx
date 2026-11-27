@@ -11,6 +11,16 @@ import { messageId, messageTarget, sessionLabel, type LaneModel } from './model'
 const LANE_W = 168
 const ROW_H = 36
 const TOP = 12
+const LABEL_FONT = 10
+const LABEL_GAP = 8
+/** The room for a label: up to the next lifeline, at least 160 px. */
+const LABEL_MAX_PX = Math.max(160, LANE_W - LABEL_GAP)
+// shortcut: an average glyph width of 0.6 em, not a measured text width; measure with canvas if labels clip.
+const LABEL_MAX_CHARS = Math.floor(LABEL_MAX_PX / (LABEL_FONT * 0.6))
+
+function cutLabel(text: string): string {
+  return text.length > LABEL_MAX_CHARS ? `${text.slice(0, LABEL_MAX_CHARS - 1)}…` : text
+}
 
 export interface LaneActions {
   togglePin: (key: string) => void
@@ -161,19 +171,25 @@ export function SequenceView({ model, messages, sessions, centerKey, actions, on
         {rows.map(({ m, id, from, to }, i) => {
           const y = TOP + (i + 0.5) * ROW_H
           const target = messageTarget(m, sessions, centerKey)
-          const label = m.kind === 'idle_notice' ? 'idle notice' : m.kind === 'subagent' ? 'subagent' : (m.text ?? '').split('\n')[0]
+          const full = m.kind === 'idle_notice' ? 'idle notice' : m.kind === 'subagent' ? 'subagent' : (m.text ?? '')
+          const label = full.split('\n')[0]
+          const rightward = to > from
+          // Next to the sender, so the label shows whenever the sender's lane does.
+          const labelX = cx(from) + (rightward ? LABEL_GAP : -LABEL_GAP)
+          const tip = target.href ? full : `${full} (${target.title})`
           return (
             <g
               key={id}
               data-testid="messages-arrow"
               data-msg-id={id}
+              aria-label={tip}
               className={target.href ? 'cursor-pointer hover:text-blue-600' : undefined}
               onClick={target.href ? () => onNavigate(target.href as string) : undefined}
             >
-              <title>{target.href ? `${label}` : `${label} (${target.title})`}</title>
+              <title>{tip}</title>
               <line
                 x1={cx(from)}
-                x2={cx(to) + (to > from ? -4 : 4)}
+                x2={cx(to) + (rightward ? -4 : 4)}
                 y1={y}
                 y2={y}
                 stroke="currentColor"
@@ -181,8 +197,8 @@ export function SequenceView({ model, messages, sessions, centerKey, actions, on
                 strokeDasharray={m.kind === 'message' ? undefined : '3 3'}
                 markerEnd="url(#messages-arrowhead)"
               />
-              <text x={(cx(from) + cx(to)) / 2} y={y - 5} textAnchor="middle" fontSize={10} fill="currentColor">
-                {label.length > 40 ? `${label.slice(0, 39)}…` : label}
+              <text x={labelX} y={y - 5} textAnchor={rightward ? 'start' : 'end'} fontSize={LABEL_FONT} fill="currentColor">
+                {cutLabel(label)}
               </text>
             </g>
           )

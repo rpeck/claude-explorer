@@ -1048,6 +1048,10 @@ state chip and the Activity page answer that without opening each session.
   - **Sequence:** one lane per session, time goes down, one arrow per message.
     - The view is one scroll box, sideways and down; the lane heads stay at
       its top. An arrow to "N other sessions" goes to that lane like any other.
+    - An arrow's label starts 8 px from the sender's lifeline, on the arrow's
+      side, so it shows whenever the sender's lane does. It is cut with "…"
+      to the room up to the next lifeline (at least 160 px); the full text is
+      the tooltip and the accessible name.
     - A lane head gives the name its whole first line, with the full name as
       the tooltip; the state chip and "…" are on the second line.
   - **Graph:** one node per lane, and one node per folded group ("+N
@@ -1055,8 +1059,10 @@ state chip and the Activity page answer that without opening each session.
     nodes: "3 ⇄ 1" when both directions exist (the first number from the
     upper node), else the count and an arrow: "2 ↓" (upper to lower) or
     "2 ↑" (lower to upper) (@dagrejs/dagre).
-    - It fits the pane width at first, never above 100 %. "+", "−", and
-      "Fit" zoom; a drag pans.
+    - "Fit" (and the first render) fits the pane width and height, but stays
+      between 75 % (`GRAPH_MIN_SCALE`) and 100 %, so labels stay readable
+      (12 px nodes, 11 px edges at 100 %). Below 75 % the pane scrolls both
+      ways. "+" and "−" zoom from 25 % to 200 %; a drag scrolls.
   - **List:** one row per message: from, to, time, text.
 - **A click** on an arrow, a row, or an edge opens the message in the session
   that is not the center (no center: the receiver). A session that is not in

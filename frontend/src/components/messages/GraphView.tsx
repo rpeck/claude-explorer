@@ -2,16 +2,20 @@
  * The Graph view of the Messages tab: one node per lane, one node per folded
  * group ("+N sessions"), and one edge per pair of nodes with the message
  * counts ("3 ⇄ 1", the first number from the upper node). Layout by
- * @dagrejs/dagre. It fits the pane width at first (at most 100 %); "+", "−",
- * and "Fit" zoom, and a drag pans.
+ * @dagrejs/dagre. It fits the pane at first, within [GRAPH_MIN_SCALE, 1], so
+ * the labels stay readable; below that the pane scrolls. "+", "−", and "Fit"
+ * zoom, and a drag scrolls.
  */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Graph, layout } from '@dagrejs/dagre'
 import type { PeerGraphMessage, PeerGraphSession } from '@/lib/types'
-import { messageTarget, sessionLabel, type LaneModel } from './model'
+import { GRAPH_MIN_SCALE, GRAPH_ZOOM_MAX, GRAPH_ZOOM_MIN, messageTarget, sessionLabel, type LaneModel } from './model'
 
-const NODE_W = 160
-const NODE_H = 32
+const NODE_W = 168
+const NODE_H = 34
+// Label sizes at scale 1; Fit never goes below GRAPH_MIN_SCALE, so they stay readable.
+const NODE_FONT = 12
+const EDGE_FONT = 11
 const OTHER = '__other__'
 
 interface GraphViewProps {
@@ -87,31 +91,37 @@ export function GraphView({ model, messages, sessions, centerKey, onNavigate, on
   }, [model, messages])
 
   const boxRef = useRef<HTMLDivElement>(null)
-  const [view, setView] = useState({ s: 1, x: 0, y: 0 })
+  const [scale, setScale] = useState(1)
   const fit = useCallback(() => {
-    const w = boxRef.current?.clientWidth ?? laid.width
-    setView({ s: Math.min(1, w / laid.width), x: 0, y: 0 })
-  }, [laid.width])
+    const box = boxRef.current
+    const w = box?.clientWidth || laid.width
+    const h = box?.clientHeight || laid.height
+    setScale(Math.min(1, Math.max(GRAPH_MIN_SCALE, Math.min(w / laid.width, h / laid.height))))
+    if (box) box.scrollTo(0, 0)
+  }, [laid.width, laid.height])
   useLayoutEffect(() => {
     fit()
   }, [fit])
-  const zoom = (f: number) => setView((v) => ({ ...v, s: Math.min(4, Math.max(0.05, v.s * f)) }))
+  const zoom = (f: number) => setScale((s) => Math.min(GRAPH_ZOOM_MAX, Math.max(GRAPH_ZOOM_MIN, s * f)))
 
-  // Pan by drag. A drag of more than 3 px is no click.
-  const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
+  // A drag scrolls the pane. A drag of more than 3 px is no click.
+  const drag = useRef<{ px: number; py: number; left: number; top: number } | null>(null)
   const dragged = useRef(false)
   const onPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as Element).closest('button')) return
-    drag.current = { px: e.clientX, py: e.clientY, x: view.x, y: view.y }
+    const box = boxRef.current
+    if (!box) return
+    drag.current = { px: e.clientX, py: e.clientY, left: box.scrollLeft, top: box.scrollTop }
     dragged.current = false
   }
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current
-    if (!d) return
+    const box = boxRef.current
+    if (!d || !box) return
     const dx = e.clientX - d.px
     const dy = e.clientY - d.py
     if (Math.abs(dx) + Math.abs(dy) > 3) dragged.current = true
-    setView((v) => ({ ...v, x: d.x + dx, y: d.y + dy }))
+    box.scrollLeft = d.left - dx
+    box.scrollTop = d.top - dy
   }
   const endDrag = () => {
     drag.current = null
@@ -122,16 +132,8 @@ export function GraphView({ model, messages, sessions, centerKey, onNavigate, on
   const btn = 'h-6 min-w-6 rounded border border-zinc-300 bg-white px-1.5 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800'
 
   return (
-    <div
-      ref={boxRef}
-      data-testid="messages-graph"
-      className="relative h-full cursor-grab touch-none select-none overflow-hidden active:cursor-grabbing"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerLeave={endDrag}
-    >
-      <div className="absolute right-2 top-2 z-10 flex gap-1">
+    <div data-testid="messages-graph" className="relative h-full">
+      <div className="absolute right-4 top-2 z-10 flex gap-1">
         <button type="button" className={btn} aria-label="Zoom in" onClick={() => zoom(1.25)}>
           +
         </button>
@@ -142,14 +144,29 @@ export function GraphView({ model, messages, sessions, centerKey, onNavigate, on
           Fit
         </button>
       </div>
-      <svg width="100%" height="100%" className="text-zinc-500 dark:text-zinc-400" role="img" aria-label="Sessions and message counts">
+      <div
+        ref={boxRef}
+        className="h-full cursor-grab select-none overflow-auto active:cursor-grabbing"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+      >
+      <svg
+        width={laid.width * scale}
+        height={laid.height * scale}
+        viewBox={`0 0 ${laid.width} ${laid.height}`}
+        className="text-zinc-500 dark:text-zinc-400"
+        role="img"
+        aria-label="Sessions and message counts"
+      >
         <defs>
           {/* A fixed size: with the default units, a thick edge draws a huge head over its label. */}
           <marker id="messages-graph-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
           </marker>
         </defs>
-        <g transform={`translate(${view.x},${view.y}) scale(${view.s})`}>
+        <g>
           {laid.edges.map((e) => {
             const pts = e.points
             if (pts.length === 0) return null
@@ -172,7 +189,7 @@ export function GraphView({ model, messages, sessions, centerKey, onNavigate, on
                   markerEnd={e.forward.length ? 'url(#messages-graph-arrowhead)' : undefined}
                   markerStart={e.back.length ? 'url(#messages-graph-arrowhead)' : undefined}
                 />
-                <text x={mid.x + 4} y={mid.y - 4} fontSize={11} fill="currentColor">
+                <text x={mid.x + 4} y={mid.y - 4} fontSize={EDGE_FONT} fill="currentColor">
                   {e.label}
                 </text>
               </g>
@@ -196,14 +213,15 @@ export function GraphView({ model, messages, sessions, centerKey, onNavigate, on
                 strokeDasharray={n.group ? '4 3' : undefined}
                 className="fill-zinc-100 stroke-zinc-400 dark:fill-zinc-800 dark:stroke-zinc-500"
               />
-              <text x={NODE_W / 2} y={NODE_H / 2 + 4} textAnchor="middle" fontSize={11} className="fill-zinc-800 dark:fill-zinc-100">
-                {n.label.length > 24 ? `${n.label.slice(0, 23)}…` : n.label}
+              <text x={NODE_W / 2} y={NODE_H / 2 + 4} textAnchor="middle" fontSize={NODE_FONT} className="fill-zinc-800 dark:fill-zinc-100">
+                {n.label.length > 22 ? `${n.label.slice(0, 21)}…` : n.label}
               </text>
-              {n.label.length > 24 && <title>{n.label}</title>}
+              {n.label.length > 22 && <title>{n.label}</title>}
             </g>
           ))}
         </g>
       </svg>
+      </div>
     </div>
   )
 }
