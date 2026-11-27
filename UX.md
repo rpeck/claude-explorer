@@ -1010,6 +1010,8 @@ leaves each machine. Nothing leaves a machine by default.
 - **Machine identity:** each machine has a random id in
   `~/.claude-explorer/machine.json`, never the host name. Each machine writes
   only its own folder, `machines/<id>/`.
+  - The first archive copy, also one that an MCP call starts, creates this
+    machine's id.
 - **Labels:**
   - "This machine's label" sets the own label (at most 64 characters, no
     control characters). The label travels with bundles and the shared folder.
@@ -1017,6 +1019,9 @@ leaves each machine. Nothing leaves a machine by default.
     `~/.claude-explorer/machine-labels.json` and never leaves this machine.
   - The shown label: the local name, else the machine's own label, else
     "Machine <first 8 characters of the id>".
+  - While the cloud-sync gate of the data folder is closed, a new own label
+    does not reach the archive copy of `machine.json` (HTTP 409).
+    `claude-explorer machine label` refuses while the config is corrupt.
 - **The machine chip:** the list row and the viewer header show the machine
   of a session, only when the archive holds two or more machines. Desktop
   conversations have no machine.
@@ -1026,7 +1031,15 @@ leaves each machine. Nothing leaves a machine by default.
   - Allow: one rule per line, a source (`claude-code`, `cowork`, `codex`,
     or `*`) and a project glob. `~` expands; `*` stays inside one folder;
     `**` crosses folders.
-  - Deny: one project glob per line. A deny always wins.
+  - Deny: one project glob per line. A deny always wins, and it fails closed:
+    - A glob with no wildcard covers the folder and everything in it. A
+      trailing `/` changes nothing.
+    - A deny also matches through symbolic links, in both directions.
+    - With any deny rule, a session with no project folder stays on this
+      machine.
+    - For a Cowork session, the deny rules check the folders that you picked
+      for it (not its sandbox folder). With any deny rule, a Cowork session
+      with no such folder stays on this machine.
   - Since: only sessions whose last record is on or after this day.
   - A whole session goes: its main file, its agent files, and their
     descriptions; for Cowork, the audit file and the sidecar. Desktop
@@ -1039,12 +1052,26 @@ leaves each machine. Nothing leaves a machine by default.
     disabled unless the mode is "Export".
   - Each export carries only the bytes that are new since the last export.
   - "Import bundle" adds the files under `machines/<its id>/`, append-only.
-    A file that diverged keeps the old copy as a revision. A bad hash, a
-    wrong passphrase, or this machine's own bundle refuses the whole import,
-    and nothing is written. An incremental part without its earlier bundle
+    A file that diverged (also a `.json` file) keeps the old copy as a
+    revision. A bad hash, a wrong passphrase, a passphrase for a bundle that
+    is not encrypted, or this machine's own bundle refuses the whole import,
+    and nothing is written.
+  - Size limits refuse a whole bundle, with a reason that names the limit:
+    `manifest.json` and `machine.json` at most 1 MiB, a `.json` file at most
+    8 MiB, a session file at most 1 GiB, and all files at most 4 GiB and less
+    than the free space of the data folder minus 1 GiB. An upload over 4 GiB
+    gets HTTP 413.
+  - A new encrypted bundle uses stronger key settings (scrypt N = 2^17).
+    Bundles from before still import. A bundle that asks for key settings out
+    of range (N from 2^15 to 2^18, r from 1 to 8, p from 1 to 16, and
+    N < 2^(16·r)) is refused before any key work starts. An incremental part without its earlier bundle
     is skipped with a "missing_base" warning.
 - **Shared sync folder:**
   - Set an absolute folder outside the data folder (for example in Dropbox).
+    A `shared_archive_dir` in `config.json` that breaks this rule is ignored.
+  - The copy never follows a symbolic link in the shared folder, and copies
+    only files inside it. A file over a size limit is skipped with a warning;
+    the pass goes on.
   - The watcher writes this machine's allowed files to
     `<shared>/machines/<own id>/` (mode "Export" only), and copies every other
     machine's folder into this archive (every mode). The search index never
@@ -1056,12 +1083,16 @@ leaves each machine. Nothing leaves a machine by default.
     the rest on a later pass.
   - "Remove this machine's folder" (with a confirmation) deletes only
     `<shared>/machines/<own id>/`. What other machines copied stays with them.
+    It removes nothing when that folder is a symbolic link, is outside the
+    shared folder, or is inside the data folder.
     With the mode still "Export", the next pass sends the files again.
 - **One session on two machines:** one row.
-  - When one copy is a prefix of the other, the longer copy shows, and the
-    chip's tooltip names every machine that holds it.
-  - When the copies diverged, the live copy shows, else the copy of the
-    lowest machine id. Both copies stay on disk unchanged.
+  - This machine's copy (live, or in its own archive folder) always shows.
+  - Among the copies of other machines: when one copy is a prefix of the
+    other, the longer copy shows; when they diverged, the copy of the lowest
+    machine id shows.
+  - The chip's tooltip names every machine whose copy is a prefix of the
+    shown one. All copies stay on disk unchanged.
 - **Codex:** this machine's Codex copy stays in `codex/<home_key>/`. Another
   machine's Codex goes to `machines/<id>/codex/<home_key>/`, so two machines
   with the same Codex home path never share a folder.

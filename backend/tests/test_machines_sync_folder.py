@@ -400,3 +400,36 @@ def test_removal_needs_the_machine_id_as_confirmation(world: World) -> None:
         machines.remove_own_shared_folder(world.b.settings(), confirm="yes")
 
     assert tree(world.shared) == before
+
+
+def test_a_shared_jsonl_file_over_the_decoded_limit_is_skipped_and_the_pass_goes_on(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A2 security round 2, S3: already true through sync_stream's decode cap; kept as a guard.
+    from backend import archive_sync, machines
+
+    b = world.b
+    s_big, s_small = (
+        "a2abab01-0000-4000-8000-000000000001",
+        "a2abab01-0000-4000-8000-000000000002",
+    )
+    b.cc_session(s_big, "bigword", cwd=b.cwd("Source", "personal", "one"))
+    b.cc_session(s_small, "smallword", cwd=b.cwd("Source", "personal", "two"))
+    _push_b(world, allow=[{}], deny=[])
+    folder = _b_folder(world)
+    [big] = list(folder.rglob(f"{s_big}.jsonl"))
+    [small] = list(folder.rglob(f"{s_small}.jsonl"))
+    first = big.read_bytes().splitlines(keepends=True)[0]
+    big.write_bytes(big.read_bytes() + first * 40)
+    limit = small.stat().st_size + 10
+    assert big.stat().st_size > limit
+    monkeypatch.setattr(machines, "MAX_DECODED_BYTES", limit, raising=False)
+    monkeypatch.setattr(archive_sync, "MAX_DECODED_BYTES", limit)
+    _share(world, world.a)
+
+    report = _shared_sync(world.a)
+
+    copy = world.a.foreign(b.machine_id)
+    assert list(copy.rglob(f"{s_small}.jsonl"))
+    assert not list(copy.rglob(f"{s_big}.jsonl"))
+    assert len([w for w in report.warnings if s_big in w]) == 1

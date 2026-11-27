@@ -98,8 +98,12 @@ function serve(mode: 'off' | 'export' | 'receive-only' = 'off') {
       })
     }),
     http.post('/api/machines/import', async ({ request }) => {
-      const form = await request.clone().formData()
-      await record(request, { file: (form.get('file') as File | null)?.name ?? null, passphrase: form.get('passphrase') })
+      // jsdom's File is not a Blob that Node's own FormData (undici) knows: the
+      // file part goes out empty, and on Node 26 request.formData() throws on it.
+      // So read the multipart text; a browser has no such gap.
+      const text = await request.clone().text()
+      const passphrase = text.match(/name="passphrase"\r\n\r\n([^\r]*)\r\n/)?.[1] ?? null
+      await record(request, { file: /name="file"; filename="/.test(text) ? 'part' : null, passphrase })
       return HttpResponse.json({
         machine_id: OTHER,
         label: 'Work laptop',
@@ -300,7 +304,7 @@ describe('the preview and the bundles', () => {
     await waitFor(() => expect(seen.some((s) => s.url === '/api/machines/import')).toBe(true))
     const req = sent('/api/machines/import')
     expect(req.action).toBe('machines')
-    // jsdom's FormData sends the File without its name, so only its presence is checked.
+    // jsdom's FormData sends the File without its name or bytes, so only the part is checked.
     expect(req.body).toMatchObject({ passphrase: 'synthetic pass' })
     expect((req.body as { file: string | null }).file).not.toBeNull()
     const result = await within(el).findByTestId('import-result')

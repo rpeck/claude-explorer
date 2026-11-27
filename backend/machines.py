@@ -41,6 +41,7 @@ from typing import IO, TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend import archive_sync as _archive
 from backend.archive_sync import (
     LOCK_FILE_NAME,
     MACHINE_FILE,
@@ -64,11 +65,36 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# Size limits on input from another machine (S3). Module constants, so tests can lower them.
+#: manifest.json and machine.json of a bundle.
+MAX_MANIFEST_BYTES = 1 << 20
+#: A .json member of a bundle, or a .json file in the shared folder.
+MAX_JSON_BYTES = 8 << 20
+#: The total uncompressed size of a bundle, and the upload limit of the import route (413).
+MAX_BUNDLE_BYTES = 4 << 30
+#: A bundle must leave this much free space in the data folder.
+FREE_SPACE_MARGIN_BYTES = 1 << 30
+#: A .jsonl member or file. The cap is the lower of this and the
+#: backend.archive_sync global, both read at call time.
+MAX_DECODED_BYTES = 1 << 30
+
+
+def _jsonl_cap() -> int:
+    return min(MAX_DECODED_BYTES, _archive.MAX_DECODED_BYTES)
+
 RULES_FILE = "export-rules.json"
 STATE_FILE = "export-state.json"
 LABELS_FILE = "machine-labels.json"
 MANIFEST_FILE = "manifest.json"
+#: An encrypted bundle starts with this. Then format 2: the marker b"\x00KDF", log2(N), r, p
+#: of scrypt, the salt, the nonce prefix, the frames. Format 1 (before the
+#: parameters were recorded, N=2^15, r=8, p=1): the salt right after the magic.
 BUNDLE_MAGIC = b"CEXB1"
+_FORMAT_2 = b"\x00KDF"  # 4 bytes: a format 1 salt starts with them only by a 2^-32 chance
+# The scrypt parameters that decryption accepts; others are refused before scrypt runs.
+_KDF_LOG2_N = range(15, 19)
+_KDF_R = range(1, 9)
+_KDF_P = range(1, 17)
 BUNDLE_SUFFIX = ".cebundle"
 MAX_LABEL = 64
 #: The folders of a machine that a bundle or the shared folder carries.
@@ -79,14 +105,15 @@ PUSH_STATE_DIR = "shared-push"
 Source = Literal["claude-code", "cowork", "codex"]
 BundleReason = Literal[
     "export_off", "not_a_bundle", "bad_hash", "passphrase_required",
-    "bad_passphrase", "own_machine", "missing_base",
+    "bad_passphrase", "own_machine", "missing_base", "not_encrypted", "too_large", "bad_kdf",
 ]
 
 _CHUNK = 1 << 20
 _SALT = 16
 _NONCE_PREFIX = 8
 _FRAME_MAX = _CHUNK + 16
-_SCRYPT = {"n": 2**15, "r": 8, "p": 1, "maxmem": 64 << 20, "dklen": 32}
+_SCRYPT_LOG2_N, _SCRYPT_R, _SCRYPT_P = 17, 8, 1
+_LEGACY_SCRYPT = (15, 8, 1)
 _HOME_DIR_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _STEM_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,199}")
 _SHA_RE = re.compile(r"[0-9a-f]{64}")
@@ -106,6 +133,9 @@ class BundleError(Exception):
         "bad_passphrase": "The passphrase is wrong.",
         "own_machine": "This bundle comes from this machine.",
         "missing_base": "The bundle continues files that this archive does not have.",
+        "not_encrypted": "You gave a passphrase, but this bundle is not encrypted.",
+        "too_large": "The bundle is over a size limit.",
+        "bad_kdf": "The encryption parameters of this bundle are out of range.",
     }
 
     def __init__(self, reason: BundleReason, detail: str | None = None) -> None:
@@ -197,15 +227,69 @@ def _glob_re(pattern: str) -> re.Pattern[str]:
     return re.compile(_fold("".join(out)))
 
 
+_WILDCARD = re.compile(r"[*?\[]")
+
+
+def _norm(path: str) -> str:
+    """``~`` expanded, ``os.path.normpath``, forward slashes, no trailing slash."""
+    p = path.strip()
+    if p == "~" or p.startswith(("~/", "~\\")):
+        p = str(Path.home()) + p[1:]
+    p = os.path.normpath(p).replace("\\", "/")
+    return p.rstrip("/") or "/"
+
+
+def _real(path: str) -> str | None:
+    """The ``realpath`` form of an existing path, else None."""
+    try:
+        return _norm(os.path.realpath(path)) if os.path.exists(path) else None
+    except (OSError, ValueError):
+        return None
+
+
 def _glob_match(pattern: str, project: str | None) -> bool:
+    """An allow match: both sides in their normpath form."""
     if not project:
         return False
-    norm = project.replace("\\", "/").rstrip("/") or "/"
-    return _glob_re(pattern).fullmatch(_fold(norm)) is not None
+    return _glob_re(_norm(pattern)).fullmatch(_fold(_norm(project))) is not None
 
 
-def session_allowed(rules: ExportRules, source: str, project: str | None, last: datetime | None) -> bool:
-    """True when the rules let this session leave the machine (deny wins)."""
+def _deny_patterns(pattern: str) -> list[str]:
+    """A deny glob in every form it must match: normpath, and realpath of its literal folder.
+
+    A glob with no wildcard also covers everything under it ("X" = "X" and "X/**").
+    """
+    p = _norm(pattern)
+    out = [p]
+    parts = p.split("/")
+    cut = next((i for i, part in enumerate(parts) if _WILDCARD.search(part)), len(parts))
+    literal = "/".join(parts[:cut]) or "/"
+    real = _real(literal)
+    if real is not None:
+        out.append(_norm(real + "/" + "/".join(parts[cut:])) if cut < len(parts) else real)
+    if cut == len(parts):  # no wildcard: the folder and everything under it
+        out += [f"{x.rstrip('/')}/**" for x in list(out)]
+    return out
+
+
+def _deny_match(pattern: str, path: str) -> bool:
+    forms = {_norm(path)}
+    real = _real(path)
+    if real is not None:
+        forms.add(real)
+    regexes = [_glob_re(p) for p in _deny_patterns(pattern)]
+    return any(rx.fullmatch(_fold(f)) for rx in regexes for f in forms)
+
+
+def session_allowed(
+    rules: ExportRules, source: str, project: str | None, last: datetime | None,
+    deny_paths: list[str] | None = None,
+) -> bool:
+    """True when the rules let this session leave the machine (deny wins).
+
+    The deny rules check ``deny_paths`` (default: the project). They fail
+    closed: with any deny rule, a session with no path to check stays here.
+    """
     if rules.mode != "export":
         return False
     if not any(
@@ -213,7 +297,10 @@ def session_allowed(rules: ExportRules, source: str, project: str | None, last: 
         for r in rules.allow
     ):
         return False
-    if any(_glob_match(d, project) for d in rules.deny):
+    paths = [p for p in (deny_paths if deny_paths is not None else [project]) if p]
+    if rules.deny and not paths:
+        return False
+    if any(_deny_match(d, p) for d in rules.deny for p in paths):
         return False
     if rules.since:
         if last is None:
@@ -234,6 +321,8 @@ class _Session:
     last: datetime | None
     #: (bundle path under machines/<id>/, the file to read)
     files: list[tuple[str, Path]]
+    #: The paths that the deny rules check; None = the project.
+    deny_paths: list[str] | None = None
 
 
 def _parse_time(value: object) -> datetime | None:
@@ -331,8 +420,36 @@ def _cowork_sessions(cowork_root: Path | None, own: Path | None) -> list[_Sessio
         sidecar = d.with_suffix(".json")
         if sidecar.is_file():
             files.append((f"cowork/{rel}.json", sidecar))
-        out.append(_Session("cowork", info[0], info[1], files))
+        out.append(_Session("cowork", info[0], info[1], files, _cowork_host_folders(sidecar)))
     return out
+
+
+def _cowork_host_folders(sidecar: Path) -> list[str]:
+    """The host folders of a local Cowork session: the deny rules check these (S2).
+
+    The sandbox ``cwd`` (``/sessions/<vm>``) says nothing about where the
+    files came from, so the deny rules check the folders in
+    ``userSelectedFolders``: strings, or objects with a string ``path``.
+    """
+    data = _read_json_capped(sidecar) or {}
+    items = data.get("userSelectedFolders")
+    found = []
+    for item in items if isinstance(items, list) else []:
+        path = item.get("path") if isinstance(item, dict) else item  # remote Cowork: {"path": ...}
+        if isinstance(path, str) and path:
+            found.append(path)
+    return found
+
+
+def _read_json_capped(path: Path) -> dict[str, Any] | None:
+    """A JSON object from a file of at most MAX_JSON_BYTES; else None."""
+    try:
+        if path.stat().st_size > MAX_JSON_BYTES:
+            return None
+        data = json.loads(path.read_bytes())
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def _codex_sessions(data_dir: Path) -> list[_Session]:
@@ -384,7 +501,7 @@ def _allowed_files(rules: ExportRules) -> list[tuple[str, Path, _Session]]:
     """Every file that leaves this machine, once each, in session order."""
     out, seen = [], set()
     for s in _sessions():
-        if not session_allowed(rules, s.source, s.project, s.last):
+        if not session_allowed(rules, s.source, s.project, s.last, s.deny_paths):
             continue
         for bpath, src in s.files:
             if bpath not in seen:
@@ -618,8 +735,10 @@ def _save_state(mid: str, parts: list[_Part], full: bool) -> None:
 # --- Encryption: scrypt key, AES-GCM frames ---------------------------------------
 
 
-def _key(passphrase: str, salt: bytes) -> bytes:
-    return hashlib.scrypt(passphrase.encode("utf-8"), salt=salt, **_SCRYPT)
+def _key(passphrase: str, salt: bytes, log2_n: int, r: int, p: int) -> bytes:
+    n = 1 << log2_n
+    maxmem = max(256 << 20, 128 * r * (n + p)) + (32 << 20)
+    return hashlib.scrypt(passphrase.encode("utf-8"), salt=salt, n=n, r=r, p=p, maxmem=maxmem, dklen=32)
 
 
 def _aad(header: bytes, index: int, final: bool) -> bytes:
@@ -634,8 +753,9 @@ def _encrypt(src: IO[bytes], out: IO[bytes], passphrase: str) -> None:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     salt, prefix = os.urandom(_SALT), os.urandom(_NONCE_PREFIX)
-    header = BUNDLE_MAGIC + salt + prefix
-    aes = AESGCM(_key(passphrase, salt))
+    params = _FORMAT_2 + bytes((_SCRYPT_LOG2_N, _SCRYPT_R, _SCRYPT_P))
+    header = BUNDLE_MAGIC + params + salt + prefix
+    aes = AESGCM(_key(passphrase, salt, _SCRYPT_LOG2_N, _SCRYPT_R, _SCRYPT_P))
     out.write(header)
     index, chunk = 0, src.read(_CHUNK)
     while True:
@@ -649,29 +769,70 @@ def _encrypt(src: IO[bytes], out: IO[bytes], passphrase: str) -> None:
 
 
 def _decrypt(src: IO[bytes], out: IO[bytes], passphrase: str) -> None:
+    """Decrypt a bundle; the scrypt parameters come from its header, within bounds.
+
+    Parameters out of range are refused (``bad_kdf``) before scrypt runs.
+    """
+    start = src.tell()
+    k = len(BUNDLE_MAGIC) + len(_FORMAT_2)
+    head = src.read(k + 3)
+    if head[: len(BUNDLE_MAGIC)] != BUNDLE_MAGIC:
+        raise BundleError("not_a_bundle")
+    format_2 = len(head) == k + 3 and head[len(BUNDLE_MAGIC):k] == _FORMAT_2
+    if format_2:
+        log2_n, r, p = head[k:]
+        # scrypt also needs N < 2^(16·r) (RFC 7914), so log2(N) < 16·r.
+        if log2_n not in _KDF_LOG2_N or r not in _KDF_R or p not in _KDF_P or log2_n >= 16 * r:
+            raise BundleError("bad_kdf")
+        layouts = [(len(head), (log2_n, r, p))]
+    else:
+        layouts = [(len(BUNDLE_MAGIC), _LEGACY_SCRYPT)]
+    for offset, params in layouts:
+        src.seek(start)
+        out.seek(0)
+        out.truncate()
+        try:
+            _decrypt_frames(src, out, passphrase, offset, params)
+            return
+        except BundleError as exc:
+            if exc.reason != "bad_passphrase":
+                raise
+    raise BundleError("bad_passphrase")
+
+
+def _decrypt_frames(src: IO[bytes], out: IO[bytes], passphrase: str, offset: int,
+                    params: tuple[int, int, int]) -> None:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-    header = src.read(len(BUNDLE_MAGIC) + _SALT + _NONCE_PREFIX)
-    if len(header) != len(BUNDLE_MAGIC) + _SALT + _NONCE_PREFIX:
+    header = src.read(offset + _SALT + _NONCE_PREFIX)
+    if len(header) != offset + _SALT + _NONCE_PREFIX:
         raise BundleError("not_a_bundle")
-    salt, prefix = header[len(BUNDLE_MAGIC):-_NONCE_PREFIX], header[-_NONCE_PREFIX:]
-    aes = AESGCM(_key(passphrase, salt))
-    index = 0
+    salt, prefix = header[offset:offset + _SALT], header[offset + _SALT:]
+    try:
+        key = _key(passphrase, salt, *params)
+    except ValueError as exc:  # parameters that scrypt cannot run
+        raise BundleError("bad_kdf") from exc
+    aes = AESGCM(key)
+    index = written = 0
     size = src.read(4)
     while True:
         if len(size) != 4:
             raise BundleError("bad_hash", "The encrypted bundle is cut short.")
         n = int.from_bytes(size, "big")
         if n > _FRAME_MAX:
-            raise BundleError("bad_hash")
+            raise BundleError("bad_passphrase" if index == 0 else "bad_hash")
         sealed = src.read(n)
         size = src.read(4)
         final = size == b""
         try:
-            out.write(aes.decrypt(prefix + index.to_bytes(4, "big"), sealed, _aad(header, index, final)))
+            plain = aes.decrypt(prefix + index.to_bytes(4, "big"), sealed, _aad(header, index, final))
         except InvalidTag:
             raise BundleError("bad_passphrase" if index == 0 else "bad_hash") from None
+        written += len(plain)
+        if written > MAX_BUNDLE_BYTES + 2 * MAX_MANIFEST_BYTES:
+            raise BundleError("too_large", f"The bundle is over MAX_BUNDLE_BYTES ({MAX_BUNDLE_BYTES} bytes).")
+        out.write(plain)
         if final:
             return
         index += 1
@@ -750,9 +911,14 @@ def _read_bundle(zf: zipfile.ZipFile) -> tuple[str, dict[str, Any], list[dict[st
     if len(found) != 1 or not MACHINE_ID_RE.fullmatch(found[0].group(1)):
         raise BundleError("not_a_bundle")
     mid = found[0].group(1)
+    names = (found[0].group(0), f"{MACHINES_DIR}/{mid}/{MACHINE_FILE}")
     try:
-        manifest = json.loads(zf.read(found[0].group(0)))
-        machine = json.loads(zf.read(f"{MACHINES_DIR}/{mid}/{MACHINE_FILE}"))
+        for name in names:  # the size from the zip directory, before any read
+            if zf.getinfo(name).file_size > MAX_MANIFEST_BYTES:
+                raise BundleError("too_large", f"{name.rsplit('/', 1)[-1]} is over MAX_MANIFEST_BYTES "
+                                               f"({MAX_MANIFEST_BYTES} bytes).")
+        manifest = json.loads(_read_member(zf, names[0], MAX_MANIFEST_BYTES, "MAX_MANIFEST_BYTES"))
+        machine = json.loads(_read_member(zf, names[1], MAX_MANIFEST_BYTES, "MAX_MANIFEST_BYTES"))
     except (KeyError, ValueError, zipfile.BadZipFile) as exc:
         raise BundleError("not_a_bundle") from exc
     if (not isinstance(manifest, dict) or not isinstance(machine, dict)
@@ -774,19 +940,78 @@ def _read_bundle(zf: zipfile.ZipFile) -> tuple[str, dict[str, Any], list[dict[st
     return mid, {**manifest, "label": _clean_label(machine.get("label"))}, entries
 
 
-def _member_chunks(zf: zipfile.ZipFile, name: str) -> Iterator[bytes]:
+def _too_large(name: str, cap: int, limit: str) -> BundleError:
+    return BundleError("too_large", f"{name.rsplit('/', 1)[-1]} is over {limit} ({cap} bytes).")
+
+
+def _member_chunks(zf: zipfile.ZipFile, name: str, cap: int | None = None, limit: str = "") -> Iterator[bytes]:
+    """The bytes of a member. The declared size can lie, so the read counts and stops at ``cap``."""
+    seen = 0
     with zf.open(name) as fh:
         while block := fh.read(_CHUNK):
+            seen += len(block)
+            if cap is not None and seen > cap:
+                raise _too_large(name, cap, limit)
             yield block
 
 
+def _read_member(zf: zipfile.ZipFile, name: str, cap: int, limit: str) -> bytes:
+    with zf.open(name) as fh:
+        data = fh.read(cap + 1)
+    if len(data) > cap:
+        raise _too_large(name, cap, limit)
+    return data
+
+
+def _member_cap(path: str) -> tuple[int, str]:
+    return (MAX_JSON_BYTES, "MAX_JSON_BYTES") if path.endswith(".json") else (_jsonl_cap(), "MAX_DECODED_BYTES")
+
+
+def _free_bytes(folder: Path) -> int:
+    """The free space of the volume of ``folder`` (or of its nearest existing parent)."""
+    path = Path(os.path.abspath(folder))
+    while not path.exists() and path.parent != path:
+        path = path.parent
+    return shutil.disk_usage(path).free
+
+
+def _check_sizes(zf: zipfile.ZipFile, mid: str, entries: list[dict[str, Any]], data_dir: Path) -> None:
+    """S3: every member and the total within the limits, from the zip directory (no read)."""
+    total = 0
+    for e in entries:
+        try:
+            size = zf.getinfo(f"{MACHINES_DIR}/{mid}/{e['path']}").file_size
+        except KeyError as exc:
+            raise BundleError("bad_hash") from exc
+        cap, name = _member_cap(e["path"])
+        if size > cap:
+            raise BundleError("too_large", f"{e['path']} is over {name} ({cap} bytes).")
+        total += size
+    if total > MAX_BUNDLE_BYTES:
+        raise BundleError("too_large", f"The bundle holds {total} bytes, over MAX_BUNDLE_BYTES "
+                                       f"({MAX_BUNDLE_BYTES} bytes).")
+    _check_free(total, data_dir)
+
+
+def _check_free(size: int, data_dir: Path) -> None:
+    free = _free_bytes(data_dir)
+    if size >= free - FREE_SPACE_MARGIN_BYTES:
+        raise BundleError("too_large", f"The bundle needs {size} bytes, but the data folder has {free} bytes "
+                                       f"free, and FREE_SPACE_MARGIN_BYTES ({FREE_SPACE_MARGIN_BYTES}) must stay free.")
+
+
 def _verify(zf: zipfile.ZipFile, mid: str, entries: list[dict[str, Any]]) -> None:
+    total = 0
     for e in entries:
         h, n = hashlib.sha256(), 0
+        cap, limit = _member_cap(e["path"])
         try:
-            for block in _member_chunks(zf, f"{MACHINES_DIR}/{mid}/{e['path']}"):
+            for block in _member_chunks(zf, f"{MACHINES_DIR}/{mid}/{e['path']}", cap, limit):
                 h.update(block)
                 n += len(block)
+                total += len(block)
+                if total > MAX_BUNDLE_BYTES:
+                    raise BundleError("too_large", f"The bundle is over MAX_BUNDLE_BYTES ({MAX_BUNDLE_BYTES} bytes).")
         except (KeyError, zipfile.BadZipFile, OSError, EOFError) as exc:
             raise BundleError("bad_hash") from exc
         if n != e["bytes"] or h.hexdigest() != e["sha256"]:
@@ -815,21 +1040,25 @@ def _apply(zf: zipfile.ZipFile, bundle: Path, data_dir: Path, mid: str,
                 warnings.append(f"skipped {e['path']}: it leaves the machine folder")
                 continue
             if rel.suffix == ".json":
-                data = zf.read(name)
+                data = _read_member(zf, name, MAX_JSON_BYTES, "MAX_JSON_BYTES")
                 try:
-                    same = dest.read_bytes() == data
+                    old = dest.read_bytes()
                 except OSError:
-                    same = False
-                if same:
+                    old = None
+                if old == data:
                     counts["unchanged"] += 1
+                    continue
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                if old is not None:  # S5: the old copy stays, as a revision
+                    _keep_json_revision(dest, _side_dir(machine, rel))
+                    counts["revisions"] += 1
                 else:
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    atomic_write_bytes(dest, data)
                     counts["copied"] += 1
+                atomic_write_bytes(dest, data)
             elif e["offset"] == 0:
                 before = dict(report.counts)
                 sync_stream(report, dest_dir=dest.parent, stem=rel.name[:-6], source_path=bundle,
-                            decode=lambda _p, n=name: _member_chunks(zf, n),
+                            decode=lambda _p, n=name: _member_chunks(zf, n, _jsonl_cap(), "MAX_DECODED_BYTES"),
                             side_dir=_side_dir(machine, rel))
                 for k in ("copied", "appended", "unchanged", "revisions"):
                     counts[k] += report.counts[k] - before[k]
@@ -843,6 +1072,17 @@ def _apply(zf: zipfile.ZipFile, bundle: Path, data_dir: Path, mid: str,
         lock.release()
     warnings.extend(report.warnings)
     return ImportResult(machine_id=mid, label=manifest.get("label"), counts=counts, warnings=warnings)
+
+
+def _keep_json_revision(dest: Path, side: Path) -> Path:
+    """Move ``dest`` to ``<side>/<stem>.rev-<n>.json`` (the next free n)."""
+    stem = dest.name[:-5]
+    side.mkdir(parents=True, exist_ok=True)
+    taken = [int(m.group(1)) for n in os.listdir(side)
+             if n.startswith(stem) and (m := re.fullmatch(r"\.rev-([0-9]+)\.json", n[len(stem):]))]
+    rev = side / f"{stem}.rev-{max(taken, default=0) + 1}.json"
+    os.replace(dest, rev)
+    return rev
 
 
 def _apply_part(zf: zipfile.ZipFile, name: str, dest: Path, e: dict[str, Any],
@@ -886,10 +1126,13 @@ def import_bundle(src: Path, *, passphrase: str | None = None) -> ImportResult:
                 if head == BUNDLE_MAGIC:
                     if not passphrase:
                         raise BundleError("passphrase_required")
+                    _check_free(os.fstat(fh.fileno()).st_size, data_dir)
                     fh.seek(0)
                     zpath = Path(tmp) / "bundle.zip"
                     with open(zpath, "wb") as out:
                         _decrypt(fh, out, passphrase)
+                elif passphrase and zipfile.is_zipfile(src):
+                    raise BundleError("not_encrypted")
                 else:
                     zpath = src
         except OSError as exc:
@@ -902,6 +1145,7 @@ def import_bundle(src: Path, *, passphrase: str | None = None) -> ImportResult:
             mid, manifest, entries = _read_bundle(zf)
             if mid == own_machine_id():
                 raise BundleError("own_machine")
+            _check_sizes(zf, mid, entries, data_dir)
             _verify(zf, mid, entries)
             return _apply(zf, src, data_dir, mid, manifest, entries)
 
@@ -976,8 +1220,19 @@ def clear_label_memo() -> None:
     _label_memo.clear()
 
 
+class WriteBlocked(Exception):
+    """A write that the cloud-sync gate (D13) refuses; the message names the folder."""
+
+
 def set_machine_label(label: str | None) -> MachineInfo:
-    """Set this machine's own label (the identity file and ``machines/<own id>/machine.json``)."""
+    """Set this machine's own label (the identity file and ``machines/<own id>/machine.json``).
+
+    While the cloud-sync gate of the data folder is closed, the identity file
+    still changes, but ``machine.json`` in the data folder does not, and
+    :class:`WriteBlocked` tells the caller (HTTP 409).
+    """
+    from backend.write_gate import cloud_sync_block, cloud_sync_message
+
     clean = _sanitize_label(label)
     mid = own_machine_id(create=True)
     if mid is None:
@@ -985,9 +1240,13 @@ def set_machine_label(label: str | None) -> MachineInfo:
     ident = canonical_home_dir() / MACHINE_FILE
     body = {**(_read_meta(ident) or {}), "version": 1, "machine_id": mid, "label": clean}
     atomic_write_bytes(ident, json.dumps(body, indent=2, ensure_ascii=False).encode("utf-8"))
-    machine = get_settings().data_dir / MACHINES_DIR / mid
-    if machine.is_dir():  # made by the first copy, which passed the write gates
-        write_machine_marker(machine, mid, clean)
+    clear_label_memo()
+    # D13: the identity file is outside the data folder; only the marker is gated.
+    settings = get_settings()
+    block = cloud_sync_block(settings)
+    if block is not None:
+        raise WriteBlocked(cloud_sync_message(block))
+    write_machine_marker(settings.data_dir / MACHINES_DIR / mid, mid, clean)
     clear_label_memo()
     return _info_of(mid)
 
@@ -1065,7 +1324,12 @@ def _plain(path: Path) -> Iterator[bytes]:
 
 def _push(settings: Settings, own: str, report: SyncReport, lock_timeout_s: float, deadline: float | None) -> None:
     """Write this machine's allowed files to ``<shared>/machines/<own>/``."""
-    target = settings.shared_archive_dir / MACHINES_DIR / own
+    shared = settings.shared_archive_dir
+    target = shared / MACHINES_DIR / own
+    for link in (shared / MACHINES_DIR, target):
+        if link.is_symlink():
+            report.warn(f"shared folder: not written: {link} is a symbolic link")
+            return
     lock = ArchiveLock(target / LOCK_FILE_NAME)
     if not lock.acquire(lock_timeout_s):
         report.skipped_reason = "busy" if lock_timeout_s <= 0 else "timeout"
@@ -1082,24 +1346,70 @@ def _push(settings: Settings, own: str, report: SyncReport, lock_timeout_s: floa
         lock.release()
 
 
-def _shared_files(folder: Path) -> Iterator[tuple[PurePosixPath, Path]]:
+def _over_limit(path: Path, rel: str) -> str | None:
+    """The name of the S3 limit that a shared file is over, else None (a stat, no read)."""
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return None
+    if rel.endswith(".json"):
+        return "MAX_JSON_BYTES" if size > MAX_JSON_BYTES else None
+    return "MAX_DECODED_BYTES" if size > _jsonl_cap() else None
+
+
+def _shared_files(folder: Path, real_shared: str, report: SyncReport) -> Iterator[tuple[PurePosixPath, Path]]:
+    """The files of one machine folder that a pull may copy.
+
+    S4: no symbolic link at any level, and every file resolves inside the
+    shared folder. S3: a file over a size limit is skipped. Each refused
+    item gives one warning line, and the walk goes on.
+    """
     for part in PARTS:
-        for dirpath, dirnames, filenames in os.walk(folder / part):
-            dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        top = folder / part
+        if top.is_symlink():
+            report.warn(f"shared folder: skipped {top}: a symbolic link")
+            continue
+        for dirpath, dirnames, filenames in os.walk(top, followlinks=False):
+            keep = []
+            for d in sorted(dirnames):
+                if d.startswith("."):
+                    continue
+                if (Path(dirpath) / d).is_symlink():
+                    report.warn(f"shared folder: skipped {Path(dirpath) / d}: a symbolic link")
+                    continue
+                keep.append(d)
+            dirnames[:] = keep
             for name in sorted(filenames):
                 path = Path(dirpath) / name
                 rel = path.relative_to(folder).as_posix()
-                if valid_relpath(rel) and not path.is_symlink():
-                    yield PurePosixPath(rel), path
+                if not valid_relpath(rel):
+                    continue
+                if path.is_symlink() or not _inside(Path(real_shared), path):
+                    report.warn(f"shared folder: skipped {path}: a symbolic link, or outside the shared folder")
+                    continue
+                limit = _over_limit(path, rel)
+                if limit is not None:
+                    report.warn(f"shared folder: skipped {path}: over {limit}")
+                    continue
+                yield PurePosixPath(rel), path
 
 
 def _pull(settings: Settings, own: str | None, report: SyncReport, lock_timeout_s: float,
           deadline: float | None) -> None:
     """Copy every other machine's folder of the shared folder into ``data_dir``, append-only."""
     root = settings.shared_archive_dir / MACHINES_DIR
+    if root.is_symlink():
+        report.warn(f"shared folder: not read: {root} is a symbolic link")
+        return
+    real_shared = os.path.realpath(settings.shared_archive_dir)
     for mid in _machine_ids(settings.shared_archive_dir):
         folder = root / mid
-        if mid == own or folder.is_symlink() or not folder.is_dir():
+        if mid == own:
+            continue
+        if folder.is_symlink():
+            report.warn(f"shared folder: skipped {folder}: a symbolic link")
+            continue
+        if not folder.is_dir():
             continue
         machine = settings.data_dir / MACHINES_DIR / mid
         lock = ArchiveLock(machine / LOCK_FILE_NAME)
@@ -1107,10 +1417,15 @@ def _pull(settings: Settings, own: str | None, report: SyncReport, lock_timeout_
             report.warn(f"shared folder: machine {mid[:8]} is busy; the next pass copies it")
             continue
         try:
-            marker = _read_meta(folder / MACHINE_FILE) or {}
+            marker_path = folder / MACHINE_FILE
+            if marker_path.is_symlink():
+                report.warn(f"shared folder: skipped {marker_path}: a symbolic link")
+            ok = (not marker_path.is_symlink() and marker_path.is_file()
+                  and marker_path.stat().st_size <= MAX_MANIFEST_BYTES)
+            marker = (_read_meta(marker_path) or {}) if ok else {}
             if marker.get("machine_id") == mid:
                 write_machine_marker(machine, mid, _clean_label(marker.get("label")))
-            for rel, path in _shared_files(folder):
+            for rel, path in _shared_files(folder, real_shared, report):
                 if deadline is not None and time.monotonic() >= deadline:
                     return
                 _copy_file(report, machine, rel, path, _side_dir(machine, rel))
@@ -1168,9 +1483,17 @@ def remove_own_shared_folder(settings: Settings, *, confirm: str) -> Path:
         raise ValueError("confirm must equal this machine's id")
     if settings.shared_archive_dir is None:
         raise ValueError("no shared folder is set")
-    target = settings.shared_archive_dir / MACHINES_DIR / own
-    if target.is_symlink():
-        raise ValueError(f"{target} is a symbolic link")
+    shared = settings.shared_archive_dir
+    target = shared / MACHINES_DIR / own
+    # S4: delete only this machine's own folder inside the shared folder.
+    for link in (shared / MACHINES_DIR, target):
+        if link.is_symlink():
+            raise ValueError(f"{link} is a symbolic link; nothing removed")
+    real = Path(os.path.realpath(target))
+    if not real.is_relative_to(os.path.realpath(shared)) or real == Path(os.path.realpath(shared)):
+        raise ValueError(f"{target} is not inside the shared folder; nothing removed")
+    if real.is_relative_to(os.path.realpath(settings.data_dir)):
+        raise ValueError(f"{target} is inside the data folder; nothing removed")
     if target.exists():
         shutil.rmtree(target)
     # The push metadata says what the folder held; without it the next push starts again.
@@ -1187,6 +1510,7 @@ __all__ = [
     "ImportResult",
     "MachineInfo",
     "PreviewFile",
+    "WriteBlocked",
     "default_bundle_name",
     "export_bundle",
     "import_bundle",

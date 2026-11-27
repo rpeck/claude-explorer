@@ -466,6 +466,84 @@ def test_an_encrypted_bundle_imports_with_the_passphrase(world: World) -> None:
     assert W1 in world.a.detail_text(S1)
 
 
+def test_among_other_machines_codex_copies_the_newest_thread_shows(
+    world: World,
+) -> None:
+    # A2 security round 2, S5: the newest foreign copy wins when this machine has none.
+    tid = "019b0a60-0000-7000-8000-0000000000ef"
+    world.b.codex_thread(tid, "codexolderbword", day="2026-11-15")
+    world.c.codex_thread(tid, "codexnewercword", day="2026-11-20")
+    for m, name in ((world.b, "b.cebundle"), (world.c, "c.cebundle")):
+        m.sync()
+        m.export_all()
+        dest = world.tmp / name
+        m.export(dest)
+        world.a.import_(dest)
+
+    row = world.a.rows("CODEX")[tid]
+
+    assert row.machine_id == world.c.machine_id
+    assert "codexnewercword" in world.a.detail_text(tid)
+
+
+def test_a_member_whose_header_lies_about_its_size_is_refused(world: World) -> None:
+    # A2 security round 2, S3 amendment. CPython's zipfile never returns more
+    # than the declared file_size: it raises "Bad CRC-32" there. So a lying
+    # header cannot get past a limit; the bundle is refused, and nothing is written.
+    import io
+    import struct
+    import zipfile
+
+    from backend import machines
+
+    _b_two_sessions(world)
+    dest = _export(world)
+    prefix, manifest = bundle_manifest(dest)
+    [f] = [f for f in manifest["files"] if f["path"].endswith(f"/{S1}.jsonl")]
+    target = member_of(prefix, f["path"])
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in bundle_members(dest).items():
+            zf.writestr(name, data)
+    raw = bytearray(buf.getvalue())
+    with zipfile.ZipFile(io.BytesIO(bytes(raw))) as zf:
+        offset = zf.getinfo(target).header_offset
+    struct.pack_into("<I", raw, offset + 22, 10)  # the local header's file size
+    at = raw.find(b"PK\x01\x02")
+    while at != -1:
+        name_len = struct.unpack_from("<H", raw, at + 28)[0]
+        if bytes(raw[at + 46 : at + 46 + name_len]) == target.encode():
+            struct.pack_into(
+                "<I", raw, at + 24, 10
+            )  # the central directory's file size
+        at = raw.find(b"PK\x01\x02", at + 4)
+    dest.write_bytes(bytes(raw))
+
+    with pytest.raises(machines.BundleError) as err:
+        world.a.import_(dest)
+
+    assert err.value.reason in ("too_large", "bad_hash")
+    assert tree(world.a.data_dir / "machines") == {}
+
+
+def test_an_encrypted_bundle_from_before_round_2_still_decrypts(world: World) -> None:
+    import shutil
+
+    # backend/tests/fixtures/machines/README.md: made at 124fccaf, no scrypt
+    # parameters in its header (A2 security round 2, S6).
+    fixture = Path(__file__).parent / "fixtures" / "machines" / "v1-encrypted.cebundle"
+    dest = world.tmp / "v1.cebundle"
+    shutil.copyfile(fixture, dest)
+
+    result = world.a.import_(dest, passphrase="synthetic fixture pass")
+
+    assert result.machine_id == "46b6aaee-ff4b-4cb3-a561-8ee694d67501"
+    assert "a2f6f6f6-0000-4000-8000-000000000006" in world.a.rows("CLAUDE_CODE")
+    assert "fixturevonekdfword" in world.a.detail_text(
+        "a2f6f6f6-0000-4000-8000-000000000006"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Codex: two machines with one home path (the home_key collision)
 # ---------------------------------------------------------------------------

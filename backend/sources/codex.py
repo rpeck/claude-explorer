@@ -33,6 +33,7 @@ from backend.archive_sync import (
     machine_fields,
     run_locked_pass,
     sync_stream,
+    this_machine_dir,
 )
 from backend.codex.home import (
     STEM_RE,
@@ -173,6 +174,10 @@ def _sync_home(home: Path, archive: Path, report: SyncReport) -> None:
     rollouts = find_rollouts(home)
     if not rollouts:
         return  # nothing to show yet; keep the archive free of an empty home
+    # #92: a machine with only Codex sessions also gets its machine id, so its
+    # Codex rows name this machine. archive = <data_dir>/codex/<home_key>.
+    if this_machine_dir(archive.parent.parent) is None:
+        report.warn("Codex: this machine has no id; its rows name no machine")
     if _write_home_json(home, archive):
         report.wrote_any = True
     rollouts_dir = archive / ROLLOUTS_DIR
@@ -467,13 +472,19 @@ class CodexAdapter:
         return out
 
     def _newest(self, paths: list[Path]) -> Path | None:
-        """The newest copy of one thread id across homes (§4.2)."""
+        """The newest copy of one thread id across homes (§4.2).
+
+        A copy of this machine (``codex/<home_key>``) always wins over the copy
+        of another machine (``machines/<id>/codex/...``, #92 S5); among the
+        copies of other machines, the newest wins.
+        """
         copies = []
         for p in paths:
             data = _cached(_thread_cache, p, _load_thread_file)
             if data is not None:
                 copies.append({**data, "home_key": self._copy_key(p.parent.parent), "_path": p})
-        return newest_copy(copies)["_path"] if copies else None
+        mine = [c for c in copies if "/" not in c["home_key"]]
+        return newest_copy(mine or copies)["_path"] if copies else None
 
     def discover(self) -> list[Path]:
         by_id: dict[str, list[Path]] = {}

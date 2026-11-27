@@ -87,6 +87,8 @@ def _label(fn: Any, *args: Any) -> machines.MachineInfo:
         return fn(*args)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except machines.WriteBlocked as exc:  # the cloud-sync gate of the data folder
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.put("/machines/self/label", response_model=machines.MachineInfo, summary="Set this machine's label")
@@ -142,6 +144,7 @@ async def _reindex() -> None:
 @router.post("/machines/import", response_model=machines.ImportResult, summary="Import a bundle",
              responses={400: {"description": "Not a valid bundle (detail.reason)"},
                         409: {"description": "The data folder's cloud-sync gate is closed"},
+                        413: {"description": "The upload is over MAX_BUNDLE_BYTES"},
                         503: {"description": "Config file is corrupt; refuse to write"}})
 async def post_import(
     file: Annotated[UploadFile, File()],
@@ -151,10 +154,14 @@ async def post_import(
     block = cloud_sync_block(settings)
     if block is not None:
         raise HTTPException(status_code=409, detail=cloud_sync_message(block))
+    limit = machines.MAX_BUNDLE_BYTES
+    if file.size is not None and file.size > limit:
+        raise HTTPException(status_code=413, detail=f"The bundle is over MAX_BUNDLE_BYTES ({limit} bytes).")
     fd, name = tempfile.mkstemp(prefix="claude-explorer-import-", suffix=machines.BUNDLE_SUFFIX)
     try:
         with os.fdopen(fd, "wb") as out:
-            await asyncio.to_thread(shutil.copyfileobj, file.file, out, 1 << 20)
+            if not await asyncio.to_thread(_copy_capped, file.file, out, limit):
+                raise HTTPException(status_code=413, detail=f"The bundle is over MAX_BUNDLE_BYTES ({limit} bytes).")
         try:
             result = await asyncio.to_thread(machines.import_bundle, Path(name), passphrase=passphrase or None)
         except machines.BundleError as exc:
@@ -165,6 +172,17 @@ async def post_import(
         Path(name).unlink(missing_ok=True)
     await _reindex()
     return result
+
+
+def _copy_capped(src: Any, out: Any, limit: int) -> bool:
+    """Copy at most ``limit`` bytes; False when the upload is longer."""
+    total = 0
+    while block := src.read(1 << 20):
+        total += len(block)
+        if total > limit:
+            return False
+        out.write(block)
+    return True
 
 
 class SharedFolderBody(BaseModel):

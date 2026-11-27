@@ -1031,9 +1031,10 @@ def machine_label(text: str) -> None:
     """Set this machine's label (empty text removes it)."""
     from backend import machines
 
+    _archive_settings(writes=False)  # a corrupt config refuses, as for the other writers
     try:
         info = machines.set_machine_label(text)
-    except ValueError as exc:
+    except (ValueError, machines.WriteBlocked) as exc:
         raise click.ClickException(str(exc)) from exc
     click.echo(f"This machine: {info.label}")
 

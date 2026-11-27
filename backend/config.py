@@ -304,8 +304,8 @@ class Settings(BaseModel):
                 if isinstance(parsed.get("allow_writes_in_cloud_sync"), str):
                     allow_writes_in_cloud_sync = parsed["allow_writes_in_cloud_sync"]
                 shared = parsed.get("shared_archive_dir")
-                if isinstance(shared, str) and shared and Path(shared).is_absolute():
-                    shared_archive_dir = Path(shared)
+                if isinstance(shared, str) and shared:
+                    shared_archive_dir = Path(shared)  # checked (and logged) below
                 if isinstance(parsed.get("allow_writes_in_shared_archive"), str):
                     allow_writes_in_shared_archive = parsed["allow_writes_in_shared_archive"]
                 break
@@ -364,6 +364,15 @@ class Settings(BaseModel):
             if config_claude_desktop_app_dir
             else platformdirs.user_data_path("Claude")
         )
+        # Issue #92, S4: the same rule as PUT /api/machines/shared-folder. A
+        # shared folder in or around the data folder would let the copy reach
+        # the archive itself, so the setting is ignored.
+        if shared_archive_dir is not None and not _shared_dir_ok(shared_archive_dir, data_dir):
+            log.warning(
+                "config.json shared_archive_dir %s is ignored: it must be an absolute "
+                "folder outside the data folder %s.", shared_archive_dir, data_dir,
+            )
+            shared_archive_dir = None
         codex_home = (
             Path(env_codex_home)
             if env_codex_home
@@ -383,6 +392,16 @@ class Settings(BaseModel):
                 " | ".join(corruption_reasons) if corruption_reasons else None
             ),
         )
+
+
+def _shared_dir_ok(shared: Path, data_dir: Path) -> bool:
+    """An absolute folder outside the data folder, also after ``realpath`` (#92, S4)."""
+    if not shared.is_absolute():
+        return False
+    for s, d in ((shared, data_dir), (Path(os.path.realpath(shared)), Path(os.path.realpath(data_dir)))):
+        if s == d or s.is_relative_to(d) or d.is_relative_to(s):
+            return False
+    return True
 
 
 @lru_cache

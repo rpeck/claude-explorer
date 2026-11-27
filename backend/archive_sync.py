@@ -631,11 +631,7 @@ def this_machine_dir(data_dir: Path) -> Path | None:
 
 def machine_of(path: Path) -> str | None:
     """The machine of a session file: the ``machines/<id>`` folder it is in, else this machine."""
-    parts = Path(path).parts
-    for i in range(len(parts) - 2, -1, -1):
-        if parts[i] == MACHINES_DIR and _MACHINE_ID_RE.fullmatch(parts[i + 1]):
-            return parts[i + 1]
-    return read_identity()[0]
+    return _folder_machine(path) or read_identity()[0]
 
 
 #: A pass that a person waits for stops after this time; the watcher passes do not stop.
@@ -763,10 +759,12 @@ def pick_copies(
 ) -> list[Path]:
     """:func:`live_first`, plus the rule for one session on two machines (#92).
 
-    When another machine holds a copy and one copy is a prefix of the other,
-    the longer copy shows, and :func:`machine_fields` names both machines.
-    Diverged copies: the first one shows (live first, then folder name order).
-    Nothing changes on disk. ``content`` maps a path to the file to compare.
+    This machine's copy (live, or in its own archive folder) always shows.
+    Among the copies of other machines: when one copy is a prefix of the
+    other, the longer copy shows; diverged copies: the first one (folder name
+    order). :func:`machine_fields` names every machine whose copy is a prefix
+    of the shown one. Nothing changes on disk. ``content`` maps a path to the
+    file to compare.
     """
     first: dict[object, list[Path]] = {}
     others: dict[object, list[Path]] = {}
@@ -798,13 +796,32 @@ def pick_copies(
             _holders.pop(chosen, None)
             out.append(chosen)
             continue
-        for alt in by_machine.values():
-            if alt is not chosen and _is_prefix(content(chosen), content(alt)):
-                chosen = alt
+        mine = [p for p in (chosen, *alts) if _is_own_copy(p)]
+        if mine:  # this machine's copy always shows (S5)
+            chosen = mine[0]
+        else:
+            for alt in by_machine.values():
+                if alt is not chosen and _is_prefix(content(chosen), content(alt)):
+                    chosen = alt
         holders = [m for m, p in by_machine.items() if m and p is not chosen and _is_prefix(content(p), content(chosen))]
         _holders[chosen] = [m for m in (machine_of(chosen), *holders) if m]
         out.append(chosen)
     return out
+
+
+def _folder_machine(path: Path) -> str | None:
+    """The id of the ``machines/<id>`` folder that holds ``path``; None for a live file."""
+    parts = Path(path).parts
+    for i in range(len(parts) - 2, -1, -1):
+        if parts[i] == MACHINES_DIR and _MACHINE_ID_RE.fullmatch(parts[i + 1]):
+            return parts[i + 1]
+    return None
+
+
+def _is_own_copy(path: Path) -> bool:
+    """A live file of this machine, or a copy in this machine's own archive folder."""
+    folder = _folder_machine(path)
+    return folder is None or folder == read_identity()[0]
 
 
 def machine_fields(path: Path) -> dict[str, object]:
