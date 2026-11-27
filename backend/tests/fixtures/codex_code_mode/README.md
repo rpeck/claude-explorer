@@ -10,6 +10,7 @@ and was read in full before the commit.
 | `completed.jsonl` | One `exec` with two nested commands; both outputs return to the model. |
 | `failed-wait-notify-two-cells-terminate.jsonl` | A script that throws (`Script failed`, `Script error:`); a yielded cell finished by `wait`; `notify()` (its output comes after the final one); two cells alive at once (the first command is ambiguous, the second links exactly); a cell stopped with `wait` `terminate: true` (its command's item comes after the turn ends). |
 | `cli-to-cli-pipe.jsonl` | `cat` output goes into a `printf ... \| wc -c` command; only the count returns to the model. |
+| `exec-view-image.jsonl` | Recorded 2026-11-26 (issue #103). A script calls `view_image` on a synthetic 16x16 PNG and returns it with `image()`; the `exec` output is a list: the `input_text` header and an `input_image` with a `data:image/png;base64,` URL. |
 
 ## How to record again
 
