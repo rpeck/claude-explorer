@@ -22,6 +22,7 @@ export function ListView({ model, messages, sessions, centerKey, onNavigate }: L
     .map((m, i) => ({ m, id: messageId(m, i) }))
     .filter(({ m }) => model.laneOf(m.from_key) !== null && model.laneOf(m.to_key) !== null)
   return (
+    <div className="h-full overflow-auto">
     <table className="w-full text-left text-xs" data-testid="messages-list">
       <thead className="text-zinc-500">
         <tr>
@@ -56,5 +57,6 @@ export function ListView({ model, messages, sessions, centerKey, onNavigate }: L
         })}
       </tbody>
     </table>
+    </div>
   )
 }

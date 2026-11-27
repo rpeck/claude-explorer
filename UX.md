@@ -1021,7 +1021,9 @@ state chip and the Activity page answer that without opening each session.
   bytes after the object are ignored (Claude Code can leave the tail of an
   older write). A file with no complete object at the start is skipped: its
   session falls back to the transcript rule.
-- The chip shows on list rows and in the header. MCP `list_sessions` gives
+- The chip shows on list rows and in the header. On a list row, "Ended (no
+  exit record)" shows as "Ended (no exit)", with the full label as the
+  tooltip, so the row keeps the model, date, and count on one line. MCP `list_sessions` gives
   `state` and takes `state` ("active" = running or open).
 - Code: `backend/session_state.py` (a tail read of the transcript, cached by
   path, mtime, and size).
@@ -1044,15 +1046,27 @@ state chip and the Activity page answer that without opening each session.
   "all". k is 2 when you pick the scope.
 - **Views:**
   - **Sequence:** one lane per session, time goes down, one arrow per message.
-  - **Graph:** one node per lane, one edge per direction with the message count
-    (@dagrejs/dagre).
+    - The view is one scroll box, sideways and down; the lane heads stay at
+      its top. An arrow to "N other sessions" goes to that lane like any other.
+    - A lane head gives the name its whole first line, with the full name as
+      the tooltip; the state chip and "…" are on the second line.
+  - **Graph:** one node per lane, and one node per folded group ("+N
+    sessions"; a click expands it, as in Sequence). One edge per pair of
+    nodes: "3 ⇄ 1" when both directions exist (the first number from the
+    upper node), else the count and an arrow: "2 ↓" (upper to lower) or
+    "2 ↑" (lower to upper) (@dagrejs/dagre).
+    - It fits the pane width at first, never above 100 %. "+", "−", and
+      "Fit" zoom; a drag pans.
   - **List:** one row per message: from, to, time, text.
 - **A click** on an arrow, a row, or an edge opens the message in the session
   that is not the center (no center: the receiver). A session that is not in
   the archive has no link; its tooltip says "not in the archive".
 - **Order:** depth first by the derived hierarchy, labeled "Order: derived
   (parent = sender of the first message)". The first message is by the
-  session's own record times. Pinned lanes come first.
+  session's own record times.
+  - Siblings: the earlier first message (sent or received) first. Sessions
+    with no message in scope come after them, newest last activity first.
+  - Pinned lanes come first, in pin order.
 - **Folding:** around a session, a session 2 or more hops away folds under the
   hop-1 lane that reaches it ("+N sessions"). A click expands it.
 - **Lane menu ("…"):** Pin or Unpin, Hide, Collapse or Expand (the derived
@@ -1427,8 +1441,10 @@ credentials belong to, as claude.ai and Claude Desktop do. A user with a
 work account and a personal account can see whose archive Refresh
 fetches.
 
-- **Where:** a row in the sidebar footer, above the Settings, theme, and
-  Export buttons. It is a region named **Signed-in account**.
+- **Where:** a row in the sidebar footer, above the Settings, Activity,
+  theme, and Export buttons. It is a region named **Signed-in account**.
+  Settings and Activity are icon buttons with tooltips, so the whole row
+  fits the 320 px sidebar.
 - **Avatar:** a circle with the account's initials: the first letter of
   the first and the last word of the name that contain a letter
   ("Ada Lovelace @ Engines.co" → "AE"). A one-word name gives one letter.
@@ -1529,11 +1545,17 @@ Saved title filters use a composable graph model. Two kinds of node:
   what happens to a conversation that matches at least one of the
   atom's patterns: *Hide matches* drops it; *Show only matches* keeps
   it (and drops everything else).
-  - Patterns match the exact title text, case-insensitively. A title
-    such as `⚡ Weekly report` starts with the emoji, so `^Weekly`
-    does not match it. Write `Weekly report$` or `^⚡ Weekly report$`.
-    The list draws that emoji in gray, but it is still part of the
-    title (see "Emoji in titles").
+  - **Target:** an atom tests one field: Title (the default), Ticket,
+    Entrypoint, Message text, Project, Source, Machine, Active within, or
+    State. The help text and the summary name what the target matches
+    ("Shows only conversations whose message text matches any of: …"), from
+    one map in `ManageFiltersModal.tsx`. Active within has its own summary:
+    "Shows only conversations with activity in the last 1d." (or "Hides …").
+  - For the Title target, patterns match the exact title text,
+    case-insensitively. A title such as `⚡ Weekly report` starts with
+    the emoji, so `^Weekly` does not match it. Write `Weekly report$`
+    or `^⚡ Weekly report$`. The list draws that emoji in gray, but it is
+    still part of the title (see "Emoji in titles").
   - **Glob:** `*`, `?`, and `[abc]` work as in a shell, and a pattern
     with them must match the whole title. A pattern without them
     matches anywhere in the title.

@@ -18,7 +18,7 @@ export function ActivityPage() {
   const tabClass = (active: boolean) =>
     `border-b-2 px-3 py-1.5 text-sm ${active ? 'border-zinc-800 font-medium dark:border-zinc-200' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`
   return (
-    <div data-testid="activity-panel" className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-4">
+    <div data-testid="activity-panel" className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
       <div role="tablist" aria-label="Activity" className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
         <button type="button" role="tab" aria-selected={tab === 'messages'} className={tabClass(tab === 'messages')} onClick={() => setTab('messages')}>
           Messages
@@ -30,7 +30,13 @@ export function ActivityPage() {
           Subagents: coming in #46
         </button>
       </div>
-      {tab === 'messages' ? <MessagesTab key={center ?? ''} center={center} /> : <CodeModeTab center={center} />}
+      {tab === 'messages' ? (
+        <MessagesTab key={center ?? ''} center={center} />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <CodeModeTab center={center} />
+        </div>
+      )}
     </div>
   )
 }

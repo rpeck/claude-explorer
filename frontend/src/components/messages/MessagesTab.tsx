@@ -63,7 +63,10 @@ export function MessagesTab({ center }: { center: string | null }) {
     () => (graph ? filterSessions(graph, filtersState, filterId, center) : null),
     [graph, filtersState, filterId, center],
   )
-  const model = useMemo(() => (filtered ? buildLanes(filtered.kept, prefs) : null), [filtered, prefs])
+  const model = useMemo(
+    () => (filtered && graph ? buildLanes(filtered.kept, prefs, undefined, graph.messages) : null),
+    [filtered, prefs, graph],
+  )
   const sessions = useMemo(() => new Map((graph?.sessions ?? []).map((s) => [s.key, s])), [graph])
 
   const actions: LaneActions = useMemo(
@@ -195,9 +198,9 @@ export function MessagesTab({ center }: { center: string | null }) {
         </p>
       )}
       {viewProps && (model?.lanes.length ?? 0) > 0 && (
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-hidden">
           {prefs.view === 'sequence' && <SequenceView {...viewProps} actions={actions} />}
-          {prefs.view === 'graph' && <GraphView {...viewProps} />}
+          {prefs.view === 'graph' && <GraphView {...viewProps} onExpandGroup={actions.expandFold} />}
           {prefs.view === 'list' && <ListView {...viewProps} />}
         </div>
       )}

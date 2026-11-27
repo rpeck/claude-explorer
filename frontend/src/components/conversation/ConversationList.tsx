@@ -918,7 +918,7 @@ function ConversationListItem({
               Sidebar.tsx:230-234 dropdown is the only OTHER place that
               needs to track source-shape changes. */}
           <SourceBadge source={conversation.source} variant="row" />
-          <SessionStateChip state={conversation.state} />
+          <SessionStateChip state={conversation.state} compact />
           {conversation.model && (
             // #52: one model name everywhere; the raw id is the tooltip.
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0" title={conversation.model} data-testid="list-row-model">

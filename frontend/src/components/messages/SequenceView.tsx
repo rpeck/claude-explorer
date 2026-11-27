@@ -80,20 +80,29 @@ export function SequenceView({ model, messages, sessions, centerKey, actions, on
   const width = laneCount * LANE_W
   const height = TOP * 2 + Math.max(1, rows.length) * ROW_H
   const cx = (lane: number) => lane * LANE_W + LANE_W / 2
-  const head = 'flex min-w-0 items-center gap-1 rounded bg-zinc-200 px-2 py-1 text-xs dark:bg-zinc-700'
+  const head = 'flex min-w-0 flex-col gap-0.5 rounded bg-zinc-200 px-2 py-1 text-xs dark:bg-zinc-700'
 
+  // One scroll box for both directions: the lane heads stick to its top.
   return (
-    <div className="overflow-auto" data-testid="messages-sequence">
-      <div style={{ width, display: 'grid', gridTemplateColumns: `repeat(${laneCount}, ${LANE_W}px)` }} className="gap-x-0">
+    <div className="h-full overflow-auto" data-testid="messages-sequence">
+      <div style={{ width }}>
+      <div
+        style={{ width, display: 'grid', gridTemplateColumns: `repeat(${laneCount}, ${LANE_W}px)` }}
+        className="sticky top-0 z-10 bg-white pb-1 dark:bg-zinc-950"
+      >
         {model.lanes.map((lane) => (
           <div key={lane.session.key} className="px-1">
             <div data-testid="messages-lane" data-session-key={lane.session.key} className={head}>
-              {lane.pinned && <span title="Pinned">📌</span>}
-              <span className="min-w-0 flex-1 truncate font-medium text-zinc-800 dark:text-zinc-100" title={sessionLabel(lane.session)}>
+              {/* The name has the whole first line; the full name is the tooltip. */}
+              <span className="truncate font-medium text-zinc-800 dark:text-zinc-100" title={sessionLabel(lane.session)}>
                 {sessionLabel(lane.session)}
               </span>
-              <SessionStateChip state={lane.session.state} />
-              <LaneMenu laneKey={lane.session.key} pinned={lane.pinned} collapsed={lane.collapsed} actions={actions} />
+              <span className="flex items-center gap-1">
+                {lane.pinned && <span title="Pinned">📌</span>}
+                <SessionStateChip state={lane.session.state} />
+                <span className="flex-1" />
+                <LaneMenu laneKey={lane.session.key} pinned={lane.pinned} collapsed={lane.collapsed} actions={actions} />
+              </span>
             </div>
             {lane.foldCount > 0 && (
               <button
@@ -179,6 +188,7 @@ export function SequenceView({ model, messages, sessions, centerKey, actions, on
           )
         })}
       </svg>
+      </div>
     </div>
   )
 }

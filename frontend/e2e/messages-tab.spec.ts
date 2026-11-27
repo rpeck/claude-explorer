@@ -397,7 +397,8 @@ test.describe('Messages tab: Graph and List views (L2)', () => {
     await expect(g.locator(`[data-testid="messages-graph-node"][data-session-key="${CO}"]`)).toHaveCount(1)
     await expect(g.locator(`[data-testid="messages-graph-node"][data-session-key="${S1}"]`)).toHaveCount(1)
     // The count is the edge's own text; its <title> names the session.
-    await expect(g.locator('[data-testid="messages-graph-edge"] text').filter({ hasText: /^2$/ }).first()).toBeVisible()
+    // L2 UI round 3 (U5): one edge per pair, both counts ("1 ⇄ 1").
+    await expect(g.locator('[data-testid="messages-graph-edge"] text').filter({ hasText: /^1 ⇄ 1$/ }).first()).toBeVisible()
   })
 
   test('the List view shows each message with its text; a click opens it', async ({ page, mockBackend }) => {
@@ -574,7 +575,15 @@ test.describe('Session state and L2 filter targets (L2)', () => {
     await setup(mockBackend, { conversations: few() })
     await withNetRetry(page, () => page.goto('/conversations'))
     for (const uuid of Object.keys(STATES)) {
-      await expect(listRow(page, titleOf(uuid)).getByTestId('session-state-chip')).toHaveText(LABELS[uuid])
+      const chip = listRow(page, titleOf(uuid)).getByTestId('session-state-chip')
+      if (STATES[uuid] === 'ended_no_exit') {
+        // L2 UI round 3 (U6): the list may show a shorter label, with the full text as its tooltip.
+        await expect(chip).toHaveText(/^Ended \(no exit( record)?\)$/)
+        const full = `${(await chip.getAttribute('title')) ?? ''} ${(await chip.getAttribute('aria-label')) ?? ''} ${(await chip.textContent()) ?? ''}`
+        expect(full).toContain(LABELS[uuid])
+      } else {
+        await expect(chip).toHaveText(LABELS[uuid])
+      }
     }
   })
 

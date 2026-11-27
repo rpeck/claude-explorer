@@ -173,6 +173,19 @@ const TARGET_OPTIONS: { value: FilterTarget; label: string }[] = [
   { value: 'state', label: 'State' },
 ]
 
+/** What an atom of each target matches, for the help text and the summary. */
+const TARGET_NOUNS: Record<FilterTarget, { noun: string; plural: boolean }> = {
+  title: { noun: 'titles', plural: true },
+  ticket: { noun: 'tickets', plural: true },
+  entrypoint: { noun: 'entrypoints', plural: true },
+  message_text: { noun: 'message text', plural: false },
+  project: { noun: 'project folders', plural: true },
+  source: { noun: 'sources', plural: true },
+  machine: { noun: 'machines', plural: true },
+  active_within: { noun: 'time since the last activity', plural: false },
+  state: { noun: 'states', plural: true },
+}
+
 function nodeToDraft(node: FilterNode): Draft {
   if (node.type === 'atom') {
     return {
@@ -394,7 +407,7 @@ export function ManageFiltersModal({ isOpen, onClose }: ManageFiltersModalProps)
         <DialogHeader>
           <DialogTitle>Manage filters</DialogTitle>
           <DialogDescription>
-            Create, edit, and combine saved title-pattern filters for the conversation list.
+            Create, edit, and combine saved filters for the conversation list.
           </DialogDescription>
         </DialogHeader>
 
@@ -805,12 +818,17 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
+  const { noun, plural } = TARGET_NOUNS[draft.target] ?? TARGET_NOUNS.title
+  const matchVerb = plural ? 'match' : 'matches'
   const summary =
     patternList.length === 0
       ? 'This filter has no patterns yet.'
-      : draft.behavior === 'hide'
-        ? `Hides conversations whose titles match any of: ${patternList.join(', ')}.`
-        : `Shows only conversations whose titles match any of: ${patternList.join(', ')}.`
+      : draft.target === 'active_within'
+        ? // The noun sentence does not read for a duration.
+          `${draft.behavior === 'hide' ? 'Hides' : 'Shows only'} conversations with activity in the last ${patternList.join(', ')}.`
+        : draft.behavior === 'hide'
+        ? `Hides conversations whose ${noun} ${matchVerb} any of: ${patternList.join(', ')}.`
+        : `Shows only conversations whose ${noun} ${matchVerb} any of: ${patternList.join(', ')}.`
 
   return (
     <div className="flex flex-col gap-3">
@@ -898,8 +916,8 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
           className="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
         >
           {draft.mode === 'glob'
-            ? 'Glob: * matches any text, ? matches one character, and [abc] matches one of a set. A pattern with them must match the whole title. A pattern without them matches anywhere in the title. A leading ^ or a trailing $ anchors the pattern at that end. Patterns match the exact title text, case-insensitively.'
-            : 'Regex: a JavaScript regular expression. Patterns match the exact title text, case-insensitively. An invalid regex matches nothing.'}
+            ? `Glob: * matches any text, ? matches one character, and [abc] matches one of a set. A pattern with them must match the whole text. A pattern without them matches anywhere in the text. A leading ^ or a trailing $ anchors the pattern at that end. Patterns match the ${noun}, case-insensitively.`
+            : `Regex: a JavaScript regular expression. Patterns match the ${noun}, case-insensitively. An invalid regex matches nothing.`}
         </p>
       </div>
       <div

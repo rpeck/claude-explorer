@@ -97,9 +97,43 @@ export interface LaneModel {
   hiddenCount: number
   /** The lane index of a session key; null when the session does not show. */
   laneOf: (key: string) => number | null
+  /** The lane whose "+N sessions" group holds this session (folded or collapsed); null otherwise. */
+  groupOf: (key: string) => string | null
 }
 
-export function buildLanes(sessions: PeerGraphSession[], prefs: MessagesPrefs, limit: number = LANE_LIMIT): LaneModel {
+/**
+ * The order of sibling lanes: the earlier first message first (sent or
+ * received); a session with no message in scope after them, newest last
+ * activity first.
+ */
+function siblingOrder(messages: PeerGraphMessage[]): (a: PeerGraphSession, b: PeerGraphSession) => number {
+  const first = new Map<string, number>()
+  for (const m of messages) {
+    const t = m.timestamp ? Date.parse(m.timestamp) : NaN
+    if (Number.isNaN(t)) continue
+    for (const k of [m.from_key, m.to_key]) {
+      const cur = first.get(k)
+      if (cur === undefined || t < cur) first.set(k, t)
+    }
+  }
+  const last = (s: PeerGraphSession) => (s.updated_at ? Date.parse(s.updated_at) || 0 : 0)
+  return (a, b) => {
+    const ta = first.get(a.key)
+    const tb = first.get(b.key)
+    if (ta !== undefined && tb !== undefined) return ta - tb
+    if (ta !== undefined) return -1
+    if (tb !== undefined) return 1
+    return last(b) - last(a)
+  }
+}
+
+export function buildLanes(
+  sessions: PeerGraphSession[],
+  prefs: MessagesPrefs,
+  limit: number = LANE_LIMIT,
+  messages: PeerGraphMessage[] = [],
+): LaneModel {
+  const bySiblingOrder = siblingOrder(messages)
   const hidden = new Set(prefs.hidden)
   const pinned = new Set(prefs.pinned)
   const expanded = new Set(prefs.expanded)
@@ -140,6 +174,7 @@ export function buildLanes(sessions: PeerGraphSession[], prefs: MessagesPrefs, l
     const p = parentOf(s)
     if (p) children.set(p, [...(children.get(p) ?? []), s])
   }
+  for (const list of children.values()) list.sort(bySiblingOrder)
   const order: PeerGraphSession[] = []
   const into = new Map<string, string>() // collapsed session -> the collapsed lane
   const visited = new Set<string>()
@@ -151,9 +186,13 @@ export function buildLanes(sessions: PeerGraphSession[], prefs: MessagesPrefs, l
     const next = collapsedAt ?? (collapsed.has(s.key) ? s.key : null)
     for (const c of children.get(s.key) ?? []) walk(c, next)
   }
-  for (const s of shown) if (!parentOf(s)) walk(s, null)
-  for (const s of shown) walk(s, null) // a cycle of derived parents has no root
-  const ordered = [...order.filter((s) => pinned.has(s.key)), ...order.filter((s) => !pinned.has(s.key))]
+  const sorted = [...shown].sort(bySiblingOrder)
+  for (const s of sorted) if (!parentOf(s)) walk(s, null)
+  for (const s of sorted) walk(s, null) // a cycle of derived parents has no root
+  // Pinned lanes first, in pin order.
+  const inOrder = new Map(order.map((s) => [s.key, s]))
+  const pinnedLanes = prefs.pinned.map((k) => inOrder.get(k)).filter((s): s is PeerGraphSession => Boolean(s))
+  const ordered = [...pinnedLanes, ...order.filter((s) => !pinned.has(s.key))]
 
   const laneSessions = ordered.length > limit ? ordered.slice(0, limit) : ordered
   const other = ordered.length > limit ? ordered.slice(limit) : []
@@ -169,12 +208,13 @@ export function buildLanes(sessions: PeerGraphSession[], prefs: MessagesPrefs, l
     collapsed: collapsed.has(s.key),
     expanded: expanded.has(s.key),
   }))
+  const groupOf = (key: string): string | null => into.get(owner.get(key) ?? key) ?? owner.get(key) ?? null
   const laneOf = (key: string): number | null => {
-    const k = into.get(owner.get(key) ?? key) ?? owner.get(key) ?? key
+    const k = groupOf(key) ?? key
     if (index.has(k)) return index.get(k) as number
     return otherKeys.has(k) ? lanes.length : null
   }
-  return { lanes, other, hiddenCount, laneOf }
+  return { lanes, other, hiddenCount, laneOf, groupOf }
 }
 
 /** Where a click on a message goes: the side that is not the center (no center: the receiver). */
