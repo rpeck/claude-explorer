@@ -28,11 +28,10 @@ import pytest
 
 from backend.tests._machines_env import (
     World,
+    archived,
     make_world,
     tree,
 )
-
-pytestmark = pytest.mark.xfail(strict=True, reason="A2 not implemented yet")
 
 
 @pytest.fixture
@@ -150,9 +149,10 @@ def test_one_writer_per_folder_a_held_lock_stops_the_push(world: World) -> None:
 
     b = world.b
     b.cc_session(S_B, W_B)
-    _share(world, b)
     b.export_all()
+    # The archive copy first: with the shared folder set, run_archive_syncs pushes too.
     b.sync()
+    _share(world, b)
     b.ensure_id()
     lock = ArchiveLock(world.shared / "machines" / b.machine_id / ".sync.lock")
     assert lock.acquire(1.0)
@@ -380,14 +380,14 @@ def test_removal_takes_only_this_machines_own_folder(world: World) -> None:
     world.c.sync()
     _shared_sync(world.c)
     c_before = tree(world.shared / "machines" / world.c.machine_id)
-    local_before = tree(world.b.data_dir)
+    local_before = archived(world.b.data_dir)
     assert c_before
 
     machines.remove_own_shared_folder(world.b.settings(), confirm=world.b.machine_id)
 
     assert not _b_folder(world).exists()
     assert tree(world.shared / "machines" / world.c.machine_id) == c_before
-    assert tree(world.b.data_dir) == local_before
+    assert archived(world.b.data_dir) == local_before
 
 
 def test_removal_needs_the_machine_id_as_confirmation(world: World) -> None:

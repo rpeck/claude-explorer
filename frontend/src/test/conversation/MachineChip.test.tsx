@@ -4,9 +4,7 @@
  * `data-testid="machine-chip"` shows the row's `machine_label` (fallback
  * "Machine <first 8 of machine_id>"). It shows only when `GET /api/machines`
  * lists two or more machines; with one machine, no row has a chip.
- *
- * `pending` (`it.fails`): A2 is not built yet. VITE_RUNXFAIL=1 runs them as
- * plain tests.
+
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
@@ -23,8 +21,6 @@ import { server } from '../mocks/server'
 import { mockConversations } from '../mocks/data'
 import { serveApp } from '../sources/fakeRegistry'
 import type { ConversationDetail } from '../../lib/types'
-
-const pending = import.meta.env.VITE_RUNXFAIL ? it : it.fails
 
 const ME = '2f6a1b3c-0000-4000-8000-00000000000a'
 const OTHER = '9d8e7f6a-0000-4000-8000-00000000000b'
@@ -66,21 +62,21 @@ async function row(title: string): Promise<HTMLElement> {
 }
 
 describe('the machine chip of a list row', () => {
-  pending('shows the machine label when two machines are present', async () => {
+  it('shows the machine label when two machines are present', async () => {
     machines(2)
     const el = await row('Row from the work laptop')
 
     expect(await within(el).findByTestId('machine-chip')).toHaveTextContent(/^Work laptop$/)
   })
 
-  pending('falls back to "Machine" and the first 8 of the id', async () => {
+  it('falls back to "Machine" and the first 8 of the id', async () => {
     machines(2)
     const el = await row('Row with no label')
 
     expect(await within(el).findByTestId('machine-chip')).toHaveTextContent(/^Machine 9d8e7f6a$/)
   })
 
-  pending('shows no chip on any row when only one machine is present', async () => {
+  it('shows no chip on any row when only one machine is present', async () => {
     machines(1)
     await row('Row from this machine')
     // The list asks how many machines there are, and then shows no chip.
@@ -132,14 +128,14 @@ function detail(): ConversationDetail {
 }
 
 describe('the machine chip in the header', () => {
-  pending('shows the machine label when two machines are present', async () => {
+  it('shows the machine label when two machines are present', async () => {
     machines(2)
     renderHeader(detail())
 
     expect(await screen.findByTestId('machine-chip')).toHaveTextContent(/^Work laptop$/)
   })
 
-  pending('shows no chip when only one machine is present', async () => {
+  it('shows no chip when only one machine is present', async () => {
     machines(1)
     renderHeader(detail())
 

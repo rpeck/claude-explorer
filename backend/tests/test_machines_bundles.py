@@ -29,8 +29,6 @@ from backend.tests._machines_env import (
     tree,
 )
 
-pytestmark = pytest.mark.xfail(strict=True, reason="A2 not implemented yet")
-
 
 @pytest.fixture
 def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:

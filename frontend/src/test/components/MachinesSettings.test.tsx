@@ -1,5 +1,6 @@
 /**
- * A2 (issue #92): the Settings "Machines" section.
+ * A2 (issue #92): the "Machines" settings (`MachinesSettings`), which the
+ * sidebar's Machines button (`data-testid="machines-button"`) opens.
  *
  * The section (`data-testid="machines-settings"`, heading "Machines") sets
  * this machine's label, names other machines locally, sets the export
@@ -12,9 +13,7 @@
  * GET /api/machines/export-preview, POST /api/machines/export,
  * POST /api/machines/import (multipart: file, passphrase),
  * PUT /api/machines/shared-folder, POST /api/machines/shared-folder/remove.
- *
- * `pending` (`it.fails`): A2 is not built yet. VITE_RUNXFAIL=1 runs them as
- * plain tests.
+
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
@@ -22,10 +21,9 @@ import userEvent from '@testing-library/user-event'
 
 import { render, screen, within, waitFor } from '../utils'
 import { server } from '../mocks/server'
-import { SettingsPage } from '../../routes/SettingsPage'
+import { MachinesSettings } from '../../components/settings/MachinesSettings'
+import { MachinesButton } from '../../components/settings/MachinesButton'
 import { serveApp } from '../sources/fakeRegistry'
-
-const pending = import.meta.env.VITE_RUNXFAIL ? it : it.fails
 
 const ME = '2f6a1b3c-0000-4000-8000-00000000000a'
 const OTHER = '9d8e7f6a-0000-4000-8000-00000000000b'
@@ -59,6 +57,7 @@ function serve(mode: 'off' | 'export' | 'receive-only' = 'off') {
     http.get('/api/machines', () =>
       HttpResponse.json({
         this_machine_id: ME,
+        shared_archive_dir: '/home/test/Dropbox/ce-shared',
         machines: [
           { machine_id: ME, label: 'Home Mac', is_this_machine: true, session_count: 2 },
           { machine_id: OTHER, label: 'Work laptop', is_this_machine: false, session_count: 1 },
@@ -120,7 +119,7 @@ function serve(mode: 'off' | 'export' | 'receive-only' = 'off') {
 }
 
 async function section(): Promise<HTMLElement> {
-  render(<SettingsPage />)
+  render(<MachinesSettings />)
   const el = await screen.findByTestId('machines-settings')
   expect(within(el).getByRole('heading', { name: 'Machines' })).toBeInTheDocument()
   return el
@@ -141,7 +140,19 @@ beforeEach(() => {
 })
 
 describe('the Machines section', () => {
-  pending('lists every machine and marks this one', async () => {
+  it('the sidebar Machines button opens it', async () => {
+    serve()
+    const user = userEvent.setup()
+    render(<MachinesButton />)
+
+    expect(screen.queryByTestId('machines-settings')).toBeNull()
+    await user.click(screen.getByTestId('machines-button'))
+
+    const el = await screen.findByTestId('machines-settings')
+    expect(await within(el).findByTestId(`machine-row-${ME}`)).toHaveTextContent('This machine')
+  })
+
+  it('lists every machine and marks this one', async () => {
     serve()
     const el = await section()
 
@@ -152,7 +163,7 @@ describe('the Machines section', () => {
     expect(other).not.toHaveTextContent('This machine')
   })
 
-  pending('saves this machine label with the action header', async () => {
+  it('saves this machine label with the action header', async () => {
     serve()
     const user = userEvent.setup()
     const el = await section()
@@ -169,7 +180,7 @@ describe('the Machines section', () => {
     expect(req.body).toEqual({ label: 'New name' })
   })
 
-  pending('renames another machine locally with its pencil', async () => {
+  it('renames another machine locally with its pencil', async () => {
     serve()
     const user = userEvent.setup()
     const el = await section()
@@ -186,7 +197,7 @@ describe('the Machines section', () => {
     expect(req.body).toEqual({ label: 'Office' })
   })
 
-  pending('this machine has no rename pencil', async () => {
+  it('this machine has no rename pencil', async () => {
     serve()
     const el = await section()
 
@@ -197,7 +208,7 @@ describe('the Machines section', () => {
 })
 
 describe('the export mode and rules', () => {
-  pending('shows the three modes with their labels, off by default', async () => {
+  it('shows the three modes with their labels, off by default', async () => {
     serve('off')
     const el = await section()
 
@@ -210,7 +221,7 @@ describe('the export mode and rules', () => {
     expect(el).toHaveTextContent('Receive only')
   })
 
-  pending('shows the allow and deny rules from the server', async () => {
+  it('shows the allow and deny rules from the server', async () => {
     serve('export')
     const el = await section()
 
@@ -219,7 +230,7 @@ describe('the export mode and rules', () => {
     expect(within(el).getByTestId('export-rules-since')).toBeInTheDocument()
   })
 
-  pending('saves a new mode with the rules', async () => {
+  it('saves a new mode with the rules', async () => {
     serve('off')
     const user = userEvent.setup()
     const el = await section()
@@ -227,16 +238,19 @@ describe('the export mode and rules', () => {
     await user.click(await within(el).findByTestId('export-mode-export'))
     await user.click(within(el).getByTestId('export-rules-save'))
 
+    // A click on a mode saves at once, and Save saves again: every PUT has the new mode.
     await waitFor(() => expect(seen.some((s) => s.url === '/api/machines/export-rules')).toBe(true))
-    const req = sent('/api/machines/export-rules')
-    expect(req.method).toBe('PUT')
-    expect(req.action).toBe('machines')
-    expect(req.body).toMatchObject({ mode: 'export', deny: ['~/Source/work/**'] })
+    const puts = seen.filter((s) => s.url === '/api/machines/export-rules')
+    for (const req of puts) {
+      expect(req.method).toBe('PUT')
+      expect(req.action).toBe('machines')
+      expect(req.body).toMatchObject({ mode: 'export', deny: ['~/Source/work/**'] })
+    }
   })
 })
 
 describe('the preview and the bundles', () => {
-  pending('the preview lists the files and the total', async () => {
+  it('the preview lists the files and the total', async () => {
     serve('export')
     const el = await section()
 
@@ -246,7 +260,7 @@ describe('the preview and the bundles', () => {
     expect(within(el).getByTestId('export-preview-total')).toHaveTextContent(/^2 files/)
   })
 
-  pending('the export button is off unless the mode is export', async () => {
+  it('the export button is off unless the mode is export', async () => {
     serve('off')
     const el = await section()
 
@@ -254,7 +268,7 @@ describe('the preview and the bundles', () => {
     expect(within(el).getByTestId('export-button')).toBeDisabled()
   })
 
-  pending('export sends the passphrase, or null when it is empty', async () => {
+  it('export sends the passphrase, or null when it is empty', async () => {
     serve('export')
     const user = userEvent.setup()
     const el = await section()
@@ -273,7 +287,7 @@ describe('the preview and the bundles', () => {
     expect(sent('/api/machines/export').body).toMatchObject({ passphrase: 'synthetic pass' })
   })
 
-  pending('import uploads the file with the passphrase and shows the counts', async () => {
+  it('import uploads the file with the passphrase and shows the counts', async () => {
     serve()
     const user = userEvent.setup()
     const el = await section()
@@ -286,7 +300,9 @@ describe('the preview and the bundles', () => {
     await waitFor(() => expect(seen.some((s) => s.url === '/api/machines/import')).toBe(true))
     const req = sent('/api/machines/import')
     expect(req.action).toBe('machines')
-    expect(req.body).toEqual({ file: 'work.cebundle', passphrase: 'synthetic pass' })
+    // jsdom's FormData sends the File without its name, so only its presence is checked.
+    expect(req.body).toMatchObject({ passphrase: 'synthetic pass' })
+    expect((req.body as { file: string | null }).file).not.toBeNull()
     const result = await within(el).findByTestId('import-result')
     expect(result).toHaveTextContent('3')
     expect(result).toHaveTextContent(/copied/i)
@@ -294,7 +310,7 @@ describe('the preview and the bundles', () => {
 })
 
 describe('the shared folder', () => {
-  pending('saves the shared folder path', async () => {
+  it('saves the shared folder path', async () => {
     serve()
     const user = userEvent.setup()
     const el = await section()
@@ -311,7 +327,7 @@ describe('the shared folder', () => {
     expect(req.body).toEqual({ path: '/home/test/Dropbox/ce-shared' })
   })
 
-  pending('remove asks first, then sends this machine id as the confirmation', async () => {
+  it('remove asks first, then sends this machine id as the confirmation', async () => {
     serve()
     const user = userEvent.setup()
     const el = await section()

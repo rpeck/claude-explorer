@@ -25,12 +25,10 @@ import pytest
 
 from backend.tests._machines_env import (
     World,
+    archived,
     bundle_manifest,
     make_world,
-    tree,
 )
-
-pytestmark = pytest.mark.xfail(strict=True, reason="A2 not implemented yet")
 
 
 @pytest.fixture
@@ -136,7 +134,8 @@ def test_archive_import_of_a_bad_bundle_exits_1_with_the_reason(world: World) ->
     result = _run(world.a, ["archive", "import", str(junk)])
 
     assert result.exit_code == 1
-    assert "not_a_bundle" in result.output or "not a bundle" in result.output.lower()
+    # The reason in words: BundleError.MESSAGES["not_a_bundle"].
+    assert "not a claude explorer bundle" in result.output.lower()
 
 
 @pytest.mark.parametrize("command", ["export", "import"])
@@ -212,14 +211,14 @@ def test_archive_remove_shared_yes_removes_only_the_own_folder(world: World) -> 
     other = world.shared / "machines" / "0e0e0e0e-0000-4000-8000-000000000000"
     other.mkdir(parents=True)
     (other / "machine.json").write_text("{}", encoding="utf-8")
-    local = tree(world.b.data_dir)
+    local = archived(world.b.data_dir)
 
     result = _run(world.b, ["archive", "remove-shared"], input="y\n")
 
     assert result.exit_code == 0, result.output
     assert not folder.exists()
     assert (other / "machine.json").is_file()
-    assert tree(world.b.data_dir) == local
+    assert archived(world.b.data_dir) == local
 
 
 def test_archive_remove_shared_with_yes_flag_does_not_ask(world: World) -> None:

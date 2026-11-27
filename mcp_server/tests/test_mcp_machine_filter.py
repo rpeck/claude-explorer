@@ -18,8 +18,6 @@ import pytest
 
 from backend.tests._machines_env import World, make_world
 
-pytestmark = pytest.mark.xfail(strict=True, reason="A2 not implemented yet")
-
 S_A = "a2a9a9a9-0000-4000-8000-00000000000a"
 S_B = "a2a9a9a9-0000-4000-8000-00000000000b"
 WORD = "mcpmachineword"

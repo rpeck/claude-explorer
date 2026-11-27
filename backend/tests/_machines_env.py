@@ -98,6 +98,15 @@ def tree(root: Path) -> dict[str, bytes]:
     }
 
 
+def archived(root: Path) -> dict[str, bytes]:
+    """:func:`tree` without the push bookkeeping (``machines/<id>/shared-push/``).
+
+    Removal from the shared folder also drops that bookkeeping, so that the
+    next push starts again. It is not archive data.
+    """
+    return {k: v for k, v in tree(root).items() if "/shared-push/" not in f"/{k}"}
+
+
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 

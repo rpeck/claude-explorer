@@ -23,8 +23,6 @@ from backend.tests._machines_env import (
     make_world,
 )
 
-pytestmark = pytest.mark.xfail(strict=True, reason="A2 not implemented yet")
-
 
 @pytest.fixture
 def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
@@ -141,6 +139,8 @@ def test_a_local_name_wins_over_the_machines_own_label(world: World) -> None:
     b.sync()
     _label(b, "Work laptop")
     _bundle_into_a(world, b, "b.cebundle")
+    # An import does not need this machine's identity, so the folder can be missing.
+    world.a.explorer_home.mkdir(parents=True, exist_ok=True)
     (world.a.explorer_home / "machine-labels.json").write_text(
         json.dumps({b.machine_id: "Office"}), encoding="utf-8"
     )
