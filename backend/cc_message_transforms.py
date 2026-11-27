@@ -45,6 +45,7 @@ from .agent_session_io import (  # noqa: F401  re-export
     _get_message_text,
     _merge_entries_to_message,
 )
+from .cc_peer_messages import classify_peer_rows, first_line, peer_origin, received_body
 from .parsing import _parse_iso_opt
 
 
@@ -446,14 +447,16 @@ def _with_text(msg: dict, text: str, **fields) -> dict:
 
 def _classify_shell_and_notice_rows(messages: list[dict]) -> list[dict]:
     """Turn a ``!`` command and its output into one shell message, and an
-    injected notice into a notice message. Pure: the input is not changed."""
+    injected notice into a notice message. Pure: the input is not changed.
+    Messages between sessions become peer rows first (issue #91)."""
+    messages = classify_peer_rows(messages)
     out: list[dict] = []
     i = 0
     n = len(messages)
     while i < n:
         msg = messages[i]
         text = msg.get("text", "")
-        if msg.get("sender") != "human" or not isinstance(text, str):
+        if msg.get("sender") != "human" or not isinstance(text, str) or msg.get("peer_message"):
             out.append(msg)
             i += 1
             continue
@@ -755,6 +758,10 @@ def _extract_title_from_message(entry: dict) -> str | None:
     text = _get_message_text(entry)
     if not text:
         return None
+    origin = peer_origin(entry)
+    if origin is not None:
+        # Issue #91: the message without its envelope.
+        return first_line(received_body(origin, text))[:100] or None
 
     # Try to extract command name from <command-name>/foo</command-name>
     cmd_match = re.search(r"<command-name>(/[^<]+)</command-name>", text)

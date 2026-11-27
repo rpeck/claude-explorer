@@ -25,6 +25,7 @@
  *         (CodexHistoryLinks)
  *       * file_path copy button, after "File:" (when present)
  *       * Claude Code: the "Subagents:" links (SubagentsDetailRow, issue #96)
+ *       * Any source: the "Messages with:" links (PeerSessionsRow, issue #91)
  *   - On an agent page (issue #96): the "Session › <agent>" breadcrumb
  *     above the title, and an "Agent ID:" row
  *
@@ -47,6 +48,7 @@ import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
 import { NoticeList } from '@/components/conversation/NoticeList'
 import { CodexHistoryLinks } from '@/components/conversation/CodexHistoryLinks'
+import { PeerSessionsRow } from '@/components/conversation/PeerSessionsRow'
 import { AgentBreadcrumb, SubagentsDetailRow } from '@/components/conversation/SubagentLinks'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
@@ -185,6 +187,7 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
             </div>
           )}
           <SubagentsDetailRow conversation={conversation} />
+          <PeerSessionsRow conversation={conversation} />
         </div>
       </details>
       <NoticeList notices={conversation.notices ?? []} />

@@ -46,6 +46,10 @@ export const NOTICE_LABELS: Record<NoticeKind, string> = {
 /** The sender name of a message: the reply label, "You", or the kind of a
  *  row that Claude Code wrote. Twin of `sender_label` in model_names.py. */
 export function senderLabel(message: Message, assistantLabel: string): string {
+  // Issue #91: a message from another session.
+  if (message.peer_ref?.kind === 'received') {
+    return message.peer_ref.name ? `Message from @${message.peer_ref.name}` : 'Message from another session'
+  }
   if (message.notice_kind) return NOTICE_LABELS[message.notice_kind] ?? message.notice_kind
   if (message.shell_command || message.shell_output) return 'Shell'
   if (message.sender === 'human') return 'You'

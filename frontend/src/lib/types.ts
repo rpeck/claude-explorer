@@ -177,6 +177,8 @@ export interface ContentBlock {
   // `ambiguous_with` names the runs that were open at the time (Codex).
   from_code_mode?: boolean
   ambiguous_with?: string[]
+  // Issue #91: a SendMessage call or a Codex agent message, and its other side.
+  peer_ref?: PeerRef
   // image content blocks (Claude Code embeds images inline as base64
   // here, alongside a sibling text block that carries the "[Image #N]"
   // marker).
@@ -300,6 +302,35 @@ export interface Message {
   shell_output?: string | null
   // A notice that Claude Code wrote into the session.
   notice_kind?: NoticeKind | null
+  // Issue #91: a message from another session, or an idle notice.
+  peer_ref?: PeerRef
+}
+
+/** Issue #91: the other side of a message between sessions (backend PeerRef). */
+export interface PeerRef {
+  kind: 'sent' | 'received' | 'idle_notice'
+  msg_id: string | null
+  name: string | null
+  conversation_uuid: string | null
+  /** null: a link at session level only. */
+  message_uuid: string | null
+  title: string | null
+  /** 'unknown': the search index cannot answer. */
+  link_state: PeerLinkState
+  mode: string | null
+  because_text: string | null
+  because_message_uuid: string | null
+  notify_message_uuid: string | null
+}
+
+export type PeerLinkState = 'linked' | 'not_in_archive' | 'unknown'
+
+/** One entry of the "Messages with:" row. */
+export interface PeerSession {
+  conversation_uuid: string | null
+  name: string | null
+  title: string | null
+  link_state: PeerLinkState
 }
 
 export type NoticeKind = 'task-notification' | 'bash-notification' | 'scheduled-task' | 'system-reminder'
@@ -337,6 +368,8 @@ export interface ConversationDetail extends ConversationSummary {
   // Issue #96: set on an agent transcript; `uuid` is then the session's.
   agent_id?: string | null
   agent_description?: string | null
+  // Issue #91: the sessions that this one exchanged messages with.
+  peers?: PeerSession[]
 }
 
 export interface SubagentFound {

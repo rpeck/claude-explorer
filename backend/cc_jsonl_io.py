@@ -210,8 +210,10 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
 # Re-exported from the facade so the existing
 # ``from backend.claude_code_reader import LOGIC_VERSION`` import path
 # is preserved.
+# The title helper is hashed too: its output is the cached list title (issue #91
+# changed it for sessions that start with a message from another session).
 LOGIC_VERSION = hashlib.sha256(
-    inspect.getsource(read_conversation_summary_fast).encode()
+    (inspect.getsource(read_conversation_summary_fast) + inspect.getsource(_extract_title_from_message)).encode()
 ).hexdigest()[:16]
 
 

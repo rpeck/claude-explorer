@@ -3,7 +3,8 @@ import { ChevronDown, ChevronRight, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCopyFeedback } from '@/hooks/useCopyFeedback'
 import { errorToast } from '@/lib/errorToast'
-import type { ContentBlock } from '@/lib/types'
+import type { ContentBlock, PeerRef } from '@/lib/types'
+import { PeerLink } from '@/components/message/PeerMessageRow'
 import { HighlightedText } from '@/components/HighlightedText'
 
 interface ToolUseBlockProps {
@@ -16,6 +17,8 @@ interface ToolUseBlockProps {
   fromCodeMode?: boolean
   /** The runs that were open when it ran (Codex, two or more alive cells). */
   ambiguousWith?: string[]
+  /** Issue #91: the other side of a message between sessions. */
+  peerRef?: PeerRef
 }
 
 export function ToolUseBlock({
@@ -25,6 +28,7 @@ export function ToolUseBlock({
   searchQuery = '',
   fromCodeMode = false,
   ambiguousWith,
+  peerRef,
 }: ToolUseBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const { copied, trigger } = useCopyFeedback()
@@ -66,6 +70,11 @@ export function ToolUseBlock({
           </span>
         )}
       </button>
+      {peerRef && (
+        <div className="px-3 pb-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <PeerLink peer={peerRef} prefix={peerRef.kind === 'sent' ? 'Sent to' : 'From'} />
+        </div>
+      )}
       {expanded && (
         <div className="relative border-t border-amber-200 dark:border-amber-800">
           <Button

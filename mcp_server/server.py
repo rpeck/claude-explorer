@@ -518,6 +518,9 @@ def _filter_content_blocks(
                 # parallel calls to their matching tool_result blocks.
                 if block.id:
                     entry["id"] = block.id
+                # Issue #91: the other side of a message between sessions.
+                if block.peer_ref is not None:
+                    entry["peer_ref"] = block.peer_ref.model_dump()
                 if include_tool_results and block.input:
                     entry["input"] = block.input
                 else:
@@ -561,6 +564,9 @@ def _message_to_dict(
     }
     if msg.command_output:
         d["command_output"] = msg.command_output
+    # Issue #91: follow it with get_messages(conversation_uuid, ...).
+    if msg.peer_ref is not None:
+        d["peer_ref"] = msg.peer_ref.model_dump()
 
     if not include_tool_calls and not include_tool_results:
         # Text-only mode
@@ -875,6 +881,11 @@ def get_messages(
                tool calls it made with their input and output, and what it
                returned (default false: a short stub per run in code_runs).
         agent_id: Read this subagent transcript of the session instead.
+
+    A message from another session, or a message tool call (with
+    include_tool_calls), has peer_ref. When its conversation_uuid is set, read
+    the other side with get_messages(conversation_id=conversation_uuid,
+    message_uuids=[message_uuid]).
     """
     _sync_archive()
     store = _get_store()

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Literal
 
 from .cache import parse_jsonl_fast
+from .cc_peer_messages import peer_origin, queued_prompt_text, sent_msg_ids
 
 
 def parse_jsonl_file(path: Path) -> list[dict]:
@@ -56,6 +57,9 @@ def _get_message_key(entry: dict) -> str | None:
     Assistant messages have message.id, user messages use entry uuid.
     """
     entry_type = entry.get("type")
+    # Issue #91: a message from another session that arrived mid-turn is its own row.
+    if entry_type == "attachment" and peer_origin(entry) is not None:
+        return f"user:{entry.get('uuid', '')}"
     if entry_type not in ("user", "assistant"):
         return None
 
@@ -85,6 +89,11 @@ def _merge_entries_to_message(entries: list[dict]) -> dict | None:
     first_entry = entries[0]
     last_entry = entries[-1]
     entry_type = first_entry.get("type")
+    origin = peer_origin(first_entry)
+    if entry_type == "attachment" and origin is not None:
+        # Issue #91: a mid-turn message from another session.
+        entries = [{**first_entry, "type": "user", "message": {"role": "user", "content": queued_prompt_text(first_entry)}}]
+        entry_type = "user"
 
     if entry_type not in ("user", "assistant"):
         return None
@@ -117,9 +126,21 @@ def _merge_entries_to_message(entries: list[dict]) -> dict | None:
             (m for e in entries if (m := (e.get("message") or {}).get("model"))), None
         )
 
+    # Private keys for backend.cc_peer_messages.classify_peer_rows (issue #91).
+    peer: dict = {}
+    if origin is not None:
+        peer["_peer_origin"] = origin
+        peer["_peer_mid_turn"] = first_entry.get("type") == "attachment"
+    sent: dict[str, str] = {}
+    for entry in entries:
+        sent.update(sent_msg_ids(entry))
+    if sent:
+        peer["_peer_sent"] = sent
+
     # Use first entry's uuid as the message uuid (for parent chain)
     # Use first entry's parentUuid to link to previous message
     return {
+        **peer,
         "uuid": first_entry.get("uuid", ""),
         "sender": "human" if entry_type == "user" else "assistant",
         "text": text,
