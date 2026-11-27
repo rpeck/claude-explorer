@@ -520,8 +520,8 @@ def test_mcp_get_messages_without_tools_gives_the_orphan_calls_no_text(env: Env)
 # ---------------------------------------------------------------------------
 
 
-def test_codex_projection_version_is_5() -> None:
+def test_codex_projection_version_is_6() -> None:
     # 3 for N10's history; 4 for the tool calls with no item (C1); 5 for code mode (#90).
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 5
+    assert codex.CODEX_PROJECTION_VERSION == 6
