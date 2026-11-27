@@ -160,6 +160,50 @@ def test_a_registry_entry_without_a_session_id_is_skipped(tmp_path: Path) -> Non
     assert live_session_ids(tmp_path) == set()
 
 
+def _raw_entry(reg: Path, body: bytes) -> None:
+    reg.mkdir(parents=True, exist_ok=True)
+    (reg / f"{os.getpid()}.json").write_bytes(body)
+
+
+def _object(session_id: str) -> bytes:
+    return json.dumps({
+        "pid": os.getpid(), "sessionId": session_id, "cwd": "/home/fixture", "status": "idle",
+        "kind": "interactive", "statusUpdatedAt": 1795755941078,
+    }).encode()
+
+
+# Claude Code 2.1.280 can leave 1 to 31 bytes of an older, longer write after
+# the object (seen in 3 of 29 live registry files, 2026-11-27).
+def test_a_registry_object_with_extra_bytes_after_it_still_counts(tmp_path: Path) -> None:
+    from backend.session_state import live_session_ids, state_of
+
+    _raw_entry(tmp_path / "sessions", _object("extra-bytes-session") + b'01,"waitingFor":"input needed')
+    live = live_session_ids(tmp_path)
+    assert live == {"extra-bytes-session"}
+    running = "extra-bytes-session" in live
+    assert state_of(ended=True, last_activity=NOW, now=NOW, running=running) == "running"
+
+
+def test_a_registry_object_with_an_extra_brace_and_newline_still_counts(tmp_path: Path) -> None:
+    from backend.session_state import live_session_ids, state_of
+
+    _raw_entry(tmp_path / "sessions", _object("extra-brace-session") + b"}\n")
+    live = live_session_ids(tmp_path)
+    assert live == {"extra-brace-session"}
+    running = "extra-brace-session" in live
+    assert state_of(ended=True, last_activity=NOW, now=NOW, running=running) == "running"
+
+
+def test_a_registry_file_with_no_complete_object_falls_back_to_the_transcript_rule(tmp_path: Path) -> None:
+    from backend.session_state import live_session_ids, state_of
+
+    _raw_entry(tmp_path / "sessions", _object("cut-session")[:-1])  # no closing brace
+    live = live_session_ids(tmp_path)
+    assert live == set()
+    running = "cut-session" in live
+    assert state_of(ended=True, last_activity=NOW, now=NOW, running=running) == "ended"
+
+
 def test_a_missing_registry_folder_gives_no_sessions(tmp_path: Path) -> None:
     from backend.session_state import live_session_ids
 

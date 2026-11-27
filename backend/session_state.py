@@ -13,6 +13,7 @@ only. Desktop conversations have no state.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import threading
@@ -132,12 +133,17 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+_DECODER = json.JSONDecoder()
+
+
 def live_session_ids(claude_dir: Path) -> set[str]:
     """The ``sessionId`` of each registry file whose pid is alive.
 
-    The registry is a live format that Claude Code can change: a file that
-    does not parse, or that has no pid or sessionId, is skipped, so its
-    session falls back to the transcript rule.
+    The registry is a live format that Claude Code can change. A file that
+    starts with one complete JSON object counts, and the bytes after it are
+    ignored: Claude Code 2.1.280 leaves a tail of an older, longer write after
+    a shorter rewrite. A file with no complete object at the start, or with no
+    pid or sessionId, is skipped, so its session falls back to the transcript rule.
     """
     out: set[str] = set()
     try:
@@ -146,8 +152,8 @@ def live_session_ids(claude_dir: Path) -> set[str]:
         return out
     for f in files:
         try:
-            data = orjson.loads(f.read_bytes())
-        except (OSError, orjson.JSONDecodeError):
+            data, _ = _DECODER.raw_decode(f.read_text(encoding="utf-8").lstrip())
+        except (OSError, ValueError):  # ValueError covers JSONDecodeError and UnicodeDecodeError
             continue
         if not isinstance(data, dict):
             continue

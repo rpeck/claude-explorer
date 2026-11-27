@@ -1017,8 +1017,10 @@ state chip and the Activity page answer that without opening each session.
 
 - Codex and Cowork have no exit record: Open or Ended (no exit record) by age.
 - Desktop conversations have no state and no chip.
-- A registry file that does not parse is skipped: its session falls back to
-  the transcript rule.
+- A registry file counts when it starts with one complete JSON object; the
+  bytes after the object are ignored (Claude Code can leave the tail of an
+  older write). A file with no complete object at the start is skipped: its
+  session falls back to the transcript rule.
 - The chip shows on list rows and in the header. MCP `list_sessions` gives
   `state` and takes `state` ("active" = running or open).
 - Code: `backend/session_state.py` (a tail read of the transcript, cached by
