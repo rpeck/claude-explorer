@@ -167,6 +167,7 @@ def test_list_conversations_schema_contract(title_filter_data_dir):
         "organization_id": None,
         "organization_name": None,
         "subagents": [],
+        "state": None,  # L2 (#91): a Desktop conversation is not a session
     }
 
 

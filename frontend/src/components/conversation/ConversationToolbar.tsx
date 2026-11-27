@@ -22,7 +22,8 @@
  * because the `default` vs `outline` visual difference was too subtle
  * for users to tell the toggle state at a glance.
  */
-import { ChevronsUpDown, Wrench, Download, Scissors, Copy, Check, FileText, FileType, SquareTerminal } from 'lucide-react'
+import { ChevronsUpDown, Wrench, Download, Scissors, Copy, Check, FileText, FileType, SquareTerminal, Network } from 'lucide-react'
+import { Link, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { expandAllToolsButtonLabel } from '@/components/conversation/expandAllToolsLabel'
@@ -82,6 +83,8 @@ export function ConversationToolbar({
   handleExportPdf,
   isExportingPdf,
 }: ConversationToolbarProps) {
+  // Issue #91: the Activity page centered on this session.
+  const { uuid } = useParams()
   return (
     <div className="flex flex-wrap items-center gap-3">
       {/* 2026-05-24 UX fix: the Tools toggle used to be a Button with
@@ -210,6 +213,14 @@ export function ConversationToolbar({
         <FileType className="h-4 w-4" />
         <span className="ml-2">PDF</span>
       </Button>
+      {uuid && (
+        <Button variant="outline" size="sm" asChild>
+          <Link to={`/activity?center=${encodeURIComponent(uuid)}`} data-testid="conversation-activity-button">
+            <Network className="h-4 w-4" />
+            <span className="ml-2">Activity</span>
+          </Link>
+        </Button>
+      )}
     </div>
   )
 }

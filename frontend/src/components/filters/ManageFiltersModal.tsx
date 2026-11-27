@@ -91,6 +91,7 @@ import {
   type FilterMode,
   type FilterNode,
   type FiltersState,
+  type FilterTarget,
   type GroupFilter,
 } from '@/lib/filterEngine'
 import { cn } from '@/lib/utils'
@@ -114,6 +115,7 @@ interface Draft {
   patterns: string             // textarea raw, one per line
   behavior: Behavior
   mode: FilterMode
+  target: FilterTarget
   // group fields
   match: 'all' | 'any'
   childIds: FilterId[]
@@ -152,10 +154,24 @@ function emptyDraft(): Draft {
     // is the rarer case (and easier to reason about once selected).
     behavior: 'hide',
     mode: 'glob',
+    target: 'title',
     match: 'all',
     childIds: [],
   }
 }
+
+/** The atom targets, in the order of the select (issues #91 and #93). */
+const TARGET_OPTIONS: { value: FilterTarget; label: string }[] = [
+  { value: 'title', label: 'Title' },
+  { value: 'ticket', label: 'Ticket' },
+  { value: 'entrypoint', label: 'Entrypoint' },
+  { value: 'message_text', label: 'Message text' },
+  { value: 'project', label: 'Project' },
+  { value: 'source', label: 'Source' },
+  { value: 'machine', label: 'Machine' },
+  { value: 'active_within', label: 'Active within' },
+  { value: 'state', label: 'State' },
+]
 
 function nodeToDraft(node: FilterNode): Draft {
   if (node.type === 'atom') {
@@ -168,6 +184,7 @@ function nodeToDraft(node: FilterNode): Draft {
       patterns: node.patterns.join('\n'),
       behavior: node.behavior,
       mode: node.mode,
+      target: node.target ?? 'title',
       match: 'all',
       childIds: [],
     }
@@ -181,6 +198,7 @@ function nodeToDraft(node: FilterNode): Draft {
     patterns: '',
     behavior: 'hide',
     mode: 'glob',
+    target: 'title',
     match: node.match,
     childIds: [...node.childIds],
   }
@@ -337,7 +355,7 @@ export function ManageFiltersModal({ isOpen, onClose }: ManageFiltersModalProps)
         patterns,
         behavior: draft.behavior,
         mode: draft.mode,
-        target: 'title',
+        target: draft.target,
       }
       prospective = atom
     } else {
@@ -797,6 +815,29 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
   return (
     <div className="flex flex-col gap-3">
       {/* Behavior is the highest-impact decision — top of the editor. */}
+      <div>
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1" htmlFor="filter-editor-target">
+          Target
+        </label>
+        <select
+          id="filter-editor-target"
+          data-testid="filter-editor-target"
+          value={draft.target}
+          onChange={(e) => onChange({ ...draft, target: e.target.value as FilterTarget })}
+          className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+        >
+          {TARGET_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        {draft.target === 'active_within' && (
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            A duration such as 30m, 12h, 7d, or 2w: a session matches when its last activity is that recent.
+          </p>
+        )}
+      </div>
       <div>
         <span className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Behavior</span>
         <div className="flex gap-2" role="radiogroup" aria-label="Behavior">

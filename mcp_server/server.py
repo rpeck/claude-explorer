@@ -227,6 +227,21 @@ def _source_filter(source: str | None) -> SourceFilter:
     raise ToolError(f'Unknown source "{source}". Use one of: {", ".join(["all", *ids])}.')
 
 
+_STATES = ("running", "open", "ended", "ended_no_exit")
+
+
+def _state_filter(state: str | None) -> set[str] | None:
+    """The ``state`` argument as a set of states; None: no filter. Raises ``ToolError``."""
+    value = (state or "").strip().lower()
+    if not value:
+        return None
+    if value == "active":
+        return {"running", "open"}
+    if value in _STATES:
+        return {value}
+    raise ToolError(f'Unknown state "{state}". Use one of: {", ".join([*_STATES, "active"])}.')
+
+
 def _source_fields(conv: ConversationSummary) -> dict[str, Any]:
     """The Codex name and home (``~/...``), and the notices when not empty.
 
@@ -625,6 +640,7 @@ def list_sessions(
     offset: int = 0,
     include_tool_calls: bool = False,
     include_code_mode: bool = False,
+    state: str | None = None,
 ) -> dict[str, Any]:
     """Search and list saved Claude conversation sessions.
     Only call when the user explicitly asks to search or browse past sessions.
@@ -658,6 +674,12 @@ def list_sessions(
         include_code_mode: Also search Code Mode runs: each script, the tool
                calls it made, and what it returned. Default false.
                Independent of include_tool_calls. Ignored when query is omitted.
+        state: Filter by session state: "running" (a live Claude Code process
+               on this machine), "open" (no exit record, active in the last
+               7 days), "ended" (an exit record after the last turn),
+               "ended_no_exit" (no exit record, 7 days old or more), or
+               "active" (running or open). Each session has its "state";
+               Claude Desktop conversations have none.
 
     Note (spec §3, 2026-05-14): there is intentionally NO ``active_filter``
     or ``conversation_uuids`` parameter. The sidebar's active-filter
@@ -669,6 +691,7 @@ def list_sessions(
     PLANS/2026.05.14-search-scope-propagation-spec.md.
     """
     src = _source_filter(source)
+    states = _state_filter(state)
     _sync_archive()
     store = _get_store()
     limit = min(max(1, limit), 100)
@@ -721,6 +744,7 @@ def list_sessions(
                     # Issue #96: a hit inside a subagent transcript of the session.
                     "agent_id": sr.agent_id,
                     "agent_description": sr.agent_description,
+                    "state": s.state,
                     **_source_fields(s),
                 }
                 sessions.append(entry)
@@ -741,6 +765,7 @@ def list_sessions(
                 "model": s.model,
                 "created_at": _format_dt(s.created_at),
                 "updated_at": _format_dt(s.updated_at),
+                "state": s.state,
                 **_source_fields(s),
             })
 
@@ -751,6 +776,9 @@ def list_sessions(
             s for s in sessions
             if s.get("project") and project_lower in s["project"].lower()
         ]
+
+    if states is not None:
+        sessions = [s for s in sessions if s["state"] in states]
 
     total = len(sessions)
     sessions = sessions[offset : offset + limit]

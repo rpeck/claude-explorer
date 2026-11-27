@@ -450,6 +450,7 @@
     "source_home": null,
     "source_home_abs": null,
     "source_name": null,
+    "state": "open",
     "subagents": [],
     "subagents_found": [
       {

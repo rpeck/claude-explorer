@@ -1296,6 +1296,47 @@ class SearchIndex:
             ))
         return own, others
 
+    def peer_graph_rows(self) -> list[dict[str, Any]]:
+        """Issue #91 (Messages tab): every ``peer_messages`` row, with the title of
+        its conversation. A row whose conversation is gone is left out."""
+        cur = self._get_read_conn().execute(
+            "SELECT p.msg_id, p.conv_uuid, p.message_uuid, p.direction, p.block_id, p.session_uuid, "
+            "p.agent_id, p.peer_name, c.title AS title FROM peer_messages p "
+            "JOIN conversations c ON c.conv_uuid = p.conv_uuid"
+        )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r, strict=True)) for r in cur]
+
+    def message_facts(self, wanted: dict[str, set[str]]) -> dict[tuple[str, str], tuple[str, str]]:
+        """``{(conv_uuid, message_uuid): (created_at, text)}`` for the given messages.
+
+        Finds the rows of a conversation through ``message_rowids``, never by a
+        scan of the UNINDEXED ``conv_uuid`` column. The text is ``body_text``,
+        else ``body`` (a Codex agent message is a tool call).
+        """
+        conn = self._get_read_conn()
+        out: dict[tuple[str, str], tuple[str, str]] = {}
+        for conv, uuids in wanted.items():
+            ids = sorted(u for u in uuids if u)
+            for i in range(0, len(ids), 500):
+                chunk = ids[i:i + 500]
+                for mu, created, text, body in conn.execute(
+                    "SELECT message_uuid, created_at, body_text, body FROM messages WHERE rowid IN "
+                    "(SELECT msg_rowid FROM message_rowids WHERE conv_uuid = ?) "
+                    f"AND message_uuid IN ({','.join('?' * len(chunk))})",
+                    (conv, *chunk),
+                ):
+                    out[(conv, mu)] = (created or "", text or body or "")
+        return out
+
+    def idle_notice_messages(self) -> list[tuple[str, str]]:
+        """``(conv_uuid, message_uuid)`` of each Claude Code idle notice (one FTS5 MATCH)."""
+        rows = self._get_read_conn().execute(
+            "SELECT conv_uuid, message_uuid, body_text FROM messages WHERE messages MATCH ?",
+            ('body_text : "cross session idle notice"',),
+        )
+        return [(c, m) for c, m, t in rows if (t or "").lstrip().startswith("[Cross-session idle notice]")]
+
     def has_code_runs(self) -> bool:
         """True when any indexed conversation holds a Code Mode run (#80 option B).
 

@@ -52,6 +52,54 @@ export interface ConversationListItem {
   // when present and true, the sidebar can render an "Archived"
   // badge under the "Show archived" toggle.
   is_archived?: boolean
+  // Issue #91: Running, Open, Ended (backend/session_state.py). Null for Desktop.
+  state?: SessionState | null
+}
+
+/** Issue #91 (backend/session_state.py). */
+export type SessionState = 'running' | 'open' | 'ended' | 'ended_no_exit'
+
+/** Issue #91: one session of the Messages tab (backend PeerGraphSession). */
+export interface PeerGraphSession {
+  /** index_key(uuid, agent_id); "name:<peer name>" for a peer not in the archive. */
+  key: string
+  uuid: string | null
+  agent_id: string | null
+  title: string | null
+  name: string | null
+  source: ConversationSource | null
+  project_name: string | null
+  project_path: string | null
+  state: SessionState | null
+  updated_at: string | null
+  in_archive: boolean
+  /** 0 = the center; null in the active scope. */
+  hop: number | null
+  via_key: string | null
+  derived_parent_key: string | null
+}
+
+/** Issue #91: one message between two sessions (backend PeerGraphMessage). */
+export interface PeerGraphMessage {
+  msg_id: string | null
+  kind: 'message' | 'idle_notice' | 'subagent'
+  from_key: string
+  to_key: string
+  from_message_uuid: string | null
+  to_message_uuid: string | null
+  timestamp: string | null
+  text: string | null
+}
+
+/** Issue #91: the data of the Messages tab (backend PeerGraph). */
+export interface PeerGraph {
+  scope: 'active' | 'hops'
+  center_key: string | null
+  /** null = the whole connected group. */
+  hops: number | null
+  subagents: boolean
+  sessions: PeerGraphSession[]
+  messages: PeerGraphMessage[]
 }
 
 // Full per-conversation payload. Returned by `GET /api/conversations/{uuid}`
@@ -107,6 +155,8 @@ export interface ConversationSummary {
   notices?: string[]
   // The parent thread of a subagent or fork.
   parent_uuid?: string | null
+  // Issue #91: Running, Open, Ended (backend/session_state.py). Null for Desktop.
+  state?: SessionState | null
 }
 
 // cowork-multi-org C6: workspace selector source.

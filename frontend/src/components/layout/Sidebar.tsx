@@ -7,7 +7,7 @@ import { ProjectPicker } from '@/components/layout/ProjectPicker'
 import { useFilters } from '@/contexts/FilterContext'
 import { ManageFiltersModal } from '@/components/filters/ManageFiltersModal'
 import { MigrationBanner } from '@/components/filters/MigrationBanner'
-import { Search, Settings, Settings2, Download, MessageSquare, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Clock, ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { Search, Settings, Settings2, Download, MessageSquare, RefreshCw, ArrowUpDown, FolderTree, Sun, Moon, Monitor, Filter as FilterIcon, Clock, ChevronDown, SlidersHorizontal, Network } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -505,6 +505,12 @@ export function Sidebar({ className }: SidebarProps) {
             <Link to="/settings">
               <Settings className="h-4 w-4" />
               <span className="ml-2">Settings</span>
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/activity" data-testid="sidebar-activity-link">
+              <Network className="h-4 w-4" />
+              <span className="ml-2">Activity</span>
             </Link>
           </Button>
           <Button

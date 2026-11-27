@@ -169,6 +169,7 @@
     "source_home": null,
     "source_home_abs": null,
     "source_name": null,
+    "state": null,
     "subagents": [],
     "subagents_found": [],
     "summary": "Phase 5 fixture: Tool calls",

@@ -990,12 +990,93 @@ where it arrived.
   first message. A session in the archive is a link; another shows its name.
 - **MCP:** `get_messages` gives `peer_ref` on each such message (and on the
   tool call, with `include_tool_calls`); follow it with `get_messages`.
-- **Not yet:** the Messages tab, session state, and the link across
-  machines (`bridge-session`).
+- **"Open in Messages tab"** after the row opens the Activity page centered
+  on this session (§21).
+- **Not yet:** the link across machines (`bridge-session`).
 - Code: `backend/cc_peer_messages.py`, the `peer_messages` table in
   `backend/search_index.py`, the join in `backend/store.py`,
   `frontend/src/components/message/PeerMessageRow.tsx`,
   `frontend/src/components/conversation/PeerSessionsRow.tsx`.
+
+---
+
+## 21. Session state and the Activity page (issue #91)
+
+You run many sessions at once, and most questions are about the ones that
+still work: who talks to whom now, and what a session's workers do. The
+state chip and the Activity page answer that without opening each session.
+
+### Session state
+
+| Chip | Rule |
+|---|---|
+| Running | Claude Code only: `~/.claude/sessions/<pid>.json` names the session, and the pid is alive. Local machine only, read in place. |
+| Ended | A `cost-state` or `continued-in` record after the last turn (a resumed session appends after its old `cost-state`). |
+| Open | No end record after the last turn, and the last activity is less than 7 days old. |
+| Ended (no exit record) | No end record, and 7 days old or more (a crash, or a version before the end record). |
+
+- Codex and Cowork have no exit record: Open or Ended (no exit record) by age.
+- Desktop conversations have no state and no chip.
+- A registry file that does not parse is skipped: its session falls back to
+  the transcript rule.
+- The chip shows on list rows and in the header. MCP `list_sessions` gives
+  `state` and takes `state` ("active" = running or open).
+- Code: `backend/session_state.py` (a tail read of the transcript, cached by
+  path, mtime, and size).
+
+### The Activity page
+
+- **Where:** `/activity`. The sidebar link "Activity", the toolbar button
+  "Activity", and "Open in Messages tab" open it; the last two add
+  `?center=<uuid>`, which names the open session.
+- **Tabs:** Messages, Code Mode, and "Subagents: coming in #46" (disabled).
+- **Code Mode tab:** the Code Mode runs of the center session, each with its
+  data-flow diagram (§18). A click opens the run in the conversation. Without
+  a center: "Pick a session to see its Code Mode runs."
+
+### Messages tab
+
+- **Scope:** "All active sessions" (the default: every Running or Open
+  session, and the messages between them), or "Around this session" (only
+  with a center): the sessions k hops away in both directions, k = 1 to 5 or
+  "all". k is 2 when you pick the scope.
+- **Views:**
+  - **Sequence:** one lane per session, time goes down, one arrow per message.
+  - **Graph:** one node per lane, one edge per direction with the message count
+    (@dagrejs/dagre).
+  - **List:** one row per message: from, to, time, text.
+- **A click** on an arrow, a row, or an edge opens the message in the session
+  that is not the center (no center: the receiver). A session that is not in
+  the archive has no link; its tooltip says "not in the archive".
+- **Order:** depth first by the derived hierarchy, labeled "Order: derived
+  (parent = sender of the first message)". The first message is by the
+  session's own record times. Pinned lanes come first.
+- **Folding:** around a session, a session 2 or more hops away folds under the
+  hop-1 lane that reaches it ("+N sessions"). A click expands it.
+- **Lane menu ("…"):** Pin or Unpin, Hide, Collapse or Expand (the derived
+  subtree). A collapsed lane shows "+N sessions" (N = its hidden subtree); a
+  click on it expands the lane. "Hidden: N" shows the hidden sessions again.
+- **Subagents:** with "Subagent edges" on, every agent transcript of a session
+  in scope is a session of its own, also one that sent no message.
+- **Text of a message whose receiver is not in the archive:** the
+  `SendMessage` input, read from the sender's own transcript.
+- **Lane limit:** 12 lanes; the rest share the lane "N other sessions". A pick
+  in its list pins that session.
+- **Filter:** the tab has its own named filter ("No filter" by default),
+  separate from the sidebar's active filter. The filter targets of §"Composable
+  filters" apply, also "Message text" (the messages of the session) and
+  "Active within" (a duration such as 12h or 7d).
+- **No exceptions:** a filter that removes the center removes it, and the tab
+  says "The active filter hides this session." Other empty states: "No active
+  sessions." and "No sessions match the filter."
+- **Subagent edges** (a toggle): agent transcripts show as their own sessions,
+  with an edge to their main session. Off: an agent's messages count for its
+  main session.
+- **Saved per center session** (one set without a center): view, scope, k,
+  subagent edges, filter, folds, pins, and hides.
+- **Data:** `GET /api/peers/active` and `GET /api/conversations/{uuid}/peers?hops=&subagents=`
+  (`backend/store.py:peer_graph`). Time and text come from the search index.
+- Code: `frontend/src/components/messages/`.
 
 ---
 

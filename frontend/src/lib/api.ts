@@ -5,6 +5,7 @@ import type {
   ConversationTree,
   ConversationFilters,
   OrgsResponse,
+  PeerGraph,
   SearchResponse,
   SortField,
   SortOrder,
@@ -168,6 +169,18 @@ export const api = {
     signal?: AbortSignal,
   ): Promise<ConversationTree> =>
     fetchJson<ConversationTree>(`/conversations/${uuid}/tree`, signal),
+
+  // Issue #91: the Messages tab. `hops`: 1 to 5, or 'all'.
+  getConversationPeers: (
+    uuid: string,
+    hops: number | 'all',
+    subagents: boolean,
+    signal?: AbortSignal,
+  ): Promise<PeerGraph> =>
+    fetchJson<PeerGraph>(`/conversations/${uuid}/peers?hops=${hops}&subagents=${subagents}`, signal),
+
+  getActivePeers: (subagents: boolean, signal?: AbortSignal): Promise<PeerGraph> =>
+    fetchJson<PeerGraph>(`/peers/active?subagents=${subagents}`, signal),
 
   search: async (
     query: string,

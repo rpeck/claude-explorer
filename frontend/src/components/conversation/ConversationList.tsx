@@ -6,7 +6,8 @@ import { useConversations } from '@/hooks/useConversations'
 import { useKeyboardNavigation } from '@/contexts/KeyboardNavigationContext'
 import { Badge } from '@/components/ui/badge'
 import { cn, formatDate } from '@/lib/utils'
-import { applyActiveFilter, patternMatches, type FilterMode } from '@/lib/filterEngine'
+import { applyActiveFilterToItem, patternMatches, type FilterMode } from '@/lib/filterEngine'
+import { SessionStateChip } from '@/components/messages/SessionStateChip'
 import { useFilters } from '@/contexts/FilterContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
 import { SOURCE_PRESETS, SourceBadge } from '@/components/conversation/SourceBadge'
@@ -182,7 +183,12 @@ export function ConversationList({
     }
     // CF1: composable-graph evaluator. applyActiveFilter handles the null
     // active id, missing/disabled active node, and cycle defense.
-    list = list.filter((c) => applyActiveFilter(c.name, filtersState))
+    list = list.filter((c) =>
+      applyActiveFilterToItem(
+        { name: c.name, project: c.project_name, source: c.source, updatedAt: c.updated_at, state: c.state },
+        filtersState,
+      ),
+    )
     return list
   }, [rawConversations, projectSlug, projectPath, recentHours, now, titleFilter, titleFilterMode, filtersState])
 
@@ -912,6 +918,7 @@ function ConversationListItem({
               Sidebar.tsx:230-234 dropdown is the only OTHER place that
               needs to track source-shape changes. */}
           <SourceBadge source={conversation.source} variant="row" />
+          <SessionStateChip state={conversation.state} />
           {conversation.model && (
             // #52: one model name everywhere; the raw id is the tooltip.
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0" title={conversation.model} data-testid="list-row-model">
