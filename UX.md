@@ -1006,13 +1006,25 @@ and searches these transcripts like a session.
   `updated_at` is newer than the local copy, not only conversations
   missing from disk.
 - **Every fetch first copies the local sources into the archive** (the
-  Codex sessions, from slice 1 of the Codex plan). The copy runs before the
-  capture, so it runs also without credentials.
+  Codex sessions, from slice 1 of the Codex plan; the Claude Code and local
+  Cowork sessions, from #92). The copy runs before the capture, so it runs
+  also without credentials.
+  - Refresh copies for at most 20 s; the watcher copies the rest.
   - It waits up to 60 s for another writer (the watcher, the CLI, an MCP
     server). If the lock stays busy, the toast shows "Another Claude
-    Explorer process is copying the Codex sessions into the archive. This
+    Explorer process is copying sessions into the archive. This
     fetch skipped the copy; the next one does it." (`phase: "codex"`), and
     the claude.ai fetch continues.
+- **A Claude Code or local Cowork session stays in the list after Claude
+  deletes its file.** The watcher, the backstop, and Refresh copy each
+  session file (also the subagent files and the Cowork sidecar) into
+  `<data folder>/machines/<machine id>/`. The copy only grows.
+  - While the live file exists, the list, the viewer, search, and MCP show
+    the live file. When it is gone, they show the archive copy, with no
+    notice. MCP reads the copies, but does not copy.
+  - The first copy writes about as much as `~/.claude/projects` holds (for
+    example 5.8 GB). If the data folder is cloud-synced, the cloud-sync
+    consent (below) also sends these sessions to that cloud service.
 - **The cloud-sync gate refuses a fetch** (see "Cloud-sync gate" below).
   Refresh, **Fetch New**, **Full Refresh**, and **Re-download** get HTTP
   409 before any network call. The message names the folder and the

@@ -8,6 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Literal
 
+from .archive_sync import archive_roots, live_first
 from .cc_subagents import (
     AgentFile,
     find_agent,
@@ -82,6 +83,11 @@ logger = logging.getLogger(__name__)
 _DETAIL_DICT_CACHE_MAX = 32
 _DETAIL_DICT_CACHE: OrderedDict[tuple[str, str], tuple[float, dict[str, Any]]] = OrderedDict()
 _DETAIL_DICT_CACHE_LOCK = threading.RLock()
+
+
+def _agent_key(path: Path) -> tuple[str, str]:
+    """An agent file's identity across roots: its session (or project) and its name."""
+    return (path.parent.parent.name if path.parent.name == "subagents" else path.parent.name, path.name)
 
 
 def invalidate_detail_dict_cache(uuid: str | None = None) -> None:
@@ -671,7 +677,8 @@ class ConversationStore:
             include_phantom: If True, include phantom sessions (local command artifacts).
         """
         return list_claude_code_conversations(
-            self.claude_dir, full_content=full_content, include_phantom=include_phantom
+            self.claude_dir, full_content=full_content, include_phantom=include_phantom,
+            archive_roots=self._cc_archive_roots(),
         )
 
     def _get_all_conversations_data(
@@ -724,13 +731,31 @@ class ConversationStore:
         # full sessions.
         if full_content:
             from .cowork_reader import list_cowork_conversations
-            return list_cowork_conversations(self.cowork_root, self.remote_cowork_root)
+            return list_cowork_conversations(
+                self.cowork_root, self.remote_cowork_root, self._cowork_archive_roots()
+            )
         return self._cowork_summaries()
 
-    def _discover_claude_code(self) -> list[Path]:
-        from . import claude_code_reader
+    # The archive copies (machines/<id>/...) of every machine. A copy shows
+    # only when its live file is gone (AGENTS.md, guiding principle 2).
+    def _cc_archive_roots(self) -> list[Path]:
+        return archive_roots(self.data_dir, "claude-code")
 
-        return list(claude_code_reader.discover_jsonl_files(self.claude_dir))
+    def _cowork_archive_roots(self) -> list[Path]:
+        return archive_roots(self.data_dir, "cowork")
+
+    def _cc_session_files(self) -> list[Path]:
+        """The session files: live, then the archive copies of the other uuids."""
+        roots = (self.claude_dir, *self._cc_archive_roots())
+        return live_first([discover_jsonl_files(r) for r in roots], key=lambda p: p.stem)
+
+    def _cc_agent_files(self) -> list[Path]:
+        """The agent files: live, then the archive copies of the other agents."""
+        roots = (self.claude_dir, *self._cc_archive_roots())
+        return live_first([iter_agent_files(r) for r in roots], key=_agent_key)
+
+    def _discover_claude_code(self) -> list[Path]:
+        return self._cc_session_files()
 
     def _discover_cowork(self) -> list[Path]:
         """The ``audit.jsonl`` of each session; it shares ``.jsonl`` with Claude Code."""
@@ -738,7 +763,9 @@ class ConversationStore:
 
         audits = (
             d / "audit.jsonl"
-            for d in iter_cowork_session_dirs(self.cowork_root, self.remote_cowork_root)
+            for d in iter_cowork_session_dirs(
+                self.cowork_root, self.remote_cowork_root, self._cowork_archive_roots()
+            )
         )
         return [a for a in audits if a.exists()]
 
@@ -760,11 +787,12 @@ class ConversationStore:
         """Cached summaries of every Cowork session; see the cache notes above."""
         from . import cowork_reader
 
-        roots = [r for r in (self.cowork_root, self.remote_cowork_root) if r is not None]
+        archives = self._cowork_archive_roots()
+        roots = [r for r in (self.cowork_root, self.remote_cowork_root, *archives) if r is not None]
         out: list[dict[str, Any]] = []
         live: set[Path] = set()
         for session_dir in cowork_reader.iter_cowork_session_dirs(
-            self.cowork_root, self.remote_cowork_root
+            self.cowork_root, self.remote_cowork_root, archives
         ):
             live.add(session_dir)
             # Stat before the read: a change during the read then has a newer
@@ -933,7 +961,7 @@ class ConversationStore:
         # session it continues) needed Pass B, which matched on the summary
         # uuid. Pass B and the final scan now only run for a uuid that no
         # file has, and then return 404.
-        cc_files = list(discover_jsonl_files(self.claude_dir))
+        cc_files = self._cc_session_files()
 
         for jsonl_path in cc_files:
             if jsonl_path.stem == uuid:
@@ -1012,7 +1040,7 @@ class ConversationStore:
         )
         found: tuple[dict[str, Any], Path] | None = None
         for candidate in find_cowork_session_dirs(
-            self.cowork_root, self.remote_cowork_root, uuid
+            self.cowork_root, self.remote_cowork_root, uuid, self._cowork_archive_roots()
         ):
             data = read_cowork_conversation(candidate)
             if not data or data.get("uuid") != uuid:
@@ -1149,19 +1177,26 @@ class ConversationStore:
 
     # ----- Subagent transcripts (issue #96) -----
 
+    def _claude_code_session_paths(self, uuid: str) -> list[Path]:
+        """The session files whose name is ``uuid``, live first; a comparison, never a built path."""
+        roots = (self.claude_dir, *self._cc_archive_roots())
+        return [p for r in roots for p in discover_jsonl_files(r) if p.stem == uuid]
+
     def _claude_code_session_path(self, uuid: str) -> Path | None:
-        """The session file whose name is ``uuid``; a comparison, never a built path."""
-        return next(
-            (p for p in discover_jsonl_files(self.claude_dir) if p.stem == uuid), None
-        )
+        return next(iter(self._claude_code_session_paths(uuid)), None)
 
     def find_agent(self, uuid: str, agent_id: str) -> tuple[Path, AgentFile] | None:
-        """``(session file, agent)`` of the Claude Code session ``uuid``, through discovery."""
+        """``(session file, agent)`` of the Claude Code session ``uuid``, through discovery.
+
+        A live session can have lost an agent file that its archive copy keeps.
+        """
         if not is_valid_agent_id(agent_id):
             return None
-        session_file = self._claude_code_session_path(uuid)
-        agent = find_agent(session_file, agent_id) if session_file is not None else None
-        return (session_file, agent) if agent is not None else None
+        for session_file in self._claude_code_session_paths(uuid):
+            agent = find_agent(session_file, agent_id)
+            if agent is not None:
+                return session_file, agent
+        return None
 
     def get_agent_conversation(self, uuid: str, agent_id: str) -> ConversationDetail | None:
         """The agent transcript as a ``ConversationDetail`` with ``uuid`` = the session's."""
@@ -1179,7 +1214,7 @@ class ConversationStore:
         if source not in ("all", "CLAUDE_CODE"):
             return []
         out = []
-        for path in iter_agent_files(self.claude_dir):
+        for path in self._cc_agent_files():
             owner = owner_of(path)
             data = read_agent_conversation(*owner) if owner is not None else None
             if data is not None:

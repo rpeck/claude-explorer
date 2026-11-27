@@ -35,9 +35,7 @@ class ClaudeCodeAdapter:
 
     def discover(self) -> list[Path]:
         # Issue #96: each agent transcript is its own indexed source.
-        from backend.cc_subagents import iter_agent_files
-
-        return [*self._store._discover_claude_code(), *iter_agent_files(self._store.claude_dir)]
+        return [*self._store._discover_claude_code(), *self._store._cc_agent_files()]
 
     def list_rows(self, *, full_content: bool, include_phantom: bool) -> list[dict[str, Any]]:
         return self._store._get_claude_code_conversations(
@@ -60,7 +58,26 @@ class ClaudeCodeAdapter:
         return self._store._load_claude_code_for_index(path)
 
     def archive_sync(self, ctx: SyncContext) -> SyncReport | None:
-        return None
+        """Copy the session and agent files into ``machines/<id>/claude-code/projects``."""
+        from backend.archive_sync import sync_machine_tree
+        from backend.cc_jsonl_io import discover_jsonl_files
+        from backend.cc_subagents import iter_agent_files
+
+        claude_dir = self._store.claude_dir
+
+        def streams() -> list[Path]:
+            return [*discover_jsonl_files(claude_dir), *iter_agent_files(claude_dir)]
+
+        def side_files(files: list[Path]) -> list[Path]:
+            # Claude Code's own agent description, next to the agent file.
+            metas = (p.with_suffix(".meta.json") for p in files if p.name.startswith("agent-"))
+            return [m for m in metas if m.is_file()]
+
+        return sync_machine_tree(
+            ctx, data_dir=self._store.data_dir, part="claude-code", label="Claude Code",
+            live_root=claude_dir / "projects", mirror="projects",
+            streams=streams, side_files=side_files,
+        )
 
     def branch_flag(self, data: dict[str, Any], chat_messages: list[dict[str, Any]]) -> bool:
         # Post-compact duplicate UUIDs poison the parent->children count,

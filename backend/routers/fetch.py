@@ -145,7 +145,7 @@ CODEX_PHASE = "codex"
 #: another writer (the watcher, the CLI, an MCP server).
 ARCHIVE_LOCK_TIMEOUT_S = 60.0
 ARCHIVE_BUSY_MESSAGE = (
-    "Another Claude Explorer process is copying the Codex sessions into the "
+    "Another Claude Explorer process is copying sessions into the "
     "archive. This fetch skipped the copy; the next one does it."
 )
 

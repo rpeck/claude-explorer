@@ -14,11 +14,13 @@ Features:
 import logging
 import os
 import threading
+from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .archive_sync import live_first
 from .cache import (
     get_conversation_cache,
 )
@@ -327,8 +329,12 @@ def list_claude_code_conversations(
     claude_dir: Path = DEFAULT_CLAUDE_DIR,
     full_content: bool = False,
     include_phantom: bool = False,
+    archive_roots: Sequence[Path] = (),
 ) -> list[dict[str, Any]]:
     """List all Claude Code conversations from local JSONL files, including subagents.
+
+    ``archive_roots`` are archive copies of ``claude_dir`` (``machines/<id>/claude-code``);
+    a copy shows only when no earlier root has a session of its uuid.
 
     Args:
         claude_dir: Path to Claude config directory
@@ -344,9 +350,15 @@ def list_claude_code_conversations(
     """
     # Build agent index once upfront - reads each agent file once and extracts summaries
     agent_index = build_agent_index_with_summaries(claude_dir)
+    for root in archive_roots:
+        for session_id, agents in build_agent_index_with_summaries(root).items():
+            have = agent_index.setdefault(session_id, [])
+            ids = {a["agent_id"] for a in have}
+            have.extend(a for a in agents if a["agent_id"] not in ids)
 
     # Collect all file paths
-    jsonl_paths = list(discover_jsonl_files(claude_dir))
+    roots = (claude_dir, *archive_roots)
+    jsonl_paths = live_first([discover_jsonl_files(r) for r in roots], key=lambda p: p.stem)
 
     if full_content:
         # Use cache + parallel loading for full content
