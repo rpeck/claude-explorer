@@ -913,6 +913,131 @@ def warm_cc_cache(limit: int | None) -> None:
 
 
 
+@main.group()
+def archive() -> None:
+    """Move this machine's sessions to another machine's archive (issue #92)."""
+
+
+def _archive_settings(*, writes: bool):  # type: ignore[no-untyped-def]
+    """The settings, or exit 1 on a corrupt config (and, to write, a closed cloud gate)."""
+    from backend.config import get_settings
+    from backend.deps import CONFIG_CORRUPT_REFUSAL_TEMPLATE
+
+    get_settings.cache_clear()
+    settings = get_settings()
+    if settings.config_corrupt_reason:
+        raise click.ClickException(
+            CONFIG_CORRUPT_REFUSAL_TEMPLATE.format(reason=settings.config_corrupt_reason)
+        )
+    if writes:
+        from backend.write_gate import cloud_sync_block, cloud_sync_message
+
+        block = cloud_sync_block(settings)
+        if block is not None:
+            raise click.ClickException(cloud_sync_message(block))
+    return settings
+
+
+@archive.command("export")
+@click.option("--to", "dest", type=click.Path(path_type=Path), default=None,
+              help="The bundle file or folder (default: the current folder)")
+@click.option("--passphrase", is_flag=True, help="Encrypt the bundle; asks for the passphrase")
+@click.option("--full", is_flag=True, help="Carry every file, not only what is new since the last export")
+def archive_export(dest: Path | None, passphrase: bool, full: bool) -> None:
+    """Write a bundle of the sessions that the export rules allow."""
+    from backend import machines
+
+    _archive_settings(writes=False)
+    secret = click.prompt("Passphrase", hide_input=True, confirmation_prompt=True) if passphrase else None
+    try:
+        result = machines.export_bundle(dest or Path.cwd(), passphrase=secret, full=full)
+    except machines.BundleError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"Exported {result.file_count} file(s), {result.total_bytes} bytes to {result.path}")
+
+
+@archive.command("import")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--passphrase", is_flag=True, help="The bundle is encrypted; asks for the passphrase")
+def archive_import(path: Path, passphrase: bool) -> None:
+    """Add the sessions of another machine's bundle to this archive (append-only)."""
+    from backend import machines
+
+    _archive_settings(writes=True)
+    secret = click.prompt("Passphrase", hide_input=True) if passphrase else None
+    try:
+        result = machines.import_bundle(path, passphrase=secret)
+    except machines.BundleError as exc:
+        raise click.ClickException(str(exc)) from exc
+    except TimeoutError as exc:
+        raise click.ClickException(str(exc)) from exc
+    counts = ", ".join(f"{n} {k}" for k, n in result.counts.items())
+    click.echo(f"Imported from {result.label or 'Machine ' + result.machine_id[:8]}: {counts}")
+    for warning in result.warnings:
+        click.echo(f"warning: {warning}", err=True)
+    _reindex_after_import()
+
+
+def _reindex_after_import() -> None:
+    """Make the imported sessions searchable now; the watcher does not watch the archive."""
+    from backend import search_index
+    from backend.store import ConversationStore
+
+    idx = search_index.get_search_index()
+    if idx is not None and idx.is_ready():
+        search_index.update_drifted_files(ConversationStore(), index=idx)
+
+
+@archive.command("preview")
+@click.option("--full", is_flag=True, help="Preview a full export")
+def archive_preview(full: bool) -> None:
+    """List the files that the next export carries, and the total."""
+    from backend import machines
+
+    _archive_settings(writes=False)
+    preview = machines.preview_export(full=full)
+    for f in preview.files:
+        click.echo(f"{f.bytes:>12}  {f.path}")
+    click.echo(f"{preview.file_count} file(s), {preview.total_bytes} bytes")
+
+
+@archive.command("remove-shared")
+@click.option("--yes", is_flag=True, help="Do not ask")
+def archive_remove_shared(yes: bool) -> None:
+    """Remove this machine's folder (only that) from the shared sync folder."""
+    from backend import machines
+    from backend.archive_sync import MACHINES_DIR, own_machine_id
+
+    settings = _archive_settings(writes=False)
+    own = own_machine_id()
+    if settings.shared_archive_dir is None or own is None:
+        raise click.ClickException("No shared folder is set, or this machine has no id yet.")
+    target = settings.shared_archive_dir / MACHINES_DIR / own
+    if not yes and not click.confirm(f"Remove this machine's folder {target} from the shared folder?", default=False):
+        click.echo("Nothing removed.")
+        return
+    machines.remove_own_shared_folder(settings, confirm=own)
+    click.echo(f"Removed {target}")
+
+
+@main.group()
+def machine() -> None:
+    """This machine's name in a shared archive (issue #92)."""
+
+
+@machine.command("label")
+@click.argument("text")
+def machine_label(text: str) -> None:
+    """Set this machine's label (empty text removes it)."""
+    from backend import machines
+
+    try:
+        info = machines.set_machine_label(text)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"This machine: {info.label}")
+
+
 @main.command("install-watcher")
 @click.option(
     "--python",

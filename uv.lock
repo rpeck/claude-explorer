@@ -536,6 +536,8 @@ name = "claude-explorer"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
+    { name = "cryptography", version = "44.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
+    { name = "cryptography", version = "46.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "curl-cffi" },
     { name = "fastapi" },
     { name = "fastmcp" },
@@ -570,6 +572,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1" },
+    { name = "cryptography", specifier = ">=42" },
     { name = "curl-cffi", specifier = ">=0.7" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "fastmcp", specifier = ">=3.0" },

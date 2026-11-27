@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 from fetcher.atomic import atomic_write_bytes
 
+from ..cloud_sync import detect_cloud_sync
 from ..config import Settings, canonical_home_dir, get_settings, legacy_home_dir
 from ..deps import refuse_if_config_corrupt
 from ..write_gate import (
@@ -71,6 +72,19 @@ def _read_config() -> dict:
     return {}
 
 
+def write_config_key(key: str, value: object) -> None:
+    """Set (or, with ``None``, delete) one key of the canonical ``config.json``."""
+    config = _read_config()
+    if value is None:
+        config.pop(key, None)
+    else:
+        config[key] = value
+    path = canonical_home_dir() / "config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_bytes(path, (json.dumps(config, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+    get_settings.cache_clear()
+
+
 @router.post(
     "/write-consent/cloud-sync",
     summary="Allow Claude Explorer to write in a cloud-synced data folder",
@@ -107,10 +121,52 @@ async def allow_cloud_sync_writes(
         )
 
     allowed = os.path.realpath(settings.data_dir)
-    config = _read_config()
-    config["allow_writes_in_cloud_sync"] = allowed
-    path = canonical_home_dir() / "config.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_bytes(path, (json.dumps(config, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
-    get_settings.cache_clear()
+    write_config_key("allow_writes_in_cloud_sync", allowed)
     return {"allow_writes_in_cloud_sync": allowed}
+
+
+SHARED_ACTION_HEADER_VALUE = "allow-shared-archive-writes"
+
+
+class SharedArchiveConsent(BaseModel):
+    #: The shared sync folder that the dialog showed.
+    shared_archive_dir: str
+    #: The provider name that the dialog showed.
+    provider: str
+
+
+@router.post(
+    "/write-consent/shared-archive",
+    summary="Allow Claude Explorer to write in a cloud-synced shared sync folder (#92)",
+    responses={
+        400: {"description": "No shared folder, or it is not cloud-synced"},
+        403: {"description": "Missing action header, or a cross-origin request"},
+        409: {"description": "The folder or the provider differs from the current detection"},
+        503: {"description": "Config file is corrupt; refuse to write"},
+    },
+)
+async def allow_shared_archive_writes(
+    body: SharedArchiveConsent,
+    request: Request,
+    x_claude_explorer_action: str | None = Header(default=None),
+    settings: Settings = Depends(refuse_if_config_corrupt),
+) -> dict[str, str]:
+    if x_claude_explorer_action != SHARED_ACTION_HEADER_VALUE:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Missing header X-Claude-Explorer-Action: {SHARED_ACTION_HEADER_VALUE}.",
+        )
+    if not _origin_allowed(request.headers.get("origin"), request.headers.get("host")):
+        raise HTTPException(status_code=403, detail="Cross-origin consent refused.")
+    shared = settings.shared_archive_dir
+    provider = detect_cloud_sync(shared) if shared is not None else None
+    if shared is None or provider is None:
+        raise HTTPException(status_code=400, detail="The shared folder is not set or not cloud-synced.")
+    if not same_path(body.shared_archive_dir, shared) or body.provider.casefold() != provider.casefold():
+        raise HTTPException(
+            status_code=409,
+            detail=f"The shared folder is now {shared}, synced by {provider}. Open the dialog again.",
+        )
+    allowed = os.path.realpath(shared)
+    write_config_key("allow_writes_in_shared_archive", allowed)
+    return {"allow_writes_in_shared_archive": allowed}

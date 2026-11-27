@@ -625,6 +625,7 @@ def list_sessions(
     offset: int = 0,
     include_tool_calls: bool = False,
     include_code_mode: bool = False,
+    machine: str | None = None,
 ) -> dict[str, Any]:
     """Search and list saved Claude conversation sessions.
     Only call when the user explicitly asks to search or browse past sessions.
@@ -658,6 +659,9 @@ def list_sessions(
         include_code_mode: Also search Code Mode runs: each script, the tool
                calls it made, and what it returned. Default false.
                Independent of include_tool_calls. Ignored when query is omitted.
+        machine: Only the sessions of one machine: its machine_id or its
+               machine_label (exact, case-insensitive). Each session names
+               its machine_id and machine_label; Desktop conversations have none.
 
     Note (spec §3, 2026-05-14): there is intentionally NO ``active_filter``
     or ``conversation_uuids`` parameter. The sidebar's active-filter
@@ -721,6 +725,8 @@ def list_sessions(
                     # Issue #96: a hit inside a subagent transcript of the session.
                     "agent_id": sr.agent_id,
                     "agent_description": sr.agent_description,
+                    "machine_id": s.machine_id,
+                    "machine_label": s.machine_label,
                     **_source_fields(s),
                 }
                 sessions.append(entry)
@@ -741,8 +747,18 @@ def list_sessions(
                 "model": s.model,
                 "created_at": _format_dt(s.created_at),
                 "updated_at": _format_dt(s.updated_at),
+                "machine_id": s.machine_id,
+                "machine_label": s.machine_label,
                 **_source_fields(s),
             })
+
+    # Issue #92: the machine that a session came from, by id or label.
+    if machine:
+        wanted = machine.strip().casefold()
+        sessions = [
+            s for s in sessions
+            if wanted in ((s.get("machine_id") or "").casefold(), (s.get("machine_label") or "").casefold())
+        ]
 
     # Apply project filter
     if project:

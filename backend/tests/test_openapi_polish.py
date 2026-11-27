@@ -39,6 +39,7 @@ NON_JSON_RESPONSE_PATHS: set[str] = {
     "/api/conversations/{uuid}/export/markdown-bundle",
     "/api/conversations/{uuid}/export/pdf",
     "/api/export/all/markdown",
+    "/api/machines/export",
     # Image proxy + image-cache + attachments — binary content
     "/api/{org_id}/files/{file_uuid}/thumbnail",
     "/api/{org_id}/files/{file_uuid}/preview",

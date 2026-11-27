@@ -14,6 +14,12 @@ import type {
   WatcherHealth,
   Bookmark,
   ApiError as ApiErrorType,
+  ExportPreview,
+  ExportRules,
+  ImportResult,
+  MachineInfo,
+  MachinesResponse,
+  SharedFolderState,
 } from './types'
 import { ApiError, isSearchResponse } from './types'
 import { mockConversations, mockConversationDetails, filterConversations } from './mockData'
@@ -39,6 +45,19 @@ const USE_MOCK_DATA = false
 // invariant ("every queryFn forwards signal") instead of two.
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${BASE_URL}${url}`, { signal })
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text())
+  }
+  return response.json()
+}
+
+// Issue #92: a JSON write to a Machines route, with its action header.
+async function machinesWrite<T>(method: 'PUT' | 'POST', url: string, body: unknown): Promise<T> {
+  const response = await fetch(`${BASE_URL}${url}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Claude-Explorer-Action': 'machines' },
+    body: JSON.stringify(body),
+  })
   if (!response.ok) {
     throw new ApiError(response.status, await response.text())
   }
@@ -127,6 +146,77 @@ export const api = {
       headers: {
         'Content-Type': 'application/json',
         'X-Claude-Explorer-Action': 'allow-cloud-sync-writes',
+      },
+      body: JSON.stringify(consent),
+    })
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.text())
+    }
+  },
+
+  // Issue #92: the Machines settings. Every write sends the custom header
+  // (see shutdownServer); backend/routers/machines.py checks it.
+  getMachines: (signal?: AbortSignal): Promise<MachinesResponse> =>
+    fetchJson<MachinesResponse>('/machines', signal),
+
+  setOwnMachineLabel: (label: string | null): Promise<MachineInfo> =>
+    machinesWrite<MachineInfo>('PUT', '/machines/self/label', { label }),
+
+  setMachineLocalLabel: (machineId: string, label: string | null): Promise<MachineInfo> =>
+    machinesWrite<MachineInfo>('PUT', `/machines/${encodeURIComponent(machineId)}/label`, { label }),
+
+  getExportRules: (signal?: AbortSignal): Promise<ExportRules> =>
+    fetchJson<ExportRules>('/machines/export-rules', signal),
+
+  saveExportRules: (rules: ExportRules): Promise<ExportRules> =>
+    machinesWrite<ExportRules>('PUT', '/machines/export-rules', rules),
+
+  getExportPreview: (signal?: AbortSignal): Promise<ExportPreview> =>
+    fetchJson<ExportPreview>('/machines/export-preview', signal),
+
+  // The bundle, and the file name from Content-Disposition.
+  exportBundle: async (passphrase: string | null): Promise<{ blob: Blob; filename: string }> => {
+    const response = await fetch(`${BASE_URL}/machines/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Claude-Explorer-Action': 'machines' },
+      body: JSON.stringify({ passphrase: passphrase || null, full: false }),
+    })
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.text())
+    }
+    const disposition = response.headers.get('Content-Disposition') || ''
+    const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] || 'claude-explorer.cebundle'
+    return { blob: await response.blob(), filename }
+  },
+
+  importBundle: async (file: File, passphrase: string | null): Promise<ImportResult> => {
+    const form = new FormData()
+    form.append('file', file)
+    if (passphrase) form.append('passphrase', passphrase)
+    const response = await fetch(`${BASE_URL}/machines/import`, {
+      method: 'POST',
+      headers: { 'X-Claude-Explorer-Action': 'machines' },
+      body: form,
+    })
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.text())
+    }
+    return response.json()
+  },
+
+  setSharedFolder: (path: string | null): Promise<SharedFolderState> =>
+    machinesWrite<SharedFolderState>('PUT', '/machines/shared-folder', { path }),
+
+  removeOwnSharedFolder: (confirm: string): Promise<{ removed: boolean }> =>
+    machinesWrite<{ removed: boolean }>('POST', '/machines/shared-folder/remove', { confirm }),
+
+  // D13 for the shared folder; same rules as allowCloudSyncWrites.
+  allowSharedArchiveWrites: async (consent: { shared_archive_dir: string; provider: string }): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/write-consent/shared-archive`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Claude-Explorer-Action': 'allow-shared-archive-writes',
       },
       body: JSON.stringify(consent),
     })

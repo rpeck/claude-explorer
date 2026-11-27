@@ -46,6 +46,7 @@ import { PinScopeButton } from '@/components/search/PinScopeButton'
 import { ListFilterButton } from '@/components/conversation/ListFilterButton'
 import { CopyValueButton } from '@/components/conversation/CopyValueButton'
 import { SourceBadge } from '@/components/conversation/SourceBadge'
+import { MachineChip } from '@/components/settings/MachineChip'
 import { NoticeList } from '@/components/conversation/NoticeList'
 import { CodexHistoryLinks } from '@/components/conversation/CodexHistoryLinks'
 import { PeerSessionsRow } from '@/components/conversation/PeerSessionsRow'
@@ -101,6 +102,11 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
             lives in SourceBadge so a future source rename / recolor
             / addition is a single-file change. */}
         <SourceBadge source={conversation.source} variant="header" />
+        <MachineChip
+          machineId={conversation.machine_id}
+          label={conversation.machine_label}
+          labels={conversation.machine_labels}
+        />
         <Badge variant="secondary" data-testid="model-badge" title={conversation.model}>
           {modelDisplayName(conversation.model)}
         </Badge>

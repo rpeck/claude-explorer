@@ -209,6 +209,12 @@ class Settings(BaseModel):
     # an env var). A moved ``data_dir`` no longer matches, so the gate closes
     # again. See ``backend/write_gate.py``.
     allow_writes_in_cloud_sync: str | None = None
+    # Issue #92: the shared sync folder (``config.json`` only, absolute).
+    # Each machine writes only ``machines/<its id>/`` there.
+    shared_archive_dir: Path | None = None
+    # D13 for the shared folder: the resolved shared folder that the user
+    # allowed Explorer to write in although a cloud client syncs it.
+    allow_writes_in_shared_archive: str | None = None
 
     @classmethod
     def load(cls) -> "Settings":
@@ -236,6 +242,8 @@ class Settings(BaseModel):
         config_claude_desktop_app_dir: Path | None = None
         config_codex_home: Path | None = None
         allow_writes_in_cloud_sync: str | None = None
+        shared_archive_dir: Path | None = None
+        allow_writes_in_shared_archive: str | None = None
         # Layer 1 (2026-05-18): accumulate per-candidate parse failures.
         # Joined with `` | `` into ``config_corrupt_reason`` at the bottom
         # of ``load``. The list is empty in the happy path (no parse
@@ -295,6 +303,11 @@ class Settings(BaseModel):
                     config_codex_home = Path(parsed["codex_home"])
                 if isinstance(parsed.get("allow_writes_in_cloud_sync"), str):
                     allow_writes_in_cloud_sync = parsed["allow_writes_in_cloud_sync"]
+                shared = parsed.get("shared_archive_dir")
+                if isinstance(shared, str) and shared and Path(shared).is_absolute():
+                    shared_archive_dir = Path(shared)
+                if isinstance(parsed.get("allow_writes_in_shared_archive"), str):
+                    allow_writes_in_shared_archive = parsed["allow_writes_in_shared_archive"]
                 break
             except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
                 log.warning(
@@ -364,6 +377,8 @@ class Settings(BaseModel):
             claude_desktop_app_dir=claude_desktop_app_dir,
             codex_home=codex_home,
             allow_writes_in_cloud_sync=allow_writes_in_cloud_sync,
+            shared_archive_dir=shared_archive_dir,
+            allow_writes_in_shared_archive=allow_writes_in_shared_archive,
             config_corrupt_reason=(
                 " | ".join(corruption_reasons) if corruption_reasons else None
             ),
