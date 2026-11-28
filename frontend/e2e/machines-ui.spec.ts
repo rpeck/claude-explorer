@@ -139,6 +139,26 @@ for (const width of [1440, 800]) {
   })
 }
 
+for (const width of [1440, 800]) {
+  test(`W1: a cut preview row still shows the whole file name at ${width} px`, async ({ page, mockBackend }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await mockBackend({ conversations: ROWS })
+    await serveMachines(page)
+    await withNetRetry(page, () => page.goto('/'))
+    await page.getByTestId('machines-button').click()
+    const preview = page.getByRole('dialog').getByTestId('export-preview')
+    for (const path of PATHS) {
+      const row = preview.locator(`[title="${path}"]`)
+      await expect(row).toHaveCount(1)
+      // The row text without its size, for example " (1.2 KB)".
+      const text = (await row.innerText()).replace(/\s*\([^)]*\)\s*$/, '')
+      const fileName = path.split('/').pop()!
+      expect(text.includes('…'), `${path} is cut`).toBe(true)
+      expect(text.endsWith(fileName), `"${text}" ends with the whole file name "${fileName}"`).toBe(true)
+    }
+  })
+}
+
 // The wrap depends on the widths: a fixed clock and time zone give the same row text every run.
 const NOW = new Date('2026-11-27T13:00:00Z')
 

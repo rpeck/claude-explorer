@@ -42,9 +42,11 @@ export function formatAllow(rules: AllowRule[]): string {
   return rules.map((r) => `${r.source ?? '*'}${r.project ? ` ${r.project}` : ''}`).join('\n')
 }
 
-/** A long path cut in the middle, so that its start and its file name stay visible. */
+/** A long path cut inside its folder part ("…"); the file name always stays whole.
+ *  A file name longer than the room shows alone, and CSS truncates it. */
 export function shortPath(path: string, max = 64): string {
   if (path.length <= max) return path
-  const tail = Math.ceil((max - 1) * 0.65)
-  return `${path.slice(0, max - 1 - tail)}…${path.slice(-tail)}`
+  const name = path.slice(path.lastIndexOf('/') + 1)
+  const room = max - name.length - 2 // the folder start, then "…/"
+  return room > 0 ? `${path.slice(0, room)}…/${name}` : name
 }
