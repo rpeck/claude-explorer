@@ -169,6 +169,8 @@ def _isolate_machine_identity(_no_identity_path, monkeypatch):
         archive_sync, "_identity_file",
         lambda: _no_identity_path if Path.home() == _REAL_HOME else real(),
     )
+    monkeypatch.setattr(archive_sync, "_identity_cache", None)
+    monkeypatch.setattr(archive_sync, "_holders", {})
 
 
 def pytest_sessionfinish(session, exitstatus):

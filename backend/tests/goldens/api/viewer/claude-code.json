@@ -14,6 +14,9 @@
     "human_message_count": 2,
     "is_archived": false,
     "is_starred": false,
+    "machine_id": null,
+    "machine_label": null,
+    "machine_labels": [],
     "message_count": 4,
     "messages": [
       {

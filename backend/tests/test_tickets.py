@@ -920,9 +920,6 @@ def test_a_bad_number_is_400(corpus: Corpus, number: str) -> None:
     assert r.status_code == 400, r.text
 
 
-@pytest.mark.xfail(
-    strict=True, reason="needs A2 machine_id (#92); remove when feat/multi-machine merges"
-)
 def test_the_session_from_another_machine_names_its_machine(corpus: Corpus) -> None:
     assert entry(ticket("fixture-org", "alpha", 84), S5)["machine_id"] == OTHER_MACHINE
 

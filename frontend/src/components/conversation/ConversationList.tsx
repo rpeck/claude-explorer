@@ -11,6 +11,7 @@ import { useFilters } from '@/contexts/FilterContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
 import { SOURCE_PRESETS, SourceBadge } from '@/components/conversation/SourceBadge'
 import { EntrypointChip } from '@/components/tickets/EntrypointChip'
+import { MachineChip } from '@/components/settings/MachineChip'
 import { sourceHas } from '@/lib/sources'
 import { TitleText } from '@/components/TitleText'
 import { modelDisplayName } from '@/lib/modelName'
@@ -914,14 +915,20 @@ function ConversationListItem({
               needs to track source-shape changes. */}
           <SourceBadge source={conversation.source} variant="row" />
           <EntrypointChip entrypoint={conversation.entrypoint} className="text-[10px] px-1.5 py-0" />
+          <MachineChip
+            machineId={conversation.machine_id}
+            label={conversation.machine_label}
+            labels={conversation.machine_labels}
+          />
           {conversation.model && (
             // #52: one model name everywhere; the raw id is the tooltip.
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0" title={conversation.model} data-testid="list-row-model">
+            <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-[10px] px-1.5 py-0" title={conversation.model} data-testid="list-row-model">
               {modelDisplayName(conversation.model)}
             </Badge>
           )}
-          <span>{formatDate(conversation.updated_at)}</span>
-          <span>{conversation.message_count} msgs</span>
+          {/* #92: only the machine chip shrinks; these stay on one line. */}
+          <span className="shrink-0 whitespace-nowrap">{formatDate(conversation.updated_at)}</span>
+          <span className="shrink-0 whitespace-nowrap">{conversation.message_count} msgs</span>
           {hasSubagents && (
             <button
               type="button"

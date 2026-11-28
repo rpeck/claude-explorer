@@ -559,12 +559,20 @@ def _extra_watch_roots() -> list[WatchRoot]:
     from backend.store import ConversationStore
 
     own = {_live_projects_root(), _live_cowork_root()}
-    return [
+    roots = [
         root
         for adapter in get_adapters(ConversationStore())
         for root in adapter.watch_roots()
         if root.path not in own
     ]
+    # Issue #92: a change by another machine in the shared folder starts a pass,
+    # which pulls it. Another tool's folder: never create it.
+    from backend.sources.base import WatchRoot as _WatchRoot
+
+    shared = get_settings().shared_archive_dir
+    if shared is not None:
+        roots.append(_WatchRoot(shared, ("*.jsonl", "*.json"), create=False))
+    return roots
 
 
 def _fire_drift_pass() -> None:

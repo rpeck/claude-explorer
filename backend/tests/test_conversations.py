@@ -171,6 +171,10 @@ def test_list_conversations_schema_contract(title_filter_data_dir):
         "tickets": [],
         "named_keys": [],
         "pr_keys": [],
+        # Issue #92: a Desktop conversation has no machine.
+        "machine_id": None,
+        "machine_label": None,
+        "machine_labels": [],
     }
 
 

@@ -68,6 +68,7 @@ from .routers import (
     export,
     fetch,
     files,
+    machines,
     orgs,
     preferences,
     search,
@@ -1035,6 +1036,7 @@ app.include_router(orgs.router, prefix="/api")
 app.include_router(account.router, prefix="/api")
 app.include_router(shutdown.router, prefix="/api")
 app.include_router(write_consent.router, prefix="/api")
+app.include_router(machines.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 app.include_router(tickets.router, prefix="/api")
 # watcher_health endpoint paths already include the /api prefix.

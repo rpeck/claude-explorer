@@ -25,11 +25,15 @@ from typing import TYPE_CHECKING, Any
 import orjson
 
 from backend.archive_sync import (
+    MACHINE_ID_RE,
+    MACHINES_DIR,
     SyncContext,
     SyncReport,
     home_key,
+    machine_fields,
     run_locked_pass,
     sync_stream,
+    this_machine_dir,
 )
 from backend.codex.home import (
     STEM_RE,
@@ -170,6 +174,10 @@ def _sync_home(home: Path, archive: Path, report: SyncReport) -> None:
     rollouts = find_rollouts(home)
     if not rollouts:
         return  # nothing to show yet; keep the archive free of an empty home
+    # #92: a machine with only Codex sessions also gets its machine id, so its
+    # Codex rows name this machine. archive = <data_dir>/codex/<home_key>.
+    if this_machine_dir(archive.parent.parent) is None:
+        report.warn("Codex: this machine has no id; its rows name no machine")
     if _write_home_json(home, archive):
         report.wrote_any = True
     rollouts_dir = archive / ROLLOUTS_DIR
@@ -401,10 +409,32 @@ class CodexAdapter:
     # The readers ------------------------------------------------------------
 
     def _home_dirs(self) -> list[Path]:
+        """This machine's homes (``codex/<home_key>``), then those of other machines (#92)."""
+        roots = [self._root]
         try:
-            return sorted(p for p in self._root.iterdir() if _HOME_DIR_RE.fullmatch(p.name) and p.is_dir())
+            roots += [m / ARCHIVE_DIR for m in sorted((self._store.data_dir / MACHINES_DIR).iterdir())
+                      if MACHINE_ID_RE.fullmatch(m.name)]
         except OSError:
-            return []
+            pass
+        out = []
+        for root in roots:
+            try:
+                out += sorted(p for p in root.iterdir() if _HOME_DIR_RE.fullmatch(p.name) and p.is_dir())
+            except OSError:
+                continue
+        return out
+
+    @staticmethod
+    def _copy_key(home_dir: Path) -> str:
+        """``<home_key>``, or ``<machine_id>/<home_key>`` for another machine's home.
+
+        Two machines with the same Codex home path have the same home_key,
+        so the machine id keeps their copies apart.
+        """
+        machine = home_dir.parent.parent
+        if home_dir.parent.name == ARCHIVE_DIR and machine.parent.name == MACHINES_DIR:
+            return f"{machine.name}/{home_dir.name}"
+        return home_dir.name
 
     def _threads_token(self) -> str:
         """Changes when any thread file of any home is written, added, or removed.
@@ -415,7 +445,7 @@ class CodexAdapter:
         parts = []
         for home_dir in self._home_dirs():
             try:
-                parts.append(f"{home_dir.name}={(home_dir / THREADS_DIR).stat().st_mtime_ns}")
+                parts.append(f"{self._copy_key(home_dir)}={(home_dir / THREADS_DIR).stat().st_mtime_ns}")
             except OSError:
                 continue
         return ",".join(parts)
@@ -442,13 +472,19 @@ class CodexAdapter:
         return out
 
     def _newest(self, paths: list[Path]) -> Path | None:
-        """The newest copy of one thread id across homes (§4.2)."""
+        """The newest copy of one thread id across homes (§4.2).
+
+        A copy of this machine (``codex/<home_key>``) always wins over the copy
+        of another machine (``machines/<id>/codex/...``, #92 S5); among the
+        copies of other machines, the newest wins.
+        """
         copies = []
         for p in paths:
             data = _cached(_thread_cache, p, _load_thread_file)
             if data is not None:
-                copies.append({**data, "home_key": p.parent.parent.name, "_path": p})
-        return newest_copy(copies)["_path"] if copies else None
+                copies.append({**data, "home_key": self._copy_key(p.parent.parent), "_path": p})
+        mine = [c for c in copies if "/" not in c["home_key"]]
+        return newest_copy(mine or copies)["_path"] if copies else None
 
     def discover(self) -> list[Path]:
         by_id: dict[str, list[Path]] = {}
@@ -519,6 +555,7 @@ class CodexAdapter:
             # The fork or subagent parent of session_meta, else the state_5 one.
             parent_uuid=conv.get("parent_uuid") or _other(thread.get("parent_thread_id"), thread_id),
             entrypoint=conv.get("originator") if isinstance(conv.get("originator"), str) else None,
+            **machine_fields(path),
         )
         return conv, bool(bases)
 
