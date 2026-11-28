@@ -28,6 +28,7 @@ import json
 import re
 import zlib
 from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -35,7 +36,7 @@ from pydantic import BaseModel, Field
 #: Bump when the rows change: the index then reads every file again
 #: (``SearchIndex._mark_stale_projections``, key "tickets"). 2: Linear, Jira,
 #: Graphite, and the system, prefix, and url columns.
-TICKET_REFS_VERSION = 2
+TICKET_REFS_VERSION = 3
 
 GITHUB, LINEAR, JIRA = "github", "linear", "jira"
 
@@ -68,8 +69,9 @@ _PR_URL_RE = re.compile(r"https://github\.com/" + _OWNER + "/" + _NAME + r"/pull
 MAX_REFS_PER_MESSAGE = 200
 MAX_TICKETS_PER_SESSION = 2000
 
-#: An index row: (system, repo, prefix, number, message_uuid, kind, snippet, url).
-RefRow = tuple[str, "str | None", "str | None", int, "str | None", str, str, "str | None"]
+#: An index row: (system, repo, prefix, number, message_uuid, kind, snippet, url,
+#: created_at (UTC ISO, or None), pos (the start of the ref in its text)).
+RefRow = tuple[str, "str | None", "str | None", int, "str | None", str, str, "str | None", "str | None", int]
 #: A PR row: (number, repository, url, timestamp).
 PrRow = tuple[int, str, str, str]
 #: config.json "ticket_keys": {"linear": [...], "jira": [...]}.
@@ -256,6 +258,27 @@ def session_repo(conv: dict) -> str | None:
     return repos.pop() if len(repos) == 1 else None
 
 
+def _utc(value: Any) -> str | None:
+    """A timestamp as UTC ISO 8601, so sources with "Z" and "+00:00" compare as strings."""
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str) and value:
+        try:
+            dt = datetime.fromisoformat(value)  # Python 3.11+ reads a trailing "Z"
+        except ValueError:
+            return None
+    else:
+        return None
+    return (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).astimezone(UTC).isoformat()
+
+
+def ref_order(r: Mapping[str, Any]) -> tuple[bool, str, str, str, int]:
+    """The order of references on every platform: message time (none last), then
+    session uuid, message uuid, and position in the text."""
+    ts = r.get("created_at")
+    return (ts is None, ts or "", r.get("conv_uuid") or "", r.get("message_uuid") or "", r.get("pos") or 0)
+
+
 def index_rows(conv: dict, ticket_keys: TicketKeys | None = None) -> tuple[list[RefRow], list[PrRow], str | None]:
     """The ``ticket_refs`` rows, the PR rows, and the session repo of one conversation.
 
@@ -265,25 +288,26 @@ def index_rows(conv: dict, ticket_keys: TicketKeys | None = None) -> tuple[list[
     """
     if conv.get("agent_id"):
         return [], [], None
-    refs: dict[tuple[str, str | None, int, str | None, str], tuple[str, str | None]] = {}
+    refs: dict[tuple[str, str | None, int, str | None, str], tuple[str, str | None, str | None, int]] = {}
     keys: set[str] = set()
 
-    def add(system: str, scope: str | None, n: int, msg: str | None, kind: str, snippet: str, url: str | None) -> None:
+    def add(system: str, scope: str | None, n: int, msg: str | None, kind: str, snippet: str, url: str | None,
+            ts: str | None = None, pos: int = 0) -> None:
         key = ticket_key(scope, n)
         if key not in keys:
             if len(keys) >= MAX_TICKETS_PER_SESSION:
                 return
             keys.add(key)
-        refs.setdefault((system, scope, n, msg, kind), (snippet, url))
+        refs.setdefault((system, scope, n, msg, kind), (snippet, url, ts, pos))
 
-    def add_text(text: str, msg_uuid: str | None, kind: str) -> None:
+    def add_text(text: str, msg_uuid: str | None, kind: str, ts: str | None) -> None:
         for system, scope, n, s, e, url in _matches(text, ticket_keys)[:MAX_REFS_PER_MESSAGE]:
-            add(system, scope, n, msg_uuid, kind, _snippet(text, s, e), url)
+            add(system, scope, n, msg_uuid, kind, _snippet(text, s, e), url, ts, s)
 
-    add_text(str(conv.get("name") or ""), None, "title")
+    add_text(str(conv.get("name") or ""), None, "title", _utc(conv.get("created_at")))
     for m in conv.get("chat_messages") or []:
         if m.get("sender") in ("human", "assistant"):
-            add_text(_message_text(m), m.get("uuid") or None, "message")
+            add_text(_message_text(m), m.get("uuid") or None, "message", _utc(m.get("created_at")))
     branch = conv.get("git_branch")
     n = branch_number(branch)
     if n is not None:
@@ -293,9 +317,9 @@ def index_rows(conv: dict, ticket_keys: TicketKeys | None = None) -> tuple[list[
     for p in _pr_links(conv):
         add(GITHUB, p["prRepository"].lower(), p["prNumber"], None, "pr_link", str(p.get("prUrl") or ""), None)
     rows: list[RefRow] = []
-    for (system, scope, num, msg, kind), (snippet, url) in refs.items():
+    for (system, scope, num, msg, kind), (snippet, url, ts, pos) in refs.items():
         repo, prefix = (scope, None) if system == GITHUB else (None, scope)
-        rows.append((system, repo, prefix, num, msg, kind, snippet, url))
+        rows.append((system, repo, prefix, num, msg, kind, snippet, url, ts, pos))
     return rows, pr_rows(conv), session_repo(conv)
 
 
@@ -347,11 +371,13 @@ def external_link(
     The first URL in a message is not trusted. The system comes from the
     configured prefix lists, else from the chosen URL. The host is the
     configured one (``ticket_hosts``), else the one that most references
-    name (a tie goes to the earliest reference). The URL is built from the
+    name (a tie goes to the earliest reference, :func:`ref_order`). The URL is built from the
     host, never copied from a message.
     """
     key = ticket_key(prefix, number)
     system = key_system(prefix, ticket_keys)
+    # The index returns refs in drift-pass order, which differs by platform.
+    refs = sorted(refs, key=ref_order)
     seen = [(r["system"], _host_of(r["system"], r.get("url"))) for r in refs if r.get("url")]
     seen = [s for s in seen if s[1] and (system is None or s[0] == system)]
     host: str | None = None

@@ -415,7 +415,9 @@ CREATE TABLE IF NOT EXISTS ticket_refs (
     snippet TEXT NOT NULL DEFAULT '',
     system TEXT NOT NULL DEFAULT 'github',
     prefix TEXT,
-    url TEXT
+    url TEXT,
+    created_at TEXT,
+    pos INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS ticket_refs_number ON ticket_refs (number);
 CREATE INDEX IF NOT EXISTS ticket_refs_conv_uuid ON ticket_refs (conv_uuid);
@@ -442,7 +444,10 @@ INSERT OR IGNORE INTO ticket_generation (id, gen) VALUES (0, 0);
 """
 _TICKET_TABLES = ("ticket_refs", "ticket_prs", "ticket_sessions")
 # Columns added after the first ticket_refs (TICKET_REFS_VERSION 2).
-_TICKET_REFS_ADDED = {"system": "TEXT NOT NULL DEFAULT 'github'", "prefix": "TEXT", "url": "TEXT"}
+_TICKET_REFS_ADDED = {
+    "system": "TEXT NOT NULL DEFAULT 'github'", "prefix": "TEXT", "url": "TEXT",
+    "created_at": "TEXT", "pos": "INTEGER NOT NULL DEFAULT 0",
+}
 
 SCHEMA_SQL = MESSAGE_ROWIDS_SQL + """
 CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
@@ -1429,13 +1434,15 @@ class SearchIndex:
         repos = self._ticket_repos(conn)
         want = ticket_key(scope, number)
         cur = conn.execute(
-            "SELECT conv_uuid, system, repo, prefix, kind, message_uuid, snippet, url FROM ticket_refs "
+            "SELECT conv_uuid, system, repo, prefix, kind, message_uuid, snippet, url, created_at, pos "
+            "FROM ticket_refs "
             "WHERE number = ? ORDER BY rowid",
             (number,),
         )
         refs = [
-            {"conv_uuid": c, "system": sy, "message_uuid": m, "kind": k, "snippet": s, "url": u}
-            for c, sy, r, p, k, m, s, u in cur
+            {"conv_uuid": c, "system": sy, "message_uuid": m, "kind": k, "snippet": s, "url": u,
+             "created_at": t, "pos": pos}
+            for c, sy, r, p, k, m, s, u, t, pos in cur
             if row_key(sy, r, p, number, k, repos.get(c)) == want
         ]
         convs = sorted({r["conv_uuid"] for r in refs})
@@ -1629,7 +1636,7 @@ class SearchIndex:
             self._delete_tickets_of(self._write_conn, conv_uuid)
             self._write_conn.executemany(
                 "INSERT INTO ticket_refs (system, repo, prefix, number, message_uuid, kind, snippet, url, "
-                " conv_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " created_at, pos, conv_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [(*r, conv_uuid) for r in ticket_refs],
             )
             self._write_conn.executemany(
