@@ -32,7 +32,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import pytest
@@ -50,8 +50,21 @@ COWORK_ORG = "o_a2org"
 
 
 def project_folder(cwd: str) -> str:
-    """Claude Code's project folder name for a cwd."""
-    return cwd.replace("\\", "-").replace("/", "-").replace(":", "-").replace(".", "-")
+    """Claude Code's project folder name for a cwd, kept short.
+
+    The cwds here are under ``tmp_path``, so with a long TMPDIR the full
+    encoding passes the 255-byte limit of one folder name (Errno 63). A long
+    name keeps the last three path parts and a hash of the whole cwd, so it
+    stays unique and readable. The readers take the cwd from the records, not
+    from the folder name.
+    """
+    encoded = (
+        cwd.replace("\\", "-").replace("/", "-").replace(":", "-").replace(".", "-")
+    )
+    if len(encoded) <= 80:
+        return encoded
+    tail = "-".join(PurePath(cwd).parts[-3:]).replace(".", "-").replace(":", "-")
+    return f"-{tail}-{hashlib.sha256(cwd.encode('utf-8')).hexdigest()[:10]}"
 
 
 def cc_entries(
