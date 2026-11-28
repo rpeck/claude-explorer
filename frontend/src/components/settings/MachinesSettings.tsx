@@ -21,7 +21,7 @@ import {
 import { api } from '@/lib/api'
 import { ApiError, type ExportMode, type ExportRules, type MachineInfo } from '@/lib/types'
 import { machinesKeys, useMachines } from '@/components/settings/machinesQuery'
-import { MODES, formatAllow, formatBytes, parseAllow } from '@/components/settings/machinesFormat'
+import { MODES, formatAllow, formatBytes, parseAllow, shortPath } from '@/components/settings/machinesFormat'
 
 function errorText(error: unknown): string {
   if (error instanceof ApiError) {
@@ -107,29 +107,33 @@ function MachineRow({ info, onSaved }: { info: MachineInfo; onSaved: () => void 
 }
 
 function RulesForm({ rules, onSaved }: { rules: ExportRules; onSaved: () => void }) {
+  // The radio shows a click at once; a failed save puts the saved mode back.
+  const [mode, setMode] = useState<ExportMode>(rules.mode)
   const [allow, setAllow] = useState(formatAllow(rules.allow))
   const [deny, setDeny] = useState(rules.deny.join('\n'))
   const [since, setSince] = useState(rules.since ?? '')
   const [error, setError] = useState<string | null>(null)
 
-  const save = async (mode: ExportMode) => {
+  const save = async (next: ExportMode) => {
     setError(null)
+    setMode(next)
     try {
       await api.saveExportRules({
         version: 1,
-        mode,
+        mode: next,
         allow: parseAllow(allow),
         deny: deny.split('\n').map((d) => d.trim()).filter(Boolean),
         since: since || null,
       })
       onSaved()
     } catch (e) {
+      setMode(rules.mode)
       setError(errorText(e))
     }
   }
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       <fieldset className="space-y-1">
         <legend className="text-sm font-medium">Export mode</legend>
         {MODES.map((m) => (
@@ -138,7 +142,7 @@ function RulesForm({ rules, onSaved }: { rules: ExportRules; onSaved: () => void
               type="radio"
               name="export-mode"
               data-testid={`export-mode-${m.value}`}
-              checked={rules.mode === m.value}
+              checked={mode === m.value}
               onChange={() => void save(m.value)}
             />
             {m.label}
@@ -180,7 +184,7 @@ function RulesForm({ rules, onSaved }: { rules: ExportRules; onSaved: () => void
           onChange={(e) => setSince(e.target.value)}
         />
       </label>
-      <Button size="sm" data-testid="export-rules-save" onClick={() => void save(rules.mode)}>
+      <Button size="sm" data-testid="export-rules-save" onClick={() => void save(mode)}>
         Save rules
       </Button>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
@@ -259,7 +263,7 @@ export function MachinesSettings() {
   }
 
   return (
-    <section data-testid="machines-settings" className="space-y-5">
+    <section data-testid="machines-settings" className="min-w-0 space-y-5">
       <h2 className="text-lg font-semibold">Machines</h2>
 
       <div className="space-y-1">
@@ -307,14 +311,14 @@ export function MachinesSettings() {
             }}
           />
         )}
-        <div data-testid="export-preview" className="max-h-40 overflow-auto rounded border border-zinc-200 p-2 text-xs dark:border-zinc-800">
+        <div data-testid="export-preview" className="max-h-40 overflow-y-auto overflow-x-hidden rounded border border-zinc-200 p-2 text-xs dark:border-zinc-800">
           <p data-testid="export-preview-total" className="font-medium">
             {preview.data ? `${preview.data.file_count} files, ${formatBytes(preview.data.total_bytes)}` : '…'}
           </p>
           <ul className="font-mono">
             {preview.data?.files.map((f) => (
-              <li key={f.path} className="truncate" title={f.path}>
-                {f.path} ({formatBytes(f.bytes)})
+              <li key={f.path} className="truncate whitespace-nowrap" title={f.path}>
+                {shortPath(f.path)} ({formatBytes(f.bytes)})
               </li>
             ))}
           </ul>
@@ -372,7 +376,7 @@ export function MachinesSettings() {
         <div className="flex flex-wrap items-center gap-2">
           <Input
             data-testid="shared-folder-input"
-            className="h-8 w-80 font-mono text-xs"
+            className="h-8 w-80 max-w-full font-mono text-xs"
             placeholder="/absolute/path/to/shared/folder"
             value={sharedValue}
             onChange={(e) => setShared(e.target.value)}

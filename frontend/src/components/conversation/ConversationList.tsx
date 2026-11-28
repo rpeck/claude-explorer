@@ -920,12 +920,13 @@ function ConversationListItem({
           />
           {conversation.model && (
             // #52: one model name everywhere; the raw id is the tooltip.
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0" title={conversation.model} data-testid="list-row-model">
+            <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-[10px] px-1.5 py-0" title={conversation.model} data-testid="list-row-model">
               {modelDisplayName(conversation.model)}
             </Badge>
           )}
-          <span>{formatDate(conversation.updated_at)}</span>
-          <span>{conversation.message_count} msgs</span>
+          {/* #92: only the machine chip shrinks; these stay on one line. */}
+          <span className="shrink-0 whitespace-nowrap">{formatDate(conversation.updated_at)}</span>
+          <span className="shrink-0 whitespace-nowrap">{conversation.message_count} msgs</span>
           {hasSubagents && (
             <button
               type="button"

@@ -19,10 +19,10 @@ export function MachineChip({ machineId, label: shown, labels }: MachineChipProp
   return (
     <span
       data-testid="machine-chip"
-      className="inline-flex items-center gap-1 truncate text-xs text-zinc-500 dark:text-zinc-400"
+      className="inline-flex min-w-0 shrink items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"
       title={`Machine: ${all}`}
     >
-      <Laptop className="h-3 w-3" aria-hidden="true" />
+      <Laptop className="h-3 w-3 shrink-0" aria-hidden="true" />
       <span className="truncate">{label}</span>
     </span>
   )
