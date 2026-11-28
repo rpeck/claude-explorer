@@ -11,6 +11,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-26T00:11:33.431000+00:00",
         "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
       },
@@ -24,6 +25,7 @@
         "name": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. Th",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-25T07:12:24.350000+00:00",
         "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
       },
@@ -37,6 +39,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-25T02:35:28.844000+00:00",
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
@@ -50,6 +53,7 @@
         "name": "Remote fixture: widget rollout plan",
         "project": "remote-fixture-project",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2026-10-06T19:06:00+00:00",
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
@@ -63,6 +67,7 @@
         "name": "Start the agents (zqsessiontext).",
         "project": "proj-sa",
         "source": "CLAUDE_CODE",
+        "state": "ended_no_exit",
         "updated_at": "2026-04-01T20:02:00+00:00",
         "uuid": "5a6e0000-0000-4000-8000-000000000096"
       },
@@ -76,6 +81,7 @@
         "name": "Phase 5 fixture: TLS handshakes (long)",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:30:00+00:00",
         "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
       },
@@ -89,6 +95,7 @@
         "name": "Phase 5 fixture: Branch tree",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:04:00+00:00",
         "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
       },
@@ -102,6 +109,7 @@
         "name": "Phase 5 fixture: Tool calls",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
       },
@@ -115,6 +123,7 @@
         "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
         "project": "project",
         "source": "CLAUDE_CODE",
+        "state": "ended_no_exit",
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
       },
@@ -128,6 +137,7 @@
         "name": "Synthetic Cowork Fixture One",
         "project": "synthetic-sandbox",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2025-05-25T10:01:05+00:00",
         "uuid": "aaaa1111-2222-3333-4444-555566667777"
       }
@@ -146,6 +156,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-25T02:35:28.844000+00:00",
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
@@ -159,6 +170,7 @@
         "name": "Remote fixture: widget rollout plan",
         "project": "remote-fixture-project",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2026-10-06T19:06:00+00:00",
         "uuid": "session_01FIXTUREREMOTE000000000001"
       }
@@ -177,6 +189,7 @@
         "name": "Remote fixture: widget rollout plan",
         "project": "remote-fixture-project",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2026-10-06T19:06:00+00:00",
         "uuid": "session_01FIXTUREREMOTE000000000001"
       }
@@ -198,6 +211,7 @@
         "name": "Synthetic Cowork Fixture One",
         "project": "synthetic-sandbox",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2025-05-25T10:01:05+00:00",
         "uuid": "aaaa1111-2222-3333-4444-555566667777"
       }
@@ -219,6 +233,7 @@
         "name": "Phase 5 fixture: Branch tree",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:04:00+00:00",
         "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
       }
@@ -240,6 +255,7 @@
         "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
         "project": "project",
         "source": "CLAUDE_CODE",
+        "state": "ended_no_exit",
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
       }
@@ -261,6 +277,7 @@
         "name": "Phase 5 fixture: TLS handshakes (long)",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:30:00+00:00",
         "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
       }
@@ -282,6 +299,7 @@
         "name": "Phase 5 fixture: Tool calls",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
       }
@@ -303,6 +321,7 @@
         "name": "Remote fixture: widget rollout plan",
         "project": "remote-fixture-project",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2026-10-06T19:06:00+00:00",
         "uuid": "session_01FIXTUREREMOTE000000000001"
       }
@@ -324,6 +343,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-26T00:11:33.431000+00:00",
         "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
       },
@@ -340,6 +360,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-25T02:35:28.844000+00:00",
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
@@ -356,6 +377,7 @@
         "name": "Remote fixture: widget rollout plan",
         "project": "remote-fixture-project",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2026-10-06T19:06:00+00:00",
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
@@ -372,6 +394,7 @@
         "name": "Phase 5 fixture: TLS handshakes (long)",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:30:00+00:00",
         "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
       },
@@ -388,6 +411,7 @@
         "name": "Phase 5 fixture: Branch tree",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:04:00+00:00",
         "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
       },
@@ -404,6 +428,7 @@
         "name": "Phase 5 fixture: Tool calls",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
       },
@@ -420,6 +445,7 @@
         "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
         "project": "project",
         "source": "CLAUDE_CODE",
+        "state": "ended_no_exit",
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
       },
@@ -436,6 +462,7 @@
         "name": "Synthetic Cowork Fixture One",
         "project": "synthetic-sandbox",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2025-05-25T10:01:05+00:00",
         "uuid": "aaaa1111-2222-3333-4444-555566667777"
       }
@@ -457,6 +484,7 @@
         "name": "Phase 5 fixture: TLS handshakes (long)",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:30:00+00:00",
         "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
       },
@@ -473,6 +501,7 @@
         "name": "Phase 5 fixture: Branch tree",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:04:00+00:00",
         "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
       },
@@ -489,6 +518,7 @@
         "name": "Phase 5 fixture: Tool calls",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
       }
@@ -510,6 +540,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-26T00:11:33.431000+00:00",
         "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
       },
@@ -526,6 +557,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-25T02:35:28.844000+00:00",
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
@@ -542,6 +574,7 @@
         "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
         "project": "project",
         "source": "CLAUDE_CODE",
+        "state": "ended_no_exit",
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
       }
@@ -563,6 +596,7 @@
         "name": "Remote fixture: widget rollout plan",
         "project": "remote-fixture-project",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2026-10-06T19:06:00+00:00",
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
@@ -579,6 +613,7 @@
         "name": "Synthetic Cowork Fixture One",
         "project": "synthetic-sandbox",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2025-05-25T10:01:05+00:00",
         "uuid": "aaaa1111-2222-3333-4444-555566667777"
       }
@@ -597,6 +632,7 @@
         "name": "Phase 5 fixture: TLS handshakes (long)",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:30:00+00:00",
         "uuid": "0f415a45-9c62-8671-d4ad-53b84acb7e1a"
       },
@@ -610,6 +646,7 @@
         "name": "Phase 5 fixture: Branch tree",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:04:00+00:00",
         "uuid": "c8da94ab-641d-bf28-d4a6-cba9bc72468e"
       },
@@ -623,6 +660,7 @@
         "name": "Phase 5 fixture: Tool calls",
         "project": null,
         "source": "CLAUDE_AI",
+        "state": null,
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "a3c33811-ab27-c195-6938-54121b8673e4"
       }
@@ -641,6 +679,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that reads media/p",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-26T00:11:33.431000+00:00",
         "uuid": "6c2110ef-d09c-4f7b-9e2e-657d6e24353d"
       },
@@ -654,6 +693,7 @@
         "name": "Use your REPL (Code Mode) tool. In one script: fetch https://example.com with the fetch MCP tool. Th",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-25T07:12:24.350000+00:00",
         "uuid": "b007d327-80c4-46ea-b737-53d84b30c624"
       },
@@ -667,6 +707,7 @@
         "name": "Do these steps in order, each with your REPL (Code Mode) tool. Step 1: one script that runs `ls src`",
         "project": "cm-sample",
         "source": "CLAUDE_CODE",
+        "state": "open",
         "updated_at": "2026-11-25T02:35:28.844000+00:00",
         "uuid": "2339aab4-744c-4556-95b8-5ee5552c1b85"
       },
@@ -680,6 +721,7 @@
         "name": "Start the agents (zqsessiontext).",
         "project": "proj-sa",
         "source": "CLAUDE_CODE",
+        "state": "ended_no_exit",
         "updated_at": "2026-04-01T20:02:00+00:00",
         "uuid": "5a6e0000-0000-4000-8000-000000000096"
       },
@@ -693,6 +735,7 @@
         "name": "Hi! NEEDLE_CC — fixture session for Phase 5 tests.",
         "project": "project",
         "source": "CLAUDE_CODE",
+        "state": "ended_no_exit",
         "updated_at": "2026-04-01T10:03:00+00:00",
         "uuid": "435e56ed-50ba-21c0-3495-0e8749b20543"
       }
@@ -711,6 +754,7 @@
         "name": "Remote fixture: widget rollout plan",
         "project": "remote-fixture-project",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2026-10-06T19:06:00+00:00",
         "uuid": "session_01FIXTUREREMOTE000000000001"
       },
@@ -724,6 +768,7 @@
         "name": "Synthetic Cowork Fixture One",
         "project": "synthetic-sandbox",
         "source": "CLAUDE_COWORK",
+        "state": "ended_no_exit",
         "updated_at": "2025-05-25T10:01:05+00:00",
         "uuid": "aaaa1111-2222-3333-4444-555566667777"
       }

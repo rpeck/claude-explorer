@@ -42,6 +42,14 @@ export interface ConversationListItem {
   source: ConversationSource
   project_path?: string | null
   project_name?: string | null
+  // Issue #93: the launcher (CC entrypoint, Codex originator), and the
+  // ticket keys ("owner/repo#84", "#84") from the search index.
+  entrypoint?: string | null
+  tickets?: string[]
+  // Issue #93: the keys of title, message, and branch references, and the
+  // keys of the session's GitHub pr-link records; `tickets` is their union.
+  named_keys?: string[]
+  pr_keys?: string[]
   // cowork-multi-org C6: workspace metadata. Null for legacy untagged
   // JSONs that haven't been re-fetched yet.
   organization_id?: string | null
@@ -56,6 +64,54 @@ export interface ConversationListItem {
   machine_id?: string | null
   machine_label?: string | null
   machine_labels?: string[]
+  // Issue #91: Running, Open, Ended (backend/session_state.py). Null for Desktop.
+  state?: SessionState | null
+}
+
+/** Issue #91 (backend/session_state.py). */
+export type SessionState = 'running' | 'open' | 'ended' | 'ended_no_exit'
+
+/** Issue #91: one session of the Messages tab (backend PeerGraphSession). */
+export interface PeerGraphSession {
+  /** index_key(uuid, agent_id); "name:<peer name>" for a peer not in the archive. */
+  key: string
+  uuid: string | null
+  agent_id: string | null
+  title: string | null
+  name: string | null
+  source: ConversationSource | null
+  project_name: string | null
+  project_path: string | null
+  state: SessionState | null
+  updated_at: string | null
+  in_archive: boolean
+  /** 0 = the center; null in the active scope. */
+  hop: number | null
+  via_key: string | null
+  derived_parent_key: string | null
+}
+
+/** Issue #91: one message between two sessions (backend PeerGraphMessage). */
+export interface PeerGraphMessage {
+  msg_id: string | null
+  kind: 'message' | 'idle_notice' | 'subagent'
+  from_key: string
+  to_key: string
+  from_message_uuid: string | null
+  to_message_uuid: string | null
+  timestamp: string | null
+  text: string | null
+}
+
+/** Issue #91: the data of the Messages tab (backend PeerGraph). */
+export interface PeerGraph {
+  scope: 'active' | 'hops'
+  center_key: string | null
+  /** null = the whole connected group. */
+  hops: number | null
+  subagents: boolean
+  sessions: PeerGraphSession[]
+  messages: PeerGraphMessage[]
 }
 
 // Full per-conversation payload. Returned by `GET /api/conversations/{uuid}`
@@ -91,6 +147,13 @@ export interface ConversationSummary {
   // field must live here). Stripped from `ConversationListItem` —
   // the sidebar never renders it.
   git_branch?: string | null
+  // Issue #93 (see ConversationListItem).
+  entrypoint?: string | null
+  tickets?: string[]
+  // Issue #93: the keys of title, message, and branch references, and the
+  // keys of the session's GitHub pr-link records; `tickets` is their union.
+  named_keys?: string[]
+  pr_keys?: string[]
   // cowork-multi-org C6: workspace metadata. Null for legacy untagged
   // JSONs that haven't been re-fetched yet.
   organization_id?: string | null
@@ -111,6 +174,8 @@ export interface ConversationSummary {
   notices?: string[]
   // The parent thread of a subagent or fork.
   parent_uuid?: string | null
+  // Issue #91: Running, Open, Ended (backend/session_state.py). Null for Desktop.
+  state?: SessionState | null
   // Issue #92: the machine that the shown copy came from (null for Desktop),
   // its shown label, and every machine that holds the session.
   machine_id?: string | null
@@ -119,6 +184,46 @@ export interface ConversationSummary {
 }
 
 // cowork-multi-org C6: workspace selector source.
+// Issue #93: GET /api/tickets/{owner}/{repo}/{number}.
+export interface TicketRefEntry {
+  kind: 'title' | 'message' | 'branch' | 'pr_link' | string
+  message_uuid: string | null
+  snippet: string
+}
+
+export interface TicketSession {
+  conversation_uuid: string
+  name: string
+  source: ConversationSource
+  project_path: string | null
+  entrypoint: string | null
+  machine_id: string | null
+  machine_label: string | null
+  state: string | null
+  created_at: string
+  updated_at: string
+  kinds: string[]
+  refs: TicketRefEntry[]
+}
+
+export interface TicketPr {
+  number: number
+  repository: string
+  url: string
+  conversation_uuid: string
+  timestamp: string
+}
+
+export interface TicketDetail {
+  key: string
+  repo: string | null
+  number: number
+  system: 'github' | 'linear' | 'jira' | null
+  url: string | null
+  sessions: TicketSession[]
+  prs: TicketPr[]
+}
+
 export interface Org {
   org_id: string
   name: string | null

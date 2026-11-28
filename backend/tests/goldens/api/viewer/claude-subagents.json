@@ -6,6 +6,7 @@
     "compact_markers": [],
     "created_at": "2026-04-01T20:01:00Z",
     "current_leaf_message_uuid": "0096-t1",
+    "entrypoint": null,
     "error": null,
     "file_path": "<TMP>/claude/projects/-home-fixture-proj-sa/5a6e0000-0000-4000-8000-000000000096.jsonl",
     "git_branch": "",
@@ -91,11 +92,13 @@
     ],
     "model": "claude-sonnet-5-5",
     "name": "Start the agents (zqsessiontext).",
+    "named_keys": [],
     "notices": [],
     "organization_id": null,
     "organization_name": null,
     "parent_uuid": null,
     "peers": [],
+    "pr_keys": [],
     "prelude_hidden_count": 0,
     "project_name": "proj-sa",
     "project_path": "/home/fixture/proj-sa",
@@ -104,6 +107,7 @@
     "source_home": null,
     "source_home_abs": null,
     "source_name": null,
+    "state": "ended_no_exit",
     "subagents": [],
     "subagents_found": [
       {
@@ -116,6 +120,7 @@
       }
     ],
     "summary": "",
+    "tickets": [],
     "updated_at": "2026-04-01T20:02:00Z",
     "uuid": "5a6e0000-0000-4000-8000-000000000096"
   },

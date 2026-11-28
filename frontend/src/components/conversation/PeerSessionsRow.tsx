@@ -3,6 +3,7 @@
  * UX.md "Messages between sessions"). It follows the CodexHistoryLinks rules:
  * a peer in the archive is a link that opens it; another peer is plain text.
  * The list comes with the conversation (`peers`), so it needs no other call.
+ * "Open in Messages tab" opens the Activity page centered on this session.
  */
 import { Link } from 'react-router'
 import type { ConversationDetail } from '@/lib/types'
@@ -14,17 +15,27 @@ export function PeerSessionsRow({ conversation }: { conversation: ConversationDe
   const peers = conversation.peers ?? []
   if (peers.length === 0) return null
   return (
-    <div className={ROW} data-testid="peer-sessions-row">
-      <span className="text-zinc-500">Messages with:</span>
-      {peers.map((p, i) =>
-        p.link_state === 'linked' && p.conversation_uuid ? (
-          <Link key={p.conversation_uuid} to={`/conversations/${p.conversation_uuid}`} className={LINK}>
-            {p.title || p.name || p.conversation_uuid}
-          </Link>
-        ) : (
-          <span key={`${p.name ?? ''}-${i}`}>{p.name}</span>
-        ),
-      )}
+    <div className="flex flex-wrap items-center gap-x-3">
+      <div className={ROW} data-testid="peer-sessions-row">
+        <span className="text-zinc-500">Messages with:</span>
+        {peers.map((p, i) =>
+          p.link_state === 'linked' && p.conversation_uuid ? (
+            <Link key={p.conversation_uuid} to={`/conversations/${p.conversation_uuid}`} className={LINK}>
+              {p.title || p.name || p.conversation_uuid}
+            </Link>
+          ) : (
+            <span key={`${p.name ?? ''}-${i}`}>{p.name}</span>
+          ),
+        )}
+      </div>
+      {/* Outside the row: the row lists only the peers. */}
+      <Link
+        to={`/activity?center=${encodeURIComponent(conversation.uuid)}`}
+        className={`text-xs ${LINK}`}
+        data-testid="peer-sessions-open-activity"
+      >
+        Open in Messages tab
+      </Link>
     </div>
   )
 }

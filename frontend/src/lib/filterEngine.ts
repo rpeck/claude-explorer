@@ -47,7 +47,20 @@
 export type FilterPolarity = 'include' | 'exclude'
 export type Behavior = 'hide' | 'show-only'
 export type FilterMode = 'glob' | 'regex'
-export type FilterTarget = 'title'
+/**
+ * What an atom tests. 'title' is the conversation name; the others read the
+ * fields of a `FilterItem` (issue #91: the Messages tab and the list).
+ */
+export type FilterTarget =
+  | 'title'
+  | 'ticket'
+  | 'entrypoint'
+  | 'message_text'
+  | 'project'
+  | 'source'
+  | 'machine'
+  | 'active_within'
+  | 'state'
 
 // ---------------------------------------------------------------------------
 // Legacy single-filter shape (still used internally by the new AtomFilter).
@@ -230,26 +243,118 @@ export function evaluate(
   state: FiltersState,
   visited: Set<FilterId> = new Set(),
 ): boolean {
-  if (visited.has(node.id)) return true // cycle: no-op (also caught at save time)
+  // The title is the only value of a text; atoms of other targets have no value here.
+  return evaluateItem(node, { name: text }, state, Date.now(), visited)
+}
+
+// ---------------------------------------------------------------------------
+// Item API: atoms that test other fields than the title.
+// ---------------------------------------------------------------------------
+
+/** The fields that the atom targets read. Only `name` is required. */
+export interface FilterItem {
+  name: string
+  tickets?: string[]
+  entrypoint?: string | null
+  /** The texts of the messages between sessions. */
+  messageText?: string[]
+  project?: string | null
+  source?: string | null
+  /** The machine label, else the machine id. */
+  machine?: string | null
+  /** ISO time of the last activity, for 'active_within'. */
+  updatedAt?: string | null
+  state?: string | null
+}
+
+/** The values of `item` that an atom of `target` matches its patterns against. */
+export function targetValues(item: FilterItem, target: FilterTarget): string[] {
+  const one = (v: string | null | undefined) => (v ? [v] : [])
+  switch (target) {
+    case 'title':
+      return [item.name]
+    case 'ticket':
+      return item.tickets ?? []
+    case 'entrypoint':
+      return one(item.entrypoint)
+    case 'message_text':
+      return item.messageText ?? []
+    case 'project':
+      return one(item.project)
+    case 'source':
+      return one(item.source)
+    case 'machine':
+      return one(item.machine)
+    case 'active_within':
+      return one(item.updatedAt)
+    case 'state':
+      return one(item.state)
+    default:
+      return []
+  }
+}
+
+const DURATION_MS: Record<string, number> = { m: 60_000, h: 3_600_000, d: 86_400_000, w: 604_800_000 }
+
+/** "<n>m|h|d|w" in milliseconds; null for a bad duration. */
+export function parseDuration(raw: string): number | null {
+  const m = raw.match(/^\s*(\d+)\s*([mhdw])\s*$/i)
+  return m ? Number(m[1]) * DURATION_MS[m[2].toLowerCase()] : null
+}
+
+function atomHit(node: AtomFilter, item: FilterItem, now: number): boolean {
+  const values = targetValues(item, node.target ?? 'title')
+  if (node.target === 'active_within') {
+    const t = values.length ? Date.parse(values[0]) : NaN
+    if (Number.isNaN(t)) return false
+    return node.patterns.some((p) => {
+      const ms = parseDuration(p)
+      return ms !== null && now - t <= ms
+    })
+  }
+  return values.some((v) => node.patterns.some((p) => patternMatches(v, p, node.mode)))
+}
+
+/** `evaluate` for an item: an atom matches when any of its values matches; no values = no match. */
+export function evaluateItem(
+  node: FilterNode,
+  item: FilterItem,
+  state: FiltersState,
+  now: number = Date.now(),
+  visited: Set<FilterId> = new Set(),
+): boolean {
+  if (visited.has(node.id)) return true
   const nextVisited = new Set(visited)
   nextVisited.add(node.id)
-
   if (node.type === 'atom') {
     if (node.patterns.length === 0) return true
-    const hit = node.patterns.some((p) => patternMatches(text, p, node.mode))
+    const hit = atomHit(node, item, now)
     return node.behavior === 'show-only' ? hit : !hit
   }
-
-  // Group: drop orphans AND disabled children before applying the
-  // quantifier. THIS is where `enabled` gates evaluation.
   const children = node.childIds
     .map((id) => state.nodes[id])
     .filter((c): c is FilterNode => Boolean(c) && c.enabled)
   if (children.length === 0) return true
-  if (node.match === 'all') {
-    return children.every((c) => evaluate(c, text, state, nextVisited))
-  }
-  return children.some((c) => evaluate(c, text, state, nextVisited))
+  const test = (c: FilterNode) => evaluateItem(c, item, state, now, nextVisited)
+  return node.match === 'all' ? children.every(test) : children.some(test)
+}
+
+/** The filter `activeId` of `filters` on `item`; no, missing, or disabled filter passes. */
+export function applyFilterById(
+  item: FilterItem,
+  filters: FiltersState,
+  activeId: FilterId | null,
+  now: number = Date.now(),
+): boolean {
+  if (!activeId) return true
+  const node = filters.nodes[activeId]
+  if (!node || !node.enabled) return true
+  return evaluateItem(node, item, filters, now)
+}
+
+/** `applyActiveFilter` for an item (the sidebar's active filter). */
+export function applyActiveFilterToItem(item: FilterItem, state: FiltersState): boolean {
+  return applyFilterById(item, state, state.activeId)
 }
 
 /**
@@ -258,10 +363,7 @@ export function evaluate(
  * - missing/disabled active node → treated as no filter active
  */
 export function applyActiveFilter(text: string, state: FiltersState): boolean {
-  if (!state.activeId) return true
-  const node = state.nodes[state.activeId]
-  if (!node || !node.enabled) return true
-  return evaluate(node, text, state)
+  return applyActiveFilterToItem({ name: text }, state)
 }
 
 /**

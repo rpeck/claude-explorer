@@ -6,13 +6,17 @@ import re
 import sqlite3
 import threading
 from collections import OrderedDict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from . import session_state
 from .archive_sync import archive_roots, live_first, machine_fields, pick_copies
 from .cc_peer_messages import compute_links, link_detail_dict, link_detail_model
 from .cc_subagents import (
     AgentFile,
+    agent_display_name,
+    discover_agents,
     find_agent,
     is_valid_agent_id,
     iter_agent_files,
@@ -43,13 +47,27 @@ from .models import (
     ConversationTree,
     Message,
     MessageNode,
+    PeerGraph,
+    PeerGraphMessage,
+    PeerGraphSession,
     SubagentFound,
     SubagentSummary,
 )
 from .parsing import parse_datetime as _parse_datetime
+from .session_state import SessionState, cc_file_ended, live_session_ids, state_of
 from .sources.base import SourceAdapter
 from .sources.ids import SourceFilter
 from .sources.registry import get_adapter_or_none, get_adapters, get_descriptor
+from .tickets import (
+    GITHUB,
+    TicketDetail,
+    TicketPr,
+    TicketRefEntry,
+    TicketSession,
+    external_link,
+    ticket_key,
+    ticket_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -450,6 +468,67 @@ def _is_chronological(source: str) -> bool:
     return descriptor is not None and descriptor.chronological
 
 
+def _peer_edges(
+    rows: list[dict[str, Any]], key_of: Any, codex_root: Any,
+) -> tuple[list[dict[str, Any]], dict[str, str], dict[str, str]]:
+    """Issue #91: the messages between sessions from the ``peer_messages`` rows.
+
+    Returns ``(edges, names, titles)``: names and titles by session key. A send
+    pairs with each receive of the same ``msg_id`` in another conversation (a
+    Codex key only within one thread tree). A Codex send with no receive goes
+    to the thread of its recipient path; any other side that is missing is a
+    "name:<peer name>" session.
+    """
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    names: dict[str, str] = {}
+    titles: dict[str, str] = {}
+    for r in rows:
+        by_key.setdefault(r["msg_id"], []).append(r)
+        if r.get("title"):
+            titles.setdefault(key_of(r), r["title"])
+
+    def same_tree(a: dict, b: dict) -> bool:
+        return codex_root is None or not a["msg_id"].startswith("cx") or \
+            codex_root(a["session_uuid"]) == codex_root(b["session_uuid"])
+
+    edges: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def add(msg_id: str, s: dict | None, r: dict | None, from_key: str, to_key: str) -> None:
+        if from_key == to_key or (msg_id, from_key, to_key) in seen:
+            return
+        seen.add((msg_id, from_key, to_key))
+        edges.append({
+            "msg_id": msg_id, "kind": "message", "from_key": from_key, "to_key": to_key,
+            "from_conv": s["conv_uuid"] if s else None, "from_message_uuid": (s or {}).get("message_uuid") or None,
+            "from_block": (s or {}).get("block_id") or None,
+            "to_conv": r["conv_uuid"] if r else None, "to_message_uuid": (r or {}).get("message_uuid") or None,
+        })
+
+    for msg_id, group in by_key.items():
+        sends = [g for g in group if g["direction"] == "sent"]
+        gets = [g for g in group if g["direction"] == "received"]
+        for s in sends:
+            matches = [g for g in gets if g["conv_uuid"] != s["conv_uuid"] and same_tree(s, g)]
+            for g in matches:
+                if g.get("peer_name"):
+                    names.setdefault(key_of(s), g["peer_name"])
+                if s.get("peer_name"):
+                    names.setdefault(key_of(g), s["peer_name"])
+                add(msg_id, s, g, key_of(s), key_of(g))
+            if matches:
+                continue
+            threads = [t for t in by_key.get(f"cxpath|{s.get('peer_name')}", []) if same_tree(s, t)]
+            if msg_id.startswith("cx|") and len({t["session_uuid"] for t in threads}) == 1:
+                add(msg_id, s, None, key_of(s), key_of(threads[0]))
+            elif s.get("peer_name"):
+                add(msg_id, s, None, key_of(s), f"name:{s['peer_name']}")
+        for g in gets:
+            if g.get("peer_name") and not any(s["conv_uuid"] != g["conv_uuid"] and same_tree(s, g) for s in sends):
+                add(msg_id, None, g, f"name:{g['peer_name']}", key_of(g))
+    return edges, names, titles
+
+
 class ConversationStore:
     """Store for reading conversation data from disk and Claude Code JSONL files."""
 
@@ -619,13 +698,15 @@ class ConversationStore:
         # ``(value or fallback)`` collapses both None and missing into the
         # safe fallback. Pinned by
         # ``test_list_conversations_handles_null_name_summary_model_without_crashing``.
+        source = data.get("source") or "CLAUDE_AI"
+        updated_at = _parse_datetime(data.get("updated_at"))
         return ConversationSummary(
             uuid=data.get("uuid") or "",
             name=data.get("name") or "Untitled",
             summary=data.get("summary") or "",
             model=data.get("model") or "",
             created_at=_parse_datetime(data.get("created_at")),
-            updated_at=_parse_datetime(data.get("updated_at")),
+            updated_at=updated_at,
             is_starred=bool(data.get("is_starred") or False),
             message_count=message_count,
             human_message_count=human_count,
@@ -633,9 +714,10 @@ class ConversationStore:
             # post-compact duplicate UUIDs poison the parent->children
             # count, and CC has no edit-branch UI to switch to anyway.
             has_branches=self._branch_flag(data, chat_messages, adapters),
-            source=data.get("source") or "CLAUDE_AI",
+            source=source,
             project_path=data.get("project_path"),
             git_branch=data.get("git_branch"),
+            entrypoint=data.get("entrypoint") or None,
             organization_id=data.get("organization_id"),
             organization_name=data.get("organization_name"),
             subagents=subagents,
@@ -647,6 +729,8 @@ class ConversationStore:
             source_home_abs=data.get("source_home_abs"),
             notices=data.get("notices") or [],
             parent_uuid=data.get("parent_uuid"),
+            # By age only; Claude Code rows get theirs in _set_states (registry, transcript).
+            state=None if source == "CLAUDE_CODE" else self.state_for(source, updated_at, None, None),
             **self._machine_fields(data),
         )
 
@@ -907,6 +991,7 @@ class ConversationStore:
             conversations.append(
                 self._make_summary(data, include_subagents=include_subagents, adapters=adapters)
             )
+        self._set_states(conversations)
 
         # Sort
         # Hunt #12 — Unstable sort tiebreakers. Timsort is stable, but
@@ -949,7 +1034,93 @@ class ConversationStore:
                 reverse=reverse,
             )
 
+        sets = self._ticket_key_sets()
+        for c in conversations:
+            c.tickets = sets["tickets"].get(c.uuid, [])
+            c.named_keys = sets["named_keys"].get(c.uuid, [])
+            c.pr_keys = sets["pr_keys"].get(c.uuid, [])
         return conversations
+
+    def _ticket_index(self) -> Any:
+        """Issue #93: the search index when it can answer ticket queries, else None."""
+        from .search_index import get_search_index
+
+        idx = get_search_index()
+        return idx if idx is not None and idx.is_ready() else None
+
+    def _ticket_key_sets(self) -> dict[str, dict[str, list[str]]]:
+        """"tickets", "named_keys", "pr_keys": conv_uuid -> keys; empty maps when the index cannot answer."""
+        empty: dict[str, dict[str, list[str]]] = {"tickets": {}, "named_keys": {}, "pr_keys": {}}
+        idx = self._ticket_index()
+        if idx is None:
+            return empty
+        try:
+            return idx.ticket_key_sets()
+        except sqlite3.Error:
+            logger.warning("tickets: index read failed", exc_info=True)
+            return empty
+
+    def _ticket_fields(self, uuid: str) -> dict[str, list[str]]:
+        """The three ticket fields of one session."""
+        sets = self._ticket_key_sets()
+        return {name: m.get(uuid, []) for name, m in sets.items()}
+
+    def get_ticket(self, scope: str | None, number: int) -> TicketDetail | None:
+        """Issue #93: every session that refers to a ticket, and each message that names it.
+
+        ``scope`` as in ``tickets.ticket_key``. None: the index is not ready.
+        """
+        idx = self._ticket_index()
+        if idx is None:
+            return None
+        try:
+            refs, prs = idx.ticket_rows(scope, number)
+        except sqlite3.Error:
+            logger.warning("tickets: index read failed", exc_info=True)
+            return None
+        by_conv: dict[str, list[dict[str, Any]]] = {}
+        for r in refs:
+            by_conv.setdefault(r["conv_uuid"], []).append(r)
+        summaries = {
+            s.uuid: s for s in self.list_conversations(include_phantom=True, show_archived=True)
+            if s.uuid in by_conv
+        }
+        sessions = [
+            TicketSession(
+                conversation_uuid=s.uuid,
+                name=s.name,
+                source=s.source,
+                project_path=s.project_path,
+                entrypoint=s.entrypoint,
+                # A2 (machines) and L2 (state) add these fields to the summary.
+                machine_id=getattr(s, "machine_id", None),
+                machine_label=getattr(s, "machine_label", None),
+                state=getattr(s, "state", None),
+                created_at=s.created_at.isoformat(),
+                updated_at=s.updated_at.isoformat(),
+                kinds=sorted({r["kind"] for r in by_conv[s.uuid]}),
+                refs=[TicketRefEntry(kind=r["kind"], message_uuid=r["message_uuid"], snippet=r["snippet"])
+                      for r in by_conv[s.uuid]],
+            )
+            for s in sorted(summaries.values(), key=lambda s: (s.updated_at, s.uuid), reverse=True)
+        ]
+        seen: dict[str, TicketPr] = {}
+        for p in sorted(prs, key=lambda p: (p["timestamp"], p["url"])):
+            if p["conv_uuid"] in summaries and p["url"] not in seen:
+                seen[p["url"]] = TicketPr(
+                    number=p["number"], repository=p["repository"], url=p["url"],
+                    conversation_uuid=p["conv_uuid"], timestamp=p["timestamp"],
+                )
+        github = scope is None or "/" in scope
+        if github:
+            system, url = GITHUB, ticket_url(GITHUB, scope, number, None)
+        else:
+            settings = get_settings()
+            system, url = external_link(scope, number, refs, settings.ticket_keys, settings.ticket_hosts)
+        return TicketDetail(
+            key=ticket_key(scope, number), repo=scope if github else None, number=number,
+            system=system, url=url, sessions=sessions, prs=list(seen.values()),
+        )
 
     def _find_conversation_data(self, uuid: str) -> tuple[dict[str, Any] | None, Path | None]:
         """Find conversation data by UUID from any source.
@@ -1179,6 +1350,7 @@ class ConversationStore:
             source=source,
             project_path=data.get("project_path"),
             git_branch=data.get("git_branch"),
+            entrypoint=data.get("entrypoint") or None,
             messages=messages,
             current_leaf_message_uuid=leaf_uuid,
             file_path=str(file_path) if file_path else None,
@@ -1238,6 +1410,7 @@ class ConversationStore:
             return None
         detail = self._build_detail_from_data(data, agent.path, None)
         link_detail_model(detail, self._peer_links(detail.uuid, detail.agent_id, detail.source))
+        detail.state = self.state_for(detail.source, detail.updated_at, agent.path, None)
         return detail
 
     def get_agent_conversations_raw(self, source: SourceFilter = "all") -> list[dict[str, Any]]:
@@ -1275,6 +1448,12 @@ class ConversationStore:
                 SubagentFound(**a) for a in subagents_found(file_path)
             ]
         link_detail_model(detail, self._peer_links(detail.uuid, detail.agent_id, detail.source))
+        detail.state = self.state_for(
+            detail.source, detail.updated_at, file_path, None if detail.agent_id else detail.uuid
+        )
+        if not detail.agent_id:
+            for name, keys in self._ticket_fields(detail.uuid).items():
+                setattr(detail, name, keys)
         return detail
 
     def get_conversation_dict(
@@ -1297,7 +1476,53 @@ class ConversationStore:
             detail = {**detail, "subagents_found": subagents_found(Path(detail["file_path"]))}
         if not detail:
             return detail
-        return link_detail_dict(detail, self._peer_links(detail["uuid"], detail.get("agent_id"), detail.get("source")))
+        detail = link_detail_dict(detail, self._peer_links(detail["uuid"], detail.get("agent_id"), detail.get("source")))
+        # Outside the dict cache: the state changes with time and the live registry,
+        # and the ticket fields (issue #93) change with the index.
+        state = self.state_for(
+            detail.get("source"), _parse_datetime(detail.get("updated_at")),
+            Path(detail["file_path"]) if detail.get("file_path") else None,
+            None if detail.get("agent_id") else detail["uuid"],
+        )
+        fields = (
+            {"tickets": [], "named_keys": [], "pr_keys": []} if detail.get("agent_id")
+            else self._ticket_fields(detail["uuid"])
+        )
+        changed = {"state": state} if detail.get("state") != state else {}
+        if not all(detail.get(name) == keys for name, keys in fields.items()):
+            changed.update(fields)
+        return {**detail, **changed} if changed else detail
+
+    # ----- Session state (issue #91, backend/session_state.py) -----
+
+    def state_for(
+        self, source: str | None, updated_at: datetime, cc_path: Path | None,
+        running_uuid: str | None, running_ids: set[str] | None = None, now: datetime | None = None,
+    ) -> SessionState | None:
+        """The state of one session. ``running_uuid``: the uuid to look up in the live
+        registry (None for an agent transcript)."""
+        if source in (None, "CLAUDE_AI"):
+            return None
+        now = now or session_state.now()
+        if source != "CLAUDE_CODE":
+            return state_of(ended=False, last_activity=updated_at, now=now)
+        if running_ids is None:
+            running_ids = live_session_ids(self.claude_dir) if running_uuid else set()
+        return state_of(
+            ended=cc_path is not None and cc_file_ended(cc_path),
+            last_activity=updated_at, now=now, running=running_uuid in running_ids,
+        )
+
+    def _set_states(self, rows: list[ConversationSummary]) -> None:
+        """The state of the Claude Code rows (the others have it from ``_make_summary``)."""
+        cc = [r for r in rows if r.source == "CLAUDE_CODE"]
+        if not cc:
+            return
+        now = session_state.now()
+        paths = {p.stem: p for p in self._cc_session_files()}
+        running = live_session_ids(self.claude_dir)
+        for r in cc:
+            r.state = self.state_for(r.source, r.updated_at, paths.get(r.uuid), r.uuid, running, now)
 
     def _peer_links(self, uuid: str, agent_id: str | None, source: str | None) -> dict | None:
         """Issue #91: the links between sessions, from the search index; outside the
@@ -1320,8 +1545,236 @@ class ConversationStore:
         same_tree = (lambda _u: True) if source != "CODEX" else self._codex_tree_test(uuid)
         return compute_links(own, others, same_tree)
 
-    def _codex_tree_test(self, uuid: str):
-        """A test: is a Codex thread in the same thread tree as ``uuid``?"""
+    # ----- The Messages tab (issue #91) -----
+
+    def peer_graph(self, center: str | None, hops: int | None, subagents: bool) -> PeerGraph | None:
+        """The sessions and messages of the Messages tab. None: ``center`` is unknown.
+
+        ``center=None``: every running or open session, and the messages whose
+        two ends are in that set. Else the sessions at most ``hops`` messages
+        from ``center`` (None = the connected group), both directions, and
+        every message between them. A peer that is not in the archive is a
+        session "name:<peer name>" (hops scope only); the search never goes on
+        from it, because a name is no link. ``subagents=False``: an agent's
+        messages count for its main session.
+        """
+        from .search_index import get_search_index, index_key
+
+        rows = self.list_conversations()
+        by_uuid = {r.uuid: r for r in rows}
+        if center is not None and center not in by_uuid and self._find_conversation_data(center)[0] is None:
+            return None
+        idx = get_search_index()
+        peer_rows: list[dict[str, Any]] = []
+        if idx is not None:
+            try:
+                peer_rows = idx.peer_graph_rows()
+            except sqlite3.Error:
+                logger.warning("peer graph: index read failed", exc_info=True)
+                idx = None
+
+        def key_of(r: dict[str, Any]) -> str:
+            return index_key(r["session_uuid"], r["agent_id"] or None) if subagents else r["session_uuid"]
+
+        roots = self._codex_roots() if any(r["msg_id"].startswith("cx") for r in peer_rows) else None
+        edges, names, titles = _peer_edges(peer_rows, key_of, roots)
+
+        # Subagents: every agent transcript of a session in scope (both layouts),
+        # also one that sent no message. Found when the scope reaches its session.
+        agents: dict[str, dict[str, Any]] = {}
+        agent_keys: dict[str, list[str]] = {}
+        session_files: dict[str, Path] = {}
+
+        def agents_of(uuid: str) -> list[str]:
+            if not subagents or "::agent::" in uuid or uuid.startswith("name:"):
+                return []
+            if uuid not in agent_keys:
+                if not session_files:
+                    session_files.update({p.stem: p for p in self._cc_session_files()})
+                path = session_files.get(uuid)
+                keys = []
+                for a in discover_agents(path) if path else []:
+                    key = index_key(uuid, a.agent_id)
+                    try:
+                        when: datetime | None = datetime.fromtimestamp(a.path.stat().st_mtime, UTC)
+                    except OSError:
+                        when = None
+                    agents[key] = {"agent_id": a.agent_id, "title": agent_display_name(a), "updated_at": when}
+                    keys.append(key)
+                    edges.append({"msg_id": None, "kind": "subagent", "from_key": uuid, "to_key": key,
+                                  "timestamp": when, "text": a.description})
+                agent_keys[uuid] = keys
+            return agent_keys[uuid]
+
+        hop: dict[str, int | None] = {}
+        via: dict[str, str | None] = {}
+        if center is None:
+            for r in rows:
+                if r.state in ("running", "open"):
+                    for k in (r.uuid, *agents_of(r.uuid)):
+                        hop[k], via[k] = None, None
+        else:
+            adj: dict[str, set[str]] = {}
+            for e in edges:
+                adj.setdefault(e["from_key"], set()).add(e["to_key"])
+                adj.setdefault(e["to_key"], set()).add(e["from_key"])
+
+            def neighbors(k: str) -> set[str]:
+                main, _, agent_id = k.partition("::agent::")
+                return adj.get(k, set()) | set(agents_of(k)) | ({main} if agent_id else set())
+
+            hop[center], via[center] = 0, None
+            frontier = [center]
+            while frontier and (hops is None or hop[frontier[0]] < hops):
+                nxt = []
+                for k in frontier:
+                    if k.startswith("name:"):
+                        continue
+                    for n in sorted(neighbors(k)):
+                        if n not in hop:
+                            hop[n], via[n] = hop[k] + 1, k
+                            nxt.append(n)
+                frontier = nxt
+        scoped = [e for e in edges if e["from_key"] in hop and e["to_key"] in hop]
+        if idx is not None:
+            scoped += self._idle_edges(idx, set(hop), subagents)
+        self._edge_facts(idx, scoped)
+        def when(e: dict[str, Any]) -> datetime:
+            t = e["timestamp"] or datetime.min
+            return t if t.tzinfo else t.replace(tzinfo=UTC)
+
+        scoped.sort(key=lambda e: (e["timestamp"] is None, when(e), e["msg_id"] or ""))
+
+        # Each session's first message by its own record time (clocks can differ).
+        first: dict[str, tuple[datetime, str | None]] = {}
+        never = datetime.max.replace(tzinfo=UTC)
+        for e in scoped:
+            if e["kind"] != "message":
+                continue
+            for key, when, other in ((e["to_key"], e.get("to_time"), e["from_key"]),
+                                     (e["from_key"], e.get("from_time"), None)):
+                when = when or e["timestamp"] or never
+                if key not in first or when < first[key][0]:
+                    first[key] = (when, other)
+        parent = {k: v[1] for k, v in first.items()}
+        sessions = [self._graph_session(k, hop[k], via[k], parent.get(k), by_uuid, agents, names, titles)
+                    for k in hop]
+        if center is None:
+            sessions.sort(key=lambda s: (s.updated_at or datetime.min.replace(tzinfo=UTC), s.key), reverse=True)
+        else:
+            sessions.sort(key=lambda s: (s.hop or 0, s.key))
+        return PeerGraph(
+            scope="active" if center is None else "hops", center_key=center, hops=hops, subagents=subagents,
+            sessions=sessions,
+            messages=[PeerGraphMessage(**{k: e.get(k) for k in PeerGraphMessage.model_fields}) for e in scoped],
+        )
+
+    def _graph_session(
+        self, key: str, hop: int | None, via: str | None, parent: str | None,
+        by_uuid: dict[str, ConversationSummary], agents: dict[str, dict[str, Any]],
+        names: dict[str, str], titles: dict[str, str],
+    ) -> PeerGraphSession:
+        common = {"key": key, "hop": hop, "via_key": via, "derived_parent_key": parent, "name": names.get(key)}
+        if key.startswith("name:"):
+            return PeerGraphSession(**{**common, "name": key[5:]}, in_archive=False)
+        uuid, _, agent_id = key.partition("::agent::")
+        row = by_uuid.get(uuid)
+        if agent_id:
+            a = agents.get(key) or {}
+            when = a.get("updated_at")
+            return PeerGraphSession(
+                **common, uuid=uuid, agent_id=agent_id, title=titles.get(key) or a.get("title"),
+                source="CLAUDE_CODE", project_name=row.project_name if row else None,
+                project_path=row.project_path if row else None, updated_at=when,
+                state=self.state_for("CLAUDE_CODE", when, None, None) if when else None,
+            )
+        if row is None:
+            return PeerGraphSession(**common, uuid=uuid, title=titles.get(key))
+        return PeerGraphSession(
+            **common, uuid=uuid, title=row.name or titles.get(key), source=row.source,
+            project_name=row.project_name, project_path=row.project_path, state=row.state,
+            updated_at=row.updated_at,
+        )
+
+    def _idle_edges(self, idx: Any, keys: set[str], subagents: bool) -> list[dict[str, Any]]:
+        """Idle notices of the sessions in ``keys``, linked through the asker's own
+        notify_when_idle send (``link_detail_dict``)."""
+        out: list[dict[str, Any]] = []
+        try:
+            notices = idx.idle_notice_messages()
+        except sqlite3.Error:
+            logger.warning("peer graph: idle notices read failed", exc_info=True)
+            return out
+        wanted: dict[str, set[str]] = {}
+        for conv, mu in notices:
+            if "::agent::" not in conv and conv in keys:
+                wanted.setdefault(conv, set()).add(mu)
+        for conv, mus in wanted.items():
+            detail = self.get_conversation_dict(conv) or {}
+            for m in detail.get("messages") or []:
+                ref = m.get("peer_ref") or {}
+                if m.get("uuid") not in mus or ref.get("kind") != "idle_notice":
+                    continue
+                other = ref.get("conversation_uuid") or (f"name:{ref['name']}" if ref.get("name") else None)
+                if other in keys:
+                    out.append({"msg_id": None, "kind": "idle_notice", "from_key": other, "to_key": conv,
+                                "from_conv": None, "from_message_uuid": None, "to_conv": conv,
+                                "to_message_uuid": m.get("uuid"), "timestamp": _parse_datetime(m.get("created_at")),
+                                "text": str(m.get("text") or "").strip().splitlines()[0][:200] or None})
+        return out
+
+    def _edge_facts(self, idx: Any, edges: list[dict[str, Any]]) -> None:
+        """The time and text of each message edge, from the search index (in place)."""
+        wanted: dict[str, set[str]] = {}
+        for e in edges:
+            if e["kind"] == "message":
+                for side in ("from", "to"):
+                    if e.get(f"{side}_conv") and e.get(f"{side}_message_uuid"):
+                        wanted.setdefault(e[f"{side}_conv"], set()).add(e[f"{side}_message_uuid"])
+        facts: dict[tuple[str, str], tuple[str, str]] = {}
+        if idx is not None and wanted:
+            try:
+                facts = idx.message_facts(wanted)
+            except sqlite3.Error:
+                logger.warning("peer graph: message facts read failed", exc_info=True)
+        for e in edges:
+            if e["kind"] != "message":
+                continue
+            sent = facts.get((e.get("from_conv"), e.get("from_message_uuid")))
+            got = facts.get((e.get("to_conv"), e.get("to_message_uuid")))
+            e["from_time"] = _parse_datetime(sent[0]) if sent and sent[0] else None
+            e["to_time"] = _parse_datetime(got[0]) if got and got[0] else None
+            e["timestamp"] = e["from_time"] or e["to_time"]
+            # The received row holds the body; a Codex send call holds it too.
+            text = got[1] if got else (sent[1] if sent and (e["msg_id"] or "").startswith("cx") else None)
+            e["text"] = text.strip() or None if text else None
+        self._send_texts([e for e in edges if e["kind"] == "message" and e["text"] is None and e.get("from_block")])
+
+    def _send_texts(self, edges: list[dict[str, Any]]) -> None:
+        """The text of a send whose receiver is not in the archive: the SendMessage
+        input in the sender's own transcript (the index keeps only tool text)."""
+        by_conv: dict[str, list[dict[str, Any]]] = {}
+        for e in edges:
+            by_conv.setdefault(e["from_conv"], []).append(e)
+        for conv, group in by_conv.items():
+            uuid, _, agent_id = conv.partition("::agent::")
+            if agent_id:
+                agent = self.get_agent_conversation(uuid, agent_id)
+                messages = agent.model_dump()["messages"] if agent else []
+            else:
+                messages = (self.get_conversation_dict(uuid) or {}).get("messages") or []
+            inputs = {
+                b.get("id"): b.get("input")
+                for m in messages for b in m.get("content") or []
+                if b.get("type") == "tool_use" and isinstance(b.get("input"), dict)
+            }
+            for e in group:
+                inp = inputs.get(e["from_block"]) or {}
+                body = inp.get("message") if isinstance(inp.get("message"), str) else inp.get("content")
+                e["text"] = body.strip() or None if isinstance(body, str) else None
+
+    def _codex_roots(self):
+        """A function: the root thread of a Codex thread."""
         adapter = get_adapter_or_none("CODEX", self)
         rows = adapter.list_rows(full_content=False, include_phantom=True) if adapter else []
         parent = {r["uuid"]: r.get("parent_uuid") for r in rows if r.get("uuid")}
@@ -1333,6 +1786,11 @@ class ConversationStore:
                 u = parent[u]
             return u
 
+        return root
+
+    def _codex_tree_test(self, uuid: str):
+        """A test: is a Codex thread in the same thread tree as ``uuid``?"""
+        root = self._codex_roots()
         mine = root(uuid)
         return lambda other: root(other) == mine
 

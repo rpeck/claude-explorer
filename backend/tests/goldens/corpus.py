@@ -26,6 +26,7 @@ import json
 import os
 import shutil
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,10 @@ REMOTE_FIXTURE_DIR = GOLDENS_DIR / "data" / "cowork-remote"
 
 #: 2026-01-01T00:00:00Z. Claude Code reads fall back to the file mtime.
 FIXED_MTIME = 1767225600
+
+#: The clock of the session state rule (L2, #91): the 7-day window must not
+#: change the goldens as the days pass.
+FIXED_NOW = datetime(2026, 11, 27, 12, 0, 0, tzinfo=UTC)
 
 MTIME_KEYS = frozenset({"mtime", "file_mtime", "cached_at"})
 
@@ -84,6 +89,9 @@ class Corpus:
 def build_corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Corpus:
     """Copy the fixtures under ``tmp_path``, point the settings at them, and
     build the search index over them as the process singleton."""
+    from backend import session_state
+
+    monkeypatch.setattr(session_state, "now", lambda: FIXED_NOW)
     from backend import config
     from backend import search_index as si
     from backend.cache import clear_cache

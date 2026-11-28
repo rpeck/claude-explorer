@@ -999,10 +999,10 @@ def test_the_report_counts_an_unknown_extension_kind_as_other(
 # ---------------------------------------------------------------------------
 
 
-def test_codex_projection_version_is_7() -> None:
+def test_codex_projection_version_is_8() -> None:
     # 2 for N12's items; 3 for N10's history (compaction, rollback, history_base);
     # 4 for C1's response_item tool calls; 5 for code mode runs (#90);
-    # 6 for exec images (#103); 7 for agent message links (#91).
+    # 6 for exec images (#103); 7 for agent message links (#91); 8 for the entrypoint (#93).
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 7
+    assert codex.CODEX_PROJECTION_VERSION == 8

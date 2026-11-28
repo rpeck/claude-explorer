@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, SerializerFunctionWrapHandler, model_serializer
 
+from .session_state import SessionState
 from .sources.ids import SourceId
 
 # Issue #90. How an inner call was linked to its Code Mode script.
@@ -264,11 +265,17 @@ class ConversationListItem(BaseModel):
     source: SourceId = "CLAUDE_AI"
     project_path: str | None = None  # For Claude Code sessions
     project_name: str | None = None  # Short name extracted from project_path
+    entrypoint: str | None = None  # Issue #93
+    tickets: list[str] = Field(default_factory=list)  # Issue #93
+    named_keys: list[str] = Field(default_factory=list)  # Issue #93
+    pr_keys: list[str] = Field(default_factory=list)  # Issue #93
     # Multi-org metadata (cowork-multi-org C3). Null for legacy untagged
     # JSONs that haven't been re-fetched yet.
     organization_id: str | None = None
     organization_name: str | None = None
     subagents: list[SubagentSummary] = Field(default_factory=list)
+    #: Issue #91: Running, Open, Ended (backend/session_state.py). None for Desktop.
+    state: SessionState | None = None
     # Issue #92: see ConversationSummary.
     machine_id: str | None = None
     machine_label: str | None = None
@@ -322,6 +329,14 @@ class ConversationSummary(BaseModel):
     source: SourceId = "CLAUDE_AI"
     project_path: str | None = None  # For Claude Code sessions
     project_name: str | None = None  # Short name extracted from project_path
+    #: Issue #93: the launcher (CC "entrypoint", Codex "originator"); None for Desktop.
+    entrypoint: str | None = None
+    #: Issue #93: the ticket keys of the session, from the search index; [] when it cannot answer.
+    tickets: list[str] = Field(default_factory=list)
+    #: Issue #93: the keys of title, message, and branch references (the header "Tickets:").
+    named_keys: list[str] = Field(default_factory=list)
+    #: Issue #93: the keys of the session's valid GitHub pr-link records (the header "PRs:").
+    pr_keys: list[str] = Field(default_factory=list)
     # `git_branch` is read by the conversation-detail page (see
     # `frontend/src/routes/ConversationPage.tsx` "Details" disclosure).
     # `ConversationDetail extends ConversationSummary`, so this field
@@ -352,6 +367,8 @@ class ConversationSummary(BaseModel):
     notices: list[str] = Field(default_factory=list)
     #: The parent thread of a subagent or fork.
     parent_uuid: str | None = None
+    #: Issue #91: Running, Open, Ended (backend/session_state.py). None for Desktop.
+    state: SessionState | None = None
     # Issue #92: the machine that the shown copy came from (None for Desktop).
     machine_id: str | None = None
     #: Its shown label: the local name, its own label, or "Machine <id8>".
@@ -421,6 +438,54 @@ class ConversationDetail(ConversationSummary):
     agent_description: str | None = None
     #: Issue #91: the sessions that this one exchanged messages with. Detail only.
     peers: list[PeerSession] = Field(default_factory=list)
+
+
+class PeerGraphSession(BaseModel):
+    """One session of the Messages tab (issue #91)."""
+
+    #: ``index_key(uuid, agent_id)``; "name:<peer name>" for a peer not in the archive.
+    key: str
+    uuid: str | None = None
+    agent_id: str | None = None
+    title: str | None = None
+    name: str | None = None
+    source: SourceId | None = None
+    project_name: str | None = None
+    project_path: str | None = None
+    state: SessionState | None = None
+    updated_at: datetime | None = None
+    in_archive: bool = True
+    #: The hop count from the center (0 = the center); None in the active scope.
+    hop: int | None = None
+    #: The session that the search reached this one from.
+    via_key: str | None = None
+    #: The other side of this session's first message, when this session received it.
+    derived_parent_key: str | None = None
+
+
+class PeerGraphMessage(BaseModel):
+    """One message between two sessions of the Messages tab (issue #91)."""
+
+    msg_id: str | None = None
+    kind: Literal["message", "idle_notice", "subagent"] = "message"
+    from_key: str
+    to_key: str
+    from_message_uuid: str | None = None
+    to_message_uuid: str | None = None
+    timestamp: datetime | None = None
+    text: str | None = None
+
+
+class PeerGraph(BaseModel):
+    """The sessions and messages of the Messages tab (issue #91)."""
+
+    scope: Literal["active", "hops"]
+    center_key: str | None = None
+    #: None = the whole connected group ("all").
+    hops: int | None = None
+    subagents: bool = False
+    sessions: list[PeerGraphSession] = Field(default_factory=list)
+    messages: list[PeerGraphMessage] = Field(default_factory=list)
 
 
 class MessageNode(BaseModel):

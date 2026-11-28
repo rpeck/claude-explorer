@@ -89,6 +89,7 @@ import {
   type Behavior,
   type FilterId,
   type FilterMode,
+  type FilterTarget,
   type FilterNode,
   type FiltersState,
   type GroupFilter,
@@ -114,6 +115,7 @@ interface Draft {
   patterns: string             // textarea raw, one per line
   behavior: Behavior
   mode: FilterMode
+  target: FilterTarget
   // group fields
   match: 'all' | 'any'
   childIds: FilterId[]
@@ -152,9 +154,36 @@ function emptyDraft(): Draft {
     // is the rarer case (and easier to reason about once selected).
     behavior: 'hide',
     mode: 'glob',
+    target: 'title',
     match: 'all',
     childIds: [],
   }
+}
+
+/** The atom targets, in the order of the select (issues #91 and #93). */
+const TARGET_OPTIONS: { value: FilterTarget; label: string }[] = [
+  { value: 'title', label: 'Title' },
+  { value: 'ticket', label: 'Ticket' },
+  { value: 'entrypoint', label: 'Entrypoint' },
+  { value: 'message_text', label: 'Message text' },
+  { value: 'project', label: 'Project' },
+  { value: 'source', label: 'Source' },
+  { value: 'machine', label: 'Machine' },
+  { value: 'active_within', label: 'Active within' },
+  { value: 'state', label: 'State' },
+]
+
+/** What an atom of each target matches, for the help text and the summary. */
+const TARGET_NOUNS: Record<FilterTarget, { noun: string; plural: boolean }> = {
+  title: { noun: 'titles', plural: true },
+  ticket: { noun: 'tickets', plural: true },
+  entrypoint: { noun: 'entrypoints', plural: true },
+  message_text: { noun: 'message text', plural: false },
+  project: { noun: 'project folders', plural: true },
+  source: { noun: 'sources', plural: true },
+  machine: { noun: 'machines', plural: true },
+  active_within: { noun: 'time since the last activity', plural: false },
+  state: { noun: 'states', plural: true },
 }
 
 function nodeToDraft(node: FilterNode): Draft {
@@ -168,6 +197,7 @@ function nodeToDraft(node: FilterNode): Draft {
       patterns: node.patterns.join('\n'),
       behavior: node.behavior,
       mode: node.mode,
+      target: node.target ?? 'title',
       match: 'all',
       childIds: [],
     }
@@ -181,6 +211,7 @@ function nodeToDraft(node: FilterNode): Draft {
     patterns: '',
     behavior: 'hide',
     mode: 'glob',
+    target: 'title',
     match: node.match,
     childIds: [...node.childIds],
   }
@@ -337,7 +368,7 @@ export function ManageFiltersModal({ isOpen, onClose }: ManageFiltersModalProps)
         patterns,
         behavior: draft.behavior,
         mode: draft.mode,
-        target: 'title',
+        target: draft.target,
       }
       prospective = atom
     } else {
@@ -376,7 +407,7 @@ export function ManageFiltersModal({ isOpen, onClose }: ManageFiltersModalProps)
         <DialogHeader>
           <DialogTitle>Manage filters</DialogTitle>
           <DialogDescription>
-            Create, edit, and combine saved title-pattern filters for the conversation list.
+            Create, edit, and combine saved filters for the conversation list.
           </DialogDescription>
         </DialogHeader>
 
@@ -775,6 +806,11 @@ function DraftEditor({ draft, state, onChange, onSave, onCancel, saveError }: Dr
 // Atom editor body
 // ---------------------------------------------------------------------------
 
+const TARGET_HELP: Partial<Record<FilterTarget, string>> = {
+  ticket: 'A ticket is owner/repo#84, or #84 when the repo is not known. A session without tickets matches no pattern.',
+  entrypoint: 'An entrypoint is the raw launcher value, for example cli, claude-desktop, claude-vscode, sdk-cli, or codex_cli_rs.',
+}
+
 function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => void }) {
   // Plain-English summary. Composes the user's two highest-leverage
   // choices (behavior + patterns) into a single sentence so the editor
@@ -787,16 +823,49 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
+  const { noun, plural } = TARGET_NOUNS[draft.target] ?? TARGET_NOUNS.title
+  const matchVerb = plural ? 'match' : 'matches'
   const summary =
     patternList.length === 0
       ? 'This filter has no patterns yet.'
-      : draft.behavior === 'hide'
-        ? `Hides conversations whose titles match any of: ${patternList.join(', ')}.`
-        : `Shows only conversations whose titles match any of: ${patternList.join(', ')}.`
+      : draft.target === 'active_within'
+        ? // The noun sentence does not read for a duration.
+          `${draft.behavior === 'hide' ? 'Hides' : 'Shows only'} conversations with activity in the last ${patternList.join(', ')}.`
+        : draft.behavior === 'hide'
+        ? `Hides conversations whose ${noun} ${matchVerb} any of: ${patternList.join(', ')}.`
+        : `Shows only conversations whose ${noun} ${matchVerb} any of: ${patternList.join(', ')}.`
 
   return (
     <div className="flex flex-col gap-3">
       {/* Behavior is the highest-impact decision — top of the editor. */}
+      <div>
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1" htmlFor="filter-editor-target">
+          Target
+        </label>
+        <select
+          id="filter-editor-target"
+          data-testid="filter-editor-target"
+          value={draft.target}
+          onChange={(e) => onChange({ ...draft, target: e.target.value as FilterTarget })}
+          className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+        >
+          {TARGET_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        {draft.target === 'active_within' && (
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            A duration such as 30m, 12h, 7d, or 2w: a session matches when its last activity is that recent.
+          </p>
+        )}
+        {TARGET_HELP[draft.target] && (
+          <p data-testid="filter-editor-target-help" className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {TARGET_HELP[draft.target]}
+          </p>
+        )}
+      </div>
       <div>
         <span className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Behavior</span>
         <div className="flex gap-2" role="radiogroup" aria-label="Behavior">
@@ -857,8 +926,8 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
           className="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
         >
           {draft.mode === 'glob'
-            ? 'Glob: * matches any text, ? matches one character, and [abc] matches one of a set. A pattern with them must match the whole title. A pattern without them matches anywhere in the title. A leading ^ or a trailing $ anchors the pattern at that end. Patterns match the exact title text, case-insensitively.'
-            : 'Regex: a JavaScript regular expression. Patterns match the exact title text, case-insensitively. An invalid regex matches nothing.'}
+            ? `Glob: * matches any text, ? matches one character, and [abc] matches one of a set. A pattern with them must match the whole text. A pattern without them matches anywhere in the text. A leading ^ or a trailing $ anchors the pattern at that end. Patterns match the ${noun}, case-insensitively.`
+            : `Regex: a JavaScript regular expression. Patterns match the ${noun}, case-insensitively. An invalid regex matches nothing.`}
         </p>
       </div>
       <div

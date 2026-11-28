@@ -990,14 +990,13 @@ where it arrived.
   first message. A session in the archive is a link; another shows its name.
 - **MCP:** `get_messages` gives `peer_ref` on each such message (and on the
   tool call, with `include_tool_calls`); follow it with `get_messages`.
-- **Not yet:** the Messages tab, session state, and the link across
-  machines (`bridge-session`).
+- **"Open in Messages tab"** after the row opens the Activity page centered
+  on this session (§23).
+- **Not yet:** the link across machines (`bridge-session`).
 - Code: `backend/cc_peer_messages.py`, the `peer_messages` table in
   `backend/search_index.py`, the join in `backend/store.py`,
   `frontend/src/components/message/PeerMessageRow.tsx`,
   `frontend/src/components/conversation/PeerSessionsRow.tsx`.
-
----
 
 ## 21. Machines: one archive across machines (issue #92)
 
@@ -1105,6 +1104,228 @@ leaves each machine. Nothing leaves a machine by default.
 - Code: `backend/machines.py`, `backend/routers/machines.py`, the duplicate
   rule `pick_copies` in `backend/archive_sync.py`,
   `frontend/src/components/settings/MachinesSettings.tsx`.
+
+---
+
+## 22. Tickets (issue #93)
+
+You start sessions on one ticket in many ways: in a terminal, in an editor,
+in the Desktop app, on another machine. The ticket page goes from the ticket
+to every session and every turn that worked on it, and the PRs that came
+out. Explorer reads only the transcripts. It calls no GitHub, Linear, or
+Jira API and assumes no launcher.
+
+- **References:** `backend/tickets.py` finds them in the drift pass.
+  - `owner/repo#84`, and the URLs `github.com/owner/repo/issues/84`,
+    `.../pull/84`, and `app.graphite.dev/github/pr/owner/repo/84`, in the
+    title and in the text of user and assistant messages. Tool calls, tool
+    output, and thinking do not count.
+  - A bare `#84` needs a boundary: `(#84)` and `PR #84,` count;
+    `abc#84`, `#84a`, `#0`, and `# Heading` do not.
+  - A bare `#84` in message text counts only when the session's repo is
+    known (see below). In a title or a branch it always counts; with no repo,
+    it is the ticket "#84 (unknown repo)". The index keeps the other refs, so
+    a later PR in the same folder makes them count.
+  - Linear and Jira keys such as `ENG-123`: see "Linear and Jira".
+  - The git branch: a path segment that starts with digits and then "-" or
+    the end (`fix/84-search-tools`, `fix/84`).
+  - Claude Code `pr-link` records: an exact link to a PR.
+- **Limits:** at most 200 references per message and 2000 tickets per
+  session; Explorer drops the rest in text order. The scan is linear, so a
+  huge message cannot stall the index.
+- **The ticket key** is `owner/repo#84` (lower case), `#84` when the repo
+  is not known, or `ENG-123` for Linear and Jira. The same number in two
+  repos is two tickets.
+- **Linear and Jira** (`config.json`, no Settings UI yet). List the key
+  prefixes in upper case; the default is empty, and then only URLs count:
+
+  ```json
+  {"ticket_keys": {"linear": ["ENG", "WEB"], "jira": ["OPS"]},
+   "ticket_hosts": {"linear": "example-team", "jira": "example.atlassian.net"}}
+  ```
+
+  - `ENG-123` in text counts only when `ENG` is listed, with the
+    boundaries of `#84`. `UTF-8` and `SHA-256` never count unless listed.
+  - A branch counts when a segment holds a listed key in any case
+    (`me/eng-123-fix-search`).
+  - URLs always count: `linear.app/<workspace>/issue/ENG-123[/slug]` and
+    `<site>.atlassian.net/browse/OPS-7`.
+  - After a change to `ticket_keys`, restart Explorer: the index then reads
+    every file again.
+- **The repo of a bare #84** is the session's repo, found at query time:
+  - a github.com Codex remote (`session_meta.git.repository_url`);
+  - else the repo of the session's pr-link records, when there is one;
+  - else the one repo that other sessions in the same project folder have;
+  - else "unknown repo". Explorer never reads `.git/config`.
+- **The ticket page** `/tickets/<owner>/<repo>/<n>` (`/tickets/_/_/<n>` for
+  the unknown repo), or `/tickets/key/ENG-123`:
+  - the heading `owner/repo#84`, `#84 (unknown repo)`, or `ENG-123`;
+  - "Open in Linear (acme)" or "Open in Jira (acme.atlassian.net)". Explorer
+    builds the link from a host; it never copies a URL from a message:
+    - the host in `config.json` `"ticket_hosts"` (a Jira host, a Linear
+      workspace), when it is set;
+    - else the host that most references to the key name (a tie goes to the
+      earliest reference);
+    - else, for Linear, `linear.app/issue/ENG-123`; Jira has no link.
+    - The system (Linear or Jira) comes from `ticket_keys` first, then from
+      the chosen URL.
+  - the PRs from the pr-link records of the listed sessions (open in a new
+    tab). Only a `https://github.com/<owner>/<repo>/pull/<n>` URL shows;
+    Explorer drops any other `prUrl`;
+  - "Open in GitHub" next to a GitHub heading with a known repo: the issue
+    URL `github.com/<owner>/<repo>/issues/<n>`, built from the page's own
+    key (GitHub redirects it to the PR when the number is a PR). The
+    unknown-repo page has no such link;
+  - one row per session, newest first: the name (a link), the source, the
+    entrypoint chip, the state and the machine when the archive has them,
+    and the time in the format of the conversation header;
+  - under each session, every message (turn) that names the ticket, and the
+    title, branch, and PR references. A message reference opens the session
+    at that message. When the title and a message have the same text (a
+    session titled by its first message), the reference shows once, as the
+    message, labeled "title and message".
+  - "No sessions refer to this ticket." when there are none. "The ticket
+    index is not ready yet." while the search index builds.
+- **Details: "Tickets:"** in the conversation header links to each ticket
+  that the session names in its title, a message, or its branch.
+  **"PRs:"** links to each GitHub PR of the session's pr-link records (new
+  tab). A PR that the session also names elsewhere shows in both rows.
+- **The entrypoint chip** (list row and header) names the launcher: CLI,
+  Desktop, VS Code, SDK, GitHub Action, Codex CLI, Codex exec, Codex VS
+  Code. An unknown value shows as it is. The tooltip is the raw value.
+- **Filters:** a named filter can match on Ticket or Entrypoint (see
+  "Composable filters"). MCP: `list_sessions(ticket="owner/repo#84")`, or
+  `ticket="ENG-123"` when the prefix is listed or a URL in the archive
+  names it.
+- **"Copy start command":** Settings → "Start a Session" holds an optional
+  command template, empty by default. With a template, the ticket page shows
+  the button. It fills the template and copies it to the clipboard. Explorer
+  never runs it.
+  - Placeholders: `{repo}`, `{issue}`, `{title}` (the newest session's
+    name), `{cwd}` (the newest session's project folder).
+  - `{repo}` and `{issue}` are checked (`owner/repo`, digits).
+  - **Put `{title}` and `{cwd}` outside quotes.** Explorer fills each as
+    one single-quoted shell word, so no value can run a command. Double
+    quotes are not enough: interactive bash and zsh still run history
+    expansion (`!#`) inside them.
+    - A newline becomes a space. A title that starts with `-` gets a
+      leading space, so no program reads it as a flag.
+    - A `{cwd}` that is not an absolute path fills as `''`.
+    - When the template has `{title}` or `{cwd}` inside quotes, Settings
+      shows "Put {title} and {cwd} outside quotes: Explorer quotes them.",
+      and the ticket page shows no button.
+  - Examples:
+    - `claude --bg "Fix {repo}#{issue}: "{title}`
+    - `claude --cloud "Fix {repo}#{issue}"`
+    - `cd {cwd} && claude "Fix {repo}#{issue}: "{title}`
+    - Herdr: the Herdr command that starts an agent in a folder, with
+      `{cwd}` outside quotes (see the Herdr docs).
+- **Not yet:** the Messages view scoped to a ticket (#91, the Messages tab);
+  GitLab, custom patterns, and a Settings UI for `ticket_keys`.
+- Code: `backend/tickets.py`, the `ticket_refs`, `ticket_prs`, and
+  `ticket_sessions` tables in `backend/search_index.py`, the join in
+  `backend/store.py`, `backend/routers/tickets.py`,
+  `frontend/src/components/tickets/`.
+## 23. Session state and the Activity page (issue #91)
+
+You run many sessions at once, and most questions are about the ones that
+still work: who talks to whom now, and what a session's workers do. The
+state chip and the Activity page answer that without opening each session.
+
+### Session state
+
+| Chip | Rule |
+|---|---|
+| Running | Claude Code only: `~/.claude/sessions/<pid>.json` names the session, and the pid is alive. Local machine only, read in place. |
+| Ended | A `cost-state` or `continued-in` record after the last turn (a resumed session appends after its old `cost-state`). |
+| Open | No end record after the last turn, and the last activity is less than 7 days old. |
+| Ended (no exit record) | No end record, and 7 days old or more (a crash, or a version before the end record). |
+
+- Codex and Cowork have no exit record: Open or Ended (no exit record) by age.
+- Desktop conversations have no state and no chip.
+- A registry file counts when it starts with one complete JSON object; the
+  bytes after the object are ignored (Claude Code can leave the tail of an
+  older write). A file with no complete object at the start is skipped: its
+  session falls back to the transcript rule.
+- The chip shows on list rows and in the header. On a list row, "Ended (no
+  exit record)" shows as "Ended (no exit)", with the full label as the
+  tooltip, so the row keeps the model, date, and count on one line. MCP `list_sessions` gives
+  `state` and takes `state` ("active" = running or open).
+- Code: `backend/session_state.py` (a tail read of the transcript, cached by
+  path, mtime, and size).
+
+### The Activity page
+
+- **Where:** `/activity`. The sidebar link "Activity", the toolbar button
+  "Activity", and "Open in Messages tab" open it; the last two add
+  `?center=<uuid>`, which names the open session.
+- **Tabs:** Messages, Code Mode, and "Subagents: coming in #46" (disabled).
+- **Code Mode tab:** the Code Mode runs of the center session, each with its
+  data-flow diagram (§18). A click opens the run in the conversation. Without
+  a center: "Pick a session to see its Code Mode runs."
+
+### Messages tab
+
+- **Scope:** "All active sessions" (the default: every Running or Open
+  session, and the messages between them), or "Around this session" (only
+  with a center): the sessions k hops away in both directions, k = 1 to 5 or
+  "all". k is 2 when you pick the scope.
+- **Views:**
+  - **Sequence:** one lane per session, time goes down, one arrow per message.
+    - The view is one scroll box, sideways and down; the lane heads stay at
+      its top. An arrow to "N other sessions" goes to that lane like any other.
+    - An arrow's label starts 8 px from the sender's lifeline, on the arrow's
+      side, so it shows whenever the sender's lane does. A label that fits the
+      room up to the next lifeline (at least 160 px), measured in its real
+      font, shows in full; a longer one is cut with "…" to fit. The full text
+      is the tooltip and the accessible name.
+    - A lane head gives the name its whole first line, with the full name as
+      the tooltip; the state chip and "…" are on the second line.
+  - **Graph:** one node per lane, and one node per folded group ("+N
+    sessions"; a click expands it, as in Sequence). One edge per pair of
+    nodes: "3 ⇄ 1" when both directions exist (the first number from the
+    upper node), else the count and an arrow: "2 ↓" (upper to lower) or
+    "2 ↑" (lower to upper) (@dagrejs/dagre).
+    - "Fit" (and the first render) fits the pane width and height, but stays
+      between 75 % (`GRAPH_MIN_SCALE`) and 100 %, so labels stay readable
+      (12 px nodes, 11 px edges at 100 %). Below 75 % the pane scrolls both
+      ways. "+" and "−" zoom from 25 % to 200 %; a drag scrolls.
+  - **List:** one row per message: from, to, time, text.
+- **A click** on an arrow, a row, or an edge opens the message in the session
+  that is not the center (no center: the receiver). A session that is not in
+  the archive has no link; its tooltip says "not in the archive".
+- **Order:** depth first by the derived hierarchy, labeled "Order: derived
+  (parent = sender of the first message)". The first message is by the
+  session's own record times.
+  - Siblings: the earlier first message (sent or received) first. Sessions
+    with no message in scope come after them, newest last activity first.
+  - Pinned lanes come first, in pin order.
+- **Folding:** around a session, a session 2 or more hops away folds under the
+  hop-1 lane that reaches it ("+N sessions"). A click expands it.
+- **Lane menu ("…"):** Pin or Unpin, Hide, Collapse or Expand (the derived
+  subtree). A collapsed lane shows "+N sessions" (N = its hidden subtree); a
+  click on it expands the lane. "Hidden: N" shows the hidden sessions again.
+- **Subagents:** with "Subagent edges" on, every agent transcript of a session
+  in scope is a session of its own, also one that sent no message.
+- **Text of a message whose receiver is not in the archive:** the
+  `SendMessage` input, read from the sender's own transcript.
+- **Lane limit:** 12 lanes; the rest share the lane "N other sessions". A pick
+  in its list pins that session.
+- **Filter:** the tab has its own named filter ("No filter" by default),
+  separate from the sidebar's active filter. The filter targets of §"Composable
+  filters" apply, also "Message text" (the messages of the session) and
+  "Active within" (a duration such as 12h or 7d).
+- **No exceptions:** a filter that removes the center removes it, and the tab
+  says "The active filter hides this session." Other empty states: "No active
+  sessions." and "No sessions match the filter."
+- **Subagent edges** (a toggle): agent transcripts show as their own sessions,
+  with an edge to their main session. Off: an agent's messages count for its
+  main session.
+- **Saved per center session** (one set without a center): view, scope, k,
+  subagent edges, filter, folds, pins, and hides.
+- **Data:** `GET /api/peers/active` and `GET /api/conversations/{uuid}/peers?hops=&subagents=`
+  (`backend/store.py:peer_graph`). Time and text come from the search index.
+- Code: `frontend/src/components/messages/`.
 
 ---
 
@@ -1453,8 +1674,10 @@ credentials belong to, as claude.ai and Claude Desktop do. A user with a
 work account and a personal account can see whose archive Refresh
 fetches.
 
-- **Where:** a row in the sidebar footer, above the Settings, theme, and
-  Export buttons. It is a region named **Signed-in account**.
+- **Where:** a row in the sidebar footer, above the Settings, Activity,
+  theme, and Export buttons. It is a region named **Signed-in account**.
+  Settings and Activity are icon buttons with tooltips, so the whole row
+  fits the 320 px sidebar.
 - **Avatar:** a circle with the account's initials: the first letter of
   the first and the last word of the name that contain a letter
   ("Ada Lovelace @ Engines.co" → "AE"). A one-word name gives one letter.
@@ -1551,15 +1774,25 @@ without disturbing their list ordering.
 Saved title filters use a composable graph model. Two kinds of node:
 
 - **Atoms** carry one set of patterns plus a **Behavior** (`hide` /
-  `show-only`) and a mode (`glob` / `regex`). The Behavior controls
+  `show-only`), a mode (`glob` / `regex`), and a **Match on** target
+  (default Title). Ticket matches the session's ticket keys
+  (`owner/repo#84`, `#84`); Entrypoint matches the raw launcher value
+  (`cli`, `codex_cli_rs`). A session with no value for the target
+  matches no pattern, so Hide keeps it and Show only drops it (issue #93). The Behavior controls
   what happens to a conversation that matches at least one of the
   atom's patterns: *Hide matches* drops it; *Show only matches* keeps
   it (and drops everything else).
-  - Patterns match the exact title text, case-insensitively. A title
-    such as `⚡ Weekly report` starts with the emoji, so `^Weekly`
-    does not match it. Write `Weekly report$` or `^⚡ Weekly report$`.
-    The list draws that emoji in gray, but it is still part of the
-    title (see "Emoji in titles").
+  - **Target:** an atom tests one field: Title (the default), Ticket,
+    Entrypoint, Message text, Project, Source, Machine, Active within, or
+    State. The help text and the summary name what the target matches
+    ("Shows only conversations whose message text matches any of: …"), from
+    one map in `ManageFiltersModal.tsx`. Active within has its own summary:
+    "Shows only conversations with activity in the last 1d." (or "Hides …").
+  - For the Title target, patterns match the exact title text,
+    case-insensitively. A title such as `⚡ Weekly report` starts with
+    the emoji, so `^Weekly` does not match it. Write `Weekly report$`
+    or `^⚡ Weekly report$`. The list draws that emoji in gray, but it is
+    still part of the title (see "Emoji in titles").
   - **Glob:** `*`, `?`, and `[abc]` work as in a shell, and a pattern
     with them must match the whole title. A pattern without them
     matches anywhere in the title.

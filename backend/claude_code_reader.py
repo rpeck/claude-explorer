@@ -300,6 +300,12 @@ def read_claude_code_conversation(jsonl_path: Path) -> dict[str, Any] | None:
         "current_leaf_message_uuid": messages[-1]["uuid"] if messages else "",
         "compact_markers": extract_compact_markers(entries),
         "prelude_hidden_count": prelude_hidden_count,
+        # Issue #93: the launcher, and the exact session-to-PR links.
+        "entrypoint": next((e["entrypoint"] for e in entries if isinstance(e.get("entrypoint"), str) and e["entrypoint"]), None),
+        "pr_links": [
+            {k: e.get(k) for k in ("prNumber", "prRepository", "prUrl", "timestamp")}
+            for e in entries if e.get("type") == "pr-link"
+        ],
     }
 
     # P4a-fix (2026-05-06): populate ~/.claude-explorer/cc-images/ as a

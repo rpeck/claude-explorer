@@ -5,6 +5,7 @@ import type {
   ConversationTree,
   ConversationFilters,
   OrgsResponse,
+  PeerGraph,
   SearchResponse,
   SortField,
   SortOrder,
@@ -13,6 +14,7 @@ import type {
   AppConfigStats,
   WatcherHealth,
   Bookmark,
+  TicketDetail,
   ApiError as ApiErrorType,
   ExportPreview,
   ExportRules,
@@ -68,7 +70,25 @@ async function machinesWrite<T>(method: 'PUT' | 'POST', url: string, body: unkno
 const agentParam = (agentId?: string | null): string =>
   agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''
 
+/** Issue #93: one ticket. Owner and repo "_" mean the unknown repo. */
+export function fetchTicket(
+  owner: string,
+  repo: string,
+  number: string | number,
+  signal?: AbortSignal,
+): Promise<TicketDetail> {
+  const path = [owner, repo, String(number)].map(encodeURIComponent).join('/')
+  return fetchJson<TicketDetail>(`/tickets/${path}`, signal)
+}
+
+/** Issue #93: one Linear or Jira key ("ENG-123"). */
+export function fetchTicketByKey(key: string, signal?: AbortSignal): Promise<TicketDetail> {
+  return fetchJson<TicketDetail>('/tickets/key/' + encodeURIComponent(key), signal)
+}
+
 export const api = {
+  fetchTicket,
+  fetchTicketByKey,
   // `/api/conversations` returns the SKINNY ConversationListItem shape
   // (backend split, see PLANS/SPLIT_CONVERSATION_SCHEMA.md).
   // ConversationListItem strips summary, human_message_count, and
@@ -258,6 +278,18 @@ export const api = {
     signal?: AbortSignal,
   ): Promise<ConversationTree> =>
     fetchJson<ConversationTree>(`/conversations/${uuid}/tree`, signal),
+
+  // Issue #91: the Messages tab. `hops`: 1 to 5, or 'all'.
+  getConversationPeers: (
+    uuid: string,
+    hops: number | 'all',
+    subagents: boolean,
+    signal?: AbortSignal,
+  ): Promise<PeerGraph> =>
+    fetchJson<PeerGraph>(`/conversations/${uuid}/peers?hops=${hops}&subagents=${subagents}`, signal),
+
+  getActivePeers: (subagents: boolean, signal?: AbortSignal): Promise<PeerGraph> =>
+    fetchJson<PeerGraph>(`/peers/active?subagents=${subagents}`, signal),
 
   search: async (
     query: string,

@@ -120,7 +120,8 @@ test.describe('Glob anchors ^ and $ (issue #42)', () => {
     await modal.getByText(/Exact titles/).first().click()
     const help = modal.getByTestId('filter-editor-pattern-help')
     await expect(help).toContainText('A leading ^ or a trailing $ anchors the pattern at that end.')
-    await expect(help).toContainText('exact title text')
+    // L2 UI round 3 (U1): the help names the target ("the titles" for Title).
+    await expect(help).toContainText('Patterns match the titles, case-insensitively.')
 
     await modal.getByRole('radio', { name: /^regex$/i }).click()
     await expect(help).toContainText('JavaScript regular expression')
