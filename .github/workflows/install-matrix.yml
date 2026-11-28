@@ -417,7 +417,10 @@ jobs:
     name: pytest (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
     # Windows ARM64 took 27.9 min on main before #90 and #96 added tests.
-    timeout-minutes: 45
+    # After #118 it passed 45 min at about 90 % of the suite (canceled on main
+    # 2026-11-28); Windows x86_64 took 33 to 39 min. Windows runs serially, and
+    # ARM64 runs an x86_64 Python under emulation.
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
