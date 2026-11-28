@@ -1049,9 +1049,10 @@ state chip and the Activity page answer that without opening each session.
     - The view is one scroll box, sideways and down; the lane heads stay at
       its top. An arrow to "N other sessions" goes to that lane like any other.
     - An arrow's label starts 8 px from the sender's lifeline, on the arrow's
-      side, so it shows whenever the sender's lane does. It is cut with "…"
-      to the room up to the next lifeline (at least 160 px); the full text is
-      the tooltip and the accessible name.
+      side, so it shows whenever the sender's lane does. A label that fits the
+      room up to the next lifeline (at least 160 px), measured in its real
+      font, shows in full; a longer one is cut with "…" to fit. The full text
+      is the tooltip and the accessible name.
     - A lane head gives the name its whole first line, with the full name as
       the tooltip; the state chip and "…" are on the second line.
   - **Graph:** one node per lane, and one node per folded group ("+N

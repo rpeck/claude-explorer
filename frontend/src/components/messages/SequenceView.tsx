@@ -15,11 +15,44 @@ const LABEL_FONT = 10
 const LABEL_GAP = 8
 /** The room for a label: up to the next lifeline, at least 160 px. */
 const LABEL_MAX_PX = Math.max(160, LANE_W - LABEL_GAP)
-// shortcut: an average glyph width of 0.6 em, not a measured text width; measure with canvas if labels clip.
-const LABEL_MAX_CHARS = Math.floor(LABEL_MAX_PX / (LABEL_FONT * 0.6))
 
+// The label's width in its real font, measured on a canvas; cached per text.
+let measureCtx: CanvasRenderingContext2D | null | undefined
+const measured = new Map<string, number>()
+
+function textWidth(text: string): number | null {
+  if (measureCtx === undefined) {
+    // jsdom (unit tests) has no 2D canvas and logs an error for getContext.
+    const canMeasure = typeof document !== 'undefined' && !navigator.userAgent.includes('jsdom')
+    measureCtx = canMeasure ? document.createElement('canvas').getContext('2d') : null
+    if (measureCtx) measureCtx.font = `${LABEL_FONT}px ${getComputedStyle(document.documentElement).fontFamily}`
+  }
+  if (!measureCtx) return null
+  let w = measured.get(text)
+  if (w === undefined) {
+    w = measureCtx.measureText(text).width
+    measured.set(text, w)
+  }
+  return w
+}
+
+function fits(text: string): boolean {
+  const w = textWidth(text)
+  // Without a canvas: 0.6 em per character.
+  return w === null ? text.length * LABEL_FONT * 0.6 <= LABEL_MAX_PX : w <= LABEL_MAX_PX
+}
+
+/** The label in full when it fits; else the longest start of it plus "…" that fits. */
 function cutLabel(text: string): string {
-  return text.length > LABEL_MAX_CHARS ? `${text.slice(0, LABEL_MAX_CHARS - 1)}…` : text
+  if (fits(text)) return text
+  let lo = 0
+  let hi = text.length - 1
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (fits(`${text.slice(0, mid)}…`)) lo = mid
+    else hi = mid - 1
+  }
+  return `${text.slice(0, lo)}…`
 }
 
 export interface LaneActions {
