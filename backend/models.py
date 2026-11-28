@@ -272,6 +272,10 @@ class ConversationListItem(BaseModel):
     subagents: list[SubagentSummary] = Field(default_factory=list)
     #: Issue #91: Running, Open, Ended (backend/session_state.py). None for Desktop.
     state: SessionState | None = None
+    # Issue #92: see ConversationSummary.
+    machine_id: str | None = None
+    machine_label: str | None = None
+    machine_labels: list[str] = Field(default_factory=list)
 
     def model_post_init(self, context: Any, /) -> None:
         """Compute project_name from project_path after initialization.
@@ -353,6 +357,12 @@ class ConversationSummary(BaseModel):
     parent_uuid: str | None = None
     #: Issue #91: Running, Open, Ended (backend/session_state.py). None for Desktop.
     state: SessionState | None = None
+    # Issue #92: the machine that the shown copy came from (None for Desktop).
+    machine_id: str | None = None
+    #: Its shown label: the local name, its own label, or "Machine <id8>".
+    machine_label: str | None = None
+    #: Every machine that holds the session with the same prefix, the shown copy first.
+    machine_labels: list[str] = Field(default_factory=list)
 
     def model_post_init(self, context: Any, /) -> None:
         """Compute project_name from project_path after initialization."""

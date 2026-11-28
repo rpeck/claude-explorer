@@ -37,6 +37,19 @@ and the MCP tools.
        the live path and indexes the archive copy.
      - MCP does not copy (a first copy can be gigabytes); Refresh and the
        CLI stop after 20 s, and the watcher copies the rest.
+   - **Other machines (#92, 2026-11-27):** `backend/machines.py` moves a
+     machine's allowed sessions to another archive, on the same
+     `machines/<id>/` layout: bundles (`archive export`, `archive import`)
+     and the shared sync folder (`shared_archive_dir`, a pass of
+     `run_archive_syncs`).
+     - Nothing leaves by default: `export-rules.json` starts in mode "off".
+     - An import and a pull only add and append. Each machine writes only
+       its own folder in the shared folder, which never holds the search
+       index and needs its own D13 consent (`allow_writes_in_shared_archive`).
+     - Another machine's Codex goes to `machines/<id>/codex/<home_key>/`;
+       this machine's stays in `codex/<home_key>/`.
+     - Tests never see this Mac's machine id: the root `conftest.py` gives a
+       test that keeps the real home a temporary identity file.
 
 ## UX Rules
 

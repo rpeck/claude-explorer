@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from . import session_state
-from .archive_sync import archive_roots, live_first
+from .archive_sync import archive_roots, live_first, machine_fields, pick_copies
 from .cc_peer_messages import compute_links, link_detail_dict, link_detail_model
 from .cc_subagents import (
     AgentFile,
@@ -38,6 +38,7 @@ from .claude_code_reader import (
     read_claude_code_conversation,  # noqa: F401  (re-export for tests)
 )
 from .config import get_settings
+from .machines import clear_label_memo, shown_labels
 from .model_names import CONVERSATION_MODEL_SOURCES
 from .models import (
     ContentBlock,
@@ -59,6 +60,9 @@ from .sources.ids import SourceFilter
 from .sources.registry import get_adapter_or_none, get_adapters, get_descriptor
 
 logger = logging.getLogger(__name__)
+
+# The sources whose rows name a machine (#92); Desktop conversations do not.
+_MACHINE_SOURCES = frozenset({"CLAUDE_CODE", "CLAUDE_COWORK", "CODEX"})
 
 
 # W3+W4 (2026-05-23 council decision): module-level cache of the
@@ -716,7 +720,24 @@ class ConversationStore:
             parent_uuid=data.get("parent_uuid"),
             # By age only; Claude Code rows get theirs in _set_states (registry, transcript).
             state=None if source == "CLAUDE_CODE" else self.state_for(source, updated_at, None, None),
+            **self._machine_fields(data),
         )
+
+    def _machine_fields(self, data: dict[str, Any], path: Path | None = None) -> dict[str, Any]:
+        """``machine_id``, ``machine_label``, ``machine_labels`` of a row (#92); None for Desktop."""
+        mid, ids = data.get("machine_id"), data.get("machine_ids")
+        if not mid and path is not None and data.get("source") in _MACHINE_SOURCES:
+            found = machine_fields(path)
+            mid, ids = found["machine_id"], found["machine_ids"]
+        if not isinstance(mid, str) or not mid:
+            return {"machine_id": None, "machine_label": None, "machine_labels": []}
+        labels = shown_labels(self.data_dir)
+        ids = [m for m in (ids or [mid]) if isinstance(m, str)] or [mid]
+        return {
+            "machine_id": mid,
+            "machine_label": labels.get(mid) or f"Machine {mid[:8]}",
+            "machine_labels": [labels.get(m) or f"Machine {m[:8]}" for m in ids],
+        }
 
     def _branch_flag(
         self,
@@ -825,7 +846,7 @@ class ConversationStore:
     def _cc_session_files(self) -> list[Path]:
         """The session files: live, then the archive copies of the other uuids."""
         roots = (self.claude_dir, *self._cc_archive_roots())
-        return live_first([discover_jsonl_files(r) for r in roots], key=lambda p: p.stem)
+        return pick_copies([discover_jsonl_files(r) for r in roots], key=lambda p: p.stem)
 
     def _cc_agent_files(self) -> list[Path]:
         """The agent files: live, then the archive copies of the other agents."""
@@ -919,6 +940,7 @@ class ConversationStore:
         them. Desktop + CC don't surface an archived flag, so the
         filter is effectively no-op for those sources.
         """
+        clear_label_memo()
         conversations = []
         adapters = {a.descriptor().id: a for a in get_adapters(self)}
 
@@ -1252,6 +1274,7 @@ class ConversationStore:
             child_uuids=data.get("child_uuids") or [],
             agent_id=data.get("agent_id"),
             agent_description=data.get("agent_description"),
+            **self._machine_fields(data, file_path),
         )
 
     # ----- Subagent transcripts (issue #96) -----
@@ -1279,6 +1302,7 @@ class ConversationStore:
 
     def get_agent_conversation(self, uuid: str, agent_id: str) -> ConversationDetail | None:
         """The agent transcript as a ``ConversationDetail`` with ``uuid`` = the session's."""
+        clear_label_memo()
         found = self.find_agent(uuid, agent_id)
         if found is None:
             return None
@@ -1316,6 +1340,7 @@ class ConversationStore:
             leaf_override: If provided, render the branch ending at this message
                 UUID instead of the conversation's stored current leaf.
         """
+        clear_label_memo()
         data, file_path = self._find_conversation_data(uuid)
         if not data:
             return None
@@ -1339,6 +1364,13 @@ class ConversationStore:
         does not change the session file's mtime.
         """
         detail = self._get_conversation_dict_cached(uuid, leaf_override)
+        if detail and detail.get("machine_id"):
+            # A label can change after the dict was cached (#92).
+            clear_label_memo()
+            old, fresh = detail.get("machine_label"), shown_labels(self.data_dir).get(detail["machine_id"])
+            if fresh and fresh != old:
+                labels = [fresh if x == old else x for x in detail.get("machine_labels") or []]
+                detail = {**detail, "machine_label": fresh, "machine_labels": labels}
         if detail and detail.get("source") == "CLAUDE_CODE" and detail.get("file_path"):
             detail = {**detail, "subagents_found": subagents_found(Path(detail["file_path"]))}
         if not detail:

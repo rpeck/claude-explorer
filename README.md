@@ -333,6 +333,35 @@ Explorer does not write into a folder that iCloud Drive, Dropbox, OneDrive, or G
 - **While you decide:** Explorer shows what is already on disk. It does not fetch, copy, or index. New Claude Code images wait in a local folder, and move into the archive after you allow the writes.
 - **The detection is best effort.** It knows the usual folders of each provider. If it cannot decide, it treats the folder as synced.
 
+## Two or more machines
+
+Claude Explorer can show the sessions of several machines in one archive,
+for example a work laptop and a personal Mac. Nothing leaves a machine until
+you allow it. Open the **Machines** settings (the laptop icon in the sidebar
+footer), or use the commands below.
+
+1. On each machine, give the machine a label:
+   `claude-explorer machine label "Personal Mac"`
+2. On the machine that sends, set the export mode to **Export**, and add allow
+   rules, for example `claude-code ~/Source/personal/**`. Deny globs always win.
+3. Check what leaves: `claude-explorer archive preview`
+4. Choose one transport:
+   - **A bundle:** `claude-explorer archive export --to ~/Desktop` (add
+     `--passphrase` to encrypt it). Move the file to the other machine, and run
+     `claude-explorer archive import <file>` there. Each later export carries
+     only the new bytes.
+   - **A shared sync folder:** set the same folder (for example in Dropbox) in
+     the Machines settings on both machines. The watcher sends this machine's
+     allowed sessions and copies the other machines' sessions. A cloud-synced
+     folder needs your consent first.
+5. On a machine that must never send (a work laptop), set the mode to
+   **Receive only**.
+
+Privacy: the search index never goes to a bundle or the shared folder. A local
+name for another machine never leaves this machine.
+`claude-explorer archive remove-shared` deletes only this machine's folder
+from the shared folder. Details: [UX.md §21](./UX.md).
+
 ## Install in Claude Desktop (one-click MCP)
 
 If you only want to query your archive from Claude (no web UI), grab the

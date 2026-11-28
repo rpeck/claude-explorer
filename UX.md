@@ -991,7 +991,7 @@ where it arrived.
 - **MCP:** `get_messages` gives `peer_ref` on each such message (and on the
   tool call, with `include_tool_calls`); follow it with `get_messages`.
 - **"Open in Messages tab"** after the row opens the Activity page centered
-  on this session (§21).
+  on this session (§23).
 - **Not yet:** the link across machines (`bridge-session`).
 - Code: `backend/cc_peer_messages.py`, the `peer_messages` table in
   `backend/search_index.py`, the join in `backend/store.py`,
@@ -1000,7 +1000,116 @@ where it arrived.
 
 ---
 
-## 21. Session state and the Activity page (issue #91)
+## 21. Machines: one archive across machines (issue #92)
+
+You can work on two machines, for example a work laptop and a personal Mac,
+and see both machines' sessions in one archive. You choose exactly what
+leaves each machine. Nothing leaves a machine by default.
+
+- **Open it:** the "Machines" button (laptop icon) in the sidebar footer
+  opens the Machines settings.
+- **Machine identity:** each machine has a random id in
+  `~/.claude-explorer/machine.json`, never the host name. Each machine writes
+  only its own folder, `machines/<id>/`.
+  - The first archive copy, also one that an MCP call starts, creates this
+    machine's id.
+- **Labels:**
+  - "This machine's label" sets the own label (at most 64 characters, no
+    control characters). The label travels with bundles and the shared folder.
+  - The pencil on another machine's row sets a local name. It stays in
+    `~/.claude-explorer/machine-labels.json` and never leaves this machine.
+  - The shown label: the local name, else the machine's own label, else
+    "Machine <first 8 characters of the id>".
+  - While the cloud-sync gate of the data folder is closed, a new own label
+    does not reach the archive copy of `machine.json` (HTTP 409).
+    `claude-explorer machine label` refuses while the config is corrupt.
+- **The machine chip:** the list row and the viewer header show the machine
+  of a session, only when the archive holds two or more machines. Desktop
+  conversations have no machine.
+- **Export rules** (`~/.claude-explorer/export-rules.json`):
+  - Mode: "Off (nothing leaves this machine)" (the default), "Export", or
+    "Receive only". Receive only imports and pulls, and never sends.
+  - Allow: one rule per line, a source (`claude-code`, `cowork`, `codex`,
+    or `*`) and a project glob. `~` expands; `*` stays inside one folder;
+    `**` crosses folders.
+  - Deny: one project glob per line. A deny always wins, and it fails closed:
+    - A glob with no wildcard covers the folder and everything in it. A
+      trailing `/` changes nothing.
+    - A deny also matches through symbolic links, in both directions.
+    - With any deny rule, a session with no project folder stays on this
+      machine.
+    - For a Cowork session, the deny rules check the folders that you picked
+      for it (not its sandbox folder). With any deny rule, a Cowork session
+      with no such folder stays on this machine.
+  - Since: only sessions whose last record is on or after this day.
+  - A whole session goes: its main file, its agent files, and their
+    descriptions; for Cowork, the audit file and the sidecar. Desktop
+    conversations and remote Cowork tasks never go.
+- **Preview:** the list of files and the total ("N files, M") that the next
+  export carries. It equals what the export writes.
+- **Bundles:**
+  - "Export bundle" downloads a `.cebundle` file. A passphrase encrypts it
+    (AES-GCM); an empty passphrase means no encryption. The button is
+    disabled unless the mode is "Export".
+  - Each export carries only the bytes that are new since the last export.
+  - "Import bundle" adds the files under `machines/<its id>/`, append-only.
+    A file that diverged (also a `.json` file) keeps the old copy as a
+    revision. A bad hash, a wrong passphrase, a passphrase for a bundle that
+    is not encrypted, or this machine's own bundle refuses the whole import,
+    and nothing is written.
+  - Size limits refuse a whole bundle, with a reason that names the limit:
+    `manifest.json` and `machine.json` at most 1 MiB, a `.json` file at most
+    8 MiB, a session file at most 1 GiB, and all files at most 4 GiB and less
+    than the free space of the data folder minus 1 GiB. An upload over 4 GiB
+    gets HTTP 413.
+  - A new encrypted bundle uses stronger key settings (scrypt N = 2^17).
+    Bundles from before still import. A bundle that asks for key settings out
+    of range (N from 2^15 to 2^18, r from 1 to 8, p from 1 to 16, and
+    N < 2^(16·r)) is refused before any key work starts. An incremental part without its earlier bundle
+    is skipped with a "missing_base" warning.
+- **Shared sync folder:**
+  - Set an absolute folder outside the data folder (for example in Dropbox).
+    A `shared_archive_dir` in `config.json` that breaks this rule is ignored.
+  - The copy never follows a symbolic link in the shared folder, and copies
+    only files inside it. A file over a size limit is skipped with a warning;
+    the pass goes on.
+  - The watcher writes this machine's allowed files to
+    `<shared>/machines/<own id>/` (mode "Export" only), and copies every other
+    machine's folder into this archive (every mode). The search index never
+    goes there.
+  - When a cloud client syncs the folder, Claude Explorer writes nothing there
+    until you click "Allow writes in this <provider> folder". The copy from
+    the other machines still runs.
+  - A file whose last line is not complete gets its complete lines now, and
+    the rest on a later pass.
+  - "Remove this machine's folder" (with a confirmation) deletes only
+    `<shared>/machines/<own id>/`. What other machines copied stays with them.
+    It removes nothing when that folder is a symbolic link, is outside the
+    shared folder, or is inside the data folder.
+    With the mode still "Export", the next pass sends the files again.
+- **One session on two machines:** one row.
+  - This machine's copy (live, or in its own archive folder) always shows.
+  - Among the copies of other machines: when one copy is a prefix of the
+    other, the longer copy shows; when they diverged, the copy of the lowest
+    machine id shows.
+  - The chip's tooltip names every machine whose copy is a prefix of the
+    shown one. All copies stay on disk unchanged.
+- **Codex:** this machine's Codex copy stays in `codex/<home_key>/`. Another
+  machine's Codex goes to `machines/<id>/codex/<home_key>/`, so two machines
+  with the same Codex home path never share a folder.
+- **Search** finds words in imported and pulled sessions.
+- **MCP:** `list_sessions(machine=...)` matches the machine id or the shown
+  label (exact, case-insensitive). Each session gives `machine_id` and
+  `machine_label`.
+- **Not yet:** links across machines (`bridge-session`). They wait for the
+  recorded cross-machine test (TESTING.md §11).
+- Code: `backend/machines.py`, `backend/routers/machines.py`, the duplicate
+  rule `pick_copies` in `backend/archive_sync.py`,
+  `frontend/src/components/settings/MachinesSettings.tsx`.
+
+---
+
+## 23. Session state and the Activity page (issue #91)
 
 You run many sessions at once, and most questions are about the ones that
 still work: who talks to whom now, and what a session's workers do. The

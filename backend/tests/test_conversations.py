@@ -168,6 +168,10 @@ def test_list_conversations_schema_contract(title_filter_data_dir):
         "organization_name": None,
         "subagents": [],
         "state": None,  # L2 (#91): a Desktop conversation is not a session
+        # Issue #92: a Desktop conversation has no machine.
+        "machine_id": None,
+        "machine_label": None,
+        "machine_labels": [],
     }
 
 

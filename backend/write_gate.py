@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 from backend.archive_sync import SyncContext, SyncReason, SyncReport
 from backend.cloud_sync import detect_cloud_sync
 from backend.config import Settings, get_settings
+from backend.machines import sync_shared_folder
 from backend.sources.codex import _display_home
 from backend.sources.registry import get_adapters
 
@@ -69,6 +70,22 @@ def cloud_sync_block(settings: Settings) -> tuple[str, Path] | None:
     if allowed and same_path(allowed, settings.data_dir):
         return None
     return cloud_synced_target(settings)
+
+
+def shared_archive_block(settings: Settings) -> tuple[str, Path] | None:
+    """D13 for the shared sync folder (#92): ``(provider, folder)`` while its gate is closed.
+
+    The gate is open when no cloud client syncs the folder, or when
+    ``allow_writes_in_shared_archive`` equals the resolved folder.
+    """
+    shared = settings.shared_archive_dir
+    if shared is None:
+        return None
+    allowed = settings.allow_writes_in_shared_archive
+    if allowed and same_path(allowed, shared):
+        return None
+    provider = detect_cloud_sync(shared)
+    return (provider, Path(os.path.realpath(shared))) if provider is not None else None
 
 
 def cloud_sync_message(block: tuple[str, Path]) -> str:
@@ -127,6 +144,14 @@ def run_archive_syncs(
             continue
         if report is not None:
             reports.append(report)
+    # Issue #92: the shared folder after the local copy, so a push sends what it copied.
+    try:
+        shared = sync_shared_folder(settings, reason, lock_timeout_s)
+    except Exception:
+        log.exception("archive copy (%s) failed for the shared folder", reason)
+        shared = None
+    if shared is not None:
+        reports.append(shared)
     return reports
 
 
@@ -142,6 +167,7 @@ __all__ = [
     "cloud_synced_target",
     "run_archive_syncs",
     "same_path",
+    "shared_archive_block",
     "sync_busy",
     "write_targets",
 ]

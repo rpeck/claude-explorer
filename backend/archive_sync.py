@@ -548,42 +548,90 @@ def _read_machine_id(path: Path) -> str | None:
     return mid if isinstance(mid, str) and _MACHINE_ID_RE.fullmatch(mid) else None
 
 
-def this_machine_dir(data_dir: Path) -> Path | None:
-    """``<data_dir>/machines/<machine_id>`` of this machine; makes the id on first use.
+# The identity file -> ((mtime_ns, size), id, label); every list row asks for the id.
+_identity_cache: tuple[tuple[str, int, int], str | None, str | None] | None = None
 
-    The id is a random UUID, never the host name. Call this only when there
-    is something to copy: it writes the identity file and ``machine.json``.
-    ``None`` when the identity file cannot be written.
+
+def read_identity() -> tuple[str | None, str | None]:
+    """``(machine_id, label)`` of this machine; ``(None, None)`` before the first copy."""
+    global _identity_cache
+    ident = _identity_file()
+    try:
+        st = ident.stat()
+        key = (str(ident), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None, None
+    hit = _identity_cache
+    if hit is not None and hit[0] == key:
+        return hit[1], hit[2]
+    data = _read_meta(ident) or {}
+    mid = _read_machine_id(ident)
+    label = data.get("label") if isinstance(data.get("label"), str) else None
+    _identity_cache = (key, mid, label)
+    return mid, label
+
+
+def own_machine_id(create: bool = False) -> str | None:
+    """This machine's id. With ``create``, make the identity file on first use.
+
+    The id is a random UUID, never the host name. ``None`` when there is
+    no id yet (or it cannot be written).
     """
     ident = _identity_file()
     mid = _read_machine_id(ident)
-    if mid is None:
-        lock = ArchiveLock(ident.with_name(ident.name + ".lock"))
-        try:
-            got = lock.acquire(5.0)
-        except OSError as exc:  # the folder of the identity file cannot be made
-            log.warning("cannot write the machine identity file %s: %s", ident, exc)
-            return None
-        if not got:
-            return None
-        try:
-            mid = _read_machine_id(ident)  # another process can have made it
-            if mid is None:
-                mid = str(uuid.uuid4())
-                body = {"version": META_VERSION, "machine_id": mid, "label": None}
-                atomic_write_bytes(ident, json.dumps(body, indent=2).encode("utf-8"))
-        except OSError as exc:
-            log.warning("cannot write the machine identity file %s: %s", ident, exc)
-            return None
-        finally:
-            lock.release()
-    machine = data_dir / MACHINES_DIR / mid
+    if mid is not None or not create:
+        return mid
+    lock = ArchiveLock(ident.with_name(ident.name + ".lock"))
+    try:
+        got = lock.acquire(5.0)
+    except OSError as exc:  # the folder of the identity file cannot be made
+        log.warning("cannot write the machine identity file %s: %s", ident, exc)
+        return None
+    if not got:
+        return None
+    try:
+        mid = _read_machine_id(ident)  # another process can have made it
+        if mid is None:
+            mid = str(uuid.uuid4())
+            body = {"version": META_VERSION, "machine_id": mid, "label": None}
+            atomic_write_bytes(ident, json.dumps(body, indent=2).encode("utf-8"))
+    except OSError as exc:
+        log.warning("cannot write the machine identity file %s: %s", ident, exc)
+        return None
+    finally:
+        lock.release()
+    return mid
+
+
+def write_machine_marker(machine: Path, mid: str, label: str | None) -> None:
+    """Write ``<machine>/machine.json`` when its id or label differs."""
     marker = machine / MACHINE_FILE
-    if _read_machine_id(marker) != mid:
-        body = {"version": META_VERSION, "machine_id": mid, "label": None}
-        machine.mkdir(parents=True, exist_ok=True)
-        atomic_write_bytes(marker, json.dumps(body, indent=2).encode("utf-8"))
+    old = _read_meta(marker) or {}
+    if old.get("machine_id") == mid and old.get("label") == label and old.get("version") == META_VERSION:
+        return
+    body = {"version": META_VERSION, "machine_id": mid, "label": label}
+    machine.mkdir(parents=True, exist_ok=True)
+    atomic_write_bytes(marker, json.dumps(body, indent=2, ensure_ascii=False).encode("utf-8"))
+
+
+def this_machine_dir(data_dir: Path) -> Path | None:
+    """``<data_dir>/machines/<machine_id>`` of this machine; makes the id on first use.
+
+    Call this only when there is something to copy: it writes the identity
+    file and ``machine.json`` (with the label of the identity file).
+    ``None`` when the identity file cannot be written.
+    """
+    mid = own_machine_id(create=True)
+    if mid is None:
+        return None
+    machine = data_dir / MACHINES_DIR / mid
+    write_machine_marker(machine, mid, read_identity()[1])
     return machine
+
+
+def machine_of(path: Path) -> str | None:
+    """The machine of a session file: the ``machines/<id>`` folder it is in, else this machine."""
+    return _folder_machine(path) or read_identity()[0]
 
 
 #: A pass that a person waits for stops after this time; the watcher passes do not stop.
@@ -639,6 +687,9 @@ def sync_machine_tree(
     return run_locked_pass(ctx, source_home=live_root, archive_dir=part_dir, body=body)
 
 
+MACHINE_ID_RE = _MACHINE_ID_RE
+
+
 def archive_roots(data_dir: Path, part: str) -> list[Path]:
     """``<data_dir>/machines/<id>/<part>`` of every machine, in name order."""
     try:
@@ -669,6 +720,117 @@ def live_first(groups: Iterable[Iterable[Path]], key: Callable[[Path], object]) 
     return out
 
 
+# The chosen copy -> every machine that holds its prefix, the chosen one first.
+# shortcut: filled by the last pick_copies call of each path, in memory; the
+# list and the viewer both call it before they build rows.
+_holders: dict[Path, list[str]] = {}
+_prefix_memo: dict[tuple[Path, Path], tuple[tuple[int, int, int, int], bool]] = {}
+
+
+def _is_prefix(a: Path, b: Path) -> bool:
+    """True when the bytes of ``a`` start ``b`` (``a`` is not longer)."""
+    try:
+        sa, sb = a.stat(), b.stat()
+    except OSError:
+        return False
+    key = (sa.st_size, sa.st_mtime_ns, sb.st_size, sb.st_mtime_ns)
+    hit = _prefix_memo.get((a, b))
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    result = sa.st_size <= sb.st_size
+    if result:
+        try:
+            with open(a, "rb") as fa, open(b, "rb") as fb:
+                left = sa.st_size
+                while left > 0 and result:
+                    n = min(left, _CHUNK)
+                    result = fa.read(n) == fb.read(n)
+                    left -= n
+        except OSError:
+            result = False
+    _prefix_memo[(a, b)] = (key, result)
+    return result
+
+
+def pick_copies(
+    groups: Iterable[Iterable[Path]],
+    key: Callable[[Path], object],
+    content: Callable[[Path], Path] = lambda p: p,
+) -> list[Path]:
+    """:func:`live_first`, plus the rule for one session on two machines (#92).
+
+    This machine's copy (live, or in its own archive folder) always shows.
+    Among the copies of other machines: when one copy is a prefix of the
+    other, the longer copy shows; diverged copies: the first one (folder name
+    order). :func:`machine_fields` names every machine whose copy is a prefix
+    of the shown one. Nothing changes on disk. ``content`` maps a path to the
+    file to compare.
+    """
+    first: dict[object, list[Path]] = {}
+    others: dict[object, list[Path]] = {}
+    order: list[object] = []
+    for i, group in enumerate(groups):
+        mine: dict[object, list[Path]] = {}
+        for p in group:
+            mine.setdefault(key(p), []).append(p)
+        for k, paths in mine.items():
+            if k not in first:
+                first[k] = paths
+                order.append(k)
+            elif i:
+                others.setdefault(k, []).append(paths[0])
+    out: list[Path] = []
+    for k in order:
+        paths = first[k]
+        alts = others.get(k)
+        if len(paths) != 1 or not alts:
+            for p in paths:
+                _holders.pop(p, None)
+            out.extend(paths)
+            continue
+        chosen = paths[0]
+        by_machine: dict[str | None, Path] = {machine_of(chosen): chosen}
+        for alt in alts:
+            by_machine.setdefault(machine_of(alt), alt)
+        if len(by_machine) == 1:
+            _holders.pop(chosen, None)
+            out.append(chosen)
+            continue
+        mine = [p for p in (chosen, *alts) if _is_own_copy(p)]
+        if mine:  # this machine's copy always shows (S5)
+            chosen = mine[0]
+        else:
+            for alt in by_machine.values():
+                if alt is not chosen and _is_prefix(content(chosen), content(alt)):
+                    chosen = alt
+        holders = [m for m, p in by_machine.items() if m and p is not chosen and _is_prefix(content(p), content(chosen))]
+        _holders[chosen] = [m for m in (machine_of(chosen), *holders) if m]
+        out.append(chosen)
+    return out
+
+
+def _folder_machine(path: Path) -> str | None:
+    """The id of the ``machines/<id>`` folder that holds ``path``; None for a live file."""
+    parts = Path(path).parts
+    for i in range(len(parts) - 2, -1, -1):
+        if parts[i] == MACHINES_DIR and _MACHINE_ID_RE.fullmatch(parts[i + 1]):
+            return parts[i + 1]
+    return None
+
+
+def _is_own_copy(path: Path) -> bool:
+    """A live file of this machine, or a copy in this machine's own archive folder."""
+    folder = _folder_machine(path)
+    return folder is None or folder == read_identity()[0]
+
+
+def machine_fields(path: Path) -> dict[str, object]:
+    """``machine_id`` and ``machine_ids`` (every holder, the shown copy first) of a session file."""
+    mid = machine_of(path)
+    ids = _holders.get(Path(path)) or ([mid] if mid else [])
+    return {"machine_id": mid, "machine_ids": list(ids)}
+
+
 __all__ = [
     "LOCK_FILE_NAME",
     "MACHINES_DIR",
@@ -677,6 +839,12 @@ __all__ = [
     "MAX_LINE_BYTES",
     "META_VERSION",
     "ArchiveLock",
+    "machine_fields",
+    "machine_of",
+    "own_machine_id",
+    "pick_copies",
+    "read_identity",
+    "write_machine_marker",
     "SyncContext",
     "SyncReport",
     "archive_roots",

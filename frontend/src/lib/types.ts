@@ -52,6 +52,10 @@ export interface ConversationListItem {
   // when present and true, the sidebar can render an "Archived"
   // badge under the "Show archived" toggle.
   is_archived?: boolean
+  // Issue #92: see ConversationSummary.
+  machine_id?: string | null
+  machine_label?: string | null
+  machine_labels?: string[]
   // Issue #91: Running, Open, Ended (backend/session_state.py). Null for Desktop.
   state?: SessionState | null
 }
@@ -157,6 +161,11 @@ export interface ConversationSummary {
   parent_uuid?: string | null
   // Issue #91: Running, Open, Ended (backend/session_state.py). Null for Desktop.
   state?: SessionState | null
+  // Issue #92: the machine that the shown copy came from (null for Desktop),
+  // its shown label, and every machine that holds the session.
+  machine_id?: string | null
+  machine_label?: string | null
+  machine_labels?: string[]
 }
 
 // cowork-multi-org C6: workspace selector source.
@@ -653,4 +662,57 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
   }
+}
+// Issue #92: the Machines settings (backend/routers/machines.py).
+export interface MachineInfo {
+  machine_id: string
+  label: string
+  is_this_machine: boolean
+  session_count: number
+}
+
+export interface CloudSyncBlock {
+  provider: string
+  folder: string
+}
+
+export interface MachinesResponse {
+  this_machine_id: string | null
+  machines: MachineInfo[]
+  shared_archive_dir: string | null
+  shared_archive_block: CloudSyncBlock | null
+}
+
+export type ExportMode = 'off' | 'export' | 'receive-only'
+export type MachineSource = 'claude-code' | 'cowork' | 'codex'
+
+export interface AllowRule {
+  source?: MachineSource | null
+  project?: string | null
+}
+
+export interface ExportRules {
+  version: number
+  mode: ExportMode
+  allow: AllowRule[]
+  deny: string[]
+  since?: string | null
+}
+
+export interface ExportPreview {
+  files: { path: string; bytes: number; source: MachineSource; project?: string | null }[]
+  file_count: number
+  total_bytes: number
+}
+
+export interface ImportResult {
+  machine_id: string
+  label?: string | null
+  counts: Record<string, number>
+  warnings: string[]
+}
+
+export interface SharedFolderState {
+  shared_archive_dir: string | null
+  shared_archive_block: CloudSyncBlock | null
 }

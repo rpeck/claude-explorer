@@ -57,6 +57,9 @@ dependencies = [
     "mitmproxy>=10.0",
     "fastmcp>=3.0",
     "portalocker>=2.8",
+    # Bundle encryption (#92): AES-GCM. Imported only inside backend/machines.py
+    # functions, so the MCP bundle does not need it.
+    "cryptography>=42",
     "watchdog>=4.0",
     "platformdirs>=4.0",
     # Codex rollouts can be .jsonl.zst. Python 3.14+ has compression.zstd

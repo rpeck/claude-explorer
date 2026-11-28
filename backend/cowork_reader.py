@@ -51,7 +51,7 @@ from .agent_session_io import (
     normalize_session_fields,
     parse_jsonl_file,
 )
-from .archive_sync import live_first
+from .archive_sync import machine_fields, pick_copies
 from .cc_code_mode import fold_code_mode_runs
 from .compact_prefixes import is_compaction_prefix_text
 
@@ -191,6 +191,8 @@ def read_cowork_conversation(session_dir: Path) -> dict | None:
         # 2026-10-23: the list groups by name; without it a remote task
         # showed as "Workspace (<uuid prefix>)".
         "organization_name": _remote_organization_name(session_dir, sidecar),
+        # Issue #92: the machine of this copy, and every machine that holds it.
+        **machine_fields(session_dir),
     }
 
 
@@ -291,7 +293,7 @@ def iter_cowork_session_dirs(
         [d for org_dir in _subdirs_at_depth(root, 2) for d in _session_dirs_in(org_dir, LOCAL_SESSION_PREFIX)]
         for root in (cowork_root, *archive_roots)
     ]
-    out: list[Path] = live_first(groups, key=lambda d: d.name)
+    out: list[Path] = pick_copies(groups, key=lambda d: d.name, content=lambda d: d / "audit.jsonl")
     for org_dir in _subdirs_at_depth(remote_root, 1):
         out.extend(_session_dirs_in(org_dir, REMOTE_SESSION_PREFIX))
     return out
