@@ -115,6 +115,17 @@ export const handlers = [
     return HttpResponse.json(results);
   }),
 
+  // A2 (issue #92): one machine, mode off, nothing to export.
+  http.get('/api/machines', () => {
+    return HttpResponse.json({ this_machine_id: null, machines: [] });
+  }),
+  http.get('/api/machines/export-rules', () => {
+    return HttpResponse.json({ version: 1, mode: 'off', allow: [], deny: [], since: null });
+  }),
+  http.get('/api/machines/export-preview', () => {
+    return HttpResponse.json({ files: [], file_count: 0, total_bytes: 0 });
+  }),
+
   // GET /api/config - get app config
   http.get('/api/config', () => {
     return HttpResponse.json(mockConfig);

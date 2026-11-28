@@ -599,6 +599,25 @@ export const test = base.extend<Fixtures>({
         route.fulfill({ contentType: 'application/json', body: JSON.stringify(orgs) })
       })
 
+      // Issue #92: one machine (so no machine chips), export off, nothing to
+      // export. The list and the sidebar ask for it on every page mount. A spec
+      // that needs other machines routes these itself after mockBackend.
+      await page.route('**/api/machines', (route: Route) => {
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ this_machine_id: null, machines: [], shared_archive_dir: null, shared_archive_block: null }),
+        })
+      })
+      await page.route('**/api/machines/export-rules', (route: Route) => {
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ version: 1, mode: 'off', allow: [], deny: [], since: null }),
+        })
+      })
+      await page.route('**/api/machines/export-preview*', (route: Route) => {
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify({ files: [], file_count: 0, total_bytes: 0 }) })
+      })
+
       // Signed-in account (sidebar footer; every page mount).
       await page.route('**/api/account', (route: Route) => {
         route.fulfill({ contentType: 'application/json', body: JSON.stringify(account) })

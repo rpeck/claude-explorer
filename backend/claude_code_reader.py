@@ -20,7 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .archive_sync import live_first
+from .archive_sync import machine_fields, pick_copies
 from .cache import (
     get_conversation_cache,
 )
@@ -358,7 +358,7 @@ def list_claude_code_conversations(
 
     # Collect all file paths
     roots = (claude_dir, *archive_roots)
-    jsonl_paths = live_first([discover_jsonl_files(r) for r in roots], key=lambda p: p.stem)
+    jsonl_paths = pick_copies([discover_jsonl_files(r) for r in roots], key=lambda p: p.stem)
 
     if full_content:
         # Use cache + parallel loading for full content
@@ -429,8 +429,9 @@ def list_claude_code_conversations(
 
     # Attach subagents to each conversation
     conversations = []
-    for conv in conversations_raw:
+    for path, conv in zip(jsonl_paths, conversations_raw, strict=True):
         if conv:
+            conv.update(machine_fields(path))
             # Filter out phantom sessions unless explicitly requested
             if not include_phantom and conv.get("is_phantom", False):
                 continue

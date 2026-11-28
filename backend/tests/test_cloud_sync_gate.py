@@ -918,4 +918,8 @@ def test_consent_route_refuses_a_data_dir_that_does_not_match_the_current_one(
 def test_consent_route_accepts_only_post(cloud: CloudEnv) -> None:
     response = _client().get(CONSENT_URL, headers=CONSENT_HEADERS)
 
-    assert response.status_code == 405
+    # 405 without a UI build. With one (frontend/dist after `npm run build`, or
+    # the installed backend/_static), the SPA catch-all also matches a GET and
+    # refuses /api/ paths with 404. Either way the GET is refused.
+    assert response.status_code in (404, 405)
+    assert not cloud.config_path.exists()

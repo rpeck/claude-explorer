@@ -26,6 +26,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConversationHeader } from '../../components/conversation/ConversationHeader'
 import { SearchPinProvider } from '../../contexts/SearchPinContext'
 import type { ConversationDetail, ConversationSource } from '../../lib/types'
@@ -66,12 +67,16 @@ function renderHeader(
     onOpenTree: vi.fn(),
     ...callbackOverrides,
   }
+  // Issue #92: the header's machine chip reads /api/machines through React Query.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const utils = render(
-    <MemoryRouter>
-      <SearchPinProvider>
-        <ConversationHeader conversation={conversation} {...props} />
-      </SearchPinProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <SearchPinProvider>
+          <ConversationHeader conversation={conversation} {...props} />
+        </SearchPinProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
   return { ...utils, props }
 }

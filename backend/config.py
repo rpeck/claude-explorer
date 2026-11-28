@@ -209,6 +209,12 @@ class Settings(BaseModel):
     # an env var). A moved ``data_dir`` no longer matches, so the gate closes
     # again. See ``backend/write_gate.py``.
     allow_writes_in_cloud_sync: str | None = None
+    # Issue #92: the shared sync folder (``config.json`` only, absolute).
+    # Each machine writes only ``machines/<its id>/`` there.
+    shared_archive_dir: Path | None = None
+    # D13 for the shared folder: the resolved shared folder that the user
+    # allowed Explorer to write in although a cloud client syncs it.
+    allow_writes_in_shared_archive: str | None = None
 
     @classmethod
     def load(cls) -> "Settings":
@@ -236,6 +242,8 @@ class Settings(BaseModel):
         config_claude_desktop_app_dir: Path | None = None
         config_codex_home: Path | None = None
         allow_writes_in_cloud_sync: str | None = None
+        shared_archive_dir: Path | None = None
+        allow_writes_in_shared_archive: str | None = None
         # Layer 1 (2026-05-18): accumulate per-candidate parse failures.
         # Joined with `` | `` into ``config_corrupt_reason`` at the bottom
         # of ``load``. The list is empty in the happy path (no parse
@@ -295,6 +303,11 @@ class Settings(BaseModel):
                     config_codex_home = Path(parsed["codex_home"])
                 if isinstance(parsed.get("allow_writes_in_cloud_sync"), str):
                     allow_writes_in_cloud_sync = parsed["allow_writes_in_cloud_sync"]
+                shared = parsed.get("shared_archive_dir")
+                if isinstance(shared, str) and shared:
+                    shared_archive_dir = Path(shared)  # checked (and logged) below
+                if isinstance(parsed.get("allow_writes_in_shared_archive"), str):
+                    allow_writes_in_shared_archive = parsed["allow_writes_in_shared_archive"]
                 break
             except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
                 log.warning(
@@ -351,6 +364,15 @@ class Settings(BaseModel):
             if config_claude_desktop_app_dir
             else platformdirs.user_data_path("Claude")
         )
+        # Issue #92, S4: the same rule as PUT /api/machines/shared-folder. A
+        # shared folder in or around the data folder would let the copy reach
+        # the archive itself, so the setting is ignored.
+        if shared_archive_dir is not None and not _shared_dir_ok(shared_archive_dir, data_dir):
+            log.warning(
+                "config.json shared_archive_dir %s is ignored: it must be an absolute "
+                "folder outside the data folder %s.", shared_archive_dir, data_dir,
+            )
+            shared_archive_dir = None
         codex_home = (
             Path(env_codex_home)
             if env_codex_home
@@ -364,10 +386,22 @@ class Settings(BaseModel):
             claude_desktop_app_dir=claude_desktop_app_dir,
             codex_home=codex_home,
             allow_writes_in_cloud_sync=allow_writes_in_cloud_sync,
+            shared_archive_dir=shared_archive_dir,
+            allow_writes_in_shared_archive=allow_writes_in_shared_archive,
             config_corrupt_reason=(
                 " | ".join(corruption_reasons) if corruption_reasons else None
             ),
         )
+
+
+def _shared_dir_ok(shared: Path, data_dir: Path) -> bool:
+    """An absolute folder outside the data folder, also after ``realpath`` (#92, S4)."""
+    if not shared.is_absolute():
+        return False
+    for s, d in ((shared, data_dir), (Path(os.path.realpath(shared)), Path(os.path.realpath(data_dir)))):
+        if s == d or s.is_relative_to(d) or d.is_relative_to(s):
+            return False
+    return True
 
 
 @lru_cache
