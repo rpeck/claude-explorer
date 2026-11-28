@@ -11,6 +11,7 @@ import { SessionStateChip } from '@/components/messages/SessionStateChip'
 import { useFilters } from '@/contexts/FilterContext'
 import { useSearchPin } from '@/contexts/SearchPinContext'
 import { SOURCE_PRESETS, SourceBadge } from '@/components/conversation/SourceBadge'
+import { EntrypointChip } from '@/components/tickets/EntrypointChip'
 import { MachineChip } from '@/components/settings/MachineChip'
 import { sourceHas } from '@/lib/sources'
 import { TitleText } from '@/components/TitleText'
@@ -186,7 +187,16 @@ export function ConversationList({
     // active id, missing/disabled active node, and cycle defense.
     list = list.filter((c) =>
       applyActiveFilterToItem(
-        { name: c.name, project: c.project_name, source: c.source, updatedAt: c.updated_at, state: c.state },
+        {
+          name: c.name,
+          project: c.project_name,
+          source: c.source,
+          updatedAt: c.updated_at,
+          state: c.state,
+          tickets: c.tickets,
+          entrypoint: c.entrypoint,
+          machine: c.machine_label ?? c.machine_id,
+        },
         filtersState,
       ),
     )
@@ -920,6 +930,7 @@ function ConversationListItem({
               needs to track source-shape changes. */}
           <SourceBadge source={conversation.source} variant="row" />
           <SessionStateChip state={conversation.state} compact />
+          <EntrypointChip entrypoint={conversation.entrypoint} className="text-[10px] px-1.5 py-0" />
           <MachineChip
             machineId={conversation.machine_id}
             label={conversation.machine_label}

@@ -73,7 +73,7 @@ DESCRIPTOR = SourceDescriptor(
 )
 
 #: The search index reindexes the Codex rows when this changes (§4.4).
-CODEX_PROJECTION_VERSION = 7  # 5: code mode runs (issue #90); 6: exec images (#103); 7: agent message links (#91)
+CODEX_PROJECTION_VERSION = 8  # 5: code mode runs (issue #90); 6: exec images (#103); 7: agent message links (#91); 8: originator and remote (#93)
 
 ARCHIVE_DIR = "codex"
 HOME_FILE = "home.json"
@@ -554,6 +554,7 @@ class CodexAdapter:
             notices=_notices(thread, conv),
             # The fork or subagent parent of session_meta, else the state_5 one.
             parent_uuid=conv.get("parent_uuid") or _other(thread.get("parent_thread_id"), thread_id),
+            entrypoint=conv.get("originator") if isinstance(conv.get("originator"), str) else None,
             **machine_fields(path),
         )
         return conv, bool(bases)

@@ -363,10 +363,7 @@ export function applyActiveFilterToItem(item: FilterItem, state: FiltersState): 
  * - missing/disabled active node → treated as no filter active
  */
 export function applyActiveFilter(text: string, state: FiltersState): boolean {
-  if (!state.activeId) return true
-  const node = state.nodes[state.activeId]
-  if (!node || !node.enabled) return true
-  return evaluate(node, text, state)
+  return applyActiveFilterToItem({ name: text }, state)
 }
 
 /**

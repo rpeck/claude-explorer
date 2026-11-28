@@ -520,9 +520,9 @@ def test_mcp_get_messages_without_tools_gives_the_orphan_calls_no_text(env: Env)
 # ---------------------------------------------------------------------------
 
 
-def test_codex_projection_version_is_7() -> None:
+def test_codex_projection_version_is_8() -> None:
     # 3 for N10's history; 4 for the tool calls with no item (C1); 5 for code mode (#90);
-    # 6 for exec images (#103); 7 for agent message links (#91).
+    # 6 for exec images (#103); 7 for agent message links (#91); 8 for the entrypoint (#93).
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 7
+    assert codex.CODEX_PROJECTION_VERSION == 8

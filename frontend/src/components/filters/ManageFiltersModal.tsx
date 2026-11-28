@@ -89,9 +89,9 @@ import {
   type Behavior,
   type FilterId,
   type FilterMode,
+  type FilterTarget,
   type FilterNode,
   type FiltersState,
-  type FilterTarget,
   type GroupFilter,
 } from '@/lib/filterEngine'
 import { cn } from '@/lib/utils'
@@ -806,6 +806,11 @@ function DraftEditor({ draft, state, onChange, onSave, onCancel, saveError }: Dr
 // Atom editor body
 // ---------------------------------------------------------------------------
 
+const TARGET_HELP: Partial<Record<FilterTarget, string>> = {
+  ticket: 'A ticket is owner/repo#84, or #84 when the repo is not known. A session without tickets matches no pattern.',
+  entrypoint: 'An entrypoint is the raw launcher value, for example cli, claude-desktop, claude-vscode, sdk-cli, or codex_cli_rs.',
+}
+
 function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => void }) {
   // Plain-English summary. Composes the user's two highest-leverage
   // choices (behavior + patterns) into a single sentence so the editor
@@ -853,6 +858,11 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
         {draft.target === 'active_within' && (
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             A duration such as 30m, 12h, 7d, or 2w: a session matches when its last activity is that recent.
+          </p>
+        )}
+        {TARGET_HELP[draft.target] && (
+          <p data-testid="filter-editor-target-help" className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {TARGET_HELP[draft.target]}
           </p>
         )}
       </div>

@@ -51,6 +51,7 @@ from backend.sources.registry import (
     get_descriptors,
 )
 from backend.store import ConversationStore
+from backend.tickets import key_system, parse_ticket_key, ticket_key
 from backend.write_gate import cloud_sync_block, run_archive_syncs, sync_busy
 from mcp_server import __version__
 
@@ -240,6 +241,29 @@ def _state_filter(state: str | None) -> set[str] | None:
     if value in _STATES:
         return {value}
     raise ToolError(f'Unknown state "{state}". Use one of: {", ".join([*_STATES, "active"])}.')
+
+
+def _ticket_filter(ticket: str | None) -> str | None:
+    """The ticket key of the ``ticket`` argument (issue #93). Raises ``ToolError`` for an invalid value."""
+    if ticket is None or not ticket.strip():
+        return None
+    parsed = parse_ticket_key(ticket)
+    if parsed is None or (parsed[0] and "/" not in parsed[0] and not _known_ticket_prefix(parsed[0])):
+        raise ToolError("ticket must be owner/repo#N, #N, a configured KEY-N, or a ticket URL")
+    return ticket_key(*parsed)
+
+
+def _known_ticket_prefix(prefix: str) -> bool:
+    """A Linear or Jira prefix in config.json "ticket_keys", or one that a URL in the archive names."""
+    if key_system(prefix, get_settings().ticket_keys):
+        return True
+    from backend.search_index import get_search_index
+
+    idx = get_search_index()
+    try:
+        return idx is not None and prefix in idx.ticket_prefixes_seen()
+    except sqlite3.Error:
+        return False
 
 
 def _source_fields(conv: ConversationSummary) -> dict[str, Any]:
@@ -641,6 +665,7 @@ def list_sessions(
     include_tool_calls: bool = False,
     include_code_mode: bool = False,
     state: str | None = None,
+    ticket: str | None = None,
     machine: str | None = None,
 ) -> dict[str, Any]:
     """Search and list saved Claude conversation sessions.
@@ -681,6 +706,12 @@ def list_sessions(
                "ended_no_exit" (no exit record, 7 days old or more), or
                "active" (running or open). Each session has its "state";
                Claude Desktop conversations have none.
+        ticket: Only sessions that refer to this ticket: "owner/repo#N",
+               "#N" (a number whose repo is not known), a GitHub issue or
+               pull URL, a Linear or Jira key such as "ENG-123" (its prefix
+               must be configured or named by a URL in the archive), or a
+               Linear or Jira URL. Exact: "#84" matches only the
+               unknown-repo ticket 84. Works with and without query.
         machine: Only the sessions of one machine: its machine_id or its
                machine_label (exact, case-insensitive). Each session names
                its machine_id and machine_label; Desktop conversations have none.
@@ -696,6 +727,7 @@ def list_sessions(
     """
     src = _source_filter(source)
     states = _state_filter(state)
+    ticket_filter = _ticket_filter(ticket)
     _sync_archive()
     store = _get_store()
     limit = min(max(1, limit), 100)
@@ -777,6 +809,10 @@ def list_sessions(
                 **_source_fields(s),
             })
 
+    if ticket_filter is not None:
+        in_ticket = {s.uuid for s in store.list_conversations(source=src, organization_id=organization_id)
+                     if ticket_filter in s.tickets}
+        sessions = [s for s in sessions if s["uuid"] in in_ticket]
     # Issue #92: the machine that a session came from, by id or label.
     if machine:
         wanted = machine.strip().casefold()

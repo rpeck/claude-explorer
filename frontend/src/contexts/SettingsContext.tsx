@@ -115,6 +115,9 @@ interface SettingsContextType {
   // pre-selected radio + "Save as default" write.
   markdownExportMode: MarkdownExportMode
   setMarkdownExportMode: (mode: MarkdownExportMode) => void
+  // Issue #93: the optional "start a session" command template; "" = no button.
+  startSessionCommand: string
+  setStartSessionCommand: (template: string) => void
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null)
@@ -190,6 +193,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [rawListProjectKey, setListProjectKey] = usePreferences<ProjectKey>('listProjectKey', 'path')
   // A missing or unknown saved value means "path".
   const listProjectKey: ProjectKey = isProjectKey(rawListProjectKey) ? rawListProjectKey : 'path'
+  const [rawStartSessionCommand, setStartSessionCommand] = usePreferences<string>('start_session_command', '')
+  const startSessionCommand = typeof rawStartSessionCommand === 'string' ? rawStartSessionCommand : ''
   const [theme, setTheme] = usePreferences<Theme>('theme', 'system')
   const [keyboardMode, setKeyboardMode] = usePreferences<KeyboardMode>(
     'keyboardMode',
@@ -336,6 +341,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setRightPaneTab,
       markdownExportMode,
       setMarkdownExportMode,
+      startSessionCommand,
+      setStartSessionCommand,
     }),
     [
       showToolCalls,
@@ -370,6 +377,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setRightPaneTab,
       markdownExportMode,
       setMarkdownExportMode,
+      startSessionCommand,
+      setStartSessionCommand,
     ],
   )
 

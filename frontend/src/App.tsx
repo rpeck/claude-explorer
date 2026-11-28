@@ -15,6 +15,7 @@ import { RootLayout } from '@/components/layout/RootLayout'
 import { ConversationPage } from '@/routes/ConversationPage'
 import { SettingsPage } from '@/routes/SettingsPage'
 import { ActivityPage } from '@/components/messages/ActivityPage'
+import { TicketPage } from '@/components/tickets/TicketPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { KeyboardHelpModal } from '@/components/KeyboardHelpModal'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -70,6 +71,8 @@ function App() {
                     <Route path="projects/:projectSlug" element={<ConversationPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="activity" element={<ActivityPage />} />
+                    <Route path="tickets/:owner/:repo/:number" element={<TicketPage />} />
+                    <Route path="tickets/key/:key" element={<TicketPage />} />
                   </Route>
                   </Routes>
                 </KeyboardNavigationProvider>

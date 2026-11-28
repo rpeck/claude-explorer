@@ -58,6 +58,16 @@ from .session_state import SessionState, cc_file_ended, live_session_ids, state_
 from .sources.base import SourceAdapter
 from .sources.ids import SourceFilter
 from .sources.registry import get_adapter_or_none, get_adapters, get_descriptor
+from .tickets import (
+    GITHUB,
+    TicketDetail,
+    TicketPr,
+    TicketRefEntry,
+    TicketSession,
+    external_link,
+    ticket_key,
+    ticket_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -707,6 +717,7 @@ class ConversationStore:
             source=source,
             project_path=data.get("project_path"),
             git_branch=data.get("git_branch"),
+            entrypoint=data.get("entrypoint") or None,
             organization_id=data.get("organization_id"),
             organization_name=data.get("organization_name"),
             subagents=subagents,
@@ -1023,7 +1034,93 @@ class ConversationStore:
                 reverse=reverse,
             )
 
+        sets = self._ticket_key_sets()
+        for c in conversations:
+            c.tickets = sets["tickets"].get(c.uuid, [])
+            c.named_keys = sets["named_keys"].get(c.uuid, [])
+            c.pr_keys = sets["pr_keys"].get(c.uuid, [])
         return conversations
+
+    def _ticket_index(self) -> Any:
+        """Issue #93: the search index when it can answer ticket queries, else None."""
+        from .search_index import get_search_index
+
+        idx = get_search_index()
+        return idx if idx is not None and idx.is_ready() else None
+
+    def _ticket_key_sets(self) -> dict[str, dict[str, list[str]]]:
+        """"tickets", "named_keys", "pr_keys": conv_uuid -> keys; empty maps when the index cannot answer."""
+        empty: dict[str, dict[str, list[str]]] = {"tickets": {}, "named_keys": {}, "pr_keys": {}}
+        idx = self._ticket_index()
+        if idx is None:
+            return empty
+        try:
+            return idx.ticket_key_sets()
+        except sqlite3.Error:
+            logger.warning("tickets: index read failed", exc_info=True)
+            return empty
+
+    def _ticket_fields(self, uuid: str) -> dict[str, list[str]]:
+        """The three ticket fields of one session."""
+        sets = self._ticket_key_sets()
+        return {name: m.get(uuid, []) for name, m in sets.items()}
+
+    def get_ticket(self, scope: str | None, number: int) -> TicketDetail | None:
+        """Issue #93: every session that refers to a ticket, and each message that names it.
+
+        ``scope`` as in ``tickets.ticket_key``. None: the index is not ready.
+        """
+        idx = self._ticket_index()
+        if idx is None:
+            return None
+        try:
+            refs, prs = idx.ticket_rows(scope, number)
+        except sqlite3.Error:
+            logger.warning("tickets: index read failed", exc_info=True)
+            return None
+        by_conv: dict[str, list[dict[str, Any]]] = {}
+        for r in refs:
+            by_conv.setdefault(r["conv_uuid"], []).append(r)
+        summaries = {
+            s.uuid: s for s in self.list_conversations(include_phantom=True, show_archived=True)
+            if s.uuid in by_conv
+        }
+        sessions = [
+            TicketSession(
+                conversation_uuid=s.uuid,
+                name=s.name,
+                source=s.source,
+                project_path=s.project_path,
+                entrypoint=s.entrypoint,
+                # A2 (machines) and L2 (state) add these fields to the summary.
+                machine_id=getattr(s, "machine_id", None),
+                machine_label=getattr(s, "machine_label", None),
+                state=getattr(s, "state", None),
+                created_at=s.created_at.isoformat(),
+                updated_at=s.updated_at.isoformat(),
+                kinds=sorted({r["kind"] for r in by_conv[s.uuid]}),
+                refs=[TicketRefEntry(kind=r["kind"], message_uuid=r["message_uuid"], snippet=r["snippet"])
+                      for r in by_conv[s.uuid]],
+            )
+            for s in sorted(summaries.values(), key=lambda s: (s.updated_at, s.uuid), reverse=True)
+        ]
+        seen: dict[str, TicketPr] = {}
+        for p in sorted(prs, key=lambda p: (p["timestamp"], p["url"])):
+            if p["conv_uuid"] in summaries and p["url"] not in seen:
+                seen[p["url"]] = TicketPr(
+                    number=p["number"], repository=p["repository"], url=p["url"],
+                    conversation_uuid=p["conv_uuid"], timestamp=p["timestamp"],
+                )
+        github = scope is None or "/" in scope
+        if github:
+            system, url = GITHUB, ticket_url(GITHUB, scope, number, None)
+        else:
+            settings = get_settings()
+            system, url = external_link(scope, number, refs, settings.ticket_keys, settings.ticket_hosts)
+        return TicketDetail(
+            key=ticket_key(scope, number), repo=scope if github else None, number=number,
+            system=system, url=url, sessions=sessions, prs=list(seen.values()),
+        )
 
     def _find_conversation_data(self, uuid: str) -> tuple[dict[str, Any] | None, Path | None]:
         """Find conversation data by UUID from any source.
@@ -1253,6 +1350,7 @@ class ConversationStore:
             source=source,
             project_path=data.get("project_path"),
             git_branch=data.get("git_branch"),
+            entrypoint=data.get("entrypoint") or None,
             messages=messages,
             current_leaf_message_uuid=leaf_uuid,
             file_path=str(file_path) if file_path else None,
@@ -1353,6 +1451,9 @@ class ConversationStore:
         detail.state = self.state_for(
             detail.source, detail.updated_at, file_path, None if detail.agent_id else detail.uuid
         )
+        if not detail.agent_id:
+            for name, keys in self._ticket_fields(detail.uuid).items():
+                setattr(detail, name, keys)
         return detail
 
     def get_conversation_dict(
@@ -1376,13 +1477,21 @@ class ConversationStore:
         if not detail:
             return detail
         detail = link_detail_dict(detail, self._peer_links(detail["uuid"], detail.get("agent_id"), detail.get("source")))
-        # Outside the dict cache: the state changes with time and the live registry.
+        # Outside the dict cache: the state changes with time and the live registry,
+        # and the ticket fields (issue #93) change with the index.
         state = self.state_for(
             detail.get("source"), _parse_datetime(detail.get("updated_at")),
             Path(detail["file_path"]) if detail.get("file_path") else None,
             None if detail.get("agent_id") else detail["uuid"],
         )
-        return detail if detail.get("state") == state else {**detail, "state": state}
+        fields = (
+            {"tickets": [], "named_keys": [], "pr_keys": []} if detail.get("agent_id")
+            else self._ticket_fields(detail["uuid"])
+        )
+        changed = {"state": state} if detail.get("state") != state else {}
+        if not all(detail.get(name) == keys for name, keys in fields.items()):
+            changed.update(fields)
+        return {**detail, **changed} if changed else detail
 
     # ----- Session state (issue #91, backend/session_state.py) -----
 
