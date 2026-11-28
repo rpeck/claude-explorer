@@ -147,6 +147,24 @@ async function labelBox(page: Page, msgId: string) {
   return (await page.locator(`[data-testid="messages-arrow"][data-msg-id="${msgId}"] text`).first().boundingBox())!
 }
 
+/**
+ * Where a label is placed: its text-anchor, and its distance from the arrow's
+ * start (the sender's lifeline) in SVG units, on the side of the arrow. The
+ * lifeline is also given in client px, to check it against the lane head.
+ */
+async function placement(page: Page, msgId: string) {
+  return page.locator(`[data-testid="messages-arrow"][data-msg-id="${msgId}"]`).evaluate((g) => {
+    const line = g.querySelector('line') as SVGLineElement
+    const text = g.querySelector('text') as SVGTextElement
+    const x1 = line.x1.baseVal.value
+    const x2 = line.x2.baseVal.value
+    const x = text.x.baseVal.length ? text.x.baseVal.getItem(0).value : 0
+    const anchor = text.getAttribute('text-anchor') ?? getComputedStyle(text).textAnchor
+    const ctm = (line.ownerSVGElement as SVGSVGElement).getScreenCTM() as DOMMatrix
+    return { anchor, offset: x2 >= x1 ? x - x1 : x1 - x, lifelineClientX: ctm.a * x1 + ctm.e }
+  })
+}
+
 const LONG_TEXT = 'Synthetic long message: ' + 'please read the whole schema migration plan and report back. '.repeat(4).trim()
 
 test.describe('U8: sequence labels near the sender', () => {
@@ -160,12 +178,19 @@ test.describe('U8: sequence labels near the sender', () => {
     const co = await lifeline(page, CO)
     const s1 = await lifeline(page, S1)
     expect(s1).toBeGreaterThan(co)
-    const r = await labelBox(page, right.msg_id)
-    expect(r.x - co).toBeGreaterThanOrEqual(8)
-    expect(r.x - co).toBeLessThanOrEqual(16)
-    const l = await labelBox(page, left.msg_id)
-    expect(s1 - (l.x + l.width)).toBeGreaterThanOrEqual(8)
-    expect(s1 - (l.x + l.width)).toBeLessThanOrEqual(16)
+    // The placement, not the drawn glyphs (fonts start the first glyph a pixel off on
+    // Linux): the <text> x and text-anchor against the arrow's start, the sender's
+    // lifeline, in the same SVG coordinates.
+    const r = await placement(page, right.msg_id)
+    expect(Math.abs(r.lifelineClientX - co)).toBeLessThanOrEqual(2)
+    expect(r.anchor).toBe('start')
+    expect(r.offset).toBeGreaterThanOrEqual(8)
+    expect(r.offset).toBeLessThanOrEqual(16)
+    const l = await placement(page, left.msg_id)
+    expect(Math.abs(l.lifelineClientX - s1)).toBeLessThanOrEqual(2)
+    expect(l.anchor).toBe('end')
+    expect(l.offset).toBeGreaterThanOrEqual(8)
+    expect(l.offset).toBeLessThanOrEqual(16)
   })
 
   test('U8: a long label ends with "…", fits the space to the next lifeline, and keeps the full text', async ({ page, mockBackend }) => {
