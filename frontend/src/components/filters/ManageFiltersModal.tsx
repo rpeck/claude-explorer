@@ -89,6 +89,7 @@ import {
   type Behavior,
   type FilterId,
   type FilterMode,
+  type FilterTarget,
   type FilterNode,
   type FiltersState,
   type GroupFilter,
@@ -114,6 +115,7 @@ interface Draft {
   patterns: string             // textarea raw, one per line
   behavior: Behavior
   mode: FilterMode
+  target: FilterTarget
   // group fields
   match: 'all' | 'any'
   childIds: FilterId[]
@@ -152,6 +154,7 @@ function emptyDraft(): Draft {
     // is the rarer case (and easier to reason about once selected).
     behavior: 'hide',
     mode: 'glob',
+    target: 'title',
     match: 'all',
     childIds: [],
   }
@@ -168,6 +171,7 @@ function nodeToDraft(node: FilterNode): Draft {
       patterns: node.patterns.join('\n'),
       behavior: node.behavior,
       mode: node.mode,
+      target: node.target ?? 'title',
       match: 'all',
       childIds: [],
     }
@@ -181,6 +185,7 @@ function nodeToDraft(node: FilterNode): Draft {
     patterns: '',
     behavior: 'hide',
     mode: 'glob',
+    target: 'title',
     match: node.match,
     childIds: [...node.childIds],
   }
@@ -337,7 +342,7 @@ export function ManageFiltersModal({ isOpen, onClose }: ManageFiltersModalProps)
         patterns,
         behavior: draft.behavior,
         mode: draft.mode,
-        target: 'title',
+        target: draft.target,
       }
       prospective = atom
     } else {
@@ -775,6 +780,24 @@ function DraftEditor({ draft, state, onChange, onSave, onCancel, saveError }: Dr
 // Atom editor body
 // ---------------------------------------------------------------------------
 
+// What an atom matches on: the order and labels are shared with #91 (L2).
+const TARGET_OPTIONS: [FilterTarget, string][] = [
+  ['title', 'Title'],
+  ['ticket', 'Ticket'],
+  ['entrypoint', 'Entrypoint'],
+  ['message_text', 'Message text'],
+  ['project', 'Project'],
+  ['source', 'Source'],
+  ['machine', 'Machine'],
+  ['active_within', 'Active within'],
+  ['state', 'State'],
+]
+const TARGET_NOUNS: Partial<Record<FilterTarget, string>> = { title: 'titles', ticket: 'tickets', entrypoint: 'entrypoints' }
+const TARGET_HELP: Partial<Record<FilterTarget, string>> = {
+  ticket: 'A ticket is owner/repo#84, or #84 when the repo is not known. A session without tickets matches no pattern.',
+  entrypoint: 'An entrypoint is the raw launcher value, for example cli, claude-desktop, claude-vscode, sdk-cli, or codex_cli_rs.',
+}
+
 function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => void }) {
   // Plain-English summary. Composes the user's two highest-leverage
   // choices (behavior + patterns) into a single sentence so the editor
@@ -787,12 +810,13 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
+  const noun = TARGET_NOUNS[draft.target] ?? 'values'
   const summary =
     patternList.length === 0
       ? 'This filter has no patterns yet.'
       : draft.behavior === 'hide'
-        ? `Hides conversations whose titles match any of: ${patternList.join(', ')}.`
-        : `Shows only conversations whose titles match any of: ${patternList.join(', ')}.`
+        ? `Hides conversations whose ${noun} match any of: ${patternList.join(', ')}.`
+        : `Shows only conversations whose ${noun} match any of: ${patternList.join(', ')}.`
 
   return (
     <div className="flex flex-col gap-3">
@@ -815,6 +839,27 @@ function AtomEditor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) =>
             testId="filter-editor-behavior-show-only"
           >Show only matches</RadioPill>
         </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1" htmlFor="filter-editor-target">
+          Match on
+        </label>
+        <select
+          id="filter-editor-target"
+          data-testid="filter-editor-target"
+          value={draft.target}
+          onChange={(e) => onChange({ ...draft, target: e.target.value as FilterTarget })}
+          className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+        >
+          {TARGET_OPTIONS.map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+        {TARGET_HELP[draft.target] && (
+          <p data-testid="filter-editor-target-help" className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {TARGET_HELP[draft.target]}
+          </p>
+        )}
       </div>
       <div>
         <span className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Mode</span>

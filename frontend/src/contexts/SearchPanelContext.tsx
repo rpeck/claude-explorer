@@ -15,7 +15,7 @@ import { useSearchPin } from '@/contexts/SearchPinContext'
 import { useBookmarks } from '@/contexts/BookmarkContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useFilters } from '@/contexts/FilterContext'
-import { applyActiveFilter } from '@/lib/filterEngine'
+import { applyActiveFilterToItem } from '@/lib/filterEngine'
 import { usePreferences } from '@/hooks/usePreferences'
 import type { SearchResult, SnippetFragment, SortField, SortOrder } from '@/lib/types'
 import { cancelScrollCorrections } from '@/lib/scrollBubbleIntoView'
@@ -390,7 +390,7 @@ export function SearchPanelProvider({ children }: { children: ReactNode }) {
     const activeNode = filtersState.nodes[filtersState.activeId]
     if (!activeNode || !activeNode.enabled) return undefined
     const passing = conversationsList.filter((c) =>
-      applyActiveFilter(c.name, filtersState),
+      applyActiveFilterToItem(c, filtersState),
     )
     if (passing.length === conversationsList.length) return undefined
     return passing.map((c) => c.uuid)

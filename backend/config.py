@@ -14,6 +14,7 @@ single deprecation warning emitted on first read per variable.
 import json
 import logging
 import os
+import re
 import shutil
 from functools import lru_cache
 from pathlib import Path
@@ -148,6 +149,41 @@ def migrate_legacy_data_dir() -> None:
     log.info("Migrated data dir %s -> %s", legacy, new)
 
 
+_TICKET_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def _ticket_keys(raw: object) -> dict[str, list[str]]:
+    """``{"linear": [...], "jira": [...]}`` with valid upper-case prefixes; anything else is dropped."""
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for system in ("linear", "jira"):
+        keys = raw.get(system)
+        if isinstance(keys, list):
+            valid = sorted({k.strip().upper() for k in keys if isinstance(k, str)} - {""})
+            valid = [k for k in valid if _TICKET_KEY_RE.match(k)]
+            if valid:
+                out[system] = valid
+    return out
+
+
+_TICKET_HOST_RES = {
+    "jira": re.compile(r"^[A-Za-z0-9-]+\.atlassian\.net$"),
+    "linear": re.compile(r"^[A-Za-z0-9_-]+$"),
+}
+
+
+def _ticket_hosts(raw: object) -> dict[str, str]:
+    """``{"jira": "<site>.atlassian.net", "linear": "<workspace>"}``; an invalid value is dropped."""
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        system: raw[system].strip().lower()
+        for system, rx in _TICKET_HOST_RES.items()
+        if isinstance(raw.get(system), str) and rx.match(raw[system].strip())
+    }
+
+
 class Settings(BaseModel):
     """Application settings."""
 
@@ -209,6 +245,12 @@ class Settings(BaseModel):
     # an env var). A moved ``data_dir`` no longer matches, so the gate closes
     # again. See ``backend/write_gate.py``.
     allow_writes_in_cloud_sync: str | None = None
+    # Issue #93: the Linear and Jira key prefixes that count as tickets in
+    # text and branches (``config.json`` "ticket_keys"); empty = off.
+    ticket_keys: dict[str, list[str]] = {}
+    # Issue #93: {"jira": "<site>.atlassian.net", "linear": "<workspace>"}; the
+    # "Open in Jira/Linear" link uses it instead of the URLs in messages.
+    ticket_hosts: dict[str, str] = {}
     # Issue #92: the shared sync folder (``config.json`` only, absolute).
     # Each machine writes only ``machines/<its id>/`` there.
     shared_archive_dir: Path | None = None
@@ -242,6 +284,8 @@ class Settings(BaseModel):
         config_claude_desktop_app_dir: Path | None = None
         config_codex_home: Path | None = None
         allow_writes_in_cloud_sync: str | None = None
+        ticket_keys: dict[str, list[str]] = {}
+        ticket_hosts: dict[str, str] = {}
         shared_archive_dir: Path | None = None
         allow_writes_in_shared_archive: str | None = None
         # Layer 1 (2026-05-18): accumulate per-candidate parse failures.
@@ -303,6 +347,8 @@ class Settings(BaseModel):
                     config_codex_home = Path(parsed["codex_home"])
                 if isinstance(parsed.get("allow_writes_in_cloud_sync"), str):
                     allow_writes_in_cloud_sync = parsed["allow_writes_in_cloud_sync"]
+                ticket_keys = _ticket_keys(parsed.get("ticket_keys"))
+                ticket_hosts = _ticket_hosts(parsed.get("ticket_hosts"))
                 shared = parsed.get("shared_archive_dir")
                 if isinstance(shared, str) and shared:
                     shared_archive_dir = Path(shared)  # checked (and logged) below
@@ -386,6 +432,8 @@ class Settings(BaseModel):
             claude_desktop_app_dir=claude_desktop_app_dir,
             codex_home=codex_home,
             allow_writes_in_cloud_sync=allow_writes_in_cloud_sync,
+            ticket_keys=ticket_keys,
+            ticket_hosts=ticket_hosts,
             shared_archive_dir=shared_archive_dir,
             allow_writes_in_shared_archive=allow_writes_in_shared_archive,
             config_corrupt_reason=(

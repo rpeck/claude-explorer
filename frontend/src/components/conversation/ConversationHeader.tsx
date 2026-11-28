@@ -50,6 +50,9 @@ import { MachineChip } from '@/components/settings/MachineChip'
 import { NoticeList } from '@/components/conversation/NoticeList'
 import { CodexHistoryLinks } from '@/components/conversation/CodexHistoryLinks'
 import { PeerSessionsRow } from '@/components/conversation/PeerSessionsRow'
+import { EntrypointChip } from '@/components/tickets/EntrypointChip'
+import { TicketsRow } from '@/components/tickets/TicketsRow'
+import { PrsRow } from '@/components/tickets/PrsRow'
 import { AgentBreadcrumb, SubagentsDetailRow } from '@/components/conversation/SubagentLinks'
 import { TitleText } from '@/components/TitleText'
 import { formatFullDate } from '@/lib/utils'
@@ -102,6 +105,7 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
             lives in SourceBadge so a future source rename / recolor
             / addition is a single-file change. */}
         <SourceBadge source={conversation.source} variant="header" />
+        <EntrypointChip entrypoint={conversation.entrypoint} />
         <MachineChip
           machineId={conversation.machine_id}
           label={conversation.machine_label}
@@ -194,6 +198,9 @@ export function ConversationHeader({ conversation, onOpenTree }: ConversationHea
           )}
           <SubagentsDetailRow conversation={conversation} />
           <PeerSessionsRow conversation={conversation} />
+          {/* Data without named_keys (an older server) keeps the old row. */}
+          <TicketsRow tickets={conversation.named_keys ?? conversation.tickets} />
+          <PrsRow prKeys={conversation.pr_keys} />
         </div>
       </details>
       <NoticeList notices={conversation.notices ?? []} />

@@ -71,6 +71,8 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
     first_timestamp = None
     # The latest timestamp of any row: the session's last activity.
     last_timestamp = None
+    # Issue #93: the launcher, from the first row that names one.
+    entrypoint = None
 
     # Message counting
     user_count = 0
@@ -94,6 +96,8 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
                     # a string compare orders them without a parse per row.
                     if ts and (last_timestamp is None or ts > last_timestamp):
                         last_timestamp = ts
+                    if entrypoint is None and isinstance(entry.get("entrypoint"), str) and entry["entrypoint"]:
+                        entrypoint = entry["entrypoint"]
 
                     # Title-event rows (custom-title / agent-name / summary):
                     # last non-empty value wins. See `_TITLE_FIELD_BY_TYPE`.
@@ -182,6 +186,7 @@ def read_conversation_summary_fast(jsonl_path: Path) -> dict[str, Any] | None:
         "is_starred": False,
         "project_path": cwd,
         "git_branch": git_branch,
+        "entrypoint": entrypoint,
         "source": "CLAUDE_CODE",
         "message_count": message_count,
         "human_message_count": user_count,

@@ -89,6 +89,7 @@ from .search_text import _extract_code_mode_text, _extract_searchable_text
 from .sources.ids import SourceFilter
 from .sources.registry import get_adapter, get_adapter_or_none, get_adapters
 from .sqlite_read_conns import PerThreadReadConns
+from .tickets import index_rows as ticket_index_rows
 
 logger = logging.getLogger(__name__)
 
@@ -401,6 +402,53 @@ CREATE INDEX IF NOT EXISTS peer_messages_msg_id ON peer_messages (msg_id);
 CREATE INDEX IF NOT EXISTS peer_messages_conv_uuid ON peer_messages (conv_uuid);
 """
 
+# Issue #93: ticket references, the PR links, and each conversation's own repo
+# and project path (a bare #N resolves through them at query time). Additive:
+# no SCHEMA_VERSION bump. A new tickets.TICKET_REFS_VERSION re-indexes once.
+TICKET_SQL = """
+CREATE TABLE IF NOT EXISTS ticket_refs (
+    repo TEXT,
+    number INTEGER NOT NULL,
+    conv_uuid TEXT NOT NULL,
+    message_uuid TEXT,
+    kind TEXT NOT NULL,
+    snippet TEXT NOT NULL DEFAULT '',
+    system TEXT NOT NULL DEFAULT 'github',
+    prefix TEXT,
+    url TEXT,
+    created_at TEXT,
+    pos INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS ticket_refs_number ON ticket_refs (number);
+CREATE INDEX IF NOT EXISTS ticket_refs_conv_uuid ON ticket_refs (conv_uuid);
+CREATE TABLE IF NOT EXISTS ticket_prs (
+    conv_uuid TEXT NOT NULL,
+    number INTEGER NOT NULL,
+    repository TEXT NOT NULL,
+    url TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ticket_prs_conv_uuid ON ticket_prs (conv_uuid);
+CREATE TABLE IF NOT EXISTS ticket_sessions (
+    conv_uuid TEXT PRIMARY KEY,
+    project_path TEXT NOT NULL,
+    repo TEXT
+);
+-- Raised by each ticket write, in its transaction: the key of the per-process
+-- cache of SearchIndex.ticket_keys (another process writes too).
+CREATE TABLE IF NOT EXISTS ticket_generation (
+    id INTEGER PRIMARY KEY CHECK (id = 0),
+    gen INTEGER NOT NULL
+);
+INSERT OR IGNORE INTO ticket_generation (id, gen) VALUES (0, 0);
+"""
+_TICKET_TABLES = ("ticket_refs", "ticket_prs", "ticket_sessions")
+# Columns added after the first ticket_refs (TICKET_REFS_VERSION 2).
+_TICKET_REFS_ADDED = {
+    "system": "TEXT NOT NULL DEFAULT 'github'", "prefix": "TEXT", "url": "TEXT",
+    "created_at": "TEXT", "pos": "INTEGER NOT NULL DEFAULT 0",
+}
+
 SCHEMA_SQL = MESSAGE_ROWIDS_SQL + """
 CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
     conv_uuid UNINDEXED,
@@ -708,14 +756,20 @@ class SearchIndex:
         # queries fall back gracefully while the rebuild runs.
         self._schema_ok = True
 
+        # Issue #93: (ticket_generation.gen, ticket_key_sets()); see ticket_key_sets.
+        self._ticket_keys_cache: tuple[int, dict[str, dict[str, list[str]]]] | None = None
         self._init_schema()
         # Outside _init_schema, so that each of its paths gets the table.
         with self._write_lock, self._write_conn:
             self._write_conn.execute(COWORK_SIDECAR_MTIMES_SQL)
             self._write_conn.execute(SOURCE_PROJECTION_VERSIONS_SQL)
-            for statement in PEER_MESSAGES_SQL.split(";"):
+            for statement in (PEER_MESSAGES_SQL + TICKET_SQL).split(";"):
                 if statement.strip():
                     self._write_conn.execute(statement)
+            have = {r[1] for r in self._write_conn.execute("PRAGMA table_info(ticket_refs)")}
+            for col, decl in _TICKET_REFS_ADDED.items():
+                if col not in have:
+                    self._write_conn.execute(f"ALTER TABLE ticket_refs ADD COLUMN {col} {decl}")
             self._mark_stale_projections(self._write_conn)
 
     # ----- schema ----------------------------------------------------
@@ -1101,7 +1155,7 @@ class SearchIndex:
         upserts each file again; the upsert replaces the old rows. Search
         keeps the old rows until then.
         """
-        from . import cc_peer_messages
+        from . import cc_peer_messages, tickets
         from .sources import codex  # the module attribute: a test patches it
 
         for source, version in (
@@ -1109,22 +1163,33 @@ class SearchIndex:
             ("CLAUDE_CODE", cc_peer_messages.CC_PEER_PROJECTION_VERSION),
         ):
             SearchIndex._mark_stale_source(cur, source, version)
+        # Issue #93: every source, under its own key. A changed "ticket_keys" re-indexes too.
+        SearchIndex._mark_stale_source(
+            cur, None, tickets.keys_version(get_settings().ticket_keys), key="tickets"
+        )
 
     @staticmethod
-    def _mark_stale_source(cur: sqlite3.Connection, source: str, version: int) -> None:
+    def _mark_stale_source(
+        cur: sqlite3.Connection, source: str | None, version: int, key: str | None = None
+    ) -> None:
+        """``source`` None marks every file; ``key`` (default: the source) names the version row."""
+        key = key or source
         row = cur.execute(
-            "SELECT version FROM source_projection_versions WHERE source = ?", (source,)
+            "SELECT version FROM source_projection_versions WHERE source = ?", (key,)
         ).fetchone()
         if row is not None and row[0] == version:
             return
-        stale = cur.execute(
-            "UPDATE indexed_files SET mtime = -1 WHERE conv_uuid IN ("
-            "  SELECT conv_uuid FROM conversations WHERE source = ?)",
-            (source,),
-        ).rowcount
+        if source is None:
+            stale = cur.execute("UPDATE indexed_files SET mtime = -1").rowcount
+        else:
+            stale = cur.execute(
+                "UPDATE indexed_files SET mtime = -1 WHERE conv_uuid IN ("
+                "  SELECT conv_uuid FROM conversations WHERE source = ?)",
+                (source,),
+            ).rowcount
         cur.execute(
             "INSERT OR REPLACE INTO source_projection_versions (source, version) VALUES (?, ?)",
-            (source, version),
+            (key, version),
         )
         if stale:
             logger.info(
@@ -1296,6 +1361,104 @@ class SearchIndex:
             ))
         return own, others
 
+    def _ticket_repos(self, conn: sqlite3.Connection) -> dict[str, str | None]:
+        from .tickets import resolve_repos
+
+        return resolve_repos({c: (p, r) for c, p, r in conn.execute(
+            "SELECT conv_uuid, project_path, repo FROM ticket_sessions")})
+
+    def ticket_keys(self) -> dict[str, list[str]]:
+        """Issue #93: conv_uuid -> its ticket keys (sorted, unique); a bare #N resolved
+        (``tickets.row_key``)."""
+        return self.ticket_key_sets()["tickets"]
+
+    def ticket_key_sets(self) -> dict[str, dict[str, list[str]]]:
+        """Issue #93: three maps conv_uuid -> sorted unique keys:
+
+        * "tickets": every key (the filter target);
+        * "named_keys": the keys of title, message, and branch references;
+        * "pr_keys": the keys of the session's valid GitHub pr-link records.
+
+        The list calls it on each request: 131 ms on 400k messages and 50k refs,
+        so the result is cached until ``ticket_generation`` changes.
+        """
+        conn = self._get_read_conn()
+        row = conn.execute("SELECT gen FROM ticket_generation WHERE id = 0").fetchone()
+        gen = row[0] if row else None
+        cached = self._ticket_keys_cache
+        if gen is not None and cached is not None and cached[0] == gen:
+            sets = cached[1]
+        else:
+            sets = self._read_ticket_key_sets(conn)
+            self._ticket_keys_cache = (gen, sets) if gen is not None else None
+        return {name: {c: list(k) for c, k in m.items()} for name, m in sets.items()}
+
+    def _read_ticket_key_sets(self, conn: sqlite3.Connection) -> dict[str, dict[str, list[str]]]:
+        from .tickets import row_key, ticket_key
+
+        repos = self._ticket_repos(conn)
+        every: dict[str, set[str]] = {}
+        named: dict[str, set[str]] = {}
+        for conv, system, repo, prefix, number, kind in conn.execute(
+            "SELECT DISTINCT conv_uuid, system, repo, prefix, number, kind FROM ticket_refs"
+        ):
+            key = row_key(system, repo, prefix, number, kind, repos.get(conv))
+            if key is not None:
+                every.setdefault(conv, set()).add(key)
+                if kind != "pr_link":
+                    named.setdefault(conv, set()).add(key)
+        prs: dict[str, set[str]] = {}
+        # ticket_prs holds only valid GitHub PR URLs (tickets.pr_rows).
+        for conv, repository, number in conn.execute(
+            "SELECT DISTINCT conv_uuid, repository, number FROM ticket_prs"
+        ):
+            prs.setdefault(conv, set()).add(ticket_key(repository, number))
+
+        def done(m: dict[str, set[str]]) -> dict[str, list[str]]:
+            return {c: sorted(keys) for c, keys in m.items()}
+
+        return {"tickets": done(every), "named_keys": done(named), "pr_keys": done(prs)}
+
+    def ticket_prefixes_seen(self) -> set[str]:
+        """The Linear and Jira prefixes that a URL in the archive names."""
+        return {r[0] for r in self._get_read_conn().execute(
+            "SELECT DISTINCT prefix FROM ticket_refs WHERE system != 'github' AND url IS NOT NULL")}
+
+    def ticket_rows(self, scope: str | None, number: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Issue #93: the ref rows of one ticket, and every PR row of the conversations
+        that refer to it. ``scope`` as in ``tickets.ticket_key``: "owner/repo", None
+        (the unknown-repo ticket), or a Linear or Jira prefix."""
+        from .tickets import row_key, ticket_key
+
+        conn = self._get_read_conn()
+        repos = self._ticket_repos(conn)
+        want = ticket_key(scope, number)
+        cur = conn.execute(
+            "SELECT conv_uuid, system, repo, prefix, kind, message_uuid, snippet, url, created_at, pos "
+            "FROM ticket_refs "
+            "WHERE number = ? ORDER BY rowid",
+            (number,),
+        )
+        refs = [
+            {"conv_uuid": c, "system": sy, "message_uuid": m, "kind": k, "snippet": s, "url": u,
+             "created_at": t, "pos": pos}
+            for c, sy, r, p, k, m, s, u, t, pos in cur
+            if row_key(sy, r, p, number, k, repos.get(c)) == want
+        ]
+        convs = sorted({r["conv_uuid"] for r in refs})
+        prs: list[dict[str, Any]] = []
+        for i in range(0, len(convs), 500):
+            chunk = convs[i:i + 500]
+            prs += [
+                {"conv_uuid": c, "number": n, "repository": rp, "url": u, "timestamp": t}
+                for c, n, rp, u, t in conn.execute(
+                    "SELECT conv_uuid, number, repository, url, timestamp FROM ticket_prs "
+                    f"WHERE conv_uuid IN ({','.join('?' * len(chunk))})",
+                    chunk,
+                )
+            ]
+        return refs, prs
+
     def has_code_runs(self) -> bool:
         """True when any indexed conversation holds a Code Mode run (#80 option B).
 
@@ -1377,6 +1540,7 @@ class SearchIndex:
         }
 
         peer_rows = peer_index_rows(conv)
+        ticket_refs, ticket_prs, own_repo = ticket_index_rows(conv, get_settings().ticket_keys)
         rows: list[tuple[Any, ...]] = []
         for msg in conv.get("chat_messages", []) or []:
             # 2026-05-16 (v7): two parallel projections from the SAME
@@ -1469,6 +1633,21 @@ class SearchIndex:
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [(r[0], conv_uuid, *r[1:], session_uuid, agent_id) for r in peer_rows],
             )
+            self._delete_tickets_of(self._write_conn, conv_uuid)
+            self._write_conn.executemany(
+                "INSERT INTO ticket_refs (system, repo, prefix, number, message_uuid, kind, snippet, url, "
+                " created_at, pos, conv_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [(*r, conv_uuid) for r in ticket_refs],
+            )
+            self._write_conn.executemany(
+                "INSERT INTO ticket_prs (number, repository, url, timestamp, conv_uuid) VALUES (?, ?, ?, ?, ?)",
+                [(*p, conv_uuid) for p in ticket_prs],
+            )
+            if not agent_id:
+                self._write_conn.execute(
+                    "INSERT INTO ticket_sessions (conv_uuid, project_path, repo) VALUES (?, ?, ?)",
+                    (conv_uuid, project_path, own_repo),
+                )
             # v10 title projection (2026-05-23). INSERT OR REPLACE
             # keeps one-row-per-conv invariant on title renames /
             # re-upserts. Same transaction as the messages writes
@@ -1538,6 +1717,7 @@ class SearchIndex:
                 "DELETE FROM conversations WHERE conv_uuid = ?", (conv_uuid,)
             )
             self._write_conn.execute("DELETE FROM peer_messages WHERE conv_uuid = ?", (conv_uuid,))
+            self._delete_tickets_of(self._write_conn, conv_uuid)
             if file_path is not None:
                 self._write_conn.execute(
                     "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
@@ -1596,10 +1776,18 @@ class SearchIndex:
                 (conv_uuid,),
             )
             self._write_conn.execute("DELETE FROM peer_messages WHERE conv_uuid = ?", (conv_uuid,))
+            self._delete_tickets_of(self._write_conn, conv_uuid)
             self._write_conn.execute(
                 "DELETE FROM indexed_files WHERE path = ?", (str(file_path),)
             )
             self._set_sidecar_mtime(file_path, None)
+
+    @staticmethod
+    def _delete_tickets_of(conn: sqlite3.Connection, conv_uuid: str) -> None:
+        """Delete a conversation's ticket rows; every ticket write path calls it first."""
+        for table in _TICKET_TABLES:
+            conn.execute(f"DELETE FROM {table} WHERE conv_uuid = ?", (conv_uuid,))
+        conn.execute("UPDATE ticket_generation SET gen = gen + 1")
 
     def _set_sidecar_mtime(self, file_path: Path, sidecar_mtime: float | None) -> None:
         """Record the sidecar mtime of ``file_path``; ``None`` removes it.
@@ -1694,6 +1882,9 @@ class SearchIndex:
             self._write_conn.execute("DELETE FROM cowork_sidecar_mtimes")
             self._write_conn.execute("DELETE FROM conversations")
             self._write_conn.execute("DELETE FROM peer_messages")
+            for table in _TICKET_TABLES:
+                self._write_conn.execute(f"DELETE FROM {table}")
+            self._write_conn.execute("UPDATE ticket_generation SET gen = gen + 1")
         with self._unloadable_lock:
             self._unloadable.clear()
             self._unloadable_logged.clear()

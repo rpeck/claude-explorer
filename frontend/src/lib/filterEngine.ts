@@ -47,7 +47,39 @@
 export type FilterPolarity = 'include' | 'exclude'
 export type Behavior = 'hide' | 'show-only'
 export type FilterMode = 'glob' | 'regex'
-export type FilterTarget = 'title'
+// 'ticket' and 'entrypoint': issue #93. The other ids belong to L2 (#91);
+// until it lands they have no values, so they match no row.
+export type FilterTarget =
+  | 'title'
+  | 'ticket'
+  | 'entrypoint'
+  | 'message_text'
+  | 'project'
+  | 'source'
+  | 'machine'
+  | 'active_within'
+  | 'state'
+
+/** What a filter reads from a list row (issue #93: tickets and entrypoint). */
+export interface FilterItem {
+  name: string
+  tickets?: string[]
+  entrypoint?: string | null
+}
+
+/** The values of a row that an atom with this target matches against. */
+export function targetValues(item: FilterItem, target: FilterTarget): string[] {
+  switch (target) {
+    case 'ticket':
+      return item.tickets ?? []
+    case 'entrypoint':
+      return item.entrypoint ? [item.entrypoint] : []
+    case 'title':
+      return [item.name]
+    default:
+      return []
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Legacy single-filter shape (still used internally by the new AtomFilter).
@@ -230,13 +262,27 @@ export function evaluate(
   state: FiltersState,
   visited: Set<FilterId> = new Set(),
 ): boolean {
+  return evaluateItem(node, { name: text }, state, visited)
+}
+
+/**
+ * `evaluate` on a whole row. An atom matches when any of its target's
+ * values matches a pattern; a row with no values for the target matches none.
+ */
+export function evaluateItem(
+  node: FilterNode,
+  item: FilterItem,
+  state: FiltersState,
+  visited: Set<FilterId> = new Set(),
+): boolean {
   if (visited.has(node.id)) return true // cycle: no-op (also caught at save time)
   const nextVisited = new Set(visited)
   nextVisited.add(node.id)
 
   if (node.type === 'atom') {
     if (node.patterns.length === 0) return true
-    const hit = node.patterns.some((p) => patternMatches(text, p, node.mode))
+    const values = targetValues(item, node.target ?? 'title')
+    const hit = values.some((v) => node.patterns.some((p) => patternMatches(v, p, node.mode)))
     return node.behavior === 'show-only' ? hit : !hit
   }
 
@@ -247,9 +293,9 @@ export function evaluate(
     .filter((c): c is FilterNode => Boolean(c) && c.enabled)
   if (children.length === 0) return true
   if (node.match === 'all') {
-    return children.every((c) => evaluate(c, text, state, nextVisited))
+    return children.every((c) => evaluateItem(c, item, state, nextVisited))
   }
-  return children.some((c) => evaluate(c, text, state, nextVisited))
+  return children.some((c) => evaluateItem(c, item, state, nextVisited))
 }
 
 /**
@@ -258,10 +304,15 @@ export function evaluate(
  * - missing/disabled active node → treated as no filter active
  */
 export function applyActiveFilter(text: string, state: FiltersState): boolean {
+  return applyActiveFilterToItem({ name: text }, state)
+}
+
+/** `applyActiveFilter` on a whole row, so ticket and entrypoint atoms see their values. */
+export function applyActiveFilterToItem(item: FilterItem, state: FiltersState): boolean {
   if (!state.activeId) return true
   const node = state.nodes[state.activeId]
   if (!node || !node.enabled) return true
-  return evaluate(node, text, state)
+  return evaluateItem(node, item, state)
 }
 
 /**

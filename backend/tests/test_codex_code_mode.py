@@ -6,7 +6,8 @@
 * A nested tool item (``exec-<uuid>``) links to the one cell that is alive
   (``exclusive_window``). With two cells alive it links to neither: it stays
   a tool call, ``from_code_mode`` with ``ambiguous_with`` both runs.
-* ``CODEX_PROJECTION_VERSION`` is 7 (6: exec images, #103; 7: agent message links, #91).
+* ``CODEX_PROJECTION_VERSION`` is 8 (6: exec images, #103; 7: agent message links, #91;
+  8: the originator as entrypoint, #93).
 
 All data is synthetic (``codex_fake.code_mode_lines``).
 """
@@ -121,7 +122,7 @@ def test_legacy_history_folds_exec_outputs_too(tmp_path: Path) -> None:
     assert [b["type"] for b in _blocks(conv)] == ["text", "code_run"]
 
 
-def test_the_projection_version_is_7() -> None:
+def test_the_projection_version_is_8() -> None:
     from backend.sources import codex
 
-    assert codex.CODEX_PROJECTION_VERSION == 7
+    assert codex.CODEX_PROJECTION_VERSION == 8
